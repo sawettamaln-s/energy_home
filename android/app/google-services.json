@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "382287446671",
+    "project_id": "energy-home-e1c95",
+    "storage_bucket": "energy-home-e1c95.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:382287446671:android:a4110a8a84928b021966fa",
+        "android_client_info": {
+          "package_name": "com.example.energy_home"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKZMtwUOP1VTLl4ac8rEXwxbrWOtaJqYQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
