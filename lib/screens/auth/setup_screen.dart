@@ -16,11 +16,12 @@ class _SetupScreenState extends State<SetupScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   int _currentStep = 0;
-  final int _totalSteps = 4;
+  final int _totalSteps = 5;
 
   // ค่าที่ผู้ใช้เลือก
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
+  String _selectedMeterSize = '15a'; // default มิเตอร์ปกติ
   int _selectedBillingDay = 30;
 
   // ค่ามิเตอร์ต้นรอบ
@@ -33,9 +34,18 @@ class _SetupScreenState extends State<SetupScreen> {
   bool _isLoading = false;
 
   final List<String> _thaiMonths = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน',
-    'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
-    'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    'มกราคม',
+    'กุมภาพันธ์',
+    'มีนาคม',
+    'เมษายน',
+    'พฤษภาคม',
+    'มิถุนายน',
+    'กรกฎาคม',
+    'สิงหาคม',
+    'กันยายน',
+    'ตุลาคม',
+    'พฤศจิกายน',
+    'ธันวาคม'
   ];
 
   @override
@@ -76,9 +86,9 @@ class _SetupScreenState extends State<SetupScreen> {
         email: user.email ?? '',
         area: _selectedArea,
         meterType: _selectedMeterType,
+        meterSize: _selectedMeterSize,
         billingDay: _selectedBillingDay,
-        startElectricityValue:
-            double.parse(_electricityStartController.text),
+        startElectricityValue: double.parse(_electricityStartController.text),
         startWaterValue: double.parse(_waterStartController.text),
         startBillingMonth: _selectedStartMonth,
         startBillingYear: _selectedStartYear,
@@ -88,8 +98,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-              builder: (context) => const DashboardScreen()),
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
           (route) => false,
         );
       }
@@ -151,11 +160,9 @@ class _SetupScreenState extends State<SetupScreen> {
                   if (_currentStep > 0)
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () =>
-                            setState(() => _currentStep--),
+                        onPressed: () => setState(() => _currentStep--),
                         style: OutlinedButton.styleFrom(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -163,17 +170,14 @@ class _SetupScreenState extends State<SetupScreen> {
                         child: const Text('ย้อนกลับ'),
                       ),
                     ),
-
                   if (_currentStep > 0) const SizedBox(width: 12),
-
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
                       onPressed: _isLoading
                           ? null
                           : () async {
-                              if (_currentStep == 3) {
-                                // ขั้นสุดท้าย validate ก่อน save
+                              if (_currentStep == 4) {
                                 if (_validateStartMeter()) {
                                   await _saveSetup();
                                 }
@@ -184,17 +188,15 @@ class _SetupScreenState extends State<SetupScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2E7D32),
                         foregroundColor: Colors.white,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       child: _isLoading
-                          ? const CircularProgressIndicator(
-                              color: Colors.white)
+                          ? const CircularProgressIndicator(color: Colors.white)
                           : Text(
-                              _currentStep < 3 ? 'ถัดไป' : 'เริ่มใช้งาน',
+                              _currentStep < 4 ? 'ถัดไป' : 'เริ่มใช้งาน',
                               style: const TextStyle(fontSize: 16),
                             ),
                     ),
@@ -215,8 +217,10 @@ class _SetupScreenState extends State<SetupScreen> {
       case 1:
         return _buildMeterTypeStep();
       case 2:
-        return _buildBillingDayStep();
+        return _buildMeterSizeStep(); // ขั้นใหม่
       case 3:
+        return _buildBillingDayStep();
+      case 4:
         return _buildStartMeterStep();
       default:
         return const SizedBox();
@@ -292,7 +296,81 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ขั้นที่ 3: เลือกวันตัดรอบบิล
+// ขั้นที่ 3: เลือกขนาดมิเตอร์
+  Widget _buildMeterSizeStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'ขนาดมิเตอร์ไฟฟ้า',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'ดูได้จากตัวเลขบนมิเตอร์หรือใบแจ้งหนี้ค่าไฟ',
+          style: TextStyle(color: Colors.grey),
+        ),
+        const SizedBox(height: 32),
+
+        _buildSelectionCard(
+          title: 'มิเตอร์ปกติ 15(45)A ขึ้นไป',
+          subtitle: 'บ้านเดี่ยว ทาวน์เฮาส์ คอนโด\nคิดค่าพลังงานทุกหน่วย',
+          icon: Icons.electric_meter,
+          isSelected: _selectedMeterSize == '15a',
+          onTap: () => setState(() => _selectedMeterSize = '15a'),
+        ),
+        const SizedBox(height: 12),
+        _buildSelectionCard(
+          title: 'มิเตอร์เล็ก 5(15)A',
+          subtitle: 'ห้องเช่า บ้านเก่า\nใช้ไม่เกิน 50 หน่วย ค่าพลังงาน = 0',
+          icon: Icons.electric_meter_outlined,
+          isSelected: _selectedMeterSize == '5a',
+          onTap: () => setState(() => _selectedMeterSize = '5a'),
+        ),
+
+        const SizedBox(height: 24),
+
+        // กล่องอธิบายวิธีเช็ค
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2E7D32).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'วิธีเช็คขนาดมิเตอร์',
+                    style: TextStyle(
+                      color: Color(0xFF2E7D32),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Text(
+                '1. ดูที่ตัวมิเตอร์ไฟฟ้า จะมีตัวเลขเช่น "5(15)A" หรือ "15(45)A" พิมพ์อยู่บนแผ่นป้าย\n'
+                '2. หรือดูจากใบแจ้งหนี้ค่าไฟ จะมีระบุประเภทมิเตอร์ไว้\n'
+                '3. ถ้าไม่แน่ใจ เลือก 15(45)A ไว้ก่อนได้เลย',
+                style: TextStyle(
+                  color: Color(0xFF2E7D32),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ขั้นที่ 4: เลือกวันตัดรอบบิล
   Widget _buildBillingDayStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,8 +413,7 @@ class _SetupScreenState extends State<SetupScreen> {
               setState(() => _selectedBillingDay = value.toInt()),
         ),
         const SizedBox(height: 16),
-        const Text('วันที่นิยม',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        const Text('วันที่นิยม', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -346,12 +423,9 @@ class _SetupScreenState extends State<SetupScreen> {
               selected: _selectedBillingDay == day,
               selectedColor: const Color(0xFF2E7D32),
               labelStyle: TextStyle(
-                color: _selectedBillingDay == day
-                    ? Colors.white
-                    : Colors.black,
+                color: _selectedBillingDay == day ? Colors.white : Colors.black,
               ),
-              onSelected: (_) =>
-                  setState(() => _selectedBillingDay = day),
+              onSelected: (_) => setState(() => _selectedBillingDay = day),
             );
           }).toList(),
         ),
@@ -359,7 +433,7 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ขั้นที่ 4: กรอกค่ามิเตอร์ต้นรอบ
+  // ขั้นที่ 5: กรอกค่ามิเตอร์ต้นรอบ
   Widget _buildStartMeterStep() {
     return SingleChildScrollView(
       child: Column(
@@ -394,8 +468,8 @@ class _SetupScreenState extends State<SetupScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   items: List.generate(12, (i) {
                     return DropdownMenuItem(
@@ -416,8 +490,8 @@ class _SetupScreenState extends State<SetupScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   items: [
                     DateTime.now().year - 1,
@@ -428,8 +502,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       child: Text('$year'),
                     );
                   }).toList(),
-                  onChanged: (val) =>
-                      setState(() => _selectedStartYear = val!),
+                  onChanged: (val) => setState(() => _selectedStartYear = val!),
                 ),
               ),
             ],
@@ -445,8 +518,7 @@ class _SetupScreenState extends State<SetupScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _electricityStartController,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               hintText: 'เช่น 14009',
               prefixIcon: const Icon(Icons.bolt, color: Colors.orange),
@@ -467,12 +539,10 @@ class _SetupScreenState extends State<SetupScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _waterStartController,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               hintText: 'เช่น 148',
-              prefixIcon:
-                  const Icon(Icons.water_drop, color: Colors.blue),
+              prefixIcon: const Icon(Icons.water_drop, color: Colors.blue),
               suffixText: 'หน่วย',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -502,8 +572,7 @@ class _SetupScreenState extends State<SetupScreen> {
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline,
-                    color: Color(0xFF2E7D32), size: 18),
+                Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 18),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -539,9 +608,7 @@ class _SetupScreenState extends State<SetupScreen> {
               : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF2E7D32)
-                : Colors.grey.shade200,
+            color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
             width: 2,
           ),
         ),
@@ -550,9 +617,8 @@ class _SetupScreenState extends State<SetupScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFF2E7D32)
-                    : Colors.grey.shade200,
+                color:
+                    isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -569,15 +635,13 @@ class _SetupScreenState extends State<SetupScreen> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: isSelected
-                          ? const Color(0xFF2E7D32)
-                          : Colors.black,
+                      color:
+                          isSelected ? const Color(0xFF2E7D32) : Colors.black,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style:
-                        const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ],
               ),

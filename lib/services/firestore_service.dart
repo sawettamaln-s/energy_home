@@ -2,8 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
+import '../models/electricity_log_model.dart';
 import '../models/meter_log_model.dart';
 import '../models/user_model.dart';
+import '../models/water_log_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -169,6 +171,103 @@ class FirestoreService {
         .doc(uid)
         .collection('appliances')
         .doc(applianceId)
+        .delete();
+  }
+  // ==================== ELECTRICITY LOGS ====================
+
+  Future<void> saveElectricityLog(ElectricityLogModel log) async {
+    await _db
+        .collection('users')
+        .doc(log.uid)
+        .collection('electricity_logs')
+        .doc(log.id)
+        .set(log.toMap());
+  }
+
+  Future<ElectricityLogModel?> getLatestElectricityLog(String uid) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('electricity_logs')
+        .orderBy('date', descending: true)
+        .limit(1)
+        .get();
+    if (snapshot.docs.isNotEmpty) {
+      return ElectricityLogModel.fromMap(snapshot.docs.first.data());
+    }
+    return null;
+  }
+
+  Future<List<ElectricityLogModel>> getCurrentMonthElectricityLogs(
+      String uid, DateTime startDate, DateTime endDate) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('electricity_logs')
+        .where('date', isGreaterThanOrEqualTo: startDate.toIso8601String())
+        .where('date', isLessThanOrEqualTo: endDate.toIso8601String())
+        .orderBy('date', descending: true)
+        .get();
+    return snapshot.docs
+        .map((doc) => ElectricityLogModel.fromMap(doc.data()))
+        .toList();
+  }
+
+  Future<void> deleteElectricityLog(String uid, String logId) async {
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('electricity_logs')
+        .doc(logId)
+        .delete();
+  }
+
+  // ==================== WATER LOGS ====================
+
+  Future<void> saveWaterLog(WaterLogModel log) async {
+    await _db
+        .collection('users')
+        .doc(log.uid)
+        .collection('water_logs')
+        .doc(log.id)
+        .set(log.toMap());
+  }
+
+  Future<WaterLogModel?> getLatestWaterLog(String uid) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('water_logs')
+        .orderBy('date', descending: true)
+        .limit(1)
+        .get();
+    if (snapshot.docs.isNotEmpty) {
+      return WaterLogModel.fromMap(snapshot.docs.first.data());
+    }
+    return null;
+  }
+
+  Future<List<WaterLogModel>> getCurrentMonthWaterLogs(
+      String uid, DateTime startDate, DateTime endDate) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('water_logs')
+        .where('date', isGreaterThanOrEqualTo: startDate.toIso8601String())
+        .where('date', isLessThanOrEqualTo: endDate.toIso8601String())
+        .orderBy('date', descending: true)
+        .get();
+    return snapshot.docs
+        .map((doc) => WaterLogModel.fromMap(doc.data()))
+        .toList();
+  }
+
+  Future<void> deleteWaterLog(String uid, String logId) async {
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('water_logs')
+        .doc(logId)
         .delete();
   }
 }
