@@ -125,7 +125,7 @@ class EnergyCalculator {
     double totalUnits = peakUnits + offPeakUnits;
 
     double energyCost = (peakUnits * 5.7982) + (offPeakUnits * 2.6369);
-    const double serviceFee = 228.17;
+    const double serviceFee = 38.22;
     double ftCost = totalUnits * ftRate;
 
     // สูตร: (ค่าพลังงาน + ค่าบริการ + ค่า Ft) × 1.07

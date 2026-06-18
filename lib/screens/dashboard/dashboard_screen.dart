@@ -9,6 +9,7 @@ import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
+import '../settings/settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,7 +20,9 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  final _electricityController = TextEditingController();
+  final _electricityController = TextEditingController(); // normal
+  final _electricityPeakController = TextEditingController(); // TOU peak
+  final _electricityOffPeakController = TextEditingController(); // TOU off-peak
   final _waterController = TextEditingController();
 
   int _currentIndex = 0;
@@ -51,6 +54,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _electricityController.dispose();
+    _electricityPeakController.dispose();
+    _electricityOffPeakController.dispose();
     _waterController.dispose();
     super.dispose();
   }
@@ -78,10 +83,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         endDate = DateTime(now.year, now.month, billingDay);
       }
 
-      _electricityLogs = await _firestoreService
-          .getCurrentMonthElectricityLogs(uid, startDate, endDate);
-      _waterLogs = await _firestoreService
-          .getCurrentMonthWaterLogs(uid, startDate, endDate);
+      _electricityLogs = await _firestoreService.getCurrentMonthElectricityLogs(
+          uid, startDate, endDate);
+      _waterLogs = await _firestoreService.getCurrentMonthWaterLogs(
+          uid, startDate, endDate);
 
       await _calculateCurrentMonth();
     } catch (e) {
@@ -133,14 +138,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // บันทึกค่ามิเตอร์ไฟฟ้า
   Future<void> _saveElectricityLog() async {
-    if (_electricityController.text.isEmpty) {
-      setState(() => _electricityError = 'กรุณากรอกค่ามิเตอร์ไฟฟ้า');
-      return;
+    final isTOU = _user?.meterType == 'tou';
+
+    if (isTOU) {
+      if (_electricityPeakController.text.isEmpty ||
+          _electricityOffPeakController.text.isEmpty) {
+        setState(() => _electricityError = 'กรุณากรอกหน่วย Peak และ Off-Peak');
+        return;
+      }
+    } else {
+      if (_electricityController.text.isEmpty) {
+        setState(() => _electricityError = 'กรุณากรอกค่ามิเตอร์ไฟฟ้า');
+        return;
+      }
     }
 
-    double value;
+    double value = 0;
+    double peakUnits = 0;
+    double offPeakUnits = 0;
+
     try {
-      value = double.parse(_electricityController.text);
+      if (isTOU) {
+        peakUnits = double.parse(_electricityPeakController.text);
+        offPeakUnits = double.parse(_electricityOffPeakController.text);
+        value = peakUnits + offPeakUnits; // รวมทั้งหมด
+      } else {
+        value = double.parse(_electricityController.text);
+      }
     } catch (e) {
       setState(() => _electricityError = 'กรุณากรอกตัวเลขเท่านั้น');
       return;
@@ -150,13 +174,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final lastE = _latestElectricityLog?.meterValue ?? startE;
 
     if (value < startE) {
-      setState(() =>
-          _electricityError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE)');
+      setState(
+          () => _electricityError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE)');
       return;
     }
     if (value < lastE) {
-      setState(() =>
-          _electricityError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE)');
+      setState(() => _electricityError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE)');
       return;
     }
 
@@ -175,6 +198,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         meterType: _user?.meterType ?? 'normal',
         area: _user?.area ?? 'bangkok',
         meterSize: _user?.meterSize ?? '15a',
+        peakUnits: peakUnits,
+        offPeakUnits: offPeakUnits,
       );
 
       final log = ElectricityLogModel(
@@ -225,13 +250,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final lastW = _latestWaterLog?.meterValue ?? startW;
 
     if (value < startW) {
-      setState(
-          () => _waterError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startW)');
+      setState(() => _waterError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startW)');
       return;
     }
     if (value < lastW) {
-      setState(
-          () => _waterError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastW)');
+      setState(() => _waterError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastW)');
       return;
     }
 
@@ -283,8 +306,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final billingDay = _user?.billingDay ?? 30;
-    final remainingDays =
-        EnergyForecaster.getRemainingDays(now, billingDay);
+    final remainingDays = EnergyForecaster.getRemainingDays(now, billingDay);
     final daysElapsed = EnergyForecaster.getDaysElapsed(now, billingDay);
     final formatter = NumberFormat('#,##0.00');
 
@@ -292,8 +314,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: const Color(0xFFF5F5F5),
       body: _isLoading
           ? const Center(
-              child:
-                  CircularProgressIndicator(color: Color(0xFF2E7D32)))
+              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : SafeArea(
               child: RefreshIndicator(
                 onRefresh: _loadData,
@@ -306,12 +327,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       // Header
                       Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'สวัสดี, ${_user?.name ?? 'ผู้ใช้'}',
@@ -351,8 +370,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             const Text('ค่าใช้จ่ายเดือนนี้',
                                 style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 13)),
+                                    color: Colors.white70, fontSize: 13)),
                             const SizedBox(height: 12),
                             Row(
                               children: [
@@ -394,8 +412,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   Text(
                                     'ยอดคาดการณ์สิ้นเดือน: ฿${formatter.format(_forecastTotal)}',
                                     style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 13),
+                                        color: Colors.white, fontSize: 13),
                                   ),
                                 ],
                               ),
@@ -407,21 +424,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
 
                       // บันทึกไฟฟ้า
-                      _buildMeterCard(
-                        title: 'บันทึกค่ามิเตอร์ไฟฟ้า',
-                        icon: Icons.bolt,
-                        color: const Color(0xFFFFF3E0),
-                        iconColor: Colors.orange,
-                        controller: _electricityController,
-                        hint: 'หน่วยสะสมปัจจุบัน เช่น 14052',
-                        lastValue: _latestElectricityLog?.meterValue ??
-                            _user?.startElectricityValue,
-                        startValue: _user?.startElectricityValue,
-                        error: _electricityError,
-                        isSaving: _isSavingElectricity,
-                        onSave: _saveElectricityLog,
-                        unit: 'หน่วย',
-                      ),
+                      if (_user?.meterType == 'tou')
+                        _buildTOUMeterCard()
+                      else
+                        _buildMeterCard(
+                          title: 'บันทึกค่ามิเตอร์ไฟฟ้า',
+                          icon: Icons.bolt,
+                          color: const Color(0xFFFFF3E0),
+                          iconColor: Colors.orange,
+                          controller: _electricityController,
+                          hint: 'หน่วยสะสมปัจจุบัน เช่น 14052',
+                          lastValue: _latestElectricityLog?.meterValue ??
+                              _user?.startElectricityValue,
+                          startValue: _user?.startElectricityValue,
+                          error: _electricityError,
+                          isSaving: _isSavingElectricity,
+                          onSave: _saveElectricityLog,
+                          unit: 'หน่วย',
+                        ),
 
                       const SizedBox(height: 12),
 
@@ -465,8 +485,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const Text(
                               'ยอดรวมค่าใช้จ่ายทั้งสิ้น',
                               style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15),
+                                  fontWeight: FontWeight.bold, fontSize: 15),
                             ),
                             const Divider(height: 20),
                             _buildSummaryRow(
@@ -493,10 +512,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SettingsScreen(),
+              ),
+            );
+          } else {
+            setState(() => _currentIndex = index);
+          }
+        },
         selectedItemColor: const Color(0xFF2E7D32),
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
@@ -507,8 +536,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icon(Icons.bar_chart), label: 'วิเคราะห์'),
           BottomNavigationBarItem(
               icon: Icon(Icons.electrical_services), label: 'อุปกรณ์'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.settings), label: 'ตั้งค่า'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'ตั้งค่า'),
         ],
       ),
     );
@@ -553,17 +581,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (lastValue != null)
                 Text(
                   'ล่าสุด: ${formatter.format(lastValue)} $unit',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               if (lastValue != null && startValue != null)
-                const Text('  •  ',
-                    style: TextStyle(color: Colors.grey)),
+                const Text('  •  ', style: TextStyle(color: Colors.grey)),
               if (startValue != null)
                 Text(
                   'ต้นรอบ: ${formatter.format(startValue)} $unit',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
             ],
           ),
@@ -573,8 +598,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: TextField(
                   controller: controller,
-                  keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     hintText: hint,
                     filled: true,
@@ -594,8 +619,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: iconColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -614,8 +639,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(error,
-                  style:
-                      const TextStyle(color: Colors.red, fontSize: 12)),
+                  style: const TextStyle(color: Colors.red, fontSize: 12)),
             ),
         ],
       ),
@@ -636,8 +660,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icon(icon, color: Colors.white70, size: 16),
             const SizedBox(width: 4),
             Text(label,
-                style: const TextStyle(
-                    color: Colors.white70, fontSize: 12)),
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
           ],
         ),
         const SizedBox(height: 4),
@@ -646,9 +669,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.bold)),
-        Text(sub,
-            style:
-                const TextStyle(color: Colors.white60, fontSize: 11)),
+        Text(sub, style: const TextStyle(color: Colors.white60, fontSize: 11)),
       ],
     );
   }
@@ -670,6 +691,124 @@ class _DashboardScreenState extends State<DashboardScreen> {
               fontSize: isBold ? 16 : 14,
             )),
       ],
+    );
+  }
+
+  Widget _buildTOUMeterCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.bolt, color: Colors.orange, size: 20),
+              SizedBox(width: 8),
+              Text('บันทึกค่ามิเตอร์ไฟฟ้า (TOU)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'On-Peak: จ-ศ 09:00-22:00 | Off-Peak: จ-ศ 22:00-09:00 + วันหยุด',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+
+          // On-Peak
+          const Text('หน่วย On-Peak',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _electricityPeakController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: 'เช่น 100',
+                    suffixText: 'หน่วย',
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // Off-Peak
+          const Text('หน่วย Off-Peak',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _electricityOffPeakController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: 'เช่น 200',
+                    suffixText: 'หน่วย',
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          if (_electricityError.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(_electricityError,
+                  style: const TextStyle(color: Colors.red, fontSize: 12)),
+            ),
+
+          const SizedBox(height: 12),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isSavingElectricity ? null : _saveElectricityLog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: _isSavingElectricity
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                  : const Text('บันทึก'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
