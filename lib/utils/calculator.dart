@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EnergyCalculator {
-  // ดึงค่า Ft จาก Firestore document กลาง
   static Future<double> getFtRate() async {
     try {
       final doc = await FirebaseFirestore.instance
@@ -10,18 +9,15 @@ class EnergyCalculator {
           .get();
       return (doc.data()?['ft_rate'] ?? 0.1623).toDouble();
     } catch (e) {
-      return 0.1623; // fallback ค่าปัจจุบัน พ.ค.-ส.ค. 2569
+      return 0.1623;
     }
   }
 
   // ==================== ค่าไฟฟ้า ====================
 
-  // คำนวณค่าพลังงานไฟฟ้าตามขั้นบันได (ก่อนบวกค่าบริการ Ft VAT)
-  // MEA และ PEA ใช้อัตราขั้นบันไดเหมือนกัน
-  static double _calculateEnergyRate(double units) {
+  // อัตราขั้นบันไดสำหรับ ≤150 หน่วย/เดือน (ประเภท 1.1 / 1.1.1)
+  static double _calculateEnergyRateUnder150(double units) {
     double cost = 0;
-    if (units <= 0) return 0;
-
     if (units <= 15) {
       cost = units * 2.3488;
     } else if (units <= 25) {
@@ -36,85 +32,72 @@ class EnergyCalculator {
       cost += 10 * 2.9882;
       cost += 10 * 3.2405;
       cost += (units - 35) * 3.6237;
-    } else if (units <= 150) {
+    } else {
+      // 101-150
       cost = 15 * 2.3488;
       cost += 10 * 2.9882;
       cost += 10 * 3.2405;
       cost += 65 * 3.6237;
       cost += (units - 100) * 3.7171;
-    } else if (units <= 400) {
-      cost = 15 * 2.3488;
-      cost += 10 * 2.9882;
-      cost += 10 * 3.2405;
-      cost += 65 * 3.6237;
-      cost += 50 * 3.7171;
-      cost += (units - 150) * 4.2218;
-    } else {
-      cost = 15 * 2.3488;
-      cost += 10 * 2.9882;
-      cost += 10 * 3.2405;
-      cost += 65 * 3.6237;
-      cost += 50 * 3.7171;
-      cost += 250 * 4.2218;
-      cost += (units - 400) * 4.4217;
     }
-
     return cost;
   }
 
-  // คำนวณค่าบริการไฟฟ้าตามพื้นที่และหน่วยที่ใช้
-  // MEA และ PEA ค่าบริการต่างกันเมื่อใช้เกิน 150 หน่วย
-  static double _getServiceFee(double units, String area) {
+  // อัตราขั้นบันไดสำหรับ >150 หน่วย/เดือน (ประเภท 1.2 / 1.1.2)
+  static double _calculateEnergyRateOver150(double units) {
+    double cost = 0;
     if (units <= 150) {
-      // MEA และ PEA ค่าบริการเท่ากัน ≤150 หน่วย
-      return 8.19;
+      cost = units * 3.2484;
+    } else if (units <= 400) {
+      cost = 150 * 3.2484;
+      cost += (units - 150) * 4.2218;
     } else {
-      // >150 หน่วย MEA และ PEA ต่างกัน
-      return area == 'bangkok' ? 38.22 : 24.62;
+      cost = 150 * 3.2484;
+      cost += 250 * 4.2218;
+      cost += (units - 400) * 4.4217;
     }
+    return cost;
   }
 
-  // คำนวณค่าไฟฟ้าแบบปกติ (อัตราขั้นบันได)
-  // area: 'bangkok' = MEA, 'province' = PEA
+  // คำนวณค่าไฟฟ้าแบบปกติ
+  // area: 'bangkok' = MEA (มีไฟฟ้าฟรี ≤50 หน่วย), 'province' = PEA (ไม่มีฟรี)
   static Future<double> calculateElectricity(
       double units, String area, String meterSize) async {
     if (units <= 0) return 0;
 
     final ftRate = await getFtRate();
+    double energyCost;
+    double serviceFee;
 
-    double energyCost = 0;
-    double serviceFee = 0;
-
-    if (meterSize == '5a') {
-      // ประเภท 1.1.1 มิเตอร์ ≤5A
-      // ใช้ไม่เกิน 50 หน่วย → ค่าพลังงาน = 0 บาท
-      // ใช้เกิน 50 หน่วย → คิดทุกหน่วยปกติ
-      if (units <= 50) {
-        energyCost = 0;
+    if (area == 'bangkok') {
+      // MEA: ขนาดมิเตอร์เป็นตัวกำหนดหลัก
+      if (meterSize == '5a' && units <= 150) {
+        // มิเตอร์เล็กและใช้ไม่เกิน 150 หน่วย → ประเภท 1.1
+        energyCost = _calculateEnergyRateUnder150(units);
+        serviceFee = 8.19;
       } else {
-        energyCost = _calculateEnergyRate(units);
+        // มิเตอร์ใหญ่ หรือมิเตอร์เล็กแต่ใช้เกิน 150 หน่วย → ประเภท 1.2
+        energyCost = _calculateEnergyRateOver150(units);
+        serviceFee = 24.62;
       }
-      // ค่าบริการประเภท 1.1.1
-      serviceFee = units <= 150 ? 8.19 : 38.22;
     } else {
-      // ประเภท 1.1.2 มิเตอร์ >5A
-      // คิดค่าพลังงานทุกหน่วยเสมอ
-      energyCost = _calculateEnergyRate(units);
-      // ค่าบริการแยก MEA/PEA เมื่อ >150 หน่วย
-      serviceFee = _getServiceFee(units, area);
+      // PEA: หน่วยที่ใช้เป็นตัวกำหนดอย่างเดียว (ไม่ใช้ meterSize)
+      if (units <= 150) {
+        energyCost = _calculateEnergyRateUnder150(units);
+        serviceFee = 8.19;
+      } else {
+        energyCost = _calculateEnergyRateOver150(units);
+        serviceFee = 24.62;
+      }
     }
 
     double ftCost = units * ftRate;
-
-    // สูตร: (ค่าพลังงาน + ค่าบริการ + ค่า Ft) × 1.07
     double total = (energyCost + serviceFee + ftCost) * 1.07;
 
     return double.parse(total.toStringAsFixed(2));
   }
 
   // คำนวณค่าไฟฟ้าแบบ TOU
-  // On-Peak: จ-ศ 09:00-22:00
-  // Off-Peak: จ-ศ 22:00-09:00 + เสาร์-อาทิตย์ + วันหยุด
   static Future<double> calculateElectricityTOU({
     required double peakUnits,
     required double offPeakUnits,
@@ -128,7 +111,6 @@ class EnergyCalculator {
     const double serviceFee = 38.22;
     double ftCost = totalUnits * ftRate;
 
-    // สูตร: (ค่าพลังงาน + ค่าบริการ + ค่า Ft) × 1.07
     double total = (energyCost + serviceFee + ftCost) * 1.07;
 
     return double.parse(total.toStringAsFixed(2));
@@ -153,16 +135,12 @@ class EnergyCalculator {
     }
   }
   // ==================== ค่าน้ำประปา ====================
-  // หน่วยเป็น ลูกบาศก์เมตร (ลบ.ม.)
+  // (ยังต้องตรวจสอบ PWA เพิ่ม - คงไว้ตามเดิมก่อน)
 
-  // คำนวณค่าน้ำ MWA (กรุงเทพและปริมณฑล)
-  // สูตร: (ค่าน้ำ + ค่าบริการ 25 บาท + ค่าน้ำดิบ 0.15/ลบ.ม.) × 1.07
   static double calculateWaterMWA(double units) {
     if (units <= 0) return 0;
-
     double cost = 0;
 
-    // อัตราขั้นบันได MWA (12 ช่วง)
     if (units <= 30) {
       cost = units * 8.50;
     } else if (units <= 40) {
@@ -255,24 +233,18 @@ class EnergyCalculator {
       cost += (units - 200) * 14.45;
     }
 
-    // บวกค่าบริการ 25 บาท + ค่าน้ำดิบ 0.15/ลบ.ม.
     double serviceFee = 25.00;
     double rawWaterFee = units * 0.15;
-
-    // คูณ VAT 7%
     double total = (cost + serviceFee + rawWaterFee) * 1.07;
 
     return double.parse(total.toStringAsFixed(2));
   }
 
-  // คำนวณค่าน้ำ PWA (ต่างจังหวัด)
-  // สูตร: ค่าน้ำ × 1.07 (ไม่มีค่าบริการและค่าน้ำดิบ)
+  // PWA - คงเดิมไว้ก่อน ต้องเช็คเพิ่มทีหลัง
   static double calculateWaterPWA(double units) {
     if (units <= 0) return 0;
-
     double cost = 0;
 
-    // อัตราขั้นบันได PWA (4 ช่วง)
     if (units <= 10) {
       cost = units * 10.20;
     } else if (units <= 20) {
@@ -288,21 +260,19 @@ class EnergyCalculator {
       cost += 10 * 19.00;
       cost += (units - 30) * 21.20;
     } else {
-      // 51+ ลบ.ม. อัตราประเกท (แพงมาก)
       cost = 10 * 10.20;
       cost += 10 * 16.00;
       cost += 10 * 19.00;
       cost += 20 * 21.20;
-      cost += (units - 50) * 25.00; // ประมาณการ
+      cost += (units - 50) * 25.00;
     }
 
-    // คูณ VAT 7% (PWA ไม่มีค่าบริการและค่าน้ำดิบ)
-    double total = cost * 1.07;
+    double serviceFee = 30.00; // เพิ่มค่าบริการตามที่เจอในรูป
+    double total = (cost + serviceFee) * 1.07;
 
     return double.parse(total.toStringAsFixed(2));
   }
 
-  // คำนวณค่าน้ำตามพื้นที่
   static double calculateWater(double units, String area) {
     if (area == 'bangkok') {
       return calculateWaterMWA(units);
@@ -311,9 +281,6 @@ class EnergyCalculator {
     }
   }
 
-  // ==================== ฟังก์ชันช่วย ====================
-
-  // คำนวณหน่วยที่ใช้จากผลต่างค่ามิเตอร์
   static double calculateUsed(double current, double previous) {
     if (current <= previous) return 0;
     return double.parse((current - previous).toStringAsFixed(2));

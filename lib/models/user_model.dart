@@ -4,7 +4,7 @@ class UserModel {
   final String email;
   final String area;
   final String meterType; // 'normal' หรือ 'tou'
-  final String meterSize; // '5a' = 5(15)A หรือ '15a' = 15(45)A ขึ้นไป
+  final String meterSize; // '5a' หรือ '15a' - ใช้เฉพาะ MEA (กรุงเทพ)
   final int billingDay;
   final String dailyCutoffTime;
   final double fixedCost;
@@ -21,7 +21,7 @@ class UserModel {
     required this.email,
     this.area = 'bangkok',
     this.meterType = 'normal',
-    this.meterSize = '15a', 
+    this.meterSize = '15a',
     this.billingDay = 30,
     this.dailyCutoffTime = '00:00',
     this.fixedCost = 0,

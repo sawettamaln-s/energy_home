@@ -136,10 +136,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'ประเภทมิเตอร์',
               _user?.meterType == 'tou' ? 'TOU' : 'ปกติ'),
           const Divider(height: 16),
-          _buildInfoRow(
-              Icons.electrical_services,
-              'ขนาดมิเตอร์',
-              _user?.meterSize == '5a' ? '5(15)A' : '15(45)A'),
         ],
       ),
     );

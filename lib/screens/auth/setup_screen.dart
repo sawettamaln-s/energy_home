@@ -16,15 +16,13 @@ class _SetupScreenState extends State<SetupScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   int _currentStep = 0;
-  final int _totalSteps = 5;
+  int get _totalSteps => _selectedArea == 'bangkok' ? 5 : 4;
 
-  // ค่าที่ผู้ใช้เลือก
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
-  String _selectedMeterSize = '15a'; // default มิเตอร์ปกติ
+  String _selectedMeterSize = '15a';
   int _selectedBillingDay = 30;
 
-  // ค่ามิเตอร์ต้นรอบ
   final _electricityStartController = TextEditingController();
   final _waterStartController = TextEditingController();
   int _selectedStartMonth = DateTime.now().month;
@@ -55,7 +53,6 @@ class _SetupScreenState extends State<SetupScreen> {
     super.dispose();
   }
 
-  // ตรวจสอบค่ามิเตอร์ต้นรอบก่อนไปขั้นถัดไป
   bool _validateStartMeter() {
     if (_electricityStartController.text.isEmpty ||
         _waterStartController.text.isEmpty) {
@@ -124,8 +121,6 @@ class _SetupScreenState extends State<SetupScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-
-              // Progress indicator
               Row(
                 children: List.generate(_totalSteps, (index) {
                   return Expanded(
@@ -142,19 +137,13 @@ class _SetupScreenState extends State<SetupScreen> {
                   );
                 }),
               ),
-
               const SizedBox(height: 8),
-
               Text(
                 'ขั้นตอนที่ ${_currentStep + 1} จาก $_totalSteps',
                 style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
-
               const SizedBox(height: 32),
-
               Expanded(child: _buildStep(_currentStep)),
-
-              // ปุ่มถัดไป/เสร็จสิ้น
               Row(
                 children: [
                   if (_currentStep > 0)
@@ -177,7 +166,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       onPressed: _isLoading
                           ? null
                           : () async {
-                              if (_currentStep == 4) {
+                              if (_currentStep == _totalSteps - 1) {
                                 if (_validateStartMeter()) {
                                   await _saveSetup();
                                 }
@@ -196,7 +185,9 @@ class _SetupScreenState extends State<SetupScreen> {
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
                           : Text(
-                              _currentStep < 4 ? 'ถัดไป' : 'เริ่มใช้งาน',
+                              _currentStep < _totalSteps - 1
+                                  ? 'ถัดไป'
+                                  : 'เริ่มใช้งาน',
                               style: const TextStyle(fontSize: 16),
                             ),
                     ),
@@ -211,23 +202,39 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildStep(int step) {
-    switch (step) {
-      case 0:
-        return _buildAreaStep();
-      case 1:
-        return _buildMeterTypeStep();
-      case 2:
-        return _buildMeterSizeStep(); // ขั้นใหม่
-      case 3:
-        return _buildBillingDayStep();
-      case 4:
-        return _buildStartMeterStep();
-      default:
-        return const SizedBox();
+    if (_selectedArea == 'bangkok') {
+      // กรุงเทพ มี 5 ขั้นตอน (เพิ่มเลือกขนาดมิเตอร์)
+      switch (step) {
+        case 0:
+          return _buildAreaStep();
+        case 1:
+          return _buildMeterTypeStep();
+        case 2:
+          return _buildMeterSizeStep();
+        case 3:
+          return _buildBillingDayStep();
+        case 4:
+          return _buildStartMeterStep();
+        default:
+          return const SizedBox();
+      }
+    } else {
+      // ต่างจังหวัด มี 4 ขั้นตอนเหมือนเดิม ไม่มีเลือกขนาดมิเตอร์
+      switch (step) {
+        case 0:
+          return _buildAreaStep();
+        case 1:
+          return _buildMeterTypeStep();
+        case 2:
+          return _buildBillingDayStep();
+        case 3:
+          return _buildStartMeterStep();
+        default:
+          return const SizedBox();
+      }
     }
   }
 
-  // ขั้นที่ 1: เลือกพื้นที่
   Widget _buildAreaStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,7 +268,6 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ขั้นที่ 2: เลือกประเภทมิเตอร์
   Widget _buildMeterTypeStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +302,7 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-// ขั้นที่ 3: เลือกขนาดมิเตอร์
+  // ขั้นเพิ่มเติม (เฉพาะกรุงเทพ): เลือกขนาดมิเตอร์
   Widget _buildMeterSizeStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,14 +313,14 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'ดูได้จากตัวเลขบนมิเตอร์หรือใบแจ้งหนี้ค่าไฟ',
+          'ดูได้จากตัวเลขบนมิเตอร์หรือใบแจ้งหนี้ค่าไฟ MEA',
           style: TextStyle(color: Colors.grey),
         ),
         const SizedBox(height: 32),
-
         _buildSelectionCard(
-          title: 'มิเตอร์ปกติ 15(45)A ขึ้นไป',
-          subtitle: 'บ้านเดี่ยว ทาวน์เฮาส์ คอนโด\nคิดค่าพลังงานทุกหน่วย',
+          title: 'มิเตอร์ปกติ เกิน 5(15)A',
+          subtitle:
+              'บ้านเดี่ยว ทาวน์เฮาส์ คอนโดทั่วไป\nคิดอัตราประเภท 1.2 เสมอ',
           icon: Icons.electric_meter,
           isSelected: _selectedMeterSize == '15a',
           onTap: () => setState(() => _selectedMeterSize = '15a'),
@@ -322,15 +328,13 @@ class _SetupScreenState extends State<SetupScreen> {
         const SizedBox(height: 12),
         _buildSelectionCard(
           title: 'มิเตอร์เล็ก 5(15)A',
-          subtitle: 'ห้องเช่า บ้านเก่า\nใช้ไม่เกิน 50 หน่วย ค่าพลังงาน = 0',
+          subtitle:
+              'ห้องเช่า บ้านเก่าขนาดเล็ก\nคิดอัตราประเภท 1.1 ถ้าใช้ไม่เกิน 150 หน่วย',
           icon: Icons.electric_meter_outlined,
           isSelected: _selectedMeterSize == '5a',
           onTap: () => setState(() => _selectedMeterSize = '5a'),
         ),
-
         const SizedBox(height: 24),
-
-        // กล่องอธิบายวิธีเช็ค
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -347,21 +351,16 @@ class _SetupScreenState extends State<SetupScreen> {
                   Text(
                     'วิธีเช็คขนาดมิเตอร์',
                     style: TextStyle(
-                      color: Color(0xFF2E7D32),
-                      fontWeight: FontWeight.bold,
-                    ),
+                        color: Color(0xFF2E7D32), fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               SizedBox(height: 8),
               Text(
-                '1. ดูที่ตัวมิเตอร์ไฟฟ้า จะมีตัวเลขเช่น "5(15)A" หรือ "15(45)A" พิมพ์อยู่บนแผ่นป้าย\n'
-                '2. หรือดูจากใบแจ้งหนี้ค่าไฟ จะมีระบุประเภทมิเตอร์ไว้\n'
-                '3. ถ้าไม่แน่ใจ เลือก 15(45)A ไว้ก่อนได้เลย',
-                style: TextStyle(
-                  color: Color(0xFF2E7D32),
-                  fontSize: 12,
-                ),
+                '1. ดูตัวเลขบนมิเตอร์ เช่น "5(15)A" หรือ "15(45)A"\n'
+                '2. หรือดูจากใบแจ้งหนี้ค่าไฟ MEA\n'
+                '3. ถ้าไม่แน่ใจ เลือก "เกิน 5(15)A" ไว้ก่อนได้เลยครับ',
+                style: TextStyle(color: Color(0xFF2E7D32), fontSize: 12),
               ),
             ],
           ),
@@ -370,7 +369,6 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ขั้นที่ 4: เลือกวันตัดรอบบิล
   Widget _buildBillingDayStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,38 +400,27 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        Slider(
-          value: _selectedBillingDay.toDouble(),
-          min: 1,
-          max: 31,
-          divisions: 30,
-          activeColor: const Color(0xFF2E7D32),
-          label: 'วันที่ $_selectedBillingDay',
-          onChanged: (value) =>
-              setState(() => _selectedBillingDay = value.toInt()),
-        ),
-        const SizedBox(height: 16),
-        const Text('วันที่นิยม', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [7, 15, 20, 23, 25, 30].map((day) {
-            return ChoiceChip(
-              label: Text('วันที่ $day'),
-              selected: _selectedBillingDay == day,
-              selectedColor: const Color(0xFF2E7D32),
-              labelStyle: TextStyle(
-                color: _selectedBillingDay == day ? Colors.white : Colors.black,
-              ),
-              onSelected: (_) => setState(() => _selectedBillingDay = day),
+        DropdownButtonFormField<int>(
+          value: _selectedBillingDay,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+          items: List.generate(31, (i) {
+            return DropdownMenuItem(
+              value: i + 1,
+              child: Text('วันที่ ${i + 1}'),
             );
-          }).toList(),
+          }),
+          onChanged: (val) => setState(() => _selectedBillingDay = val!),
         ),
       ],
     );
   }
 
-  // ขั้นที่ 5: กรอกค่ามิเตอร์ต้นรอบ
   Widget _buildStartMeterStep() {
     return SingleChildScrollView(
       child: Column(
@@ -448,10 +435,7 @@ class _SetupScreenState extends State<SetupScreen> {
             'กรอกค่ามิเตอร์จากใบแจ้งหนี้ล่าสุดของคุณ\nเพื่อใช้เป็นหน่วยตั้งต้นในการคำนวณ',
             style: TextStyle(color: Colors.grey),
           ),
-
           const SizedBox(height: 24),
-
-          // เลือกเดือน/ปีของใบแจ้งหนี้
           const Text(
             'ใบแจ้งหนี้เดือน',
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
@@ -459,7 +443,6 @@ class _SetupScreenState extends State<SetupScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              // เลือกเดือน
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<int>(
@@ -482,7 +465,6 @@ class _SetupScreenState extends State<SetupScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              // เลือกปี
               Expanded(
                 child: DropdownButtonFormField<int>(
                   value: _selectedStartYear,
@@ -507,10 +489,7 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 20),
-
-          // ช่องกรอกค่ามิเตอร์ไฟฟ้า
           const Text(
             'หน่วยไฟฟ้า (ตามใบแจ้งหนี้)',
             style: TextStyle(fontWeight: FontWeight.w600),
@@ -528,10 +507,7 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // ช่องกรอกค่ามิเตอร์น้ำ
           const Text(
             'หน่วยน้ำประปา (ตามใบแจ้งหนี้)',
             style: TextStyle(fontWeight: FontWeight.w600),
@@ -549,8 +525,6 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
             ),
           ),
-
-          // แสดง error ถ้ามี
           if (_startMeterError.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -559,10 +533,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 style: const TextStyle(color: Colors.red),
               ),
             ),
-
           const SizedBox(height: 16),
-
-          // กล่องอธิบาย
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
