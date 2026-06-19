@@ -73,6 +73,7 @@ class EnergyCalculator {
       // MEA: ขนาดมิเตอร์เป็นตัวกำหนดหลัก
       if (meterSize == '5a' && units <= 150) {
         // มิเตอร์เล็กและใช้ไม่เกิน 150 หน่วย → ประเภท 1.1
+        // ไม่มีฟรี เพราะต้องมีบัตรสวัสดิการแห่งรัฐซึ่งแอปนี้ไม่รองรับ
         energyCost = _calculateEnergyRateUnder150(units);
         serviceFee = 8.19;
       } else {

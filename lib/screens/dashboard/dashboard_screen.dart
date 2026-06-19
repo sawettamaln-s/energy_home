@@ -153,33 +153,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
-    double value = 0;
-    double peakUnits = 0;
-    double offPeakUnits = 0;
+    double peakValue = 0;
+    double offPeakValue = 0;
+    double normalValue = 0;
 
     try {
       if (isTOU) {
-        peakUnits = double.parse(_electricityPeakController.text);
-        offPeakUnits = double.parse(_electricityOffPeakController.text);
-        value = peakUnits + offPeakUnits; // รวมทั้งหมด
+        peakValue = double.parse(_electricityPeakController.text);
+        offPeakValue = double.parse(_electricityOffPeakController.text);
       } else {
-        value = double.parse(_electricityController.text);
+        normalValue = double.parse(_electricityController.text);
       }
     } catch (e) {
       setState(() => _electricityError = 'กรุณากรอกตัวเลขเท่านั้น');
-      return;
-    }
-
-    final startE = _user?.startElectricityValue ?? 0;
-    final lastE = _latestElectricityLog?.meterValue ?? startE;
-
-    if (value < startE) {
-      setState(
-          () => _electricityError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE)');
-      return;
-    }
-    if (value < lastE) {
-      setState(() => _electricityError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE)');
       return;
     }
 
@@ -190,23 +176,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      final usedFromStart = value - startE;
-      final usedFromLast = value - lastE;
+      double usedFromStart;
+      double usedFromLast;
+      double cost;
+      double peakUnits = 0;
+      double offPeakUnits = 0;
 
-      final cost = await EnergyCalculator.calculateElectricityByType(
-        units: usedFromStart,
-        meterType: _user?.meterType ?? 'normal',
-        area: _user?.area ?? 'bangkok',
-        meterSize: _user?.meterSize ?? '15a',
-        peakUnits: peakUnits,
-        offPeakUnits: offPeakUnits,
-      );
+      if (isTOU) {
+        final startPeak = _user?.startPeakValue ?? 0;
+        final startOffPeak = _user?.startOffPeakValue ?? 0;
+        final lastPeak = _latestElectricityLog?.peakMeterValue ?? startPeak;
+        final lastOffPeak =
+            _latestElectricityLog?.offPeakMeterValue ?? startOffPeak;
+
+        if (peakValue < startPeak || offPeakValue < startOffPeak) {
+          setState(
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบ');
+          setState(() => _isSavingElectricity = false);
+          return;
+        }
+        if (peakValue < lastPeak || offPeakValue < lastOffPeak) {
+          setState(
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุด');
+          setState(() => _isSavingElectricity = false);
+          return;
+        }
+
+        peakUnits = peakValue - startPeak;
+        offPeakUnits = offPeakValue - startOffPeak;
+        usedFromStart = peakUnits + offPeakUnits;
+        usedFromLast = (peakValue - lastPeak) + (offPeakValue - lastOffPeak);
+
+        cost = await EnergyCalculator.calculateElectricityByType(
+          units: 0,
+          meterType: 'tou',
+          area: _user?.area ?? 'bangkok',
+          peakUnits: peakUnits,
+          offPeakUnits: offPeakUnits,
+        );
+      } else {
+        final startE = _user?.startElectricityValue ?? 0;
+        final lastE = _latestElectricityLog?.meterValue ?? startE;
+
+        if (normalValue < startE) {
+          setState(
+              () => _electricityError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE)');
+          setState(() => _isSavingElectricity = false);
+          return;
+        }
+        if (normalValue < lastE) {
+          setState(
+              () => _electricityError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE)');
+          setState(() => _isSavingElectricity = false);
+          return;
+        }
+
+        usedFromStart = normalValue - startE;
+        usedFromLast = normalValue - lastE;
+
+        cost = await EnergyCalculator.calculateElectricityByType(
+          units: usedFromStart,
+          meterType: 'normal',
+          area: _user?.area ?? 'bangkok',
+          meterSize: _user?.meterSize ?? '15a',
+        );
+      }
 
       final log = ElectricityLogModel(
         id: const Uuid().v4(),
         uid: uid,
         date: DateTime.now(),
-        meterValue: value,
+        meterValue: isTOU ? usedFromStart : normalValue,
+        peakMeterValue: isTOU ? peakValue : null,
+        offPeakMeterValue: isTOU ? offPeakValue : null,
         usedFromStart: usedFromStart,
         usedFromLast: usedFromLast,
         cost: cost,
@@ -214,6 +256,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       await _firestoreService.saveElectricityLog(log);
       _electricityController.clear();
+      _electricityPeakController.clear();
+      _electricityOffPeakController.clear();
       await _loadData();
 
       if (mounted) {

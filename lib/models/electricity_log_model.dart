@@ -3,6 +3,8 @@ class ElectricityLogModel {
   final String uid;
   final DateTime date;
   final double meterValue; // หน่วยมิเตอร์ปัจจุบัน เช่น 14,052
+  final double? peakMeterValue; // หน่วยมิเตอร์ Peak (TOU)
+  final double? offPeakMeterValue; // หน่วยมิเตอร์ Off-Peak (TOU)
   final double usedFromStart; // ใช้ไปจากต้นรอบ เช่น 43
   final double usedFromLast; // เพิ่มจากครั้งล่าสุด เช่น 29
   final double cost; // ค่าไฟประมาณการ
@@ -13,6 +15,8 @@ class ElectricityLogModel {
     required this.uid,
     required this.date,
     required this.meterValue,
+    this.peakMeterValue,
+    this.offPeakMeterValue,
     this.usedFromStart = 0,
     this.usedFromLast = 0,
     this.cost = 0,
@@ -25,6 +29,8 @@ class ElectricityLogModel {
       uid: map['uid'] ?? '',
       date: DateTime.parse(map['date']),
       meterValue: (map['meterValue'] ?? 0).toDouble(),
+      peakMeterValue: map['peakMeterValue']?.toDouble(),
+      offPeakMeterValue: map['offPeakMeterValue']?.toDouble(),
       usedFromStart: (map['usedFromStart'] ?? 0).toDouble(),
       usedFromLast: (map['usedFromLast'] ?? 0).toDouble(),
       cost: (map['cost'] ?? 0).toDouble(),
@@ -38,6 +44,8 @@ class ElectricityLogModel {
       'uid': uid,
       'date': date.toIso8601String(),
       'meterValue': meterValue,
+      'peakMeterValue': peakMeterValue,
+      'offPeakMeterValue': offPeakMeterValue,
       'usedFromStart': usedFromStart,
       'usedFromLast': usedFromLast,
       'cost': cost,

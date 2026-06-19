@@ -16,14 +16,16 @@ class _SetupScreenState extends State<SetupScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   int _currentStep = 0;
-  int get _totalSteps => _selectedArea == 'bangkok' ? 5 : 4;
-
+  int get _totalSteps =>
+      (_selectedArea == 'bangkok' && _selectedMeterType == 'normal') ? 5 : 4;
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
   String _selectedMeterSize = '15a';
   int _selectedBillingDay = 30;
 
   final _electricityStartController = TextEditingController();
+  final _peakStartController = TextEditingController();
+  final _offPeakStartController = TextEditingController();
   final _waterStartController = TextEditingController();
   int _selectedStartMonth = DateTime.now().month;
   int _selectedStartYear = DateTime.now().year;
@@ -50,22 +52,46 @@ class _SetupScreenState extends State<SetupScreen> {
   void dispose() {
     _electricityStartController.dispose();
     _waterStartController.dispose();
+    _peakStartController.dispose();
+    _offPeakStartController.dispose();
     super.dispose();
   }
 
   bool _validateStartMeter() {
-    if (_electricityStartController.text.isEmpty ||
-        _waterStartController.text.isEmpty) {
-      setState(() => _startMeterError = 'กรุณากรอกค่ามิเตอร์ให้ครบ');
+    if (_waterStartController.text.isEmpty) {
+      setState(() => _startMeterError = 'กรุณากรอกค่ามิเตอร์น้ำ');
       return false;
     }
-    try {
-      double.parse(_electricityStartController.text);
-      double.parse(_waterStartController.text);
-    } catch (e) {
-      setState(() => _startMeterError = 'กรุณากรอกตัวเลขเท่านั้น');
-      return false;
+
+    if (_selectedMeterType == 'tou') {
+      if (_peakStartController.text.isEmpty ||
+          _offPeakStartController.text.isEmpty) {
+        setState(() =>
+            _startMeterError = 'กรุณากรอกหน่วย On-Peak และ Off-Peak ให้ครบ');
+        return false;
+      }
+      try {
+        double.parse(_peakStartController.text);
+        double.parse(_offPeakStartController.text);
+        double.parse(_waterStartController.text);
+      } catch (e) {
+        setState(() => _startMeterError = 'กรุณากรอกตัวเลขเท่านั้น');
+        return false;
+      }
+    } else {
+      if (_electricityStartController.text.isEmpty) {
+        setState(() => _startMeterError = 'กรุณากรอกค่ามิเตอร์ไฟฟ้า');
+        return false;
+      }
+      try {
+        double.parse(_electricityStartController.text);
+        double.parse(_waterStartController.text);
+      } catch (e) {
+        setState(() => _startMeterError = 'กรุณากรอกตัวเลขเท่านั้น');
+        return false;
+      }
     }
+
     setState(() => _startMeterError = '');
     return true;
   }
@@ -85,8 +111,16 @@ class _SetupScreenState extends State<SetupScreen> {
         meterType: _selectedMeterType,
         meterSize: _selectedMeterSize,
         billingDay: _selectedBillingDay,
-        startElectricityValue: double.parse(_electricityStartController.text),
+        startElectricityValue: _selectedMeterType == 'tou'
+            ? 0
+            : double.parse(_electricityStartController.text),
         startWaterValue: double.parse(_waterStartController.text),
+        startPeakValue: _selectedMeterType == 'tou'
+            ? double.parse(_peakStartController.text)
+            : 0,
+        startOffPeakValue: _selectedMeterType == 'tou'
+            ? double.parse(_offPeakStartController.text)
+            : 0,
         startBillingMonth: _selectedStartMonth,
         startBillingYear: _selectedStartYear,
       );
@@ -202,7 +236,7 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildStep(int step) {
-    if (_selectedArea == 'bangkok') {
+    if (_selectedArea == 'bangkok' && _selectedMeterType == 'normal') {
       // กรุงเทพ มี 5 ขั้นตอน (เพิ่มเลือกขนาดมิเตอร์)
       switch (step) {
         case 0:
@@ -490,23 +524,66 @@ class _SetupScreenState extends State<SetupScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          const Text(
-            'หน่วยไฟฟ้า (ตามใบแจ้งหนี้)',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _electricityStartController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              hintText: 'เช่น 14009',
-              prefixIcon: const Icon(Icons.bolt, color: Colors.orange),
-              suffixText: 'หน่วย',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+          if (_selectedMeterType == 'tou') ...[
+            // กรอกแยก Peak/Off-Peak สำหรับ TOU
+            const Text(
+              'หน่วย On-Peak (ตามใบแจ้งหนี้)',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _peakStartController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                hintText: 'เช่น 1200',
+                prefixIcon: const Icon(Icons.bolt, color: Colors.orange),
+                suffixText: 'หน่วย',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
-          ),
+            const SizedBox(height: 16),
+            const Text(
+              'หน่วย Off-Peak (ตามใบแจ้งหนี้)',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _offPeakStartController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                hintText: 'เช่น 3500',
+                prefixIcon: const Icon(Icons.bolt, color: Colors.deepOrange),
+                suffixText: 'หน่วย',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ] else ...[
+            // กรอกแบบปกติ
+            const Text(
+              'หน่วยไฟฟ้า (ตามใบแจ้งหนี้)',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _electricityStartController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                hintText: 'เช่น 14009',
+                prefixIcon: const Icon(Icons.bolt, color: Colors.orange),
+                suffixText: 'หน่วย',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           const Text(
             'หน่วยน้ำประปา (ตามใบแจ้งหนี้)',
