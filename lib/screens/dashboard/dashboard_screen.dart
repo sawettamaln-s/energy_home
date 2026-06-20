@@ -354,6 +354,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final remainingDays = EnergyForecaster.getRemainingDays(now, billingDay);
     final daysElapsed = EnergyForecaster.getDaysElapsed(now, billingDay);
     final formatter = NumberFormat('#,##0.00');
+    final buddhistYear = now.year + 543;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -370,7 +371,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header
+                      // Header (เดิม)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -402,7 +403,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                       const SizedBox(height: 16),
 
-                      // การ์ดค่าใช้จ่าย
+                      // การ์ดค่าใช้จ่าย (เดิม)
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
@@ -466,92 +467,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
-                      // บันทึกไฟฟ้า
+                      // ===================================================
+                      // ส่วนที่ปรับใหม่ตามภาพ: บันทึกมิเตอร์วันนี้
+                      // ===================================================
+                      const Text(
+                        'บันทึกมิเตอร์วันนี้',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFF333333),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
                       if (_user?.meterType == 'tou')
                         _buildTOUMeterCard()
                       else
-                        _buildMeterCard(
-                          title: 'บันทึกค่ามิเตอร์ไฟฟ้า',
-                          icon: Icons.bolt,
-                          color: const Color(0xFFFFF3E0),
-                          iconColor: Colors.orange,
-                          controller: _electricityController,
-                          hint: 'หน่วยสะสมปัจจุบัน เช่น 14052',
-                          lastValue: _latestElectricityLog?.meterValue ??
-                              _user?.startElectricityValue,
-                          startValue: _user?.startElectricityValue,
-                          error: _electricityError,
-                          isSaving: _isSavingElectricity,
-                          onSave: _saveElectricityLog,
-                          unit: 'หน่วย',
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _buildMeterCard(
+                                title: 'ไฟฟ้า',
+                                icon: Icons.bolt,
+                                accent: Colors.orange,
+                                fieldBg: const Color(0xFFFFE9D6),
+                                controller: _electricityController,
+                                hint: 'เช่น 14052',
+                                lastValue: _latestElectricityLog?.meterValue ??
+                                    _user?.startElectricityValue,
+                                startValue: _user?.startElectricityValue,
+                                error: _electricityError,
+                                isSaving: _isSavingElectricity,
+                                onSave: _saveElectricityLog,
+                                unit: 'หน่วย',
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildMeterCard(
+                                title: 'น้ำ',
+                                icon: Icons.water_drop,
+                                accent: Colors.blue,
+                                fieldBg: const Color(0xFFE3F2FD),
+                                controller: _waterController,
+                                hint: 'เช่น 178',
+                                lastValue: _latestWaterLog?.meterValue ??
+                                    _user?.startWaterValue,
+                                startValue: _user?.startWaterValue,
+                                error: _waterError,
+                                isSaving: _isSavingWater,
+                                onSave: _saveWaterLog,
+                                unit: 'ลบ.ม.',
+                              ),
+                            ),
+                          ],
                         ),
-
-                      const SizedBox(height: 12),
-
-                      // บันทึกน้ำ
-                      _buildMeterCard(
-                        title: 'บันทึกค่ามิเตอร์น้ำ',
-                        icon: Icons.water_drop,
-                        color: const Color(0xFFE3F2FD),
-                        iconColor: Colors.blue,
-                        controller: _waterController,
-                        hint: 'หน่วยสะสมปัจจุบัน เช่น 178',
-                        lastValue: _latestWaterLog?.meterValue ??
-                            _user?.startWaterValue,
-                        startValue: _user?.startWaterValue,
-                        error: _waterError,
-                        isSaving: _isSavingWater,
-                        onSave: _saveWaterLog,
-                        unit: 'ลบ.ม.',
-                      ),
 
                       const SizedBox(height: 16),
 
-                      // ยอดรวม
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'ยอดรวมค่าใช้จ่ายทั้งสิ้น',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            const Divider(height: 20),
-                            _buildSummaryRow(
-                              'ค่าไฟ + ค่าน้ำ',
-                              '฿${formatter.format(_currentElectricityCost + _currentWaterCost)}',
-                            ),
-                            const SizedBox(height: 8),
-                            _buildSummaryRow(
-                              'Fixed Cost',
-                              '฿${formatter.format(_user?.fixedCost ?? 0)}',
-                            ),
-                            const Divider(height: 20),
-                            _buildSummaryRow(
-                              'รวมทั้งสิ้น',
-                              '฿${formatter.format((_currentElectricityCost + _currentWaterCost) + (_user?.fixedCost ?? 0))}',
-                              isBold: true,
-                              color: const Color(0xFF2E7D32),
-                            ),
-                          ],
-                        ),
-                      ),
+                      // Fixed Cost (การ์ดใหม่ตามภาพ)
+                      _buildFixedCostRow(formatter),
+
+                      const SizedBox(height: 16),
+
+                      // ยอดรวม (การ์ดใหม่ตามภาพ พื้นขาว กรอบครีม)
+                      _buildSummaryCard(formatter, buddhistYear),
+
+                      // ===================================================
+                      // จบส่วนที่ปรับใหม่
+                      // ===================================================
                     ],
                   ),
                 ),
@@ -590,11 +577,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // -------------------------------------------------------------------
+  // การ์ดบันทึกมิเตอร์แบบใหม่ (ไฟฟ้า/น้ำ) — ตามภาพ
+  // -------------------------------------------------------------------
   Widget _buildMeterCard({
     required String title,
     required IconData icon,
-    required Color color,
-    required Color iconColor,
+    required Color accent,
+    required Color fieldBg,
     required TextEditingController controller,
     required String hint,
     required String error,
@@ -606,93 +596,201 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }) {
     final formatter = NumberFormat('#,##0.##');
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: iconColor, size: 20),
-              const SizedBox(width: 8),
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 15)),
+              Icon(icon, color: accent, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  color: accent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
+          const SizedBox(height: 2),
+          Text(
+            [
               if (lastValue != null)
-                Text(
-                  'ล่าสุด: ${formatter.format(lastValue)} $unit',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-              if (lastValue != null && startValue != null)
-                const Text('  •  ', style: TextStyle(color: Colors.grey)),
+                'ล่าสุด: ${formatter.format(lastValue)} $unit',
               if (startValue != null)
-                Text(
-                  'ต้นรอบ: ${formatter.format(startValue)} $unit',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                ),
-            ],
+                'ต้นรอบ: ${formatter.format(startValue)} $unit',
+            ].join(' • '),
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
+          TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF333333),
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              suffixText: unit,
+              isDense: true,
+              filled: true,
+              fillColor: fieldBg,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
               ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: isSaving ? null : onSave,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: iconColor,
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: isSaving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Text('บันทึก'),
-              ),
-            ],
+            ),
           ),
           if (error.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(error,
-                  style: const TextStyle(color: Colors.red, fontSize: 12)),
+                  style: const TextStyle(color: Colors.red, fontSize: 11)),
             ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: isSaving ? null : onSave,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: isSaving
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.menu, size: 16),
+              label: const Text('บันทึกมิเตอร์', style: TextStyle(fontSize: 13)),
+            ),
+          ),
         ],
       ),
     );
   }
+
+  // -------------------------------------------------------------------
+  // แถว Fixed Cost — ตามภาพ
+  // -------------------------------------------------------------------
+  Widget _buildFixedCostRow(NumberFormat formatter) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5E9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.bookmark_outline,
+                color: Color(0xFF2E7D32), size: 18),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Fixed Cost ประจำเดือน',
+              style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Color(0xFF333333)),
+            ),
+          ),
+          Text(
+            '฿${formatter.format(_user?.fixedCost ?? 0)}',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              color: Color(0xFF333333),
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------------
+  // การ์ดยอดรวม — พื้นขาว กรอบครีม ตามภาพ
+  // -------------------------------------------------------------------
+  Widget _buildSummaryCard(NumberFormat formatter, int buddhistYear) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE9DCC5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ยอดรวมค่าใช้จ่ายทั้งหมด พ.ศ. $buddhistYear',
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Color(0xFF333333)),
+          ),
+          const Divider(height: 20, color: Color(0xFFE9DCC5)),
+          _buildSummaryRow(
+            'ค่าไฟ + น้ำ (พยากรณ์)',
+            '฿${formatter.format(_currentElectricityCost + _currentWaterCost)}',
+          ),
+          const SizedBox(height: 8),
+          _buildSummaryRow(
+            'Fixed Cost',
+            '฿${formatter.format(_user?.fixedCost ?? 0)}',
+          ),
+          const Divider(height: 20, color: Color(0xFFE9DCC5)),
+          _buildSummaryRow(
+            'รวมทั้งสิ้น',
+            '฿${formatter.format((_currentElectricityCost + _currentWaterCost) + (_user?.fixedCost ?? 0))}',
+            isBold: true,
+            color: Colors.orange,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ----------------- Widget เดิม (ไม่แก้ไข) -----------------
 
   Widget _buildCostCard({
     required IconData icon,
@@ -730,13 +828,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Text(label,
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: color,
+              color: color ?? const Color(0xFF333333),
+              fontSize: isBold ? 15 : 13,
             )),
         Text(value,
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: color,
-              fontSize: isBold ? 16 : 14,
+              color: color ?? const Color(0xFF333333),
+              fontSize: isBold ? 18 : 14,
             )),
       ],
     );
@@ -746,8 +845,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3E0),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,11 +888,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     hintText: 'เช่น 100',
                     suffixText: 'หน่วย',
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: const Color(0xFFFFE9D6),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide.none,
                     ),
                   ),
@@ -812,11 +918,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     hintText: 'เช่น 200',
                     suffixText: 'หน่วย',
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: const Color(0xFFFFE9D6),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide.none,
                     ),
                   ),
@@ -836,23 +942,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
+            child: ElevatedButton.icon(
               onPressed: _isSavingElectricity ? null : _saveElectricityLog,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: _isSavingElectricity
+              icon: _isSavingElectricity
                   ? const SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2))
-                  : const Text('บันทึก'),
+                  : const Icon(Icons.menu, size: 18),
+              label: const Text('บันทึกมิเตอร์'),
             ),
           ),
         ],
