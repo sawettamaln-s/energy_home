@@ -9,6 +9,7 @@ import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
+import '../appliance/appliance_screen.dart';
 import '../settings/settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -559,12 +560,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
-          if (index == 3) {
+          if (index == 2) {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const SettingsScreen(),
-              ),
+              MaterialPageRoute(builder: (context) => const ApplianceScreen()),
+            );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
             );
           } else {
             setState(() => _currentIndex = index);
