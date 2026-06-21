@@ -32,7 +32,6 @@ class FirestoreService {
     await _db.collection('users').doc(uid).update(data);
   }
 
-  
   // ==================== BILLS ====================
 
   // บันทึกบิลรายเดือน
@@ -45,33 +44,27 @@ class FirestoreService {
         .set(bill.toMap());
   }
 
-  /// รวม logs ของเดือนที่กำหนด → สร้าง Bill
+  /// รวม logs ของรอบบิลที่ปิดแล้ว (startDate -> endDate) → สร้าง Bill
+  /// หมายเหตุ: startDate/endDate ต้องเป็นช่วงของรอบบิลที่ "ปิดไปแล้ว"
+  /// ไม่ใช่รอบที่กำลังดำเนินอยู่ตอนนี้ (ผู้เรียกเป็นคนคำนวณช่วงมาให้)
   Future<void> compileBill(
     String uid,
     int year,
     int month,
     double fixedCost,
+    DateTime startDate,
+    DateTime endDate,
   ) async {
     try {
       final user = await getUser(uid);
       if (user == null) return;
 
-      final now = DateTime.now();
-      final billingDay = user.billingDay;
-
-      // คำนวณช่วงเวลา billing
-      DateTime startDate, endDate;
-      if (now.day >= billingDay) {
-        startDate = DateTime(now.year, now.month, billingDay);
-        endDate = DateTime(now.year, now.month + 1, billingDay);
-      } else {
-        startDate = DateTime(now.year, now.month - 1, billingDay);
-        endDate = DateTime(now.year, now.month, billingDay);
-      }
-
-      // ดึง logs เดือนนี้
+      // ดึง logs ของรอบบิลที่ปิดแล้ว
       final eLogs = await getCurrentMonthElectricityLogs(uid, startDate, endDate);
       final wLogs = await getCurrentMonthWaterLogs(uid, startDate, endDate);
+
+      // ไม่มี log เลยในรอบนี้ → ไม่ต้องสร้างบิลเปล่า
+      if (eLogs.isEmpty && wLogs.isEmpty) return;
 
       // รวมค่า
       double totalElec = eLogs.fold(0, (sum, log) => sum + log.cost);
@@ -95,6 +88,7 @@ class FirestoreService {
         forecastWater: totalWater,
         forecastTotal: totalElec + totalWater + fixedCost,
         isComplete: false,
+        source: 'compiled',
       );
 
       // บันทึกลง Firestore
@@ -103,6 +97,19 @@ class FirestoreService {
     } catch (e) {
       debugPrint('❌ Error compiling bill: $e');
     }
+  }
+
+  // เช็คว่ามีบิลของปี-เดือนนี้บันทึกไว้แล้วหรือยัง
+  Future<bool> billExistsForMonth(String uid, int year, int month) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('bills')
+        .where('year', isEqualTo: year)
+        .where('month', isEqualTo: month)
+        .limit(1)
+        .get();
+    return snapshot.docs.isNotEmpty;
   }
 
   // ดึงบิลทั้งหมด

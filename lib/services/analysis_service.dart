@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
+import '../utils/forecaster.dart';
 
 /// สรุปสัดส่วนการใช้พลังงานของอุปกรณ์ 1 ชิ้น ในช่วงเวลาที่กำหนด
 class ApplianceUsage {
@@ -97,19 +98,18 @@ Future<List<BillModel>> fetchBills(String uid, {int limitMonths = 24}) async {
     );
   }
 
-  /// พยากรณ์เดือนถัดไปแบบ Simple Moving Average
-  /// monthsToAverage: ใช้กี่เดือนล่าสุดในการเฉลี่ย (default 3)
+  /// พยากรณ์ค่าใช้จ่ายเดือนถัดไปด้วย Linear Regression (Least Squares)
+  /// ใช้ข้อมูลย้อนหลังทั้งหมดที่มีเป็น training data
   double forecastNextMonth(
     List<BillModel> bills, {
     required double Function(BillModel) selector,
-    int monthsToAverage = 3,
   }) {
     if (bills.isEmpty) return 0;
-    final recent = bills.length <= monthsToAverage
-        ? bills
-        : bills.sublist(bills.length - monthsToAverage);
-    final sum = recent.fold<double>(0, (acc, b) => acc + selector(b));
-    return sum / recent.length;
+    final monthlyValues = bills.map(selector).toList();
+    return EnergyForecaster.linearRegression(
+      monthlyValues: monthlyValues,
+      forecastMonth: monthlyValues.length + 1,
+    );
   }
 
   /// คำนวณ kWh ของอุปกรณ์ 1 ชิ้นในช่วง totalDaysInPeriod วัน

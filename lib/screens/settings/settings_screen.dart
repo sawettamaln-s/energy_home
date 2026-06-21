@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../models/bill_model.dart';
 import '../../models/electricity_log_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
@@ -278,6 +280,13 @@ void _handleBottomNavTap(int index) {
             title: 'ประวัติมิเตอร์น้ำ',
             subtitle: 'ดูและลบประวัติการบันทึก',
             onTap: () => _showWaterHistory(),
+          ),
+          const Divider(height: 1, indent: 56),
+          _buildSettingsTile(
+            icon: Icons.receipt_long,
+            title: 'เพิ่มบันทึกบิลย้อนหลัง',
+            subtitle: 'ไม่บังคับ • สูงสุด 6 เดือน สำหรับให้หน้าวิเคราะห์มีข้อมูล',
+            onTap: () => _showAddHistoricalBillSheet(),
           ),
         ],
       ),
@@ -653,6 +662,390 @@ void _handleBottomNavTap(int index) {
           uid: FirebaseAuth.instance.currentUser!.uid,
           firestoreService: _firestoreService,
         ),
+      ),
+    );
+  }
+
+  void _showAddHistoricalBillSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddHistoricalBillSheet(
+        uid: _user!.uid,
+        defaultFixedCost: _user?.fixedCost ?? 0,
+        firestoreService: _firestoreService,
+      ),
+    );
+  }
+}
+
+// ==================== เพิ่มบันทึกบิลย้อนหลัง ====================
+// ไม่บังคับ • สูงสุด 6 เดือน — ใช้ให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก
+class _AddHistoricalBillSheet extends StatefulWidget {
+  final String uid;
+  final double defaultFixedCost;
+  final FirestoreService firestoreService;
+
+  const _AddHistoricalBillSheet({
+    required this.uid,
+    required this.defaultFixedCost,
+    required this.firestoreService,
+  });
+
+  @override
+  State<_AddHistoricalBillSheet> createState() =>
+      _AddHistoricalBillSheetState();
+}
+
+class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
+  static const _thaiMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+  ];
+
+  late final List<DateTime> _monthOptions;
+  late DateTime _selectedMonth;
+  Set<String> _takenMonths = {}; // เก็บ 'year-month' ของเดือนที่มีบิลแล้ว
+  bool _isLoadingTaken = true;
+  bool _isSaving = false;
+
+  final _eUsedCtrl = TextEditingController();
+  final _eCostCtrl = TextEditingController();
+  final _wUsedCtrl = TextEditingController();
+  final _wCostCtrl = TextEditingController();
+  late final TextEditingController _fixedCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _monthOptions = List.generate(
+      6,
+      (i) => DateTime(now.year, now.month - (i + 1), 1),
+    );
+    _selectedMonth = _monthOptions.first;
+    _fixedCtrl =
+        TextEditingController(text: widget.defaultFixedCost.toStringAsFixed(0));
+    _loadTakenMonths();
+
+    for (final c in [_eUsedCtrl, _eCostCtrl, _wUsedCtrl, _wCostCtrl, _fixedCtrl]) {
+      c.addListener(() => setState(() {}));
+    }
+  }
+
+  @override
+  void dispose() {
+    _eUsedCtrl.dispose();
+    _eCostCtrl.dispose();
+    _wUsedCtrl.dispose();
+    _wCostCtrl.dispose();
+    _fixedCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTakenMonths() async {
+    final bills = await widget.firestoreService.getBills(widget.uid);
+    final taken = bills.map((b) => '${b.year}-${b.month}').toSet();
+
+    // ถ้าเดือนแรก (ใหม่สุด) มีบิลแล้ว ให้เลื่อนไปเลือกเดือนแรกที่ยังว่างแทน
+    DateTime initialSelection = _selectedMonth;
+    for (final m in _monthOptions) {
+      if (!taken.contains('${m.year}-${m.month}')) {
+        initialSelection = m;
+        break;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _takenMonths = taken;
+        _selectedMonth = initialSelection;
+        _isLoadingTaken = false;
+      });
+    }
+  }
+
+  double get _eCost => double.tryParse(_eCostCtrl.text) ?? 0;
+  double get _wCost => double.tryParse(_wCostCtrl.text) ?? 0;
+  double get _fixed => double.tryParse(_fixedCtrl.text) ?? 0;
+  double get _total => _eCost + _wCost + _fixed;
+
+  bool get _isSelectedMonthTaken =>
+      _takenMonths.contains('${_selectedMonth.year}-${_selectedMonth.month}');
+
+  Future<void> _save() async {
+    if (_isSelectedMonthTaken) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เดือนนี้มีบิลบันทึกไว้แล้ว')),
+      );
+      return;
+    }
+    if (_total == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกยอดค่าไฟหรือค่าน้ำอย่างน้อย 1 ช่อง')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final bill = BillModel(
+        id: const Uuid().v4(),
+        uid: widget.uid,
+        year: _selectedMonth.year,
+        month: _selectedMonth.month,
+        electricityUsed: double.tryParse(_eUsedCtrl.text) ?? 0,
+        waterUsed: double.tryParse(_wUsedCtrl.text) ?? 0,
+        electricityCost: _eCost,
+        waterCost: _wCost,
+        fixedCost: _fixed,
+        totalCost: _total,
+        // บิลย้อนหลังคือของจริงที่เกิดขึ้นแล้ว ไม่ใช่ค่าพยากรณ์
+        forecastElectricity: _eCost,
+        forecastWater: _wCost,
+        forecastTotal: _total,
+        isComplete: true,
+        source: 'imported',
+      );
+      await widget.firestoreService.saveBill(bill);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
+      );
+
+  InputDecoration _fieldDecoration({String? hint, String? suffixText}) {
+    return InputDecoration(
+      hintText: hint,
+      suffixText: suffixText,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formatter = NumberFormat('#,##0.00');
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'เพิ่มบันทึกบิลย้อนหลัง',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'ไม่บังคับ • สูงสุด 6 เดือน • ช่วยให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _label('เดือน'),
+                  _isLoadingTaken
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                              child: CircularProgressIndicator(strokeWidth: 2)),
+                        )
+                      : DropdownButtonFormField<DateTime>(
+                          value: _selectedMonth,
+                          decoration: _fieldDecoration(),
+                          items: _monthOptions.map((d) {
+                            final taken =
+                                _takenMonths.contains('${d.year}-${d.month}');
+                            return DropdownMenuItem(
+                              value: d,
+                              enabled: !taken,
+                              child: Text(
+                                taken
+                                    ? '${_thaiMonths[d.month - 1]} ${d.year} (มีบิลแล้ว)'
+                                    : '${_thaiMonths[d.month - 1]} ${d.year}',
+                                style: TextStyle(
+                                  color: taken ? Colors.grey.shade400 : null,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) =>
+                              setState(() => _selectedMonth = val!),
+                        ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _label('หน่วยไฟที่ใช้'),
+                            TextField(
+                              controller: _eUsedCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true),
+                              decoration:
+                                  _fieldDecoration(hint: '0', suffixText: 'หน่วย'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _label('ค่าไฟ'),
+                            TextField(
+                              controller: _eCostCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true),
+                              decoration:
+                                  _fieldDecoration(hint: '0', suffixText: '฿'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _label('หน่วยน้ำที่ใช้'),
+                            TextField(
+                              controller: _wUsedCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true),
+                              decoration:
+                                  _fieldDecoration(hint: '0', suffixText: 'หน่วย'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _label('ค่าน้ำ'),
+                            TextField(
+                              controller: _wCostCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true),
+                              decoration:
+                                  _fieldDecoration(hint: '0', suffixText: '฿'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _label('Fixed Cost'),
+                  TextField(
+                    controller: _fixedCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: _fieldDecoration(hint: '0', suffixText: '฿'),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D32).withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'ยอดรวมเดือนนี้',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          '฿${formatter.format(_total)}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: (_isSaving || _isSelectedMonthTaken)
+                          ? null
+                          : _save,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isSaving
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('บันทึก'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

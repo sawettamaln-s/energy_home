@@ -13,6 +13,7 @@ class BillModel {
   final double forecastWater; // พยากรณ์ค่าน้ำสิ้นเดือน (Moving Average)
   final double forecastTotal; // พยากรณ์ยอดรวมสิ้นเดือน
   final bool isComplete; // ครบรอบบิลแล้วหรือยัง
+  final String source; // 'compiled' = ระบบสรุปจาก log อัตโนมัติ, 'imported' = กรอกย้อนหลังเอง
 
   BillModel({
     required this.id,
@@ -29,6 +30,7 @@ class BillModel {
     this.forecastWater = 0,
     this.forecastTotal = 0,
     this.isComplete = false,
+    this.source = 'compiled',
   });
 
   // แปลงจาก Firestore เป็น Model
@@ -48,6 +50,7 @@ class BillModel {
       forecastWater: (map['forecastWater'] ?? 0).toDouble(),
       forecastTotal: (map['forecastTotal'] ?? 0).toDouble(),
       isComplete: map['isComplete'] ?? false,
+      source: map['source'] ?? 'compiled',
     );
   }
 
@@ -68,6 +71,7 @@ class BillModel {
       'forecastWater': forecastWater,
       'forecastTotal': forecastTotal,
       'isComplete': isComplete,
+      'source': source,
     };
   }
 }

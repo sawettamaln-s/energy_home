@@ -85,6 +85,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         endDate = DateTime(now.year, now.month, billingDay);
       }
 
+      // รอบบิลก่อนหน้า (ที่ปิดไปแล้ว) คือช่วงก่อน startDate ของรอบปัจจุบัน
+      final prevCycleStart =
+          DateTime(startDate.year, startDate.month - 1, billingDay);
+      final prevCycleEnd = startDate;
+      final billExists = await _firestoreService.billExistsForMonth(
+          uid, prevCycleEnd.year, prevCycleEnd.month);
+      if (!billExists) {
+        await _firestoreService.compileBill(
+          uid,
+          prevCycleEnd.year,
+          prevCycleEnd.month,
+          _user?.fixedCost ?? 0,
+          prevCycleStart,
+          prevCycleEnd,
+        );
+      }
+
       _electricityLogs = await _firestoreService.getCurrentMonthElectricityLogs(
           uid, startDate, endDate);
       _waterLogs = await _firestoreService.getCurrentMonthWaterLogs(
