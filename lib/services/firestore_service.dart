@@ -5,7 +5,6 @@ import 'package:uuid/uuid.dart';
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
 import '../models/electricity_log_model.dart';
-import '../models/meter_log_model.dart';
 import '../models/user_model.dart';
 import '../models/water_log_model.dart';
 
@@ -33,74 +32,7 @@ class FirestoreService {
     await _db.collection('users').doc(uid).update(data);
   }
 
-  // ==================== METER LOGS ====================
-
-  // บันทึกค่ามิเตอร์
-  Future<void> saveMeterLog(MeterLogModel log) async {
-    await _db
-        .collection('users')
-        .doc(log.uid)
-        .collection('meter_logs')
-        .doc(log.id)
-        .set(log.toMap());
-  }
-
-  // ดึงประวัติค่ามิเตอร์ทั้งหมด
-  Stream<List<MeterLogModel>> getMeterLogs(String uid) {
-    return _db
-        .collection('users')
-        .doc(uid)
-        .collection('meter_logs')
-        .orderBy('date', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => MeterLogModel.fromMap(doc.data()))
-            .toList());
-  }
-
-  // ดึงค่ามิเตอร์ล่าสุด
-  Future<MeterLogModel?> getLatestMeterLog(String uid) async {
-    final snapshot = await _db
-        .collection('users')
-        .doc(uid)
-        .collection('meter_logs')
-        .orderBy('date', descending: true)
-        .limit(1)
-        .get();
-
-    if (snapshot.docs.isNotEmpty) {
-      return MeterLogModel.fromMap(snapshot.docs.first.data());
-    }
-    return null;
-  }
-
-  // ดึงค่ามิเตอร์ในรอบเดือนปัจจุบัน
-  Future<List<MeterLogModel>> getCurrentMonthLogs(
-      String uid, DateTime startDate, DateTime endDate) async {
-    final snapshot = await _db
-        .collection('users')
-        .doc(uid)
-        .collection('meter_logs')
-        .where('date', isGreaterThanOrEqualTo: startDate.toIso8601String())
-        .where('date', isLessThanOrEqualTo: endDate.toIso8601String())
-        .orderBy('date')
-        .get();
-
-    return snapshot.docs
-        .map((doc) => MeterLogModel.fromMap(doc.data()))
-        .toList();
-  }
-
-  // ลบค่ามิเตอร์
-  Future<void> deleteMeterLog(String uid, String logId) async {
-    await _db
-        .collection('users')
-        .doc(uid)
-        .collection('meter_logs')
-        .doc(logId)
-        .delete();
-  }
-
+  
   // ==================== BILLS ====================
 
   // บันทึกบิลรายเดือน
