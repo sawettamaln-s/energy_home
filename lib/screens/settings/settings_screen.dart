@@ -6,6 +6,7 @@ import '../../models/electricity_log_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
+import '../analysis/analysis_screen.dart';
 import '../appliance/appliance_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 
@@ -34,21 +35,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = false);
   }
 
-  void _handleBottomNavTap(int index) {
-    if (index == 3) return; // Already on Settings
-    
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
-      );
-    } else if (index == 2) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const ApplianceScreen()),
-      );
-    }
+void _handleBottomNavTap(int index) {
+  if (index == 3) return; // Already on Settings
+  
+  if (index == 0) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+    );
+  } else if (index == 1) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const AnalysisScreen()),
+    );
+  } else if (index == 2) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const ApplianceScreen()),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {

@@ -7,6 +7,7 @@ import '../../models/appliance_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/default_appliances.dart';
+import '../analysis/analysis_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -237,10 +238,8 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                           ),
                                         ),
                                         IconButton(
-                                          icon: const Icon(
-                                              Icons.delete_outline,
-                                              color: Colors.red,
-                                              size: 20),
+                                          icon: const Icon(Icons.delete_outline,
+                                              color: Colors.red, size: 20),
                                           onPressed: () => _confirmDelete(a),
                                         ),
                                       ],
@@ -282,15 +281,13 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                     ),
                                   ),
                                   ClipRRect(
-                                    borderRadius:
-                                        const BorderRadius.vertical(
-                                            bottom: Radius.circular(14)),
+                                    borderRadius: const BorderRadius.vertical(
+                                        bottom: Radius.circular(14)),
                                     child: Row(
                                       children: [
                                         Expanded(
                                           child: InkWell(
-                                            onTap: () =>
-                                                _showDetailSheet(a),
+                                            onTap: () => _showDetailSheet(a),
                                             child: const Padding(
                                               padding: EdgeInsets.symmetric(
                                                   vertical: 11),
@@ -299,8 +296,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                                   'ดูข้อมูล',
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    fontWeight:
-                                                        FontWeight.w600,
+                                                    fontWeight: FontWeight.w600,
                                                     color: Color(0xFF333333),
                                                   ),
                                                 ),
@@ -325,8 +321,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                                   'แก้ไข',
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    fontWeight:
-                                                        FontWeight.w600,
+                                                    fontWeight: FontWeight.w600,
                                                     color: Color(0xFF2E7D32),
                                                   ),
                                                 ),
@@ -351,17 +346,20 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         onTap: (index) {
-          if (index == 2) return;
-
           if (index == 0) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const DashboardScreen()),
+              MaterialPageRoute(builder: (_) => const DashboardScreen()),
+            );
+          } else if (index == 1) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const AnalysisScreen()),
             );
           } else if (index == 3) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
             );
           }
         },
@@ -518,8 +516,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _detailBox(
-                        'ต่อวันที่ใช้งาน',
+                    child: _detailBox('ต่อวันที่ใช้งาน',
                         '฿${formatter.format(costPerActiveDay)}'),
                   ),
                   const SizedBox(width: 10),
@@ -733,9 +730,12 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(_isEditing ? 'แก้ไขเครื่องใช้ไฟฟ้า' : 'เพิ่มเครื่องใช้ไฟฟ้า',
-                    style:
-                        const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                    _isEditing
+                        ? 'แก้ไขเครื่องใช้ไฟฟ้า'
+                        : 'เพิ่มเครื่องใช้ไฟฟ้า',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -788,8 +788,11 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                             onPressed: () => setState(() => _isCustom = false),
                           ),
                         Text(
-                            _isEditing ? 'แก้ไขข้อมูลอุปกรณ์' : 'กรอกข้อมูลอุปกรณ์',
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                            _isEditing
+                                ? 'แก้ไขข้อมูลอุปกรณ์'
+                                : 'กรอกข้อมูลอุปกรณ์',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -925,9 +928,8 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                 shape: BoxShape.circle,
                 color: selected ? const Color(0xFF2E7D32) : Colors.white,
                 border: Border.all(
-                  color: selected
-                      ? const Color(0xFF2E7D32)
-                      : Colors.grey.shade300,
+                  color:
+                      selected ? const Color(0xFF2E7D32) : Colors.grey.shade300,
                 ),
               ),
               child: Text(
@@ -951,7 +953,8 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     final activeDaysPerWeek = _selectedDays.isEmpty ? 7 : _selectedDays.length;
 
     double kWhPerDay = (watt * hours) / 1000;
-    double costPerDay = kWhPerDay * 4.5; // อัตราเฉลี่ยประมาณการ (เฉพาะวันที่ใช้)
+    double costPerDay =
+        kWhPerDay * 4.5; // อัตราเฉลี่ยประมาณการ (เฉพาะวันที่ใช้)
     double costPerMonth = costPerDay * (activeDaysPerWeek / 7) * 30;
     double costPerYear = costPerDay * (activeDaysPerWeek / 7) * 365;
 

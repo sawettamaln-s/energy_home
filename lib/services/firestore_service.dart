@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
@@ -111,18 +113,85 @@ class FirestoreService {
         .set(bill.toMap());
   }
 
+  /// รวม logs ของเดือนที่กำหนด → สร้าง Bill
+  Future<void> compileBill(
+    String uid,
+    int year,
+    int month,
+    double fixedCost,
+  ) async {
+    try {
+      final user = await getUser(uid);
+      if (user == null) return;
+
+      final now = DateTime.now();
+      final billingDay = user.billingDay;
+
+      // คำนวณช่วงเวลา billing
+      DateTime startDate, endDate;
+      if (now.day >= billingDay) {
+        startDate = DateTime(now.year, now.month, billingDay);
+        endDate = DateTime(now.year, now.month + 1, billingDay);
+      } else {
+        startDate = DateTime(now.year, now.month - 1, billingDay);
+        endDate = DateTime(now.year, now.month, billingDay);
+      }
+
+      // ดึง logs เดือนนี้
+      final eLogs = await getCurrentMonthElectricityLogs(uid, startDate, endDate);
+      final wLogs = await getCurrentMonthWaterLogs(uid, startDate, endDate);
+
+      // รวมค่า
+      double totalElec = eLogs.fold(0, (sum, log) => sum + log.cost);
+      double totalWater = wLogs.fold(0, (sum, log) => sum + log.cost);
+      double usedElec = eLogs.isNotEmpty ? eLogs.first.usedFromStart : 0;
+      double usedWater = wLogs.isNotEmpty ? wLogs.first.usedFromStart : 0;
+
+      // สร้าง Bill
+      final bill = BillModel(
+        id: const Uuid().v4(),
+        uid: uid,
+        year: year,
+        month: month,
+        electricityUsed: usedElec,
+        waterUsed: usedWater,
+        electricityCost: totalElec,
+        waterCost: totalWater,
+        fixedCost: fixedCost,
+        totalCost: totalElec + totalWater + fixedCost,
+        forecastElectricity: totalElec,
+        forecastWater: totalWater,
+        forecastTotal: totalElec + totalWater + fixedCost,
+        isComplete: false,
+      );
+
+      // บันทึกลง Firestore
+      await saveBill(bill);
+      debugPrint('✅ Bill compiled for $year-$month');
+    } catch (e) {
+      debugPrint('❌ Error compiling bill: $e');
+    }
+  }
+
   // ดึงบิลทั้งหมด
   Future<List<BillModel>> getBills(String uid) async {
     final snapshot = await _db
         .collection('users')
         .doc(uid)
         .collection('bills')
-        .orderBy('year', descending: true)
         .get();
 
-    return snapshot.docs
-        .map((doc) => BillModel.fromMap(doc.data()))
+    final bills = snapshot.docs
+        .map((doc) => BillModel.fromMap({...doc.data(), 'id': doc.id}))
         .toList();
+
+    // เรียง manual
+    bills.sort((a, b) {
+      if (a.year != b.year) return b.year.compareTo(a.year);
+      return b.month.compareTo(a.month);
+    });
+
+    return bills;
   }
 
   // ดึงบิลย้อนหลัง N เดือน
@@ -131,13 +200,20 @@ class FirestoreService {
         .collection('users')
         .doc(uid)
         .collection('bills')
-        .orderBy('year', descending: true)
         .limit(months)
         .get();
 
-    return snapshot.docs
-        .map((doc) => BillModel.fromMap(doc.data()))
+    final bills = snapshot.docs
+        .map((doc) => BillModel.fromMap({...doc.data(), 'id': doc.id}))
         .toList();
+
+    // เรียง manual
+    bills.sort((a, b) {
+      if (a.year != b.year) return b.year.compareTo(a.year);
+      return b.month.compareTo(a.month);
+    });
+
+    return bills.reversed.toList();
   }
 
   // ==================== APPLIANCES ====================
@@ -173,6 +249,7 @@ class FirestoreService {
         .doc(applianceId)
         .delete();
   }
+
   // ==================== ELECTRICITY LOGS ====================
 
   Future<void> saveElectricityLog(ElectricityLogModel log) async {

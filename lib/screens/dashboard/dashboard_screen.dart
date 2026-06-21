@@ -9,6 +9,7 @@ import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
+import '../analysis/analysis_screen.dart';
 import '../appliance/appliance_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -547,7 +548,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
-          if (index == 2) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AnalysisScreen()),
+            );
+          } else if (index == 2) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ApplianceScreen()),
@@ -684,7 +690,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.menu, size: 16),
-              label: const Text('บันทึกมิเตอร์', style: TextStyle(fontSize: 13)),
+              label:
+                  const Text('บันทึกมิเตอร์', style: TextStyle(fontSize: 13)),
             ),
           ),
         ],
