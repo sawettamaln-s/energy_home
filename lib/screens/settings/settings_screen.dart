@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../models/bill_model.dart';
 import '../../models/electricity_log_model.dart';
+import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
@@ -122,30 +123,89 @@ void _handleBottomNavTap(int index) {
                 ],
               ),
             ),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: _buildBottomNavBar(
         currentIndex: 3,
         onTap: _handleBottomNavTap,
-        selectedItemColor: const Color(0xFF2E7D32),
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'หน้าหลัก',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'วิเคราะห์',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.electrical_services),
-            label: 'อุปกรณ์',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'ตั้งค่า',
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------------
+  // บาร์ล่างแบบ floating pill — เหมือนกันทุกหน้า (วางโค้ดนี้ก๊อปไว้ทุกไฟล์)
+  // -------------------------------------------------------------------
+  Widget _buildBottomNavBar({
+    required int currentIndex,
+    required void Function(int) onTap,
+  }) {
+    final items = [
+      (icon: Icons.dashboard_rounded, label: 'หน้าหลัก'),
+      (icon: Icons.bar_chart_rounded, label: 'วิเคราะห์'),
+      (icon: Icons.electrical_services, label: 'อุปกรณ์'),
+      (icon: Icons.settings_rounded, label: 'ตั้งค่า'),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(items.length, (index) {
+          final isSelected = index == currentIndex;
+          final item = items[index];
+          return Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onTap(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF2E7D32).withOpacity(0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item.icon,
+                      size: 22,
+                      color: isSelected
+                          ? const Color(0xFF2E7D32)
+                          : Colors.grey.shade500,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item.label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected
+                            ? const Color(0xFF2E7D32)
+                            : Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -247,6 +307,13 @@ void _handleBottomNavTap(int index) {
             subtitle: 'กรอกหน่วยจากใบแจ้งหนี้ล่าสุด',
             onTap: () => _showEditStartMeter(),
           ),
+          const Divider(height: 1, indent: 56),
+          _buildSettingsTile(
+            icon: Icons.manage_history,
+            title: 'ประวัติค่ามิเตอร์ต้นรอบ',
+            subtitle: 'ดูค่าที่เคยตั้ง/แก้ไขไว้ทั้งหมด',
+            onTap: () => _showStartMeterHistory(),
+          ),
         ],
       ),
     );
@@ -284,9 +351,9 @@ void _handleBottomNavTap(int index) {
           const Divider(height: 1, indent: 56),
           _buildSettingsTile(
             icon: Icons.receipt_long,
-            title: 'เพิ่มบันทึกบิลย้อนหลัง',
-            subtitle: 'ไม่บังคับ • สูงสุด 6 เดือน สำหรับให้หน้าวิเคราะห์มีข้อมูล',
-            onTap: () => _showAddHistoricalBillSheet(),
+            title: 'บันทึกบิลย้อนหลัง',
+            subtitle: 'เพิ่ม แก้ไข หรือลบบิลที่กรอกย้อนหลัง',
+            onTap: () => _showHistoricalBillList(),
           ),
         ],
       ),
@@ -627,6 +694,20 @@ void _handleBottomNavTap(int index) {
                   'startBillingMonth': selectedMonth,
                   'startBillingYear': selectedYear,
                 });
+                // เก็บ snapshot ไว้ในประวัติ เผื่อย้อนดูทีหลังว่าเคยตั้งค่าอะไรไว้
+                await _firestoreService.saveStartMeterRecord(
+                  StartMeterRecordModel(
+                    id: const Uuid().v4(),
+                    uid: _user!.uid,
+                    electricityValue: eVal,
+                    waterValue: wVal,
+                    peakValue: _user?.startPeakValue ?? 0,
+                    offPeakValue: _user?.startOffPeakValue ?? 0,
+                    billingMonth: selectedMonth,
+                    billingYear: selectedYear,
+                    recordedAt: DateTime.now(),
+                  ),
+                );
                 await _loadUser();
                 if (mounted) Navigator.pop(context);
               },
@@ -637,6 +718,18 @@ void _handleBottomNavTap(int index) {
               child: const Text('บันทึก'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showStartMeterHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _StartMeterHistoryScreen(
+          uid: _user!.uid,
+          firestoreService: _firestoreService,
         ),
       ),
     );
@@ -666,31 +759,33 @@ void _handleBottomNavTap(int index) {
     );
   }
 
-  void _showAddHistoricalBillSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _AddHistoricalBillSheet(
-        uid: _user!.uid,
-        defaultFixedCost: _user?.fixedCost ?? 0,
-        firestoreService: _firestoreService,
+  void _showHistoricalBillList() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _HistoricalBillListScreen(
+          uid: _user!.uid,
+          defaultFixedCost: _user?.fixedCost ?? 0,
+          firestoreService: _firestoreService,
+        ),
       ),
     );
   }
 }
 
-// ==================== เพิ่มบันทึกบิลย้อนหลัง ====================
+// ==================== เพิ่ม/แก้ไขบันทึกบิลย้อนหลัง ====================
 // ไม่บังคับ • สูงสุด 6 เดือน — ใช้ให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก
 class _AddHistoricalBillSheet extends StatefulWidget {
   final String uid;
   final double defaultFixedCost;
   final FirestoreService firestoreService;
+  final BillModel? existingBill; // null = เพิ่มใหม่, ไม่ null = แก้ไขของเดิม
 
   const _AddHistoricalBillSheet({
     required this.uid,
     required this.defaultFixedCost,
     required this.firestoreService,
+    this.existingBill,
   });
 
   @override
@@ -719,14 +814,35 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   @override
   void initState() {
     super.initState();
+    final existing = widget.existingBill;
     final now = DateTime.now();
     _monthOptions = List.generate(
       6,
       (i) => DateTime(now.year, now.month - (i + 1), 1),
     );
-    _selectedMonth = _monthOptions.first;
-    _fixedCtrl =
-        TextEditingController(text: widget.defaultFixedCost.toStringAsFixed(0));
+    // ถ้าแก้ไขบิลที่เดือนอยู่นอกช่วง 6 เดือนล่าสุด ให้เพิ่มเดือนนั้นเข้าไปในตัวเลือกด้วย
+    if (existing != null &&
+        !_monthOptions.any(
+            (m) => m.year == existing.year && m.month == existing.month)) {
+      _monthOptions.add(DateTime(existing.year, existing.month, 1));
+    }
+    _selectedMonth = existing != null
+        ? DateTime(existing.year, existing.month, 1)
+        : _monthOptions.first;
+    _fixedCtrl = TextEditingController(
+        text: (existing?.fixedCost ?? widget.defaultFixedCost)
+            .toStringAsFixed(0));
+    if (existing != null) {
+      _eUsedCtrl.text = existing.electricityUsed == 0
+          ? ''
+          : existing.electricityUsed.toStringAsFixed(2);
+      _eCostCtrl.text =
+          existing.electricityCost == 0 ? '' : existing.electricityCost.toStringAsFixed(2);
+      _wUsedCtrl.text =
+          existing.waterUsed == 0 ? '' : existing.waterUsed.toStringAsFixed(2);
+      _wCostCtrl.text =
+          existing.waterCost == 0 ? '' : existing.waterCost.toStringAsFixed(2);
+    }
     _loadTakenMonths();
 
     for (final c in [_eUsedCtrl, _eCostCtrl, _wUsedCtrl, _wCostCtrl, _fixedCtrl]) {
@@ -747,13 +863,21 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   Future<void> _loadTakenMonths() async {
     final bills = await widget.firestoreService.getBills(widget.uid);
     final taken = bills.map((b) => '${b.year}-${b.month}').toSet();
+    // กำลังแก้ไขบิลเดือนนี้อยู่ → ไม่ถือว่าเดือนนี้ "ถูกจองแล้ว" สำหรับตัวมันเอง
+    final existing = widget.existingBill;
+    if (existing != null) {
+      taken.remove('${existing.year}-${existing.month}');
+    }
 
     // ถ้าเดือนแรก (ใหม่สุด) มีบิลแล้ว ให้เลื่อนไปเลือกเดือนแรกที่ยังว่างแทน
+    // (เฉพาะตอนเพิ่มใหม่ — ตอนแก้ไขให้คงเดือนเดิมของบิลไว้)
     DateTime initialSelection = _selectedMonth;
-    for (final m in _monthOptions) {
-      if (!taken.contains('${m.year}-${m.month}')) {
-        initialSelection = m;
-        break;
+    if (existing == null) {
+      for (final m in _monthOptions) {
+        if (!taken.contains('${m.year}-${m.month}')) {
+          initialSelection = m;
+          break;
+        }
       }
     }
 
@@ -775,6 +899,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
       _takenMonths.contains('${_selectedMonth.year}-${_selectedMonth.month}');
 
   Future<void> _save() async {
+    final isEditing = widget.existingBill != null;
     if (_isSelectedMonthTaken) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('เดือนนี้มีบิลบันทึกไว้แล้ว')),
@@ -791,7 +916,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     setState(() => _isSaving = true);
     try {
       final bill = BillModel(
-        id: const Uuid().v4(),
+        id: isEditing ? widget.existingBill!.id : const Uuid().v4(),
         uid: widget.uid,
         year: _selectedMonth.year,
         month: _selectedMonth.month,
@@ -809,7 +934,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
         source: 'imported',
       );
       await widget.firestoreService.saveBill(bill);
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -860,9 +985,11 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'เพิ่มบันทึกบิลย้อนหลัง',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  widget.existingBill != null
+                      ? 'แก้ไขบันทึกบิลย้อนหลัง'
+                      : 'เพิ่มบันทึกบิลย้อนหลัง',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -1038,7 +1165,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       ),
                       child: _isSaving
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('บันทึก'),
+                          : Text(widget.existingBill != null ? 'บันทึกการแก้ไข' : 'บันทึก'),
                     ),
                   ),
                 ],
@@ -1046,6 +1173,150 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ==================== รายการบิลย้อนหลัง (แก้ไข/ลบได้) ====================
+class _HistoricalBillListScreen extends StatefulWidget {
+  final String uid;
+  final double defaultFixedCost;
+  final FirestoreService firestoreService;
+
+  const _HistoricalBillListScreen({
+    required this.uid,
+    required this.defaultFixedCost,
+    required this.firestoreService,
+  });
+
+  @override
+  State<_HistoricalBillListScreen> createState() =>
+      _HistoricalBillListScreenState();
+}
+
+class _HistoricalBillListScreenState
+    extends State<_HistoricalBillListScreen> {
+  static const _thaiMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+  ];
+
+  List<BillModel> _bills = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    final all = await widget.firestoreService.getBills(widget.uid);
+    // เฉพาะบิลที่กรอกย้อนหลังเอง (ไม่ใช่บิลที่ระบบสรุปจาก log อัตโนมัติ)
+    final imported = all.where((b) => b.source == 'imported').toList();
+    if (mounted) {
+      setState(() {
+        _bills = imported;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openSheet({BillModel? existingBill}) async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddHistoricalBillSheet(
+        uid: widget.uid,
+        defaultFixedCost: widget.defaultFixedCost,
+        firestoreService: widget.firestoreService,
+        existingBill: existingBill,
+      ),
+    );
+    if (saved == true) _load();
+  }
+
+  Future<void> _confirmDelete(BillModel bill) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ลบบิลนี้?'),
+        content: Text(
+            'ลบบันทึกบิลของเดือน ${_thaiMonths[bill.month - 1]} ${bill.year}'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await widget.firestoreService.deleteBill(widget.uid, bill.id);
+      _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formatter = NumberFormat('#,##0.00');
+    return Scaffold(
+      appBar: AppBar(title: const Text('บันทึกบิลย้อนหลัง')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _bills.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'ยังไม่มีบิลย้อนหลัง\nกดปุ่ม + เพื่อเพิ่มบิลของเดือนก่อนๆ',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _bills.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final bill = _bills[index];
+                    return Card(
+                      child: ListTile(
+                        title: Text(
+                            '${_thaiMonths[bill.month - 1]} ${bill.year}'),
+                        subtitle:
+                            Text('ยอดรวม ฿${formatter.format(bill.totalCost)}'),
+                        onTap: () => _openSheet(existingBill: bill),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              onPressed: () => _openSheet(existingBill: bill),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  size: 20, color: Colors.red),
+                              onPressed: () => _confirmDelete(bill),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openSheet(),
+        backgroundColor: const Color(0xFF2E7D32),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -1396,5 +1667,128 @@ class _WaterHistoryScreenState extends State<_WaterHistoryScreen> {
       await widget.firestoreService.deleteWaterLog(log.uid, log.id);
       await _loadLogs();
     }
+  }
+}
+
+// ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
+class _StartMeterHistoryScreen extends StatefulWidget {
+  final String uid;
+  final FirestoreService firestoreService;
+
+  const _StartMeterHistoryScreen({
+    required this.uid,
+    required this.firestoreService,
+  });
+
+  @override
+  State<_StartMeterHistoryScreen> createState() =>
+      _StartMeterHistoryScreenState();
+}
+
+class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
+  static const _thaiMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+  ];
+
+  List<StartMeterRecordModel> _records = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    final records = await widget.firestoreService.getStartMeterHistory(widget.uid);
+    if (mounted) {
+      setState(() {
+        _records = records;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _confirmDelete(StartMeterRecordModel record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ลบรายการนี้?'),
+        content: const Text('ลบประวัติการตั้งค่ามิเตอร์ต้นรอบรายการนี้'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await widget.firestoreService.deleteStartMeterRecord(widget.uid, record.id);
+      _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formatter = NumberFormat('#,##0.00');
+    final dateFormatter = DateFormat('dd/MM/yyyy HH:mm');
+    return Scaffold(
+      appBar: AppBar(title: const Text('ประวัติค่ามิเตอร์ต้นรอบ')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _records.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'ยังไม่มีประวัติการตั้งค่ามิเตอร์ต้นรอบ',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _records.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final r = _records[index];
+                    final isLatest = index == 0;
+                    return Card(
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.history,
+                          color: isLatest ? const Color(0xFF2E7D32) : Colors.grey,
+                        ),
+                        title: Text(
+                          'ต้นรอบ ${_thaiMonths[r.billingMonth - 1]} ${r.billingYear}'
+                          '${isLatest ? '  (ปัจจุบัน)' : ''}',
+                          style: TextStyle(
+                            fontWeight: isLatest ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'ไฟ ${formatter.format(r.electricityValue)} หน่วย • '
+                          'น้ำ ${formatter.format(r.waterValue)} ลบ.ม.\n'
+                          'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}',
+                        ),
+                        isThreeLine: true,
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              size: 20, color: Colors.red),
+                          onPressed: () => _confirmDelete(r),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+    );
   }
 }

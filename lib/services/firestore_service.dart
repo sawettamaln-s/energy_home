@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
 import '../models/electricity_log_model.dart';
+import '../models/start_meter_record_model.dart';
 import '../models/user_model.dart';
 import '../models/water_log_model.dart';
 
@@ -32,6 +33,45 @@ class FirestoreService {
     await _db.collection('users').doc(uid).update(data);
   }
 
+  // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
+
+  // เก็บ snapshot ทุกครั้งที่มีการตั้ง/แก้ไขค่ามิเตอร์ต้นรอบ
+  Future<void> saveStartMeterRecord(StartMeterRecordModel record) async {
+    await _db
+        .collection('users')
+        .doc(record.uid)
+        .collection('start_meter_history')
+        .doc(record.id)
+        .set(record.toMap());
+  }
+
+  // ดึงประวัติทั้งหมด เรียงจากล่าสุดไปเก่าสุด
+  Future<List<StartMeterRecordModel>> getStartMeterHistory(String uid) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('start_meter_history')
+        .get();
+
+    final records = snapshot.docs
+        .map((doc) =>
+            StartMeterRecordModel.fromMap({...doc.data(), 'id': doc.id}))
+        .toList();
+
+    records.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    return records;
+  }
+
+  // ลบรายการประวัติ (เผื่อบันทึกผิดแล้วอยากลบทิ้ง)
+  Future<void> deleteStartMeterRecord(String uid, String recordId) async {
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('start_meter_history')
+        .doc(recordId)
+        .delete();
+  }
+
   // ==================== BILLS ====================
 
   // บันทึกบิลรายเดือน
@@ -42,6 +82,16 @@ class FirestoreService {
         .collection('bills')
         .doc(bill.id)
         .set(bill.toMap());
+  }
+
+  // ลบบิล (ใช้สำหรับลบบิลย้อนหลังที่กรอกผิด)
+  Future<void> deleteBill(String uid, String billId) async {
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('bills')
+        .doc(billId)
+        .delete();
   }
 
   /// รวม logs ของรอบบิลที่ปิดแล้ว (startDate -> endDate) → สร้าง Bill

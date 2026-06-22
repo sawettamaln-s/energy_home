@@ -118,11 +118,8 @@ Future<void> _loadData() async {
                     ),
                   ],
                 ),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: _buildBottomNavBar(
         currentIndex: 1,
-        selectedItemColor: _green,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
         onTap: (index) {
           if (index == 1) return;
           if (index == 0) {
@@ -136,13 +133,86 @@ Future<void> _loadData() async {
                 MaterialPageRoute(builder: (_) => const SettingsScreen()));
           }
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'หน้าหลัก'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'วิเคราะห์'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.electrical_services), label: 'อุปกรณ์'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'ตั้งค่า'),
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------------
+  // บาร์ล่างแบบ floating pill — เหมือนกันทุกหน้า (วางโค้ดนี้ก๊อปไว้ทุกไฟล์)
+  // -------------------------------------------------------------------
+  Widget _buildBottomNavBar({
+    required int currentIndex,
+    required void Function(int) onTap,
+  }) {
+    final items = [
+      (icon: Icons.dashboard_rounded, label: 'หน้าหลัก'),
+      (icon: Icons.bar_chart_rounded, label: 'วิเคราะห์'),
+      (icon: Icons.electrical_services, label: 'อุปกรณ์'),
+      (icon: Icons.settings_rounded, label: 'ตั้งค่า'),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
         ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(items.length, (index) {
+          final isSelected = index == currentIndex;
+          final item = items[index];
+          return Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onTap(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF2E7D32).withOpacity(0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item.icon,
+                      size: 22,
+                      color: isSelected
+                          ? const Color(0xFF2E7D32)
+                          : Colors.grey.shade500,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item.label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected
+                            ? const Color(0xFF2E7D32)
+                            : Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -277,10 +347,6 @@ class _UtilityTab extends StatelessWidget {
   }
 
   Widget _comparisonCard(String label, ComparisonResult? r) {
-    final hasData = r != null;
-    final isUp = hasData && r.isIncrease;
-    final pct = hasData ? r.percentChange : null;
-
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -296,24 +362,26 @@ class _UtilityTab extends StatelessWidget {
           Text(label,
               style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
           const SizedBox(height: 8),
-          if (!hasData)
+          if (r == null)
             const Text('ไม่มีข้อมูลพอเทียบ',
                 style: TextStyle(fontSize: 12, color: Colors.grey))
           else
             Row(
               children: [
                 Icon(
-                  isUp ? Icons.arrow_upward : Icons.arrow_downward,
+                  r.isIncrease ? Icons.arrow_upward : Icons.arrow_downward,
                   size: 16,
-                  color: isUp ? Colors.red : _green,
+                  color: r.isIncrease ? Colors.red : _green,
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  pct == null ? '฿${_fmt.format(r.diff.abs())}' : '${pct.abs().toStringAsFixed(1)}%',
+                  r.percentChange == null
+                      ? '฿${_fmt.format(r.diff.abs())}'
+                      : '${r.percentChange!.abs().toStringAsFixed(1)}%',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: isUp ? Colors.red : _green,
+                    color: r.isIncrease ? Colors.red : _green,
                   ),
                 ),
               ],

@@ -562,40 +562,104 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AnalysisScreen()),
-            );
-          } else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ApplianceScreen()),
-            );
-          } else if (index == 3) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsScreen()),
-            );
-          } else {
-            setState(() => _currentIndex = index);
-          }
-        },
-        selectedItemColor: const Color(0xFF2E7D32),
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard), label: 'หน้าหลัก'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart), label: 'วิเคราะห์'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.electrical_services), label: 'อุปกรณ์'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'ตั้งค่า'),
+      bottomNavigationBar: _buildBottomNavBar(),
+    );
+  }
+
+  // -------------------------------------------------------------------
+  // บาร์ล่างแบบใหม่ — floating pill style แทน BottomNavigationBar เดิม
+  // -------------------------------------------------------------------
+  Widget _buildBottomNavBar() {
+    final items = [
+      (icon: Icons.dashboard_rounded, label: 'หน้าหลัก'),
+      (icon: Icons.bar_chart_rounded, label: 'วิเคราะห์'),
+      (icon: Icons.electrical_services, label: 'อุปกรณ์'),
+      (icon: Icons.settings_rounded, label: 'ตั้งค่า'),
+    ];
+
+    void onTap(int index) {
+      if (index == 1) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AnalysisScreen()),
+        );
+      } else if (index == 2) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ApplianceScreen()),
+        );
+      } else if (index == 3) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SettingsScreen()),
+        );
+      } else {
+        setState(() => _currentIndex = index);
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
         ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(items.length, (index) {
+          final isSelected = index == _currentIndex;
+          final item = items[index];
+          return Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onTap(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF2E7D32).withOpacity(0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item.icon,
+                      size: 22,
+                      color: isSelected
+                          ? const Color(0xFF2E7D32)
+                          : Colors.grey.shade500,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item.label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected
+                            ? const Color(0xFF2E7D32)
+                            : Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -649,15 +713,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 2),
-          Text(
-            [
-              if (lastValue != null)
-                'ล่าสุด: ${formatter.format(lastValue)} $unit',
-              if (startValue != null)
-                'ต้นรอบ: ${formatter.format(startValue)} $unit',
-            ].join(' • '),
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
+          if (lastValue != null)
+            Text(
+              'ล่าสุด: ${formatter.format(lastValue)} $unit',
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          if (startValue != null)
+            Text(
+              'ต้นรอบ: ${formatter.format(startValue)} $unit',
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
           const SizedBox(height: 8),
           TextField(
             controller: controller,
