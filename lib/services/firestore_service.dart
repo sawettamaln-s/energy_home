@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
 import '../models/electricity_log_model.dart';
+import '../models/fixed_cost_item_model.dart';
 import '../models/start_meter_record_model.dart';
 import '../models/user_model.dart';
 import '../models/water_log_model.dart';
@@ -31,6 +32,52 @@ class FirestoreService {
   // อัพเดทข้อมูลผู้ใช้
   Future<void> updateUser(String uid, Map<String, dynamic> data) async {
     await _db.collection('users').doc(uid).update(data);
+  }
+
+  // ==================== FIXED COST ITEMS ====================
+  // เก็บ Fixed Cost เป็นรายการย่อยๆ (ค่าแก๊ส, อินเทอร์เน็ต, ส่วนกลาง ฯลฯ)
+  // แทนยอดเดียวแบบเดิม ทุกครั้งที่เพิ่ม/แก้/ลบรายการ จะคำนวณยอดรวมใหม่แล้ว
+  // เก็บ cache ไว้ที่ users/{uid}.fixedCost ด้วย (ดู _recalcFixedCostTotal)
+  // เพื่อให้ Dashboard และ compileBill() ที่อ่าน user.fixedCost อยู่แล้ว
+  // ทำงานถูกต้องต่อไปโดยไม่ต้องแก้โค้ดจุดอื่นเลย
+
+  Future<void> saveFixedCostItem(FixedCostItemModel item) async {
+    await _db
+        .collection('users')
+        .doc(item.uid)
+        .collection('fixed_costs')
+        .doc(item.id)
+        .set(item.toMap());
+    await _recalcFixedCostTotal(item.uid);
+  }
+
+  Future<List<FixedCostItemModel>> getFixedCostItems(String uid) async {
+    final snapshot =
+        await _db.collection('users').doc(uid).collection('fixed_costs').get();
+
+    final items = snapshot.docs
+        .map((doc) => FixedCostItemModel.fromMap({...doc.data(), 'id': doc.id}))
+        .toList();
+
+    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return items;
+  }
+
+  Future<void> deleteFixedCostItem(String uid, String itemId) async {
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('fixed_costs')
+        .doc(itemId)
+        .delete();
+    await _recalcFixedCostTotal(uid);
+  }
+
+  // รวมยอด fixed cost ทุกรายการแล้วอัปเดต cache ที่ users/{uid}.fixedCost
+  Future<void> _recalcFixedCostTotal(String uid) async {
+    final items = await getFixedCostItems(uid);
+    final total = items.fold<double>(0, (sum, item) => sum + item.amount);
+    await updateUser(uid, {'fixedCost': total});
   }
 
   // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================

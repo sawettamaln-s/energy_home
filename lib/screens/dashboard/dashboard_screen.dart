@@ -12,6 +12,7 @@ import '../../utils/forecaster.dart';
 import '../analysis/analysis_screen.dart';
 import '../appliance/appliance_screen.dart';
 import '../settings/settings_screen.dart';
+import 'dashboard_styles.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -39,7 +40,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double _currentWaterFromStart = 0;
   double _currentElectricityCost = 0;
   double _currentWaterCost = 0;
+
+  // ----- ยอดคาดการณ์ (แยกไฟฟ้า/น้ำ) -----
   double _forecastTotal = 0;
+  double _forecastElectricityCost = 0;
+  double _forecastWaterCost = 0;
+  double _forecastElectricityUnits = 0;
+  double _forecastWaterUnits = 0;
+
+  // ----- ยอดเดือนก่อน (ใช้เทียบ "พุ่งขึ้น") -----
+  double _lastMonthElectricityCost = 0;
+  double _lastMonthWaterCost = 0;
 
   bool _isLoading = true;
   bool _isSavingElectricity = false;
@@ -62,6 +73,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
+  // =====================================================================
+  // โหลดข้อมูล: user, log ล่าสุด, log เดือนนี้, ปิดบิลเดือนก่อนถ้ายังไม่ปิด
+  // =====================================================================
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
@@ -102,6 +116,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
 
+      // ดึงยอดบิลเดือนก่อน (ที่ปิดไปแล้ว) มาเทียบ "พุ่งขึ้น/ลดลง"
+      // FirestoreService ไม่มี getBillForMonth ตรง ๆ จึงใช้ getBills() ที่คืนมา
+      // เรียงล่าสุดมาก่อนแล้ว แล้วหยิบตัวแรกซึ่งคือบิลที่ปิดล่าสุด
+      try {
+        final allBills = await _firestoreService.getBills(uid);
+        if (allBills.isNotEmpty) {
+          _lastMonthElectricityCost = allBills.first.electricityCost;
+          _lastMonthWaterCost = allBills.first.waterCost;
+        } else {
+          _lastMonthElectricityCost = 0;
+          _lastMonthWaterCost = 0;
+        }
+      } catch (_) {
+        _lastMonthElectricityCost = 0;
+        _lastMonthWaterCost = 0;
+      }
+
       _electricityLogs = await _firestoreService.getCurrentMonthElectricityLogs(
           uid, startDate, endDate);
       _waterLogs = await _firestoreService.getCurrentMonthWaterLogs(
@@ -115,6 +146,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // =====================================================================
+  // คำนวณยอดใช้งาน/ค่าใช้จ่ายเดือนนี้ + พยากรณ์สิ้นเดือน (แยกไฟฟ้า/น้ำ)
+  // =====================================================================
   Future<void> _calculateCurrentMonth() async {
     if (_electricityLogs.isNotEmpty) {
       final latest = _electricityLogs.first;
@@ -152,7 +186,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
       currentWaterCost: _currentWaterCost,
       remainingDays: remainingDays,
     );
+
+    // forecastCurrentMonth ของจริงคืนคีย์ 'electricity' / 'water' / 'total'
+    // (ไม่ใช่ 'electricityCost'/'waterCost' ที่เคยเดาไว้)
     _forecastTotal = forecast['total'] ?? 0;
+    _forecastElectricityCost = forecast['electricity'] ?? _currentElectricityCost;
+    _forecastWaterCost = forecast['water'] ?? _currentWaterCost;
+
+    // forecaster.dart ไม่มีฟังก์ชันพยากรณ์ "หน่วยการใช้" ให้ตรง ๆ
+    // จึงเรียก movingAverage แบบเดียวกัน แต่ใส่ฐานเป็นหน่วยที่ใช้ไปแล้ว
+    // (แทนที่จะเป็นค่าใช้จ่าย) เพื่อพยากรณ์จำนวนหน่วยสิ้นเดือน
+    _forecastElectricityUnits = EnergyForecaster.movingAverage(
+      dailyUsage: dailyElectricity,
+      remainingDays: remainingDays,
+      currentTotal: _currentElectricityFromStart,
+    );
+    _forecastWaterUnits = EnergyForecaster.movingAverage(
+      dailyUsage: dailyWater,
+      remainingDays: remainingDays,
+      currentTotal: _currentWaterFromStart,
+    );
   }
 
   // บันทึกค่ามิเตอร์ไฟฟ้า
@@ -365,6 +418,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // ตัวจัดการเมื่อกดปุ่ม notification ตรงหัวบาร์ (ยังไม่มีระบบจริง รอทำถัดไป)
+  void _onNotificationTap() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('ระบบแจ้งเตือนกำลังพัฒนา เร็ว ๆ นี้'),
+        backgroundColor: Color(0xFF2E7D32),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
@@ -372,132 +435,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final remainingDays = EnergyForecaster.getRemainingDays(now, billingDay);
     final daysElapsed = EnergyForecaster.getDaysElapsed(now, billingDay);
     final formatter = NumberFormat('#,##0.00');
+    final unitFormatter = NumberFormat('#,##0.#');
     final buddhistYear = now.year + 543;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+              child: CircularProgressIndicator(
+                  color: DashboardStyles.primaryGreen))
           : SafeArea(
               child: RefreshIndicator(
                 onRefresh: _loadData,
-                color: const Color(0xFF2E7D32),
+                color: DashboardStyles.primaryGreen,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header (เดิม)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'สวัสดี, ${_user?.name ?? 'ผู้ใช้'}',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'ผ่านมา $daysElapsed วัน • เหลืออีก $remainingDays วัน',
-                                style: const TextStyle(
-                                    fontSize: 12, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.logout),
-                            onPressed: () async {
-                              await FirebaseAuth.instance.signOut();
-                            },
-                          ),
-                        ],
-                      ),
+                      // -------------------------------------------------
+                      // (1) Header: สวัสดี + ผ่านมา/เหลืออีก + ปุ่ม notification
+                      // จัด layout ใหม่ ให้ "สวัสดี" เด่นขึ้น มี avatar กลม
+                      // และ progress แถบเล็ก ๆ บอกความคืบหน้าของรอบบิล
+                      // -------------------------------------------------
+                      _buildHeader(daysElapsed, remainingDays),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
 
-                      // การ์ดค่าใช้จ่าย (เดิม)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2E7D32),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('ค่าใช้จ่ายเดือนนี้',
-                                style: TextStyle(
-                                    color: Colors.white70, fontSize: 13)),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildCostCard(
-                                    icon: Icons.bolt,
-                                    label: 'ค่าไฟฟ้า',
-                                    amount:
-                                        '฿${formatter.format(_currentElectricityCost)}',
-                                    sub:
-                                        '${_currentElectricityFromStart.toStringAsFixed(1)} หน่วย',
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildCostCard(
-                                    icon: Icons.water_drop,
-                                    label: 'ค่าน้ำ',
-                                    amount:
-                                        '฿${formatter.format(_currentWaterCost)}',
-                                    sub:
-                                        '${_currentWaterFromStart.toStringAsFixed(1)} ลบ.ม.',
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.trending_up,
-                                      color: Colors.white, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'ยอดคาดการณ์สิ้นเดือน: ฿${formatter.format(_forecastTotal)}',
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      // -------------------------------------------------
+                      // (3) การ์ดค่าใช้จ่ายเดือนนี้
+                      // เพิ่ม: สัญลักษณ์พุ่งขึ้น + บรรทัดยอดคาดการณ์แยกไฟฟ้า/น้ำ
+                      // -------------------------------------------------
+                      _buildCostSummaryCard(formatter, unitFormatter),
 
                       const SizedBox(height: 20),
 
-                      // ===================================================
-                      // ส่วนที่ปรับใหม่ตามภาพ: บันทึกมิเตอร์วันนี้
-                      // ===================================================
-                      const Text(
-                        'บันทึกมิเตอร์วันนี้',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Color(0xFF333333),
-                        ),
-                      ),
+                      // -------------------------------------------------
+                      // บันทึกมิเตอร์วันนี้ (เดิม แก้แค่สี hint/last ให้จางลง)
+                      // -------------------------------------------------
+                      const Text('บันทึกมิเตอร์วันนี้',
+                          style: DashboardStyles.sectionTitle),
                       const SizedBox(height: 10),
 
                       if (_user?.meterType == 'tou')
@@ -510,8 +488,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               child: _buildMeterCard(
                                 title: 'ไฟฟ้า',
                                 icon: Icons.bolt,
-                                accent: Colors.orange,
-                                fieldBg: const Color(0xFFFFE9D6),
+                                accent: DashboardStyles.electricityAccent,
+                                fieldBg: DashboardStyles.electricityFieldBg,
                                 controller: _electricityController,
                                 hint: 'เช่น 14052',
                                 lastValue: _latestElectricityLog?.meterValue ??
@@ -528,8 +506,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               child: _buildMeterCard(
                                 title: 'น้ำ',
                                 icon: Icons.water_drop,
-                                accent: Colors.blue,
-                                fieldBg: const Color(0xFFE3F2FD),
+                                accent: DashboardStyles.waterAccent,
+                                fieldBg: DashboardStyles.waterFieldBg,
                                 controller: _waterController,
                                 hint: 'เช่น 178',
                                 lastValue: _latestWaterLog?.meterValue ??
@@ -546,23 +524,168 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                       const SizedBox(height: 16),
 
-                      // Fixed Cost (การ์ดใหม่ตามภาพ)
+                      // -------------------------------------------------
+                      // (4) Fixed Cost: กดแล้วพาไปหน้า Settings (ส่วน fixed cost)
+                      // -------------------------------------------------
                       _buildFixedCostRow(formatter),
 
                       const SizedBox(height: 16),
 
-                      // ยอดรวม (การ์ดใหม่ตามภาพ พื้นขาว กรอบครีม)
+                      // ยอดรวม (เดิม)
                       _buildSummaryCard(formatter, buddhistYear),
-
-                      // ===================================================
-                      // จบส่วนที่ปรับใหม่
-                      // ===================================================
                     ],
                   ),
                 ),
               ),
             ),
       bottomNavigationBar: _buildBottomNavBar(),
+    );
+  }
+
+  // =====================================================================
+  // (1) Header ส่วนบน: ชื่อผู้ใช้ทักทาย + สถานะรอบบิล + ปุ่ม notification
+  // พาร์ทนี้ทำหน้าที่: แสดงตัวตนผู้ใช้และบอกว่าอยู่ตรงไหนของรอบบิลปัจจุบัน
+  // (ผ่านมากี่วัน / เหลืออีกกี่วันก่อนปิดรอบ) ให้รู้สึกเข้าใจง่ายตั้งแต่เปิดแอป
+  // =====================================================================
+  Widget _buildHeader(int daysElapsed, int remainingDays) {
+    final totalCycleDays = daysElapsed + remainingDays;
+    final progress =
+        totalCycleDays > 0 ? (daysElapsed / totalCycleDays).clamp(0.0, 1.0) : 0.0;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Avatar กลมเล็ก ๆ ให้ header ดูมีมิติ ไม่ใช่แค่ตัวอักษรลอย ๆ
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: DashboardStyles.primaryGreen.withOpacity(0.12),
+          child: Text(
+            ((_user?.name?.isNotEmpty ?? false) ? _user!.name!.substring(0, 1) : 'U')
+                .toUpperCase(),
+            style: const TextStyle(
+              color: DashboardStyles.primaryGreen,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('สวัสดี, ${_user?.name ?? 'ผู้ใช้'}',
+                  style: DashboardStyles.greeting),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text('ผ่านมา $daysElapsed วัน',
+                      style: DashboardStyles.subGreeting),
+                  const Text(' • ', style: DashboardStyles.subGreeting),
+                  Text('เหลืออีก $remainingDays วัน',
+                      style: DashboardStyles.subGreeting),
+                ],
+              ),
+              const SizedBox(height: 6),
+              // แถบความคืบหน้าของรอบบิล (บาง ๆ ใต้ข้อความ)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 4,
+                  backgroundColor: Colors.grey.shade200,
+                  color: DashboardStyles.primaryGreen,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        // -------------------------------------------------------------
+        // (2) ปุ่ม notification แทนที่ปุ่ม logout เดิม
+        // การทำงานจริงไว้ทำถัดไป ตอนนี้แค่โชว์ SnackBar แจ้งว่ากำลังพัฒนา
+        // -------------------------------------------------------------
+        IconButton(
+          icon: const Icon(Icons.notifications_none_rounded,
+              color: DashboardStyles.textDark),
+          onPressed: _onNotificationTap,
+        ),
+      ],
+    );
+  }
+
+  // =====================================================================
+  // (3) การ์ดค่าใช้จ่ายเดือนนี้
+  // พาร์ทนี้ทำหน้าที่: สรุปยอดไฟฟ้า/น้ำของเดือนนี้แบบเทียบกัน พร้อม
+  // สัญลักษณ์ "พุ่งขึ้น" ถ้าค่าใช้จ่ายปัจจุบันสูงกว่าเดือนก่อน และบรรทัด
+  // ยอดคาดการณ์สิ้นเดือนแยกไฟฟ้า/น้ำ ไว้ด้านล่างของแต่ละช่อง
+  // =====================================================================
+  Widget _buildCostSummaryCard(
+      NumberFormat formatter, NumberFormat unitFormatter) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: DashboardStyles.primaryGreen,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('ค่าใช้จ่ายเดือนนี้',
+              style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildCostCard(
+                  icon: Icons.bolt,
+                  label: 'ค่าไฟฟ้า',
+                  amount: '฿${formatter.format(_currentElectricityCost)}',
+                  sub:
+                      '${_currentElectricityFromStart.toStringAsFixed(1)} หน่วย',
+                  isUp: _currentElectricityCost > _lastMonthElectricityCost &&
+                      _lastMonthElectricityCost > 0,
+                  forecastLine:
+                      '${unitFormatter.format(_forecastElectricityUnits)} หน่วย • ฿${formatter.format(_forecastElectricityCost)}',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildCostCard(
+                  icon: Icons.water_drop,
+                  label: 'ค่าน้ำ',
+                  amount: '฿${formatter.format(_currentWaterCost)}',
+                  sub: '${_currentWaterFromStart.toStringAsFixed(1)} ลบ.ม.',
+                  isUp: _currentWaterCost > _lastMonthWaterCost &&
+                      _lastMonthWaterCost > 0,
+                  forecastLine:
+                      '${unitFormatter.format(_forecastWaterUnits)} ลบ.ม. • ฿${formatter.format(_forecastWaterCost)}',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.trending_up, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'ยอดคาดการณ์สิ้นเดือน: ฿${formatter.format(_forecastTotal)}',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -628,7 +751,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF2E7D32).withOpacity(0.12)
+                      ? DashboardStyles.primaryGreen.withOpacity(0.12)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -639,7 +762,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       item.icon,
                       size: 22,
                       color: isSelected
-                          ? const Color(0xFF2E7D32)
+                          ? DashboardStyles.primaryGreen
                           : Colors.grey.shade500,
                     ),
                     const SizedBox(height: 3),
@@ -650,7 +773,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         fontWeight:
                             isSelected ? FontWeight.bold : FontWeight.w500,
                         color: isSelected
-                            ? const Color(0xFF2E7D32)
+                            ? DashboardStyles.primaryGreen
                             : Colors.grey.shade500,
                       ),
                     ),
@@ -664,9 +787,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // -------------------------------------------------------------------
-  // การ์ดบันทึกมิเตอร์แบบใหม่ (ไฟฟ้า/น้ำ) — ตามภาพ
-  // -------------------------------------------------------------------
+  // =====================================================================
+  // การ์ดบันทึกมิเตอร์ (ไฟฟ้า/น้ำ)
+  // พาร์ทนี้ทำหน้าที่: ให้ผู้ใช้กรอกเลขมิเตอร์วันนี้ พร้อมโชว์ค่าล่าสุด/ต้นรอบ
+  // เป็น "ตัวอย่าง" จาง ๆ ไว้เทียบ (แก้สีให้จางลงตามที่ขอ ผ่าน DashboardStyles)
+  // =====================================================================
   Widget _buildMeterCard({
     required String title,
     required IconData icon,
@@ -684,17 +809,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final formatter = NumberFormat('#,##0.##');
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: DashboardStyles.whiteCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -713,16 +828,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 2),
+          // ค่าล่าสุด/ต้นรอบ -> ใช้สีจางลง (lastValueStyle) ตามที่ขอ
           if (lastValue != null)
-            Text(
-              'ล่าสุด: ${formatter.format(lastValue)} $unit',
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
-            ),
+            Text('ล่าสุด: ${formatter.format(lastValue)} $unit',
+                style: DashboardStyles.lastValueStyle),
           if (startValue != null)
-            Text(
-              'ต้นรอบ: ${formatter.format(startValue)} $unit',
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
-            ),
+            Text('ต้นรอบ: ${formatter.format(startValue)} $unit',
+                style: DashboardStyles.lastValueStyle),
           const SizedBox(height: 8),
           TextField(
             controller: controller,
@@ -730,10 +842,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF333333),
+              color: DashboardStyles.textDark,
             ),
             decoration: InputDecoration(
               hintText: hint,
+              // ตัวอย่างในช่องกรอก (เช่น 14052 / เช่น 178) ให้จางลง
+              hintStyle: DashboardStyles.hintStyle,
               suffixText: unit,
               isDense: true,
               filled: true,
@@ -781,62 +895,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // -------------------------------------------------------------------
-  // แถว Fixed Cost — ตามภาพ
-  // -------------------------------------------------------------------
+  // =====================================================================
+  // (4) แถว Fixed Cost
+  // พาร์ทนี้ทำหน้าที่: โชว์ยอด fixed cost ประจำเดือน และเมื่อกดจะพาไปหน้า
+  // Settings เพื่อดู/แก้รายการ fixed cost ทั้งหมด (ลิงก์ไปหน้าตั้งค่า)
+  // =====================================================================
   Widget _buildFixedCostRow(NumberFormat formatter) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9),
-              borderRadius: BorderRadius.circular(10),
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SettingsScreen()),
+          // หมายเหตุ: ถ้า SettingsScreen รองรับ initialSection/scroll-to-anchor
+          // ค่อยเพิ่ม parameter ตรงนี้เพื่อเลื่อนไปส่วน Fixed Cost โดยตรง
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: DashboardStyles.whiteCard(),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.bookmark_outline,
+                  color: DashboardStyles.primaryGreen, size: 18),
             ),
-            child: const Icon(Icons.bookmark_outline,
-                color: Color(0xFF2E7D32), size: 18),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'Fixed Cost ประจำเดือน',
-              style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: Color(0xFF333333)),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Fixed Cost ประจำเดือน',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: DashboardStyles.textDark),
+              ),
             ),
-          ),
-          Text(
-            '฿${formatter.format(_user?.fixedCost ?? 0)}',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-              color: Color(0xFF333333),
+            Text(
+              '฿${formatter.format(_user?.fixedCost ?? 0)}',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: DashboardStyles.textDark,
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
-        ],
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
+          ],
+        ),
       ),
     );
   }
 
   // -------------------------------------------------------------------
-  // การ์ดยอดรวม — พื้นขาว กรอบครีม ตามภาพ
+  // การ์ดยอดรวม — พื้นขาว กรอบครีม (เดิม)
   // -------------------------------------------------------------------
   Widget _buildSummaryCard(NumberFormat formatter, int buddhistYear) {
     return Container(
@@ -845,7 +962,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE9DCC5)),
+        border: Border.all(color: DashboardStyles.creamBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -855,9 +972,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: Color(0xFF333333)),
+                color: DashboardStyles.textDark),
           ),
-          const Divider(height: 20, color: Color(0xFFE9DCC5)),
+          const Divider(height: 20, color: DashboardStyles.creamBorder),
           _buildSummaryRow(
             'ค่าไฟ + น้ำ (พยากรณ์)',
             '฿${formatter.format(_currentElectricityCost + _currentWaterCost)}',
@@ -867,7 +984,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             'Fixed Cost',
             '฿${formatter.format(_user?.fixedCost ?? 0)}',
           ),
-          const Divider(height: 20, color: Color(0xFFE9DCC5)),
+          const Divider(height: 20, color: DashboardStyles.creamBorder),
           _buildSummaryRow(
             'รวมทั้งสิ้น',
             '฿${formatter.format((_currentElectricityCost + _currentWaterCost) + (_user?.fixedCost ?? 0))}',
@@ -879,13 +996,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ----------------- Widget เดิม (ไม่แก้ไข) -----------------
-
+  // =====================================================================
+  // การ์ดยอดไฟฟ้า/น้ำ ในการ์ดสรุปเขียว
+  // พาร์ทนี้ทำหน้าที่: แสดงยอดปัจจุบัน + ไอคอน "พุ่งขึ้น" ถ้าสูงกว่าเดือนก่อน
+  // และบรรทัดยอดคาดการณ์สิ้นเดือนของรายการนั้น ๆ (ไฟฟ้า หรือ น้ำ) ต่อท้าย
+  // =====================================================================
   Widget _buildCostCard({
     required IconData icon,
     required String label,
     required String amount,
     required String sub,
+    required bool isUp,
+    required String forecastLine,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -899,12 +1021,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        Text(amount,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            Text(amount,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold)),
+            if (isUp) ...[
+              const SizedBox(width: 6),
+              // สัญลักษณ์พุ่งขึ้น: แสดงเฉพาะตอนค่าใช้จ่ายปัจจุบันสูงกว่าเดือนก่อน
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_upward, size: 11, color: Colors.white),
+                    SizedBox(width: 2),
+                    Text('พุ่งขึ้น',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
         Text(sub, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+        const SizedBox(height: 6),
+        // บรรทัดยอดคาดการณ์ของรายการนี้ (เพิ่มตามที่ขอ)
+        Text(
+          'คาดการณ์: $forecastLine',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ],
     );
   }
@@ -917,13 +1077,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Text(label,
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: color ?? const Color(0xFF333333),
+              color: color ?? DashboardStyles.textDark,
               fontSize: isBold ? 15 : 13,
             )),
         Text(value,
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: color ?? const Color(0xFF333333),
+              color: color ?? DashboardStyles.textDark,
               fontSize: isBold ? 18 : 14,
             )),
       ],
@@ -933,17 +1093,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildTOUMeterCard() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: DashboardStyles.whiteCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -975,9 +1125,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     hintText: 'เช่น 100',
+                    hintStyle: DashboardStyles.hintStyle,
                     suffixText: 'หน่วย',
                     filled: true,
-                    fillColor: const Color(0xFFFFE9D6),
+                    fillColor: DashboardStyles.electricityFieldBg,
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(
@@ -1005,9 +1156,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     hintText: 'เช่น 200',
+                    hintStyle: DashboardStyles.hintStyle,
                     suffixText: 'หน่วย',
                     filled: true,
-                    fillColor: const Color(0xFFFFE9D6),
+                    fillColor: DashboardStyles.electricityFieldBg,
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(

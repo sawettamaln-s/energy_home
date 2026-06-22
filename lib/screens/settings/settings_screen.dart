@@ -5,12 +5,14 @@ import 'package:uuid/uuid.dart';
 
 import '../../models/bill_model.dart';
 import '../../models/electricity_log_model.dart';
+import '../../models/fixed_cost_item_model.dart';
 import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../analysis/analysis_screen.dart';
 import '../appliance/appliance_screen.dart';
+import '../auth/login_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -36,6 +38,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     _user = await _firestoreService.getUser(uid);
     setState(() => _isLoading = false);
+  }
+
+  // เหตุที่ "ออกจากระบบ" เดิมกดแล้วไม่ออก: main.dart มี StreamBuilder
+  // ฟัง authStateChanges() อยู่ที่ root แต่พอเรา Navigator.pushReplacement
+  // ไปหน้าอื่นๆ (Dashboard/Settings/...) มันไปแทนที่ตัว StreamBuilder นั้น
+  // ในสแต็กเลย ทำให้ไม่มีอะไรเหลือคอยฟังว่า user ออกจากระบบแล้ว
+  // วิธีแก้: หลัง signOut ให้ push ไปหน้า Login ตรงๆ พร้อมเคลียร์
+  // ประวัติหน้าจอเก่าทั้งหมดทิ้ง (pushAndRemoveUntil)
+  Future<void> _confirmSignOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ออกจากระบบ'),
+        content: const Text('ต้องการออกจากระบบใช่ไหมคะ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ออกจากระบบ', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false, // ทิ้งทุกหน้าก่อนหน้าออกจากสแต็ก กันกดย้อนกลับเข้ามาได้
+    );
   }
 
 void _handleBottomNavTap(int index) {
@@ -104,9 +140,7 @@ void _handleBottomNavTap(int index) {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
-                      },
+                      onPressed: () => _confirmSignOut(),
                       icon: const Icon(Icons.logout),
                       label: const Text('ออกจากระบบ'),
                       style: ElevatedButton.styleFrom(
@@ -240,10 +274,12 @@ void _handleBottomNavTap(int index) {
       ),
       child: Column(
         children: [
+          // ชื่อ — กดแก้ไขได้
           _buildInfoRow(
             Icons.person,
             'ชื่อ',
             _user?.name ?? '-',
+            onEdit: _showEditName,
           ),
           const Divider(height: 16),
           _buildInfoRow(
@@ -360,8 +396,14 @@ void _handleBottomNavTap(int index) {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(
+    IconData icon,
+    String label,
+    String value, {
+    VoidCallback? onEdit,
+  }) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           padding: const EdgeInsets.all(8),
@@ -391,6 +433,13 @@ void _handleBottomNavTap(int index) {
             ],
           ),
         ),
+        if (onEdit != null)
+          IconButton(
+            icon: const Icon(Icons.edit_outlined,
+                size: 18, color: Colors.grey),
+            visualDensity: VisualDensity.compact,
+            onPressed: onEdit,
+          ),
       ],
     );
   }
@@ -424,79 +473,23 @@ void _handleBottomNavTap(int index) {
     );
   }
 
-  void _showEditBillingDay() {
-    int selectedDay = _user?.billingDay ?? 30;
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('วันตัดรอบบิล'),
-          content: DropdownButtonFormField<int>(
-            value: selectedDay,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 14,
-              ),
-            ),
-            items: List.generate(31, (i) {
-              return DropdownMenuItem(
-                value: i + 1,
-                child: Text('วันที่ ${i + 1}'),
-              );
-            }),
-            onChanged: (val) => setDialogState(() => selectedDay = val!),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ยกเลิก'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await _firestoreService.updateUser(
-                  _user!.uid,
-                  {'billingDay': selectedDay},
-                );
-                await _loadUser();
-                if (mounted) Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('บันทึก'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showEditFixedCost() {
-    final controller = TextEditingController(
-      text: (_user?.fixedCost ?? 0).toString(),
-    );
+  // -------------------------------------------------------------------
+  // แก้ไขชื่อ — ง่าย แก้ตรงๆใน Firestore ได้เลย ไม่กระทบ Auth
+  // -------------------------------------------------------------------
+  void _showEditName() {
+    final controller = TextEditingController(text: _user?.name ?? '');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Fixed Cost รายเดือน'),
+        title: const Text('แก้ไขชื่อ'),
         content: TextField(
           controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
           decoration: InputDecoration(
-            hintText: 'เช่น 500',
-            prefixText: '฿ ',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 14,
-            ),
+            hintText: 'ชื่อของคุณ',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           ),
         ),
         actions: [
@@ -506,11 +499,12 @@ void _handleBottomNavTap(int index) {
           ),
           ElevatedButton(
             onPressed: () async {
-              final value = double.tryParse(controller.text) ?? 0;
-              await _firestoreService.updateUser(
-                _user!.uid,
-                {'fixedCost': value},
-              );
+              final newName = controller.text.trim();
+              if (newName.isEmpty) return;
+              await _firestoreService.updateUser(_user!.uid, {'name': newName});
+              // อัปเดต displayName ของ Firebase Auth ด้วย ให้ข้อมูลตรงกันทั้งสองที่
+              await FirebaseAuth.instance.currentUser
+                  ?.updateDisplayName(newName);
               await _loadUser();
               if (mounted) Navigator.pop(context);
             },
@@ -523,6 +517,206 @@ void _handleBottomNavTap(int index) {
         ],
       ),
     );
+  }
+
+  // -------------------------------------------------------------------
+  // popup อธิบายสั้นๆ แบบ "ห้อย" ใต้หัวข้อ — ใช้ซ้ำได้กับ popup อื่นที่ต้อง
+  // มีคำอธิบายประกอบ (เช่น Fixed Cost ในอนาคต) เลยแยกเป็นฟังก์ชันกลางไว้
+  // -------------------------------------------------------------------
+  void _showInfoPopup(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: const Color(0xFF2E7D32), size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(title, style: const TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13.5, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('เข้าใจแล้วค่ะ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ช่องวันที่หนึ่งช่องในปฏิทินเลือกวันตัดรอบบิล (ไม่มีเดือน มีแค่เลข 1-31
+  // เพราะวันตัดรอบบิลซ้ำทุกเดือนอยู่แล้ว ไม่ต้องให้เลือกเดือน)
+  Widget _buildBillingDayCell({
+    required int day,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF2E7D32)
+                : Colors.grey.shade200,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '$day',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEditBillingDay() {
+    int selectedDay = _user?.billingDay ?? 30;
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // หัวเรื่อง + ปุ่ม info ห้อยอธิบายว่าวันตัดรอบบิลคืออะไร
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'เลือกวันตัดรอบบิล',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.help_outline,
+                          color: Colors.grey.shade500, size: 20),
+                      onPressed: () => _showInfoPopup(
+                        'วันตัดรอบบิลคืออะไร?',
+                        'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
+                            'มาถึงบ้านของคุณค่ะ ระบบจะใช้วันนี้แจ้งเตือนเมื่อ'
+                            'ใกล้ถึงรอบชำระเงิน และเตือนให้มาบันทึกค่ามิเตอร์'
+                            'ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือน'
+                            'ถัดไปให้โดยอัตโนมัติค่ะ',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'แตะที่วันบนใบแจ้งหนี้ล่าสุดของคุณได้เลยค่ะ',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 16),
+
+                // ปฏิทินเลือกวัน 1-31 แบบกริด 7 คอลัมน์
+                GridView.count(
+                  crossAxisCount: 7,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  children: List.generate(31, (i) {
+                    final day = i + 1;
+                    return _buildBillingDayCell(
+                      day: day,
+                      isSelected: day == selectedDay,
+                      onTap: () => setDialogState(() => selectedDay = day),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    'วันที่เลือก: ทุกวันที่ $selectedDay ของเดือน',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF2E7D32),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('ยกเลิก'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await _firestoreService.updateUser(
+                            _user!.uid,
+                            {'billingDay': selectedDay},
+                          );
+                          await _loadUser();
+                          if (mounted) Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('บันทึก'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  // เดิม Fixed Cost เป็นแค่ช่องกรอกยอดเดียว เปลี่ยนเป็นหน้าแยกที่บันทึก
+  // เป็นรายการย่อยได้ (ค่าแก๊ส, อินเทอร์เน็ต ฯลฯ) — ดู _FixedCostScreen
+  // ด้านล่างของไฟล์ ส่วนยอดรวมยังถูก sync เข้า _user.fixedCost เหมือนเดิม
+  // เลย reload _loadUser() ทุกครั้งที่กลับจากหน้านั้น เพื่อให้ subtitle ในการ์ด
+  // ตั้งค่าอัปเดตตามยอดล่าสุด
+  Future<void> _showEditFixedCost() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _FixedCostScreen(
+          uid: _user!.uid,
+          firestoreService: _firestoreService,
+        ),
+      ),
+    );
+    await _loadUser();
   }
 
   void _showEditStartMeter() {
@@ -1789,6 +1983,409 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
                     );
                   },
                 ),
+    );
+  }
+}
+
+// ==================== Fixed Cost (รายการแยก) ====================
+// รายการตัวเลือกหมวดหมู่ค่าใช้จ่ายคงที่ที่พบบ่อย — เลือกแล้วชื่อ/ไอคอนจะเติม
+// ให้อัตโนมัติ แต่ผู้ใช้ยังแก้ชื่อเองได้เสมอ (เผื่อมีรายการที่ไม่ตรงกับหมวดนี้)
+const List<({String key, String label, IconData icon})> _fixedCostCategories =
+    [
+  (key: 'gas', label: 'ค่าแก๊สหุงต้ม', icon: Icons.local_fire_department),
+  (key: 'internet', label: 'ค่าอินเทอร์เน็ตบ้าน', icon: Icons.wifi),
+  (
+    key: 'maintenance',
+    label: 'ค่าส่วนกลาง/นิติบุคคล',
+    icon: Icons.apartment
+  ),
+  (key: 'insurance', label: 'ค่าประกัน', icon: Icons.shield_outlined),
+  (
+    key: 'subscription',
+    label: 'ค่าสมาชิก/บริการรายเดือน',
+    icon: Icons.subscriptions_outlined
+  ),
+  (key: 'other', label: 'อื่นๆ', icon: Icons.receipt_long),
+];
+
+IconData _iconForFixedCostCategory(String key) {
+  for (final c in _fixedCostCategories) {
+    if (c.key == key) return c.icon;
+  }
+  return Icons.receipt_long;
+}
+
+String _labelForFixedCostCategory(String key) {
+  for (final c in _fixedCostCategories) {
+    if (c.key == key) return c.label;
+  }
+  return 'อื่นๆ';
+}
+
+class _FixedCostScreen extends StatefulWidget {
+  final String uid;
+  final FirestoreService firestoreService;
+
+  const _FixedCostScreen({
+    required this.uid,
+    required this.firestoreService,
+  });
+
+  @override
+  State<_FixedCostScreen> createState() => _FixedCostScreenState();
+}
+
+class _FixedCostScreenState extends State<_FixedCostScreen> {
+  List<FixedCostItemModel> _items = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    final items = await widget.firestoreService.getFixedCostItems(widget.uid);
+    if (mounted) {
+      setState(() {
+        _items = items;
+        _isLoading = false;
+      });
+    }
+  }
+
+  double get _total => _items.fold(0, (sum, item) => sum + item.amount);
+
+  // เปิด popup เพิ่ม/แก้ไขรายการ — ถ้าส่ง existing มาคือแก้ไข ไม่ส่งคือเพิ่มใหม่
+  Future<void> _showAddEditItem({FixedCostItemModel? existing}) async {
+    String selectedCategory = existing?.category ?? _fixedCostCategories.first.key;
+    final nameController =
+        TextEditingController(text: existing?.name ?? _fixedCostCategories.first.label);
+    final amountController = TextEditingController(
+      text: existing != null ? existing.amount.toStringAsFixed(0) : '',
+    );
+    String? errorText;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(existing == null ? 'เพิ่มรายการ Fixed Cost' : 'แก้ไขรายการ'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('หมวดหมู่',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _fixedCostCategories.map((c) {
+                    final selected = c.key == selectedCategory;
+                    return ChoiceChip(
+                      label: Text(c.label, style: const TextStyle(fontSize: 12)),
+                      avatar: Icon(c.icon,
+                          size: 16,
+                          color: selected ? Colors.white : const Color(0xFF2E7D32)),
+                      selected: selected,
+                      selectedColor: const Color(0xFF2E7D32),
+                      labelStyle: TextStyle(
+                          color: selected ? Colors.white : Colors.black87),
+                      onSelected: (_) => setDialogState(() {
+                        selectedCategory = c.key;
+                        // เปลี่ยนหมวดแล้วเติมชื่ออัตโนมัติให้ ถ้า user ยังไม่ได้
+                        // พิมพ์ชื่อเองมาก่อน (กันเขียนทับชื่อที่ user ตั้งเองไว้)
+                        if (nameController.text.isEmpty ||
+                            _fixedCostCategories
+                                .map((e) => e.label)
+                                .contains(nameController.text)) {
+                          nameController.text = c.label;
+                        }
+                      }),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'ชื่อรายการ',
+                    hintText: 'เช่น ค่าแก๊สหุงต้ม',
+                    border:
+                        OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'ยอดต่อเดือน',
+                    prefixText: '฿ ',
+                    border:
+                        OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 14),
+                  ),
+                ),
+                if (errorText != null) ...[
+                  const SizedBox(height: 8),
+                  Text(errorText!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12)),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final amount = double.tryParse(amountController.text);
+                if (name.isEmpty) {
+                  setDialogState(() => errorText = 'กรอกชื่อรายการด้วยค่ะ');
+                  return;
+                }
+                if (amount == null || amount <= 0) {
+                  setDialogState(() => errorText = 'กรอกยอดเงินให้ถูกต้องด้วยค่ะ');
+                  return;
+                }
+
+                final item = FixedCostItemModel(
+                  id: existing?.id ?? const Uuid().v4(),
+                  uid: widget.uid,
+                  name: name,
+                  category: selectedCategory,
+                  amount: amount,
+                  createdAt: existing?.createdAt ?? DateTime.now(),
+                );
+                await widget.firestoreService.saveFixedCostItem(item);
+                if (mounted) Navigator.pop(context);
+                await _load();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('บันทึก'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(FixedCostItemModel item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ลบรายการนี้?'),
+        content: Text('ลบ "${item.name}" ออกจาก Fixed Cost'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await widget.firestoreService.deleteFixedCostItem(widget.uid, item.id);
+      await _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final formatter = NumberFormat('#,##0');
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: AppBar(title: const Text('Fixed Cost รายเดือน')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+          : Column(
+              children: [
+                // การ์ดสรุปยอดรวมด้านบน
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E7D32),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2E7D32).withOpacity(0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.summarize_outlined,
+                          color: Colors.white, size: 28),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'รวม Fixed Cost ต่อเดือน',
+                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '฿${formatter.format(_total)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '${_items.length} รายการ',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // รายการ Fixed Cost
+                Expanded(
+                  child: _items.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.receipt_long,
+                                    size: 48, color: Colors.grey.shade300),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'ยังไม่มีรายการ Fixed Cost\nกดปุ่ม + เพื่อเพิ่มรายการแรกได้เลยค่ะ',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          itemCount: _items.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final item = _items[index];
+                            return Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2E7D32).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      _iconForFixedCostCategory(item.category),
+                                      color: const Color(0xFF2E7D32),
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _labelForFixedCostCategory(item.category),
+                                          style: TextStyle(
+                                              fontSize: 11.5,
+                                              color: Colors.grey.shade500),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    '฿${formatter.format(item.amount)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Color(0xFF2E7D32),
+                                    ),
+                                  ),
+                                  PopupMenuButton<String>(
+                                    icon: Icon(Icons.more_vert,
+                                        size: 18, color: Colors.grey.shade500),
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        _showAddEditItem(existing: item);
+                                      } else if (value == 'delete') {
+                                        _confirmDelete(item);
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem(
+                                        value: 'edit',
+                                        child: Text('แก้ไข'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('ลบ',
+                                            style: TextStyle(color: Colors.red)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEditItem(),
+        backgroundColor: const Color(0xFF2E7D32),
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
