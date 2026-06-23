@@ -97,20 +97,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final now = DateTime.now();
       final billingDay = _user?.billingDay ?? 30;
-      DateTime startDate;
-      DateTime endDate;
-
-      if (now.day >= billingDay) {
-        startDate = DateTime(now.year, now.month, billingDay);
-        endDate = DateTime(now.year, now.month + 1, billingDay);
-      } else {
-        startDate = DateTime(now.year, now.month - 1, billingDay);
-        endDate = DateTime(now.year, now.month, billingDay);
-      }
+      // ใช้ helper กลางจาก EnergyForecaster แทนการคำนวณเอง — กันบั๊กวันที่
+      // 29-31 ไม่มีในบางเดือน (เช่น ก.พ./เม.ย.) ที่ DateTime จะดันข้ามเดือน
+      // ให้เองเงียบๆ ถ้าเขียน DateTime(year, month, billingDay) ตรงๆ
+      final DateTime startDate = EnergyForecaster.getCycleStart(now, billingDay);
+      final DateTime endDate = EnergyForecaster.getCycleEnd(now, billingDay);
 
       // รอบบิลก่อนหน้า (ที่ปิดไปแล้ว) คือช่วงก่อน startDate ของรอบปัจจุบัน
       final prevCycleStart =
-          DateTime(startDate.year, startDate.month - 1, billingDay);
+          EnergyForecaster.getPreviousCycleStart(startDate, billingDay);
       final prevCycleEnd = startDate;
       final billExists = await _firestoreService.billExistsForMonth(
           uid, prevCycleEnd.year, prevCycleEnd.month);

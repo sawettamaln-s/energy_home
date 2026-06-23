@@ -157,17 +157,15 @@ class FirestoreService {
       if (user == null) return;
 
       // ดึง logs ของรอบบิลที่ปิดแล้ว
-      final eLogs =
-          await getCurrentMonthElectricityLogs(uid, startDate, endDate);
+      final eLogs = await getCurrentMonthElectricityLogs(uid, startDate, endDate);
       final wLogs = await getCurrentMonthWaterLogs(uid, startDate, endDate);
 
       // ไม่มี log เลยในรอบนี้ → ไม่ต้องสร้างบิลเปล่า
       if (eLogs.isEmpty && wLogs.isEmpty) return;
 
       // รวมค่า
-      // ดังนั้นยอดจริงของทั้งรอบ = เอาแค่ log ล่าสุด ไม่ใช่บวกทุกตัว
-      double totalElec = eLogs.isNotEmpty ? eLogs.first.cost : 0;
-      double totalWater = wLogs.isNotEmpty ? wLogs.first.cost : 0;
+      double totalElec = eLogs.fold(0, (sum, log) => sum + log.cost);
+      double totalWater = wLogs.fold(0, (sum, log) => sum + log.cost);
       double usedElec = eLogs.isNotEmpty ? eLogs.first.usedFromStart : 0;
       double usedWater = wLogs.isNotEmpty ? wLogs.first.usedFromStart : 0;
 
@@ -213,8 +211,11 @@ class FirestoreService {
 
   // ดึงบิลทั้งหมด
   Future<List<BillModel>> getBills(String uid) async {
-    final snapshot =
-        await _db.collection('users').doc(uid).collection('bills').get();
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('bills')
+        .get();
 
     final bills = snapshot.docs
         .map((doc) => BillModel.fromMap({...doc.data(), 'id': doc.id}))
@@ -230,11 +231,15 @@ class FirestoreService {
   }
 
   // ดึงบิลย้อนหลัง N เดือน
+  // แก้บั๊ก: เดิม .limit() เรียกก่อน orderBy ทำให้ได้บิลแบบไม่การันตี
+  // ว่าเป็น N เดือนล่าสุดจริง ตอนนี้ให้ Firestore เรียงให้ก่อนแล้ว limit
   Future<List<BillModel>> getRecentBills(String uid, int months) async {
     final snapshot = await _db
         .collection('users')
         .doc(uid)
         .collection('bills')
+        .orderBy('year', descending: true)
+        .orderBy('month', descending: true)
         .limit(months)
         .get();
 
@@ -242,12 +247,7 @@ class FirestoreService {
         .map((doc) => BillModel.fromMap({...doc.data(), 'id': doc.id}))
         .toList();
 
-    // เรียง manual
-    bills.sort((a, b) {
-      if (a.year != b.year) return b.year.compareTo(a.year);
-      return b.month.compareTo(a.month);
-    });
-
+    // bills ตอนนี้เรียงใหม่ -> เก่าจาก Firestore แล้ว กลับเป็นเก่า -> ใหม่
     return bills.reversed.toList();
   }
 

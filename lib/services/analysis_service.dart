@@ -41,26 +41,30 @@ class AnalysisService {
 
   /// ดึงบิลทั้งหมดของ user เรียงจากเก่า -> ใหม่
   /// limitMonths: ดึงกี่เดือนล่าสุด (default 24 เดือน เผื่อใช้ YoY)
-Future<List<BillModel>> fetchBills(String uid, {int limitMonths = 24}) async {
-  final snapshot = await _db
-      .collection('users')
-      .doc(uid)
-      .collection('bills')
-      .limit(limitMonths)
-      .get();
+  ///
+  /// แก้บั๊ก: เดิม .limit() ถูกเรียกก่อน orderBy ทำให้ Firestore คืนเอกสาร
+  /// แบบไม่การันตีลำดับมาก่อน แล้วเรา sort เองทีหลัง — ถ้ามีบิลมากกว่า
+  /// limitMonths จะได้ N ใบแบบสุ่ม ไม่ใช่ N ใบที่ใหม่ที่สุดจริง
+  /// ตอนนี้ให้ Firestore เรียง year/month ก่อน แล้ว limit ที่ query เลย
+  /// (ครั้งแรกที่รัน Firestore อาจโชว์ลิงก์ให้สร้าง composite index ก่อน
+  /// แค่กดลิงก์นั้นครั้งเดียวพอ)
+  Future<List<BillModel>> fetchBills(String uid, {int limitMonths = 24}) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('bills')
+        .orderBy('year', descending: true)
+        .orderBy('month', descending: true)
+        .limit(limitMonths)
+        .get();
 
-  final bills = snapshot.docs
-      .map((doc) => BillModel.fromMap({...doc.data(), 'id': doc.id}))
-      .toList();
+    final bills = snapshot.docs
+        .map((doc) => BillModel.fromMap({...doc.data(), 'id': doc.id}))
+        .toList();
 
-  // เรียง manual ใน Dart แทน
-  bills.sort((a, b) {
-    if (a.year != b.year) return b.year.compareTo(a.year);
-    return b.month.compareTo(a.month);
-  });
-
-  return bills.reversed.toList();
-}
+    // ตอนนี้ bills เรียงใหม่ -> เก่าอยู่แล้วจาก Firestore กลับเป็นเก่า -> ใหม่
+    return bills.reversed.toList();
+  }
 
   /// เทียบเดือนนี้ vs เดือนก่อนหน้า (Month over Month)
   /// bills ต้องเรียงเก่า->ใหม่ และเดือนล่าสุดต้องอยู่ index สุดท้าย

@@ -123,29 +123,64 @@ class EnergyForecaster {
     };
   }
 
+  // =====================================================================
+  // ขอบเขตรอบบิล — แหล่งความจริงเดียว (single source of truth)
+  // นิยาม: รอบบิลปัจจุบัน = ตั้งแต่วันตัดรอบล่าสุดที่ผ่านมา (รวมวันนั้น)
+  // ไปจนถึงวันตัดรอบครั้งถัดไป (ไม่รวมวันนั้น)
+  // ถ้าวันนี้ตรงกับวันตัดรอบเป๊ะ ถือว่าวันนี้คือวันแรกของรอบใหม่
+  // =====================================================================
+
+  // คืนวันตัดรอบบิลที่ "ปลอดภัย" ของเดือน year/month ที่ระบุ
+  // ถ้า billingDay เกินจำนวนวันจริงของเดือนนั้น (เช่น 31 แต่เดือนมี 30 วัน)
+  // จะหล่นไปวันสุดท้ายของเดือนนั้นแทน ไม่ปล่อยให้ DateTime ดันข้ามเดือนเอง
+  static DateTime _safeBillingDate(int year, int month, int billingDay) {
+    // DateTime(year, month + 1, 0) = วันสุดท้ายของเดือน month
+    // (การ์ดนี้ปลอดภัยเพราะ day=0/1 ไม่มีทาง overflow ข้ามเดือน)
+    final lastDayOfMonth = DateTime(year, month + 1, 0).day;
+    final safeDay = billingDay > lastDayOfMonth ? lastDayOfMonth : billingDay;
+    return DateTime(year, month, safeDay);
+  }
+
+  // จุดเริ่มต้นของรอบบิลปัจจุบัน (รวมวันนี้ถ้าวันนี้ตรงกับวันตัดรอบ)
+  static DateTime getCycleStart(DateTime now, int billingDay) {
+    // สำคัญ: ต้องเทียบกับ "วันคัตออฟที่ clamp แล้วของเดือนนี้" ไม่ใช่
+    // billingDay ดิบ เพราะถ้า billingDay เกินจำนวนวันของเดือนนี้
+    // (เช่น 30 แต่ ก.พ. ปีอธิกสุรทินมีแค่ 29) คัตออฟจริงของเดือนนี้
+    // จะหล่นลงมาเป็น 29 ไปแล้ว ต้องเทียบกับ 29 ไม่ใช่ 30
+    final cutoffThisMonth = _safeBillingDate(now.year, now.month, billingDay);
+    if (now.day >= cutoffThisMonth.day) {
+      return cutoffThisMonth;
+    } else {
+      final prevMonth = DateTime(now.year, now.month - 1, 1);
+      return _safeBillingDate(prevMonth.year, prevMonth.month, billingDay);
+    }
+  }
+
+  // จุดสิ้นสุดของรอบบิลปัจจุบัน (ไม่รวมวันนี้ ถ้าวันนี้ตรงกับวันตัดรอบ)
+  static DateTime getCycleEnd(DateTime now, int billingDay) {
+    final cutoffThisMonth = _safeBillingDate(now.year, now.month, billingDay);
+    if (now.day >= cutoffThisMonth.day) {
+      final nextMonth = DateTime(now.year, now.month + 1, 1);
+      return _safeBillingDate(nextMonth.year, nextMonth.month, billingDay);
+    } else {
+      return cutoffThisMonth;
+    }
+  }
+
+  // จุดเริ่มต้นของรอบบิล "ก่อนหน้า" รอบที่ขึ้นต้นด้วย cycleStart ที่ให้มา
+  // ใช้ตอนต้องปิดบิลของรอบก่อนหน้า (ดู dashboard_screen.dart -> compileBill)
+  static DateTime getPreviousCycleStart(DateTime cycleStart, int billingDay) {
+    final prevMonth = DateTime(cycleStart.year, cycleStart.month - 1, 1);
+    return _safeBillingDate(prevMonth.year, prevMonth.month, billingDay);
+  }
+
   // คำนวณจำนวนวันที่เหลือในรอบบิล
   static int getRemainingDays(DateTime now, int billingDay) {
-    DateTime billingDate = DateTime(now.year, now.month, billingDay);
-
-    // ถ้าวันตัดบิลผ่านไปแล้วในเดือนนี้ ให้ดูเดือนหน้า
-    if (now.day > billingDay) {
-      billingDate = DateTime(now.year, now.month + 1, billingDay);
-    }
-
-    return billingDate.difference(now).inDays;
+    return getCycleEnd(now, billingDay).difference(now).inDays;
   }
 
   // คำนวณวันที่ผ่านมาในรอบบิล
   static int getDaysElapsed(DateTime now, int billingDay) {
-    DateTime billingDate = DateTime(now.year, now.month, billingDay);
-
-    // ถ้าวันตัดบิลผ่านไปแล้ว ให้นับจากเดือนก่อน
-    if (now.day > billingDay) {
-      return now.day - billingDay;
-    } else {
-      DateTime prevBillingDate =
-          DateTime(now.year, now.month - 1, billingDay);
-      return now.difference(prevBillingDate).inDays;
-    }
+    return now.difference(getCycleStart(now, billingDay)).inDays;
   }
 }
