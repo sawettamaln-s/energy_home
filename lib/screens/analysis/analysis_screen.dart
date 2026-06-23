@@ -44,28 +44,28 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     super.dispose();
   }
 
-Future<void> _loadData() async {
-  setState(() => _isLoading = true);
-  try {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    debugPrint('🔵 uid: $uid');
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+      debugPrint('🔵 uid: $uid');
 
-    final bills = await _analysisService.fetchBills(uid);
-    debugPrint('🔵 bills: ${bills.length}');
-    
-    _firestoreService.getAppliances(uid).listen((data) {
-      setState(() => _appliances = data);
-    });
+      final bills = await _analysisService.fetchBills(uid);
+      debugPrint('🔵 bills: ${bills.length}');
 
-    setState(() {
-      _bills = bills;
-      _isLoading = false;
-    });
-  } catch (e) {
-    debugPrint('🔴 ERROR: $e');
-    setState(() => _isLoading = false);
+      _firestoreService.getAppliances(uid).listen((data) {
+        setState(() => _appliances = data);
+      });
+
+      setState(() {
+        _bills = bills;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('🔴 ERROR: $e');
+      setState(() => _isLoading = false);
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -266,7 +266,8 @@ class _UtilityTab extends StatelessWidget {
           children: [
             Expanded(child: _comparisonCard('เทียบเดือนก่อน', mom)),
             const SizedBox(width: 10),
-            Expanded(child: _comparisonCard('เทียบปีก่อน (เดือนเดียวกัน)', yoy)),
+            Expanded(
+                child: _comparisonCard('เทียบปีก่อน (เดือนเดียวกัน)', yoy)),
           ],
         ),
         const SizedBox(height: 10),
@@ -295,12 +296,14 @@ class _UtilityTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('เทรนด์$title (${bills.length} เดือนล่าสุด)',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 12),
           Expanded(
             child: spots.length < 2
                 ? const Center(
-                    child: Text('ข้อมูลยังไม่พอแสดงกราฟ (ต้องมีอย่างน้อย 2 เดือน)',
+                    child: Text(
+                        'ข้อมูลยังไม่พอแสดงกราฟ (ต้องมีอย่างน้อย 2 เดือน)',
                         style: TextStyle(fontSize: 12, color: Colors.grey)))
                 : LineChart(
                     LineChartData(
@@ -320,7 +323,8 @@ class _UtilityTab extends StatelessWidget {
                               if (i < 0 || i >= bills.length) {
                                 return const SizedBox.shrink();
                               }
-                              return Text('${bills[i].month}/${bills[i].year % 100}',
+                              return Text(
+                                  '${bills[i].month}/${bills[i].year % 100}',
                                   style: const TextStyle(fontSize: 9));
                             },
                           ),
@@ -410,11 +414,13 @@ class _UtilityTab extends StatelessWidget {
                     style: TextStyle(fontSize: 12, color: Colors.grey)),
                 Text('฿${_fmt.format(forecast)}',
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 18, color: _green)),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: _green)),
               ],
             ),
           ),
-          const Text('(เฉลี่ย 3 เดือนล่าสุด)',
+          const Text('(แนวโน้มจากข้อมูลย้อนหลัง)',
               style: TextStyle(fontSize: 10, color: Colors.grey)),
         ],
       ),

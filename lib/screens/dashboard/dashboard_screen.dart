@@ -15,6 +15,7 @@ import '../analysis/analysis_screen.dart';
 import '../appliance/appliance_screen.dart';
 import '../settings/settings_screen.dart';
 import 'dashboard_styles.dart';
+import 'notification_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -59,6 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isSavingWater = false;
   String _electricityError = '';
   String _waterError = '';
+  int _unreadNotifications = 0; // จำนวนแจ้งเตือนที่ยังไม่อ่าน (badge ที่ปุ่มกระดิ่ง)
 
   @override
   void initState() {
@@ -97,15 +99,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final now = DateTime.now();
       final billingDay = _user?.billingDay ?? 30;
-      // ใช้ helper กลางจาก EnergyForecaster แทนการคำนวณเอง — กันบั๊กวันที่
-      // 29-31 ไม่มีในบางเดือน (เช่น ก.พ./เม.ย.) ที่ DateTime จะดันข้ามเดือน
-      // ให้เองเงียบๆ ถ้าเขียน DateTime(year, month, billingDay) ตรงๆ
-      final DateTime startDate = EnergyForecaster.getCycleStart(now, billingDay);
-      final DateTime endDate = EnergyForecaster.getCycleEnd(now, billingDay);
+      DateTime startDate;
+      DateTime endDate;
+
+      if (now.day >= billingDay) {
+        startDate = DateTime(now.year, now.month, billingDay);
+        endDate = DateTime(now.year, now.month + 1, billingDay);
+      } else {
+        startDate = DateTime(now.year, now.month - 1, billingDay);
+        endDate = DateTime(now.year, now.month, billingDay);
+      }
 
       // รอบบิลก่อนหน้า (ที่ปิดไปแล้ว) คือช่วงก่อน startDate ของรอบปัจจุบัน
       final prevCycleStart =
-          EnergyForecaster.getPreviousCycleStart(startDate, billingDay);
+          DateTime(startDate.year, startDate.month - 1, billingDay);
       final prevCycleEnd = startDate;
       final billExists = await _firestoreService.billExistsForMonth(
           uid, prevCycleEnd.year, prevCycleEnd.month);
@@ -188,6 +195,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         currentWaterCost: _currentWaterCost,
         lastMonthWaterCost: _lastMonthWaterCost,
       );
+
+      // sync ดูว่า scheduled notification (เตือนใกล้วันบิล) ถึงกำหนดยิงแล้ว
+      // หรือยัง ถ้าถึงแล้วจะถูกบันทึกเข้า history ให้เห็นในหน้า Notification
+      await NotificationService.instance.syncDeliveredScheduledNotifications();
+
+      // อัปเดตจำนวนแจ้งเตือนที่ยังไม่อ่าน เพื่อโชว์ badge ตัวเลขที่ปุ่มกระดิ่ง
+      _unreadNotifications = await NotificationService.instance.getUnreadCount();
     } catch (e) {
       debugPrint('Error: $e');
     } finally {
@@ -495,10 +509,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // กดปุ่ม notification ตรงหัวบาร์ -> เปิดคู่มือเริ่มต้นใช้งานซ้ำได้
-  // (เผื่อพอดีกดข้ามไปตอนแรก หรืออยากย้อนกลับมาดูซ้ำ)
-  void _onNotificationTap() {
-    OnboardingGuide.showAgain(context);
+  // กดปุ่ม notification ตรงหัวบาร์ -> เปิดหน้า Notification Center
+  // พอกลับมาจากหน้านั้น (เผื่อมีการอ่าน/ลบ) ให้รีเฟรชจำนวนที่ยังไม่อ่านใหม่
+  Future<void> _onNotificationTap() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NotificationScreen()),
+    );
+    final count = await NotificationService.instance.getUnreadCount();
+    if (mounted) setState(() => _unreadNotifications = count);
   }
 
   @override
@@ -675,12 +694,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(width: 8),
         // -------------------------------------------------------------
-        // (2) ปุ่ม notification แทนที่ปุ่ม logout เดิม
-        // การทำงานจริงไว้ทำถัดไป ตอนนี้แค่โชว์ SnackBar แจ้งว่ากำลังพัฒนา
+        // (2) ปุ่ม notification -> เปิดหน้า Notification Center จริง
+        // พร้อม badge ตัวเลขแจ้งจำนวนรายการที่ยังไม่อ่าน
         // -------------------------------------------------------------
         IconButton(
-          icon: const Icon(Icons.notifications_none_rounded,
-              color: DashboardStyles.textDark),
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.notifications_none_rounded,
+                  color: DashboardStyles.textDark),
+              if (_unreadNotifications > 0)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 1),
+                    constraints:
+                        const BoxConstraints(minWidth: 16, minHeight: 16),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE53935),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      _unreadNotifications > 9 ? '9+' : '$_unreadNotifications',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           onPressed: _onNotificationTap,
         ),
       ],

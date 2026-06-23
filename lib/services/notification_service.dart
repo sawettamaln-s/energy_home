@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:uuid/uuid.dart';
+
+import '../models/notification_item_model.dart';
 
 /// ===========================================================
 /// NotificationService
@@ -13,8 +18,9 @@ import 'package:timezone/timezone.dart' as tz;
 /// 2) Instant    -> ยิงทันทีตอนแอปเปิด/บันทึกมิเตอร์แล้วตรวจพบเงื่อนไข
 ///    ใช้กับ: ยังไม่บันทึกมิเตอร์นาน, ใช้เกิน 30%, สรุปจบรอบบิล
 ///
-/// ใช้ SharedPreferences เก็บ "วันที่เตือนล่าสุด" ของแต่ละประเภท
-/// เพื่อกันไม่ให้ยิงเตือนซ้ำทุกครั้งที่เปิดแอป/รีเฟรชหน้า Dashboard
+/// ทุกครั้งที่ยิงแจ้งเตือนจริง (ไม่ใช่ตอน schedule) จะถูกบันทึกลง
+/// "ประวัติ" ผ่าน SharedPreferences ด้วย เพื่อให้หน้า Notification
+/// Center ดึงมาแสดงเป็นลิสต์ได้ (ตัว plugin เองไม่มี history ให้)
 /// ===========================================================
 class NotificationService {
   NotificationService._internal();
@@ -39,6 +45,9 @@ class NotificationService {
   static const String _channelDesc =
       'แจ้งเตือนเรื่องรอบบิล การบันทึกมิเตอร์ และการใช้พลังงานผิดปกติ';
 
+  // ----- key ที่เก็บ history ใน SharedPreferences -----
+  static const String _historyKey = 'notification_history';
+
   // =====================================================================
   // เรียกครั้งเดียวตอนเปิดแอป (เช่นใน main() ก่อน runApp)
   // ทำหน้าที่: เตรียม plugin, timezone, และสร้าง notification channel
@@ -50,7 +59,7 @@ class NotificationService {
     try {
       tz.setLocalLocation(tz.getLocation('Asia/Bangkok'));
     } catch (_) {
-      // เผื่อหา timezone ไม่เจอในบางเครื่อง ใช้ UTC offset เริ่มต้นไปก่อน
+      // เผื่อหา timezone ไม่เจอในบางเครื่อง ใช้ค่าเริ่มต้นของเครื่องไปก่อน
     }
 
     const androidSettings =
@@ -78,7 +87,6 @@ class NotificationService {
   }
 
   // ขอสิทธิ์แจ้งเตือน (Android 13+ ต้องขอ runtime, iOS ต้องขอเสมอ)
-  // เรียกตอนเปิดแอปครั้งแรก หรือก่อนตั้ง notification ครั้งแรก
   Future<bool> requestPermission() async {
     final status = await Permission.notification.request();
     return status.isGranted;
@@ -98,16 +106,38 @@ class NotificationService {
   }
 
   // =====================================================================
+  // ตัวกลางสำหรับ "ยิง notification จริง + บันทึกลง history" พร้อมกัน
+  // ทุกเมธอด instant ด้านล่างเรียกผ่านตัวนี้ทั้งหมด เพื่อไม่ต้องเขียน
+  // โค้ดบันทึก history ซ้ำทุกที่
+  // =====================================================================
+  Future<void> _showAndLog({
+    required int pluginId,
+    required String title,
+    required String body,
+    required String type,
+  }) async {
+    await _plugin.show(pluginId, title, body, _details());
+    await _addToHistory(NotificationItem(
+      id: const Uuid().v4(),
+      title: title,
+      body: body,
+      type: type,
+      timestamp: DateTime.now(),
+    ));
+  }
+
+  // =====================================================================
   // (Scheduled) เตือนใกล้วันตัดรอบบิล
-  // พาร์ทนี้ทำหน้าที่: ตั้งแจ้งเตือนล่วงหน้า X วันก่อนถึงวันตัดรอบ
   // ใช้ zonedSchedule -> OS จะจัดการเตือนให้แม้ปิดแอปสนิท
+  // หมายเหตุ: รายการนี้จะไม่ขึ้นใน history ทันที (ยังไม่ถูกยิงจริง)
+  // จะถูกบันทึกก็ตอนที่ผู้ใช้เปิดแอปแล้วระบบ sync เข้า history ให้
+  // (ดู syncDeliveredScheduledNotifications)
   // =====================================================================
   Future<void> scheduleBillingReminder({
     required DateTime billingDate,
     int daysBefore = 3,
   }) async {
     final reminderDate = billingDate.subtract(Duration(days: daysBefore));
-    // ถ้าวันที่เตือนผ่านมาแล้ว (เช่น เหลือน้อยกว่า daysBefore วัน) ไม่ต้องตั้ง
     if (reminderDate.isBefore(DateTime.now())) return;
 
     final scheduledTime = tz.TZDateTime(
@@ -128,12 +158,40 @@ class NotificationService {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
+
+    // เก็บ "กำหนดการ" ไว้เทียบเวลาตอนเปิดแอปครั้งถัดไป ว่าถึงเวลาที่ควร
+    // ขึ้นใน history แล้วหรือยัง (ดูเมธอด syncDeliveredScheduledNotifications)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'pending_billing_reminder_time', scheduledTime.toIso8601String());
+  }
+
+  // เรียกตอนเปิดแอป (ทุกครั้งที่ _loadData ทำงาน) เพื่อเช็คว่า scheduled
+  // notification ที่ตั้งไว้ "ถึงเวลาแล้ว" หรือยัง ถ้าถึงแล้วให้บันทึกเข้า
+  // history เพื่อให้หน้า Notification Center เห็นรายการนี้ด้วย
+  Future<void> syncDeliveredScheduledNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pendingStr = prefs.getString('pending_billing_reminder_time');
+    if (pendingStr == null) return;
+
+    final pendingTime = DateTime.tryParse(pendingStr);
+    if (pendingTime == null) return;
+
+    if (DateTime.now().isAfter(pendingTime)) {
+      await _addToHistory(NotificationItem(
+        id: const Uuid().v4(),
+        title: 'ใกล้ถึงวันตัดรอบบิลแล้ว',
+        body: 'ถึงกำหนดที่ตั้งเตือนไว้ก่อนวันตัดรอบบิล',
+        type: 'billing',
+        timestamp: pendingTime,
+      ));
+      await prefs.remove('pending_billing_reminder_time');
+    }
   }
 
   // =====================================================================
   // (Instant) เตือนยังไม่บันทึกมิเตอร์เกิน N วัน
-  // เรียกตอนโหลดหน้า Dashboard เสร็จ เช็คจากวันที่ของ log ล่าสุด
-  // กันสแปม: เตือนได้สูงสุดวันละ 1 ครั้ง (เก็บวันที่เตือนล่าสุดไว้)
+  // กันสแปม: เตือนได้สูงสุดวันละ 1 ครั้ง
   // =====================================================================
   Future<void> checkMeterNotRecorded({
     required DateTime? lastLogDate,
@@ -142,23 +200,19 @@ class NotificationService {
     if (lastLogDate == null) return;
     final daysSince = DateTime.now().difference(lastLogDate).inDays;
     if (daysSince < thresholdDays) return;
-
     if (await _alreadyNotifiedToday('meter_reminder')) return;
 
-    await _plugin.show(
-      idMeterReminder,
-      'ยังไม่ได้บันทึกมิเตอร์',
-      'ไม่ได้บันทึกค่ามิเตอร์มา $daysSince วันแล้ว ลองเปิดแอปบันทึกดูนะ',
-      _details(),
+    await _showAndLog(
+      pluginId: idMeterReminder,
+      title: 'ยังไม่ได้บันทึกมิเตอร์',
+      body: 'ไม่ได้บันทึกค่ามิเตอร์มา $daysSince วันแล้ว ลองเปิดแอปบันทึกดูนะ',
+      type: 'meter',
     );
     await _markNotifiedToday('meter_reminder');
   }
 
   // =====================================================================
   // (Instant) เตือนเมื่อใช้ไฟ/น้ำเกิน 30% ของเดือนก่อน
-  // พาร์ทนี้ทำหน้าที่: เทียบยอดใช้ปัจจุบัน (เทียบสัดส่วนวันที่ผ่านมาในรอบ)
-  // กับเดือนก่อน ถ้าสูงกว่า threshold% ให้เตือนทันที
-  // เรียกหลังบันทึกมิเตอร์สำเร็จ หรือหลังโหลดข้อมูล Dashboard
   // =====================================================================
   Future<void> checkUsageSpike({
     required double currentElectricityCost,
@@ -167,34 +221,34 @@ class NotificationService {
     required double lastMonthWaterCost,
     double thresholdPercent = 30,
   }) async {
-    // ไฟฟ้า
     if (lastMonthElectricityCost > 0) {
       final percentChange = ((currentElectricityCost - lastMonthElectricityCost) /
               lastMonthElectricityCost) *
           100;
       if (percentChange >= thresholdPercent &&
           !await _alreadyNotifiedToday('spike_electricity')) {
-        await _plugin.show(
-          idSpikeElectricity,
-          'ค่าไฟพุ่งขึ้น ⚡',
-          'ค่าไฟเดือนนี้สูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะ',
-          _details(),
+        await _showAndLog(
+          pluginId: idSpikeElectricity,
+          title: 'ค่าไฟพุ่งขึ้น ⚡',
+          body:
+              'ค่าไฟเดือนนี้สูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะ',
+          type: 'spike',
         );
         await _markNotifiedToday('spike_electricity');
       }
     }
 
-    // น้ำ
     if (lastMonthWaterCost > 0) {
       final percentChange =
           ((currentWaterCost - lastMonthWaterCost) / lastMonthWaterCost) * 100;
       if (percentChange >= thresholdPercent &&
           !await _alreadyNotifiedToday('spike_water')) {
-        await _plugin.show(
-          idSpikeWater,
-          'ค่าน้ำพุ่งขึ้น 💧',
-          'ค่าน้ำเดือนนี้สูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะ',
-          _details(),
+        await _showAndLog(
+          pluginId: idSpikeWater,
+          title: 'ค่าน้ำพุ่งขึ้น 💧',
+          body:
+              'ค่าน้ำเดือนนี้สูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะ',
+          type: 'spike',
         );
         await _markNotifiedToday('spike_water');
       }
@@ -203,8 +257,6 @@ class NotificationService {
 
   // =====================================================================
   // (Instant) สรุปยอดเมื่อปิดรอบบิลเดือนปัจจุบันเสร็จ
-  // พาร์ทนี้ทำหน้าที่: เรียกตอนระบบเพิ่งสร้างบิลใหม่สำเร็จ (compileBill)
-  // เพื่อบอกภาพรวมว่าจบรอบนี้ใช้ไป/จ่ายไปเท่าไหร่
   // กันแจ้งซ้ำด้วย billId เป็น key เฉพาะของบิลนั้น (ไม่ใช่ต่อวัน)
   // =====================================================================
   Future<void> notifyCycleSummary({
@@ -217,31 +269,108 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(key) ?? false) return;
 
-    await _plugin.show(
-      idCycleSummary,
-      'สรุปบิลรอบที่ผ่านมา',
-      'รอบบิลเดือน $month/$year ปิดแล้ว ยอดรวมทั้งสิ้น ฿${totalCost.toStringAsFixed(2)}',
-      _details(),
+    await _showAndLog(
+      pluginId: idCycleSummary,
+      title: 'สรุปบิลรอบที่ผ่านมา',
+      body:
+          'รอบบิลเดือน $month/$year ปิดแล้ว ยอดรวมทั้งสิ้น ฿${totalCost.toStringAsFixed(2)}',
+      type: 'summary',
     );
     await prefs.setBool(key, true);
   }
 
   // =====================================================================
   // (Instant) แจ้งเตือนต้อนรับ — ยิงครั้งเดียวตอนสมัครบัญชี/ทำ Setup เสร็จ
-  // เรียกจากหน้าสุดท้ายของ Setup Wizard (หรือหลัง createUser สำเร็จ)
   // กันยิงซ้ำด้วย SharedPreferences flag 'welcome_notified'
   // =====================================================================
   Future<void> notifyWelcome() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('welcome_notified') ?? false) return;
 
-    await _plugin.show(
-      idWelcome,
-      'ยินดีต้อนรับสู่ Energy Home 🏠',
-      'แอปจะช่วยติดตามค่าไฟ-น้ำให้ทุกวัน แตะเพื่อดูคู่มือเริ่มต้นใช้งาน',
-      _details(),
+    await _showAndLog(
+      pluginId: idWelcome,
+      title: 'ยินดีต้อนรับสู่ Energy Home 🏠',
+      body: 'แอปจะช่วยติดตามค่าไฟ-น้ำให้ทุกวัน แตะเพื่อดูคู่มือเริ่มต้นใช้งาน',
+      type: 'welcome',
     );
     await prefs.setBool('welcome_notified', true);
+  }
+
+  // =====================================================================
+  // จัดการ "ประวัติแจ้งเตือน" สำหรับหน้า Notification Center
+  // =====================================================================
+
+  Future<void> _addToHistory(NotificationItem item) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = await getHistory();
+    list.insert(0, item); // ใหม่สุดอยู่บนสุด
+    // เก็บแค่ 100 รายการล่าสุด กันข้อมูลบวมไม่จำกัด
+    final trimmed = list.length > 100 ? list.sublist(0, 100) : list;
+    await prefs.setString(
+      _historyKey,
+      jsonEncode(trimmed.map((e) => e.toMap()).toList()),
+    );
+  }
+
+  /// ดึงประวัติแจ้งเตือนทั้งหมด เรียงใหม่สุดมาก่อน
+  Future<List<NotificationItem>> getHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_historyKey);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(raw) as List;
+      return decoded
+          .map((e) => NotificationItem.fromMap(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// จำนวนแจ้งเตือนที่ยังไม่อ่าน (ใช้โชว์ badge ตัวเลขที่ปุ่มกระดิ่ง)
+  Future<int> getUnreadCount() async {
+    final list = await getHistory();
+    return list.where((e) => !e.isRead).length;
+  }
+
+  /// กดอ่านรายการเดียว
+  Future<void> markAsRead(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = await getHistory();
+    final updated =
+        list.map((e) => e.id == id ? e.copyWith(isRead: true) : e).toList();
+    await prefs.setString(
+      _historyKey,
+      jsonEncode(updated.map((e) => e.toMap()).toList()),
+    );
+  }
+
+  /// กดอ่านทั้งหมด
+  Future<void> markAllAsRead() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = await getHistory();
+    final updated = list.map((e) => e.copyWith(isRead: true)).toList();
+    await prefs.setString(
+      _historyKey,
+      jsonEncode(updated.map((e) => e.toMap()).toList()),
+    );
+  }
+
+  /// ลบรายการเดียว
+  Future<void> deleteOne(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = await getHistory();
+    list.removeWhere((e) => e.id == id);
+    await prefs.setString(
+      _historyKey,
+      jsonEncode(list.map((e) => e.toMap()).toList()),
+    );
+  }
+
+  /// ลบทั้งหมด
+  Future<void> clearHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_historyKey);
   }
 
   // ----- helper กันแจ้งเตือนซ้ำในวันเดียวกัน (ต่อประเภท) -----
