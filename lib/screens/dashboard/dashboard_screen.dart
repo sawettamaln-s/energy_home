@@ -7,8 +7,10 @@ import '../../models/electricity_log_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/notification_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
+import '../../widgets/onboarding_guide.dart';
 import '../analysis/analysis_screen.dart';
 import '../appliance/appliance_screen.dart';
 import '../settings/settings_screen.dart';
@@ -62,6 +64,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadData();
+
+    // โชว์คู่มือเริ่มต้นใช้งาน (เฉพาะครั้งแรกที่เข้า Dashboard เท่านั้น)
+    // ใช้ addPostFrameCallback เพื่อรอให้ widget tree พร้อมก่อนเปิด dialog
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      OnboardingGuide.showIfFirstTime(context);
+      NotificationService.instance.notifyWelcome();
+    });
   }
 
   @override
@@ -105,6 +114,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final prevCycleEnd = startDate;
       final billExists = await _firestoreService.billExistsForMonth(
           uid, prevCycleEnd.year, prevCycleEnd.month);
+      final bool billJustCreated = !billExists;
       if (!billExists) {
         await _firestoreService.compileBill(
           uid,
@@ -124,6 +134,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (allBills.isNotEmpty) {
           _lastMonthElectricityCost = allBills.first.electricityCost;
           _lastMonthWaterCost = allBills.first.waterCost;
+
+          // ----- แจ้งเตือนสรุปจบรอบบิล -----
+          // ยิงเฉพาะตอนที่บิลของรอบก่อนหน้านี้ "ถูกสร้างใหม่" ในการโหลดครั้งนี้
+          // (กันไม่ให้เตือนซ้ำทุกครั้งที่เปิดแอป เพราะ key กันซ้ำผูกกับ billId)
+          if (billJustCreated &&
+              allBills.first.year == prevCycleEnd.year &&
+              allBills.first.month == prevCycleEnd.month) {
+            await NotificationService.instance.notifyCycleSummary(
+              billId: allBills.first.id,
+              totalCost: allBills.first.totalCost,
+              year: allBills.first.year,
+              month: allBills.first.month,
+            );
+          }
         } else {
           _lastMonthElectricityCost = 0;
           _lastMonthWaterCost = 0;
@@ -139,6 +163,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           uid, startDate, endDate);
 
       await _calculateCurrentMonth();
+
+      // ===================================================
+      // เรียกระบบแจ้งเตือนทั้ง 3 อย่างที่เหลือ หลังคำนวณข้อมูลเสร็จ
+      // ===================================================
+
+      // (Scheduled) เตือนใกล้วันตัดรอบบิล — ตั้งล่วงหน้าให้ OS จัดการเอง
+      await NotificationService.instance.scheduleBillingReminder(
+        billingDate: endDate,
+        daysBefore: 3,
+      );
+
+      // (Instant) เตือนยังไม่บันทึกมิเตอร์เกิน N วัน — ดูจาก log ล่าสุดที่เก่ากว่า
+      final latestLogDates = [
+        _latestElectricityLog?.date,
+        _latestWaterLog?.date,
+      ].whereType<DateTime>().toList();
+      if (latestLogDates.isNotEmpty) {
+        latestLogDates.sort();
+        await NotificationService.instance.checkMeterNotRecorded(
+          lastLogDate: latestLogDates.last, // log ล่าสุด (ใหม่ที่สุด)
+        );
+      }
+
+      // (Instant) เตือนเมื่อใช้ไฟ/น้ำเกิน 30% ของเดือนก่อน
+      await NotificationService.instance.checkUsageSpike(
+        currentElectricityCost: _currentElectricityCost,
+        lastMonthElectricityCost: _lastMonthElectricityCost,
+        currentWaterCost: _currentWaterCost,
+        lastMonthWaterCost: _lastMonthWaterCost,
+      );
     } catch (e) {
       debugPrint('Error: $e');
     } finally {
@@ -179,19 +233,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final dailyWater =
         _waterLogs.map((l) => l.usedFromLast).where((v) => v > 0).toList();
 
-    final forecast = EnergyForecaster.forecastCurrentMonth(
-      dailyElectricityUsage: dailyElectricity,
-      dailyWaterUsage: dailyWater,
-      currentElectricityCost: _currentElectricityCost,
-      currentWaterCost: _currentWaterCost,
-      remainingDays: remainingDays,
-    );
+    // ----- ค่าเฉลี่ย "บาท/วัน" จริง (แก้จุดที่หน่วยไม่ตรงกัน) -----
+    // เดิม: เอา dailyUsage (หน่วย/วัน) ไปบวกกับ currentTotal (บาท) ตรง ๆ
+    // ผ่าน EnergyForecaster.forecastCurrentMonth ทำให้ยอดพยากรณ์ค่าใช้จ่าย
+    // ไม่ใช่ "บาท" จริง แค่บังเอิญดูสมเหตุสมผลเพราะ ratio หน่วย/บาทใกล้ 1
+    // แก้โดยคำนวณผลต่างของ cost สะสม (field `cost` ใน log เป็นค่าสะสมจาก
+    // ต้นรอบเหมือน usedFromStart) ระหว่างแต่ละครั้งที่บันทึก ให้ได้ "บาทที่
+    // เพิ่มขึ้นต่อช่วง" จริง ๆ แล้วค่อยป้อนเข้า movingAverage
+    final dailyElectricityCost =
+        _dailyCostDeltas(_electricityLogs.map((l) => l.cost).toList());
+    final dailyWaterCost =
+        _dailyCostDeltas(_waterLogs.map((l) => l.cost).toList());
 
-    // forecastCurrentMonth ของจริงคืนคีย์ 'electricity' / 'water' / 'total'
-    // (ไม่ใช่ 'electricityCost'/'waterCost' ที่เคยเดาไว้)
-    _forecastTotal = forecast['total'] ?? 0;
-    _forecastElectricityCost = forecast['electricity'] ?? _currentElectricityCost;
-    _forecastWaterCost = forecast['water'] ?? _currentWaterCost;
+    _forecastElectricityCost = EnergyForecaster.movingAverage(
+      dailyUsage: dailyElectricityCost,
+      remainingDays: remainingDays,
+      currentTotal: _currentElectricityCost,
+    );
+    _forecastWaterCost = EnergyForecaster.movingAverage(
+      dailyUsage: dailyWaterCost,
+      remainingDays: remainingDays,
+      currentTotal: _currentWaterCost,
+    );
+    _forecastTotal = _forecastElectricityCost + _forecastWaterCost;
 
     // forecaster.dart ไม่มีฟังก์ชันพยากรณ์ "หน่วยการใช้" ให้ตรง ๆ
     // จึงเรียก movingAverage แบบเดียวกัน แต่ใส่ฐานเป็นหน่วยที่ใช้ไปแล้ว
@@ -206,6 +270,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       remainingDays: remainingDays,
       currentTotal: _currentWaterFromStart,
     );
+  }
+
+  // =====================================================================
+  // คำนวณ "บาทที่เพิ่มขึ้นต่อครั้งบันทึก" จากค่า cost สะสม (cumulative)
+  // ของ log แต่ละตัว เพราะ field `cost` ในโมเดลเป็นยอดสะสมจากต้นรอบ
+  // เหมือน usedFromStart ไม่ใช่ค่าต่อช่วงอยู่แล้ว — รับลิสต์ cost ที่เรียง
+  // ล่าสุดมาก่อน (ตามที่ FirestoreService คืนมา) แล้วกลับลำดับเป็นเก่า->ใหม่
+  // ก่อนหาผลต่าง
+  // =====================================================================
+  List<double> _dailyCostDeltas(List<double> costsDescending) {
+    if (costsDescending.length < 2) return [];
+    final ascending = costsDescending.reversed.toList();
+    final deltas = <double>[];
+    for (int i = 1; i < ascending.length; i++) {
+      final delta = ascending[i] - ascending[i - 1];
+      if (delta > 0) deltas.add(delta);
+    }
+    return deltas;
   }
 
   // บันทึกค่ามิเตอร์ไฟฟ้า
@@ -418,14 +500,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // ตัวจัดการเมื่อกดปุ่ม notification ตรงหัวบาร์ (ยังไม่มีระบบจริง รอทำถัดไป)
+  // กดปุ่ม notification ตรงหัวบาร์ -> เปิดคู่มือเริ่มต้นใช้งานซ้ำได้
+  // (เผื่อพอดีกดข้ามไปตอนแรก หรืออยากย้อนกลับมาดูซ้ำ)
   void _onNotificationTap() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('ระบบแจ้งเตือนกำลังพัฒนา เร็ว ๆ นี้'),
-        backgroundColor: Color(0xFF2E7D32),
-      ),
-    );
+    OnboardingGuide.showAgain(context);
   }
 
   @override

@@ -10,6 +10,13 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # ของเดิมที่มีอยู่แล้ว (firebase_auth, cloud_firestore, fl_chart, ฯลฯ) คงไว้เหมือนเดิม
+
+  # ----- เพิ่มสำหรับระบบแจ้งเตือน -----
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4          # ใช้คำนวณเวลาสำหรับ scheduled notification
+  permission_handler: ^11.3.1  # ขอสิทธิ์แจ้งเตือนบน Android 13+ / iOS
+
   # Firebase
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1

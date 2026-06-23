@@ -373,16 +373,9 @@ void _handleBottomNavTap(int index) {
         children: [
           _buildSettingsTile(
             icon: Icons.bolt,
-            title: 'ประวัติมิเตอร์ไฟฟ้า',
-            subtitle: 'ดูและลบประวัติการบันทึก',
-            onTap: () => _showElectricityHistory(),
-          ),
-          const Divider(height: 1, indent: 56),
-          _buildSettingsTile(
-            icon: Icons.water_drop,
-            title: 'ประวัติมิเตอร์น้ำ',
-            subtitle: 'ดูและลบประวัติการบันทึก',
-            onTap: () => _showWaterHistory(),
+            title: 'ประวัติมิเตอร์ไฟฟ้า / ประปา',
+            subtitle: 'ดูและลบประวัติการบันทึก แยกแท็บไฟฟ้า-น้ำ',
+            onTap: () => _showUtilityHistory(),
           ),
           const Divider(height: 1, indent: 56),
           _buildSettingsTile(
@@ -611,8 +604,8 @@ void _handleBottomNavTap(int index) {
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      icon: Icon(Icons.help_outline,
-                          color: Colors.grey.shade500, size: 20),
+                      icon: const Icon(Icons.help_outline,
+                          color: Color(0xFF2E7D32), size: 20),
                       onPressed: () => _showInfoPopup(
                         'วันตัดรอบบิลคืออะไร?',
                         'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
@@ -924,28 +917,17 @@ void _handleBottomNavTap(int index) {
         builder: (context) => _StartMeterHistoryScreen(
           uid: _user!.uid,
           firestoreService: _firestoreService,
+          isTou: _user?.meterType == 'tou',
         ),
       ),
     );
   }
 
-  void _showElectricityHistory() {
+  void _showUtilityHistory() {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _ElectricityHistoryScreen(
-          uid: FirebaseAuth.instance.currentUser!.uid,
-          firestoreService: _firestoreService,
-        ),
-      ),
-    );
-  }
-
-  void _showWaterHistory() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => _WaterHistoryScreen(
+        builder: (context) => _UtilityHistoryScreen(
           uid: FirebaseAuth.instance.currentUser!.uid,
           firestoreService: _firestoreService,
         ),
@@ -1516,23 +1498,125 @@ class _HistoricalBillListScreenState
   }
 }
 
-// ==================== ประวัติไฟฟ้า ====================
-class _ElectricityHistoryScreen extends StatefulWidget {
+// ==================== บันทึกย้อนหลัง: ไฟฟ้า / ประปา ====================
+// เดิมแยกเป็น 2 หน้า (ไฟฟ้า, น้ำ) คนละปุ่มในหน้าตั้งค่า รวมเป็นหน้าเดียวที่มี
+// TabBar ด้านบนแทน — ใช้ลายเดียวกับ TabBar "ไฟฟ้า/น้ำ/อุปกรณ์" ในหน้า
+// วิเคราะห์ (analysis_screen.dart) เพื่อให้ทั้งแอปดู consistent กัน
+class _UtilityHistoryScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
 
-  const _ElectricityHistoryScreen({
+  const _UtilityHistoryScreen({
     required this.uid,
     required this.firestoreService,
   });
 
   @override
-  State<_ElectricityHistoryScreen> createState() =>
-      _ElectricityHistoryScreenState();
+  State<_UtilityHistoryScreen> createState() => _UtilityHistoryScreenState();
 }
 
-class _ElectricityHistoryScreenState
-    extends State<_ElectricityHistoryScreen> {
+class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
+    with SingleTickerProviderStateMixin {
+  static const _green = Color(0xFF2E7D32);
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: AppBar(
+        title: const Text('บันทึกย้อนหลัง'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: _green,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: _green,
+          tabs: const [
+            Tab(icon: Icon(Icons.bolt), text: 'ไฟฟ้า'),
+            Tab(icon: Icon(Icons.water_drop), text: 'ประปา'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _ElectricityLogTab(
+              uid: widget.uid, firestoreService: widget.firestoreService),
+          _WaterLogTab(
+              uid: widget.uid, firestoreService: widget.firestoreService),
+        ],
+      ),
+    );
+  }
+}
+
+// แถบสรุปด้านบนของแต่ละแท็บ — โชว์จำนวนรายการ + ยอดรวมค่าใช้จ่ายในช่วงที่ดึงมา
+// ใช้ร่วมกันได้ทั้งแท็บไฟฟ้าและน้ำ แค่เปลี่ยนสี/ไอคอน/label
+Widget _utilitySummaryBar({
+  required Color color,
+  required IconData icon,
+  required int count,
+  required double totalCost,
+  required NumberFormat formatter,
+}) {
+  return Container(
+    margin: const EdgeInsets.all(16),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: color.withOpacity(0.2)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: color, size: 22),
+        const SizedBox(width: 10),
+        Text(
+          '$count รายการ',
+          style: TextStyle(
+              color: color, fontWeight: FontWeight.w600, fontSize: 13),
+        ),
+        const Spacer(),
+        Text(
+          'รวม ฿${formatter.format(totalCost)}',
+          style: TextStyle(
+              color: color, fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+      ],
+    ),
+  );
+}
+
+// ==================== แท็บประวัติไฟฟ้า ====================
+class _ElectricityLogTab extends StatefulWidget {
+  final String uid;
+  final FirestoreService firestoreService;
+
+  const _ElectricityLogTab({
+    required this.uid,
+    required this.firestoreService,
+  });
+
+  @override
+  State<_ElectricityLogTab> createState() => _ElectricityLogTabState();
+}
+
+class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   List<ElectricityLogModel> _logs = [];
   bool _isLoading = true;
 
@@ -1555,114 +1639,6 @@ class _ElectricityHistoryScreenState
     setState(() => _isLoading = false);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,##0.00');
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('ประวัติมิเตอร์ไฟฟ้า'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
-          : _logs.isEmpty
-              ? const Center(
-                  child: Text('ยังไม่มีประวัติการบันทึก'),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _logs.length,
-                  itemBuilder: (context, index) {
-                    final log = _logs[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF3E0),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.bolt,
-                              color: Colors.orange,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  DateFormat('dd/MM/yyyy HH:mm')
-                                      .format(log.date),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'มิเตอร์: ${log.meterValue.toStringAsFixed(0)} • ใช้ไป: ${log.usedFromStart.toStringAsFixed(0)} หน่วย',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '฿${formatter.format(log.cost)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.orange,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.red,
-                                  size: 18,
-                                ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () => _confirmDelete(log),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-    );
-  }
-
   Future<void> _confirmDelete(ElectricityLogModel log) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -1676,10 +1652,7 @@ class _ElectricityHistoryScreenState
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'ลบ',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1689,23 +1662,141 @@ class _ElectricityHistoryScreenState
       await _loadLogs();
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final formatter = NumberFormat('#,##0.00');
+    if (_isLoading) {
+      return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+    }
+    if (_logs.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.bolt, size: 48, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              Text('ยังไม่มีประวัติการบันทึก',
+                  style: TextStyle(color: Colors.grey.shade600)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final totalCost = _logs.fold<double>(0, (sum, l) => sum + l.cost);
+
+    return Column(
+      children: [
+        _utilitySummaryBar(
+          color: Colors.orange,
+          icon: Icons.bolt,
+          count: _logs.length,
+          totalCost: totalCost,
+          formatter: formatter,
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            itemCount: _logs.length,
+            itemBuilder: (context, index) {
+              final log = _logs[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E0),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.bolt,
+                          color: Colors.orange, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            DateFormat('dd/MM/yyyy HH:mm').format(log.date),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'มิเตอร์: ${log.meterValue.toStringAsFixed(0)} • '
+                            'ใช้ไป: ${log.usedFromStart.toStringAsFixed(0)} หน่วย',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '฿${formatter.format(log.cost)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.red, size: 18),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => _confirmDelete(log),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-// ==================== ประวัติน้ำ ====================
-class _WaterHistoryScreen extends StatefulWidget {
+// ==================== แท็บประวัติน้ำ ====================
+class _WaterLogTab extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
 
-  const _WaterHistoryScreen({
+  const _WaterLogTab({
     required this.uid,
     required this.firestoreService,
   });
 
   @override
-  State<_WaterHistoryScreen> createState() => _WaterHistoryScreenState();
+  State<_WaterLogTab> createState() => _WaterLogTabState();
 }
 
-class _WaterHistoryScreenState extends State<_WaterHistoryScreen> {
+class _WaterLogTabState extends State<_WaterLogTab> {
   List<WaterLogModel> _logs = [];
   bool _isLoading = true;
 
@@ -1728,114 +1819,6 @@ class _WaterHistoryScreenState extends State<_WaterHistoryScreen> {
     setState(() => _isLoading = false);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,##0.00');
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('ประวัติมิเตอร์น้ำ'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
-          : _logs.isEmpty
-              ? const Center(
-                  child: Text('ยังไม่มีประวัติการบันทึก'),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _logs.length,
-                  itemBuilder: (context, index) {
-                    final log = _logs[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE3F2FD),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.water_drop,
-                              color: Colors.blue,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  DateFormat('dd/MM/yyyy HH:mm')
-                                      .format(log.date),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'มิเตอร์: ${log.meterValue.toStringAsFixed(0)} • ใช้ไป: ${log.usedFromStart.toStringAsFixed(0)} ลบ.ม.',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '฿${formatter.format(log.cost)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.red,
-                                  size: 18,
-                                ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () => _confirmDelete(log),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-    );
-  }
-
   Future<void> _confirmDelete(WaterLogModel log) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -1849,10 +1832,7 @@ class _WaterHistoryScreenState extends State<_WaterHistoryScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'ลบ',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1862,16 +1842,137 @@ class _WaterHistoryScreenState extends State<_WaterHistoryScreen> {
       await _loadLogs();
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final formatter = NumberFormat('#,##0.00');
+    if (_isLoading) {
+      return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+    }
+    if (_logs.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.water_drop, size: 48, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              Text('ยังไม่มีประวัติการบันทึก',
+                  style: TextStyle(color: Colors.grey.shade600)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final totalCost = _logs.fold<double>(0, (sum, l) => sum + l.cost);
+
+    return Column(
+      children: [
+        _utilitySummaryBar(
+          color: Colors.blue,
+          icon: Icons.water_drop,
+          count: _logs.length,
+          totalCost: totalCost,
+          formatter: formatter,
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            itemCount: _logs.length,
+            itemBuilder: (context, index) {
+              final log = _logs[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE3F2FD),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.water_drop,
+                          color: Colors.blue, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            DateFormat('dd/MM/yyyy HH:mm').format(log.date),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'มิเตอร์: ${log.meterValue.toStringAsFixed(0)} • '
+                            'ใช้ไป: ${log.usedFromStart.toStringAsFixed(0)} ลบ.ม.',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '฿${formatter.format(log.cost)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.red, size: 18),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => _confirmDelete(log),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }
+
 
 // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
 class _StartMeterHistoryScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
+  final bool isTou; // true = มิเตอร์ TOU ต้องโชว์ peak/off-peak ด้วย
 
   const _StartMeterHistoryScreen({
     required this.uid,
     required this.firestoreService,
+    this.isTou = false,
   });
 
   @override
@@ -1909,6 +2010,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('ลบรายการนี้?'),
         content: const Text('ลบประวัติการตั้งค่ามิเตอร์ต้นรอบรายการนี้'),
         actions: [
@@ -1929,60 +2031,298 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
     }
   }
 
+  // ก้อนตัวเลข + ไอคอนเล็กๆ ใช้ทั้งใน timeline และอาจเอาไปใช้ที่อื่นได้
+  Widget _valueChip(IconData icon, Color color, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            '$label $value',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat('#,##0.00');
-    final dateFormatter = DateFormat('dd/MM/yyyy HH:mm');
+    final dateFormatter = DateFormat('dd/MM/yyyy, HH:mm');
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(title: const Text('ประวัติค่ามิเตอร์ต้นรอบ')),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _records.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'ยังไม่มีประวัติการตั้งค่ามิเตอร์ต้นรอบ',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                  ),
-                )
-              : ListView.separated(
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+          : Column(
+              children: [
+                // การ์ดสรุปด้านบน — บอกว่ามีกี่รอบ แล้วรอบล่าสุดคือเดือนไหน
+                Container(
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   padding: const EdgeInsets.all(16),
-                  itemCount: _records.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final r = _records[index];
-                    final isLatest = index == 0;
-                    return Card(
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.history,
-                          color: isLatest ? const Color(0xFF2E7D32) : Colors.grey,
-                        ),
-                        title: Text(
-                          'ต้นรอบ ${_thaiMonths[r.billingMonth - 1]} ${r.billingYear}'
-                          '${isLatest ? '  (ปัจจุบัน)' : ''}',
-                          style: TextStyle(
-                            fontWeight: isLatest ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'ไฟ ${formatter.format(r.electricityValue)} หน่วย • '
-                          'น้ำ ${formatter.format(r.waterValue)} ลบ.ม.\n'
-                          'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}',
-                        ),
-                        isThreeLine: true,
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline,
-                              size: 20, color: Colors.red),
-                          onPressed: () => _confirmDelete(r),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E7D32),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2E7D32).withOpacity(0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.history, color: Colors.white, size: 26),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'บันทึกค่ามิเตอร์ต้นรอบทั้งหมด',
+                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${_records.length} รอบบิล',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    );
-                  },
+                      if (_records.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'ล่าสุด ${_thaiMonths[_records.first.billingMonth - 1]}',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 11.5),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
+
+                // Timeline ของแต่ละรอบ
+                Expanded(
+                  child: _records.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.speed_outlined,
+                                    size: 48, color: Colors.grey.shade300),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'ยังไม่มีประวัติการตั้งค่ามิเตอร์ต้นรอบ',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          itemCount: _records.length,
+                          itemBuilder: (context, index) {
+                            final r = _records[index];
+                            final isLatest = index == 0;
+                            final isLast = index == _records.length - 1;
+
+                            return IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // เส้น timeline + จุดด้านซ้าย
+                                  Column(
+                                    children: [
+                                      Container(
+                                        width: 14,
+                                        height: 14,
+                                        margin: const EdgeInsets.only(top: 4),
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: isLatest
+                                              ? const Color(0xFF2E7D32)
+                                              : Colors.grey.shade300,
+                                          border: Border.all(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                          boxShadow: isLatest
+                                              ? [
+                                                  BoxShadow(
+                                                    color: const Color(0xFF2E7D32)
+                                                        .withOpacity(0.4),
+                                                    blurRadius: 6,
+                                                  ),
+                                                ]
+                                              : null,
+                                        ),
+                                      ),
+                                      if (!isLast)
+                                        Expanded(
+                                          child: Container(
+                                            width: 2,
+                                            color: Colors.grey.shade200,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 12),
+
+                                  // การ์ดข้อมูลของรอบนั้น
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(bottom: 16),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: isLatest
+                                              ? Border.all(
+                                                  color: const Color(0xFF2E7D32)
+                                                      .withOpacity(0.3),
+                                                )
+                                              : null,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.grey.withOpacity(0.08),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    'ต้นรอบ ${_thaiMonths[r.billingMonth - 1]} ${r.billingYear}',
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14.5,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (isLatest)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8, vertical: 3),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFF2E7D32)
+                                                          .withOpacity(0.1),
+                                                      borderRadius:
+                                                          BorderRadius.circular(20),
+                                                    ),
+                                                    child: const Text(
+                                                      'ปัจจุบัน',
+                                                      style: TextStyle(
+                                                        fontSize: 10.5,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Color(0xFF2E7D32),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                IconButton(
+                                                  visualDensity: VisualDensity.compact,
+                                                  icon: Icon(Icons.delete_outline,
+                                                      size: 19, color: Colors.red.shade300),
+                                                  onPressed: () => _confirmDelete(r),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}',
+                                              style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  color: Colors.grey.shade500),
+                                            ),
+                                            const SizedBox(height: 10),
+
+                                            // ค่ามิเตอร์ — โชว์ peak/off-peak แทนค่าไฟปกติถ้าเป็น TOU
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 8,
+                                              children: widget.isTou
+                                                  ? [
+                                                      _valueChip(
+                                                        Icons.bolt,
+                                                        Colors.orange.shade700,
+                                                        'On-Peak',
+                                                        '${formatter.format(r.peakValue)} หน่วย',
+                                                      ),
+                                                      _valueChip(
+                                                        Icons.bolt_outlined,
+                                                        Colors.blueGrey,
+                                                        'Off-Peak',
+                                                        '${formatter.format(r.offPeakValue)} หน่วย',
+                                                      ),
+                                                      _valueChip(
+                                                        Icons.water_drop,
+                                                        Colors.blue,
+                                                        'น้ำ',
+                                                        '${formatter.format(r.waterValue)} ลบ.ม.',
+                                                      ),
+                                                    ]
+                                                  : [
+                                                      _valueChip(
+                                                        Icons.bolt,
+                                                        const Color(0xFF2E7D32),
+                                                        'ไฟ',
+                                                        '${formatter.format(r.electricityValue)} หน่วย',
+                                                      ),
+                                                      _valueChip(
+                                                        Icons.water_drop,
+                                                        Colors.blue,
+                                                        'น้ำ',
+                                                        '${formatter.format(r.waterValue)} ลบ.ม.',
+                                                      ),
+                                                    ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
     );
   }
 }
@@ -2384,7 +2724,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditItem(),
         backgroundColor: const Color(0xFF2E7D32),
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

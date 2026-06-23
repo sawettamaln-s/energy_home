@@ -7,12 +7,15 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/setup_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'services/firestore_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await NotificationService.instance.init();
+  await NotificationService.instance.requestPermission();
   runApp(const MyApp());
 }
 
