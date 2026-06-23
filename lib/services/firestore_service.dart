@@ -165,8 +165,8 @@ class FirestoreService {
       if (eLogs.isEmpty && wLogs.isEmpty) return;
 
       // รวมค่า
-      double totalElec = eLogs.fold(0, (sum, log) => sum + log.cost);
-      double totalWater = wLogs.fold(0, (sum, log) => sum + log.cost);
+      double totalElec = eLogs.isNotEmpty ? eLogs.first.cost : 0;
+      double totalWater = wLogs.isNotEmpty ? wLogs.first.cost : 0;
       double usedElec = eLogs.isNotEmpty ? eLogs.first.usedFromStart : 0;
       double usedWater = wLogs.isNotEmpty ? wLogs.first.usedFromStart : 0;
 
