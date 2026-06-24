@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../models/appliance_model.dart';
-import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/default_appliances.dart';
 import '../analysis/analysis_screen.dart';
@@ -21,7 +20,6 @@ class ApplianceScreen extends StatefulWidget {
 class _ApplianceScreenState extends State<ApplianceScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   List<ApplianceModel> _appliances = [];
-  UserModel? _user;
   bool _isLoading = true;
 
   @override
@@ -33,7 +31,6 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    _user = await _firestoreService.getUser(uid);
     _firestoreService.getAppliances(uid).listen((data) {
       setState(() {
         _appliances = data;

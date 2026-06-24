@@ -228,27 +228,6 @@ class FirestoreService {
     return bills;
   }
 
-  // ดึงบิลย้อนหลัง N เดือน
-  // แก้บั๊ก: เดิม .limit() เรียกก่อน orderBy ทำให้ได้บิลแบบไม่การันตี
-  // ว่าเป็น N เดือนล่าสุดจริง ตอนนี้ให้ Firestore เรียงให้ก่อนแล้ว limit
-  Future<List<BillModel>> getRecentBills(String uid, int months) async {
-    final snapshot = await _db
-        .collection('users')
-        .doc(uid)
-        .collection('bills')
-        .orderBy('year', descending: true)
-        .orderBy('month', descending: true)
-        .limit(months)
-        .get();
-
-    final bills = snapshot.docs
-        .map((doc) => BillModel.fromMap({...doc.data(), 'id': doc.id}))
-        .toList();
-
-    // bills ตอนนี้เรียงใหม่ -> เก่าจาก Firestore แล้ว กลับเป็นเก่า -> ใหม่
-    return bills.reversed.toList();
-  }
-
   // ==================== APPLIANCES ====================
 
   // บันทึกเครื่องใช้ไฟฟ้า

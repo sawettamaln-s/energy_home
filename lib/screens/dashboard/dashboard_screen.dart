@@ -651,8 +651,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           radius: 22,
           backgroundColor: DashboardStyles.primaryGreen.withOpacity(0.12),
           child: Text(
-            ((_user?.name?.isNotEmpty ?? false)
-                    ? _user!.name!.substring(0, 1)
+            ((_user?.name.isNotEmpty ?? false)
+                    ? _user!.name.substring(0, 1)
                     : 'U')
                 .toUpperCase(),
             style: const TextStyle(
