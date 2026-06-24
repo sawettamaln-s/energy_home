@@ -69,9 +69,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // โชว์คู่มือเริ่มต้นใช้งาน (เฉพาะครั้งแรกที่เข้า Dashboard เท่านั้น)
     // ใช้ addPostFrameCallback เพื่อรอให้ widget tree พร้อมก่อนเปิด dialog
+    //
+    // หมายเหตุ: ย้าย notifyWelcome() ไปไว้ที่ setup_screen.dart แทนแล้ว
+    // เพราะที่นี่ (Dashboard.initState) รันทุกครั้งที่เข้า Dashboard
+    // (ทั้ง login เก่าและใหม่) ทำให้แจ้งเตือนต้อนรับเด้งซ้ำผิดจุดประสงค์
+    // ที่ setup_screen.dart จะรันแค่ครั้งเดียวจริงๆ ตอนบัญชีใหม่ทำ setup
+    // เสร็จครั้งแรกเท่านั้น
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OnboardingGuide.showIfFirstTime(context);
-      NotificationService.instance.notifyWelcome();
     });
   }
 

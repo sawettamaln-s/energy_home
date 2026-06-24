@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/notification_service.dart';
 import '../dashboard/dashboard_screen.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -126,6 +127,13 @@ class _SetupScreenState extends State<SetupScreen> {
       );
 
       await _firestoreService.createUser(userModel);
+
+      // แจ้งเตือนต้อนรับ — ย้ายมาไว้ตรงนี้แทน Dashboard.initState()
+      // เพราะ _saveSetup() รันแค่ครั้งเดียวจริงๆ ต่อบัญชี (เฉพาะตอนบัญชีใหม่
+      // ทำ setup เสร็จครั้งแรก ปุ่มกดถูก disable ระหว่าง _isLoading กันกด
+      // ซ้ำอยู่แล้ว) ไม่ต้องพึ่ง flag เครื่องแบบเดิมที่ผูกผิดกับ device
+      // ไม่ใช่บัญชี
+      await NotificationService.instance.notifyWelcome();
 
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(

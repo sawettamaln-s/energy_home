@@ -281,19 +281,21 @@ class NotificationService {
 
   // =====================================================================
   // (Instant) แจ้งเตือนต้อนรับ — ยิงครั้งเดียวตอนสมัครบัญชี/ทำ Setup เสร็จ
-  // กันยิงซ้ำด้วย SharedPreferences flag 'welcome_notified'
+  // เรียกจาก setup_screen.dart ตอนบัญชีใหม่ทำ setup เสร็จครั้งแรกเท่านั้น
+  // (ไม่ใช่จาก Dashboard อีกต่อไป เพราะ Dashboard โหลดทุกครั้งที่ login
+  // ไม่ใช่แค่ครั้งแรก) จุดเรียกนี้รันครั้งเดียวต่อบัญชีโดยธรรมชาติอยู่แล้ว
+  // (ปุ่ม Save ใน setup_screen ถูก disable ระหว่างบันทึก กันกดซ้ำ และ
+  // setup_screen จะไม่ถูกแสดงอีกเมื่อมี user doc อยู่แล้ว) จึงไม่ต้องมี
+  // flag กันซ้ำแบบเดิมที่ผูกกับเครื่อง (SharedPreferences) ซึ่งผิดจุด
+  // ประสงค์อยู่แล้ว (ผูกกับเครื่อง ไม่ใช่บัญชี)
   // =====================================================================
   Future<void> notifyWelcome() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('welcome_notified') ?? false) return;
-
     await _showAndLog(
       pluginId: idWelcome,
       title: 'ยินดีต้อนรับสู่ Energy Home 🏠',
       body: 'แอปจะช่วยติดตามค่าไฟ-น้ำให้ทุกวัน แตะเพื่อดูคู่มือเริ่มต้นใช้งาน',
       type: 'welcome',
     );
-    await prefs.setBool('welcome_notified', true);
   }
 
   // =====================================================================
