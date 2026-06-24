@@ -12,7 +12,7 @@ import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../analysis/analysis_screen.dart';
 import '../appliance/appliance_screen.dart';
-import '../auth/login_screen.dart';
+import '../auth/auth_gate.dart';
 import '../dashboard/dashboard_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -46,6 +46,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ในสแต็กเลย ทำให้ไม่มีอะไรเหลือคอยฟังว่า user ออกจากระบบแล้ว
   // วิธีแก้: หลัง signOut ให้ push ไปหน้า Login ตรงๆ พร้อมเคลียร์
   // ประวัติหน้าจอเก่าทั้งหมดทิ้ง (pushAndRemoveUntil)
+  //
+  // อัปเดต: เดิม push ไปแค่ LoginScreen() เปล่าๆ ทำให้หลัง login ใหม่
+  // ไม่มีตัวฟัง auth state เหลืออยู่เลย (เพราะ push ไปแทนที่ StreamBuilder
+  // จนหลุดจาก tree ไปแล้วตั้งแต่ตอนสลับแท็บ) เป็นเหตุให้ login ใหม่ไม่
+  // พาไป Dashboard ให้ ค้างอยู่หน้า Login เฉยๆ — ต้อง push ไปที่ AuthGate()
+  // แทน เพราะ AuthGate มี StreamBuilder ของตัวเองสดๆติดไปด้วยทุกครั้ง
   Future<void> _confirmSignOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -69,7 +75,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      MaterialPageRoute(builder: (context) => const AuthGate()),
       (route) => false, // ทิ้งทุกหน้าก่อนหน้าออกจากสแต็ก กันกดย้อนกลับเข้ามาได้
     );
   }
