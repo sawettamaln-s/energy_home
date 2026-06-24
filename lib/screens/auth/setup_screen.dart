@@ -144,7 +144,7 @@ class _SetupScreenState extends State<SetupScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่')),
+          const SnackBar(content: Text('เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง')),
         );
       }
     } finally {

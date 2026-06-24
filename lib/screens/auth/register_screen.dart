@@ -31,19 +31,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     // เช็คว่ากรอกครบไหม
     if (_nameController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'กรุณากรอกชื่อ');
+      setState(() => _errorMessage = 'กรุณากรอกชื่อ-นามสกุลของคุณก่อนค่ะ');
       return;
     }
 
     // เช็คว่า Password ตรงกันไหม
     if (_passwordController.text != _confirmPasswordController.text) {
-      setState(() => _errorMessage = 'รหัสผ่านไม่ตรงกัน');
+      setState(() => _errorMessage = 'รหัสผ่านที่กรอกไม่ตรงกันค่ะ กรุณาตรวจสอบอีกครั้ง');
       return;
     }
 
     // เช็คว่า Password ยาวพอไหม
     if (_passwordController.text.length < 6) {
-      setState(() => _errorMessage = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+      setState(() => _errorMessage = 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษรค่ะ');
       return;
     }
 
@@ -71,16 +71,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() {
         switch (e.code) {
           case 'email-already-in-use':
-            _errorMessage = 'อีเมลนี้ถูกใช้งานแล้ว';
+            _errorMessage = 'อีเมลนี้ถูกใช้สมัครสมาชิกไปแล้วค่ะ กรุณาใช้อีเมลอื่น';
             break;
           case 'invalid-email':
-            _errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง';
+            _errorMessage = 'รูปแบบอีเมลไม่ถูกต้องค่ะ กรุณาตรวจสอบอีเมลของคุณ';
             break;
           case 'weak-password':
-            _errorMessage = 'รหัสผ่านไม่ปลอดภัยพอ';
+            _errorMessage = 'รหัสผ่านนี้ยังไม่ปลอดภัยพอค่ะ กรุณาตั้งรหัสผ่านที่คาดเดายากขึ้น';
             break;
           default:
-            _errorMessage = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+            _errorMessage = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง';
         }
       });
     } finally {

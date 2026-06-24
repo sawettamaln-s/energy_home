@@ -58,7 +58,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('ลบแจ้งเตือนทั้งหมด?'),
-        content: const Text('ลบแล้วจะไม่สามารถย้อนดูประวัติเดิมได้'),
+        content: const Text('เมื่อลบแล้ว คุณจะไม่สามารถย้อนดูประวัติเดิมได้นะคะ'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

@@ -304,12 +304,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (isTOU) {
       if (_electricityPeakController.text.isEmpty ||
           _electricityOffPeakController.text.isEmpty) {
-        setState(() => _electricityError = 'กรุณากรอกหน่วย Peak และ Off-Peak');
+        setState(() => _electricityError = 'กรุณากรอกหน่วย Peak และ Off-Peak ให้ครบค่ะ');
         return;
       }
     } else {
       if (_electricityController.text.isEmpty) {
-        setState(() => _electricityError = 'กรุณากรอกค่ามิเตอร์ไฟฟ้า');
+        setState(() => _electricityError = 'กรุณากรอกค่ามิเตอร์ไฟฟ้าก่อนค่ะ');
         return;
       }
     }
@@ -326,7 +326,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         normalValue = double.parse(_electricityController.text);
       }
     } catch (e) {
-      setState(() => _electricityError = 'กรุณากรอกตัวเลขเท่านั้น');
+      setState(() => _electricityError = 'กรุณากรอกเป็นตัวเลขเท่านั้นค่ะ');
       return;
     }
 
@@ -352,13 +352,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         if (peakValue < startPeak || offPeakValue < startOffPeak) {
           setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบ');
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
         if (peakValue < lastPeak || offPeakValue < lastOffPeak) {
           setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุด');
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุดค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
@@ -383,13 +383,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         if (normalValue < startE) {
           setState(
-              () => _electricityError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE)');
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE) ค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
         if (normalValue < lastE) {
           setState(
-              () => _electricityError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE)');
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE) ค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
@@ -426,13 +426,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('บันทึกค่ามิเตอร์ไฟฟ้าเรียบร้อยแล้ว'),
+            content: Text('บันทึกค่ามิเตอร์ไฟฟ้าเรียบร้อยแล้วค่ะ'),
             backgroundColor: Colors.orange,
           ),
         );
       }
     } catch (e) {
-      setState(() => _electricityError = 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+      setState(() => _electricityError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setState(() => _isSavingElectricity = false);
     }
@@ -441,7 +441,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // บันทึกค่ามิเตอร์น้ำ
   Future<void> _saveWaterLog() async {
     if (_waterController.text.isEmpty) {
-      setState(() => _waterError = 'กรุณากรอกค่ามิเตอร์น้ำ');
+      setState(() => _waterError = 'กรุณากรอกค่ามิเตอร์น้ำก่อนค่ะ');
       return;
     }
 
@@ -449,7 +449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       value = double.parse(_waterController.text);
     } catch (e) {
-      setState(() => _waterError = 'กรุณากรอกตัวเลขเท่านั้น');
+      setState(() => _waterError = 'กรุณากรอกเป็นตัวเลขเท่านั้นค่ะ');
       return;
     }
 
@@ -457,11 +457,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final lastW = _latestWaterLog?.meterValue ?? startW;
 
     if (value < startW) {
-      setState(() => _waterError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startW)');
+      setState(() => _waterError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startW) ค่ะ');
       return;
     }
     if (value < lastW) {
-      setState(() => _waterError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastW)');
+      setState(() => _waterError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastW) ค่ะ');
       return;
     }
 
@@ -497,13 +497,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('บันทึกค่ามิเตอร์น้ำเรียบร้อยแล้ว'),
+            content: Text('บันทึกค่ามิเตอร์น้ำเรียบร้อยแล้วค่ะ'),
             backgroundColor: Colors.blue,
           ),
         );
       }
     } catch (e) {
-      setState(() => _waterError = 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+      setState(() => _waterError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setState(() => _isSavingWater = false);
     }

@@ -54,11 +54,11 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
   final List<_GuidePage> _pages = const [
     _GuidePage(
       icon: Icons.waving_hand_rounded,
-      title: 'ยินดีต้อนรับสู่ Energy Home 👋',
+      title: 'ยินดีต้อนรับสู่ Energy Home ค่ะ 👋',
       body:
-          'แอปนี้ช่วยติดตามค่าไฟและค่าน้ำในบ้าน โดยคำนวณจาก "รอบบิล" '
-          'ที่พอดีตั้งวันตัดรอบไว้ตอน Setup (เช่น ตัดรอบทุกวันที่ 5 ของเดือน) '
-          'ทุกอย่างในแอปจะอ้างอิงตามรอบนี้เป็นหลัก',
+          'แอปนี้จะช่วยคุณติดตามค่าไฟและค่าน้ำในบ้าน โดยคำนวณจาก "รอบบิล" '
+          'ที่คุณตั้งวันตัดรอบไว้ตอน Setup (เช่น ตัดรอบทุกวันที่ 5 ของเดือน) '
+          'ทุกอย่างในแอปจะอ้างอิงตามรอบนี้เป็นหลักค่ะ',
     ),
     _GuidePage(
       icon: Icons.edit_note_rounded,

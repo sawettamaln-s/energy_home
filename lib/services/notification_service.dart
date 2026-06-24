@@ -180,8 +180,8 @@ class NotificationService {
     if (DateTime.now().isAfter(pendingTime)) {
       await _addToHistory(NotificationItem(
         id: const Uuid().v4(),
-        title: 'ใกล้ถึงวันตัดรอบบิลแล้ว',
-        body: 'ถึงกำหนดที่ตั้งเตือนไว้ก่อนวันตัดรอบบิล',
+        title: 'ใกล้ถึงวันตัดรอบบิลแล้วค่ะ',
+        body: 'ถึงกำหนดที่คุณตั้งเตือนไว้ก่อนวันตัดรอบบิลแล้วนะคะ',
         type: 'billing',
         timestamp: pendingTime,
       ));
@@ -204,8 +204,8 @@ class NotificationService {
 
     await _showAndLog(
       pluginId: idMeterReminder,
-      title: 'ยังไม่ได้บันทึกมิเตอร์',
-      body: 'ไม่ได้บันทึกค่ามิเตอร์มา $daysSince วันแล้ว ลองเปิดแอปบันทึกดูนะ',
+      title: 'ยังไม่ได้บันทึกมิเตอร์เลยค่ะ',
+      body: 'คุณยังไม่ได้บันทึกค่ามิเตอร์มา $daysSince วันแล้วนะคะ ลองเปิดแอปบันทึกดูนะคะ',
       type: 'meter',
     );
     await _markNotifiedToday('meter_reminder');
@@ -229,9 +229,9 @@ class NotificationService {
           !await _alreadyNotifiedToday('spike_electricity')) {
         await _showAndLog(
           pluginId: idSpikeElectricity,
-          title: 'ค่าไฟพุ่งขึ้น ⚡',
+          title: 'ค่าไฟพุ่งขึ้นค่ะ ⚡',
           body:
-              'ค่าไฟเดือนนี้สูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะ',
+              'ค่าไฟเดือนนี้ของคุณสูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะคะ',
           type: 'spike',
         );
         await _markNotifiedToday('spike_electricity');
@@ -245,9 +245,9 @@ class NotificationService {
           !await _alreadyNotifiedToday('spike_water')) {
         await _showAndLog(
           pluginId: idSpikeWater,
-          title: 'ค่าน้ำพุ่งขึ้น 💧',
+          title: 'ค่าน้ำพุ่งขึ้นค่ะ 💧',
           body:
-              'ค่าน้ำเดือนนี้สูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะ',
+              'ค่าน้ำเดือนนี้ของคุณสูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะคะ',
           type: 'spike',
         );
         await _markNotifiedToday('spike_water');
@@ -271,9 +271,9 @@ class NotificationService {
 
     await _showAndLog(
       pluginId: idCycleSummary,
-      title: 'สรุปบิลรอบที่ผ่านมา',
+      title: 'สรุปบิลรอบที่ผ่านมาค่ะ',
       body:
-          'รอบบิลเดือน $month/$year ปิดแล้ว ยอดรวมทั้งสิ้น ฿${totalCost.toStringAsFixed(2)}',
+          'รอบบิลเดือน $month/$year ปิดแล้ว ยอดรวมทั้งสิ้น ฿${totalCost.toStringAsFixed(2)} ค่ะ',
       type: 'summary',
     );
     await prefs.setBool(key, true);
@@ -292,8 +292,8 @@ class NotificationService {
   Future<void> notifyWelcome() async {
     await _showAndLog(
       pluginId: idWelcome,
-      title: 'ยินดีต้อนรับสู่ Energy Home 🏠',
-      body: 'แอปจะช่วยติดตามค่าไฟ-น้ำให้ทุกวัน แตะเพื่อดูคู่มือเริ่มต้นใช้งาน',
+      title: 'ยินดีต้อนรับสู่ Energy Home ค่ะ 🏠',
+      body: 'แอปจะช่วยติดตามค่าไฟ-น้ำให้คุณทุกวันค่ะ แตะเพื่อดูคู่มือเริ่มต้นใช้งานนะคะ',
       type: 'welcome',
     );
   }

@@ -46,16 +46,16 @@ class _LoginScreenState extends State<LoginScreen> {
         // แปลง error code เป็นข้อความภาษาไทย
         switch (e.code) {
           case 'user-not-found':
-            _errorMessage = 'ไม่พบบัญชีผู้ใช้นี้';
+            _errorMessage = 'ไม่พบบัญชีผู้ใช้นี้ในระบบค่ะ กรุณาตรวจสอบอีเมลของคุณอีกครั้ง';
             break;
           case 'wrong-password':
-            _errorMessage = 'รหัสผ่านไม่ถูกต้อง';
+            _errorMessage = 'รหัสผ่านไม่ถูกต้องค่ะ กรุณาลองใหม่อีกครั้ง';
             break;
           case 'invalid-email':
-            _errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง';
+            _errorMessage = 'รูปแบบอีเมลไม่ถูกต้องค่ะ กรุณาตรวจสอบอีเมลของคุณ';
             break;
           default:
-            _errorMessage = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+            _errorMessage = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง';
         }
       });
     } finally {
