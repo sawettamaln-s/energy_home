@@ -60,7 +60,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isSavingWater = false;
   String _electricityError = '';
   String _waterError = '';
-  int _unreadNotifications = 0; // จำนวนแจ้งเตือนที่ยังไม่อ่าน (badge ที่ปุ่มกระดิ่ง)
+  int _unreadNotifications =
+      0; // จำนวนแจ้งเตือนที่ยังไม่อ่าน (badge ที่ปุ่มกระดิ่ง)
 
   @override
   void initState() {
@@ -101,23 +102,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _latestElectricityLog =
           await _firestoreService.getLatestElectricityLog(uid);
       _latestWaterLog = await _firestoreService.getLatestWaterLog(uid);
-
       final now = DateTime.now();
       final billingDay = _user?.billingDay ?? 30;
-      DateTime startDate;
-      DateTime endDate;
+      final DateTime startDate =
+          EnergyForecaster.getCycleStart(now, billingDay);
+      final DateTime endDate = EnergyForecaster.getCycleEnd(now, billingDay);
 
-      if (now.day >= billingDay) {
-        startDate = DateTime(now.year, now.month, billingDay);
-        endDate = DateTime(now.year, now.month + 1, billingDay);
-      } else {
-        startDate = DateTime(now.year, now.month - 1, billingDay);
-        endDate = DateTime(now.year, now.month, billingDay);
-      }
-
-      // รอบบิลก่อนหน้า (ที่ปิดไปแล้ว) คือช่วงก่อน startDate ของรอบปัจจุบัน
       final prevCycleStart =
-          DateTime(startDate.year, startDate.month - 1, billingDay);
+          EnergyForecaster.getPreviousCycleStart(startDate, billingDay);
       final prevCycleEnd = startDate;
       final billExists = await _firestoreService.billExistsForMonth(
           uid, prevCycleEnd.year, prevCycleEnd.month);
@@ -206,7 +198,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await NotificationService.instance.syncDeliveredScheduledNotifications();
 
       // อัปเดตจำนวนแจ้งเตือนที่ยังไม่อ่าน เพื่อโชว์ badge ตัวเลขที่ปุ่มกระดิ่ง
-      _unreadNotifications = await NotificationService.instance.getUnreadCount();
+      _unreadNotifications =
+          await NotificationService.instance.getUnreadCount();
     } catch (e) {
       debugPrint('Error: $e');
     } finally {
@@ -646,8 +639,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   Widget _buildHeader(int daysElapsed, int remainingDays) {
     final totalCycleDays = daysElapsed + remainingDays;
-    final progress =
-        totalCycleDays > 0 ? (daysElapsed / totalCycleDays).clamp(0.0, 1.0) : 0.0;
+    final progress = totalCycleDays > 0
+        ? (daysElapsed / totalCycleDays).clamp(0.0, 1.0)
+        : 0.0;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -657,7 +651,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           radius: 22,
           backgroundColor: DashboardStyles.primaryGreen.withOpacity(0.12),
           child: Text(
-            ((_user?.name?.isNotEmpty ?? false) ? _user!.name!.substring(0, 1) : 'U')
+            ((_user?.name?.isNotEmpty ?? false)
+                    ? _user!.name!.substring(0, 1)
+                    : 'U')
                 .toUpperCase(),
             style: const TextStyle(
               color: DashboardStyles.primaryGreen,
@@ -713,8 +709,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   right: -2,
                   top: -2,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 1),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     constraints:
                         const BoxConstraints(minWidth: 16, minHeight: 16),
                     decoration: const BoxDecoration(
@@ -1158,8 +1154,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 6),
               // สัญลักษณ์พุ่งขึ้น: แสดงเฉพาะตอนค่าใช้จ่ายปัจจุบันสูงกว่าเดือนก่อน
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.25),
                   borderRadius: BorderRadius.circular(6),
