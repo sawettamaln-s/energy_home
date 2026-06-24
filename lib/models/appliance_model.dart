@@ -44,18 +44,6 @@ class ApplianceModel {
       'schedules': schedules.map((s) => s.toMap()).toList(),
     };
   }
-
-  // คำนวณค่าไฟต่อเดือนของอุปกรณ์นี้ (ประมาณการ)
-  double get estimatedMonthlyCost {
-    double totalHours = 0;
-    for (var schedule in schedules) {
-      totalHours += schedule.hoursPerDay * 30;
-    }
-    // kWh = วัตต์ × ชั่วโมง / 1000
-    double kWh = watt * totalHours / 1000;
-    // คูณด้วยอัตราค่าไฟเฉลี่ย 4 บาท/หน่วย
-    return kWh * 4;
-  }
 }
 
 class ScheduleModel {
