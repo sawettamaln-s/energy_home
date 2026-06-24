@@ -363,10 +363,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return;
         }
 
-        peakUnits = peakValue - startPeak;
-        offPeakUnits = offPeakValue - startOffPeak;
+        peakUnits = EnergyCalculator.calculateUsed(peakValue, startPeak);
+        offPeakUnits =
+            EnergyCalculator.calculateUsed(offPeakValue, startOffPeak);
         usedFromStart = peakUnits + offPeakUnits;
-        usedFromLast = (peakValue - lastPeak) + (offPeakValue - lastOffPeak);
+        usedFromLast = EnergyCalculator.calculateUsed(peakValue, lastPeak) +
+            EnergyCalculator.calculateUsed(offPeakValue, lastOffPeak);
 
         cost = await EnergyCalculator.calculateElectricityByType(
           units: 0,
@@ -392,8 +394,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return;
         }
 
-        usedFromStart = normalValue - startE;
-        usedFromLast = normalValue - lastE;
+        usedFromStart = EnergyCalculator.calculateUsed(normalValue, startE);
+        usedFromLast = EnergyCalculator.calculateUsed(normalValue, lastE);
 
         cost = await EnergyCalculator.calculateElectricityByType(
           units: usedFromStart,
@@ -470,8 +472,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      final usedFromStart = value - startW;
-      final usedFromLast = value - lastW;
+      final usedFromStart = EnergyCalculator.calculateUsed(value, startW);
+      final usedFromLast = EnergyCalculator.calculateUsed(value, lastW);
 
       final cost = EnergyCalculator.calculateWater(
         usedFromStart,
