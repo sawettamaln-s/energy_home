@@ -248,7 +248,10 @@ class FirestoreService {
         .collection('appliances')
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => ApplianceModel.fromMap(doc.data()))
+            // เติม id ของ document เข้าไปด้วย (เดิมขาด ทำให้ appliance.id
+            // เป็นค่าว่างเสมอ ไม่ตรงกับ getBills/fetchBills ที่ merge id ไว้)
+            .map((doc) =>
+                ApplianceModel.fromMap({...doc.data(), 'id': doc.id}))
             .toList());
   }
 
