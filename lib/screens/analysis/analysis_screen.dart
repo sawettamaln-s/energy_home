@@ -277,6 +277,7 @@ class _UtilityTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final mom = analysisService.compareMoM(bills, selector: selector);
     final yoy = analysisService.compareYoY(bills, selector: selector);
+    final avg6 = analysisService.compareToAverage(bills, selector: selector);
     final forecast =
         analysisService.forecastNextMonth(bills, selector: selector);
 
@@ -301,11 +302,33 @@ class _UtilityTab extends StatelessWidget {
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _comparisonCard('เทียบเดือนก่อน', mom)),
+            Expanded(
+              child: _comparisonCard(
+                'เทียบเดือนก่อน',
+                mom,
+                emptyHint:
+                    'ต้องมีบิลอย่างน้อย 2 เดือน (ตอนนี้มี ${bills.length} เดือน)',
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(
-                child: _comparisonCard('เทียบปีก่อน (เดือนเดียวกัน)', yoy)),
+              child: _comparisonCard(
+                'เทียบปีก่อน (เดือนเดียวกัน)',
+                yoy,
+                emptyHint:
+                    'ยังไม่มีบิลเดือนเดียวกันของปีก่อน เก็บข้อมูลต่อให้ครบ 1 ปีจะเริ่มเทียบได้',
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 10),
+        _comparisonCard(
+          'เทียบค่าเฉลี่ย 6 เดือนล่าสุด',
+          avg6,
+          emptyHint:
+              'ต้องมีบิลอย่างน้อย 3 เดือน (ตอนนี้มี ${bills.length} เดือน) — '
+              'ช่วยให้เห็นภาพที่นิ่งกว่าเทียบเดือนก่อนเดือนเดียว',
+          fullWidth: true,
         ),
         const SizedBox(height: 10),
         _forecastCard(forecast),
@@ -415,6 +438,17 @@ class _UtilityTab extends StatelessWidget {
     );
   }
 
+  // ----- ข้อความ empty state ของกราฟเทรนด์ บอก progress ตามจำนวนบิลจริง -----
+  // เดิมเขียนตายตัวว่า "ข้อมูลยังไม่พอ (ต้องมีอย่างน้อย 2 เดือน)" ผู้ใช้ใหม่
+  // จะไม่รู้ว่าตอนนี้มีกี่เดือนแล้ว ต้องรออีกกี่เดือนถึงจะเริ่มเห็นกราฟ
+  String _trendEmptyMessage() {
+    if (bills.isEmpty) {
+      return 'ยังไม่มีข้อมูลบิลของ$title เลย\nบันทึกบิลเดือนแรกที่หน้าตั้งค่า เพื่อเริ่มเก็บข้อมูล';
+    }
+    final needed = 2 - bills.length;
+    return 'มีข้อมูลแล้ว ${bills.length} เดือน\nบันทึกอีก $needed เดือน จะเริ่มเห็นกราฟแนวโน้มได้';
+  }
+
   Widget _trendChart() {
     final spots = <FlSpot>[];
     for (int i = 0; i < bills.length; i++) {
@@ -440,10 +474,16 @@ class _UtilityTab extends StatelessWidget {
           const SizedBox(height: 12),
           Expanded(
             child: spots.length < 2
-                ? const Center(
-                    child: Text(
-                        'ข้อมูลยังไม่พอแสดงกราฟ (ต้องมีอย่างน้อย 2 เดือน)',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)))
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        _trendEmptyMessage(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ),
+                  )
                 : LineChart(
                     LineChartData(
                       gridData: const FlGridData(show: false),
@@ -489,7 +529,12 @@ class _UtilityTab extends StatelessWidget {
     );
   }
 
-  Widget _comparisonCard(String label, ComparisonResult? r) {
+  Widget _comparisonCard(
+    String label,
+    ComparisonResult? r, {
+    String emptyHint = 'ไม่มีข้อมูลพอเทียบ',
+    bool fullWidth = false,
+  }) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -506,39 +551,55 @@ class _UtilityTab extends StatelessWidget {
               style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
           const SizedBox(height: 8),
           if (r == null)
-            const Text('ไม่มีข้อมูลพอเทียบ',
-                style: TextStyle(fontSize: 12, color: Colors.grey))
-          else if (r.isUnchanged)
-            const Row(
-              children: [
-                Icon(Icons.remove, size: 16, color: Colors.grey),
-                SizedBox(width: 4),
-                Text('ไม่เปลี่ยนแปลง',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Colors.grey)),
-              ],
-            )
+            // โชว์ "progress" ว่าต้องเก็บข้อมูลเพิ่มอีกแค่ไหนถึงจะเทียบได้
+            // แทนข้อความเฉยๆ ว่าไม่มีข้อมูล ให้ผู้ใช้ใหม่รู้ว่าต้องรออะไร
+            Text(emptyHint,
+                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500))
           else
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(
-                  r.isIncrease ? Icons.arrow_upward : Icons.arrow_downward,
-                  size: 16,
-                  color: r.isIncrease ? Colors.red : _green,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  r.percentChange == null
-                      ? '฿${_fmt.format(r.diff.abs())}'
-                      : '${r.percentChange!.abs().toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: r.isIncrease ? Colors.red : _green,
+                if (r.isUnchanged)
+                  const Row(
+                    children: [
+                      Icon(Icons.remove, size: 16, color: Colors.grey),
+                      SizedBox(width: 4),
+                      Text('ไม่เปลี่ยนแปลง',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.grey)),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Icon(
+                        r.isIncrease
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
+                        size: 16,
+                        color: r.isIncrease ? Colors.red : _green,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        r.percentChange == null
+                            ? '฿${_fmt.format(r.diff.abs())}'
+                            : '${r.percentChange!.abs().toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: r.isIncrease ? Colors.red : _green,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                if (fullWidth) ...[
+                  const Spacer(),
+                  Text('เฉลี่ย ฿${_fmt.format(r.previousValue)}',
+                      style: TextStyle(
+                          fontSize: 11.5, color: Colors.grey.shade500)),
+                ],
               ],
             ),
         ],

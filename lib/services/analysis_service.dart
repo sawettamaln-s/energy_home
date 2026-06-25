@@ -147,6 +147,32 @@ class AnalysisService {
     );
   }
 
+  /// เทียบเดือนปัจจุบันกับ "ค่าเฉลี่ย" ของ N เดือนก่อนหน้า (ไม่รวมเดือนปัจจุบัน)
+  /// ให้ภาพที่นิ่งกว่าการเทียบกับเดือนก่อนเดือนเดียว เพราะถ้าเดือนก่อนเป็น
+  /// เดือนที่ผิดปกติ (เช่น ไปต่างจังหวัดทั้งเดือน ใช้ไฟน้อยกว่าปกติมาก)
+  /// การเทียบ MoM เดือนเดียวจะดูเหมือนเดือนนี้ "พุ่ง" ทั้งที่จริงๆ แค่กลับสู่ปกติ
+  /// months: จำนวนเดือนย้อนหลังที่ใช้คำนวณค่าเฉลี่ย (ดีฟอลต์ 6 เดือน)
+  ComparisonResult? compareToAverage(
+    List<BillModel> bills, {
+    required double Function(BillModel) selector,
+    int months = 6,
+  }) {
+    // ต้องมีเดือนปัจจุบัน + อย่างน้อย 2 เดือนก่อนหน้า ไม่งั้นค่าเฉลี่ยไม่มีความหมาย
+    if (bills.length < 3) return null;
+
+    final current = bills.last;
+    final history = bills.sublist(0, bills.length - 1); // ไม่รวมเดือนปัจจุบัน
+    final recent =
+        history.length > months ? history.sublist(history.length - months) : history;
+
+    final avg = recent.map(selector).reduce((a, b) => a + b) / recent.length;
+
+    return ComparisonResult(
+      currentValue: selector(current),
+      previousValue: avg,
+    );
+  }
+
   /// พยากรณ์ "แนวโน้มระยะยาว" ของเดือนถัดไป ด้วย Linear Regression (Least Squares)
   /// ใช้ข้อมูลบิลที่ปิดรอบแล้วทั้งหมดเป็น training data (bills ในระบบมีแต่
   /// บิลที่ปิดรอบแล้วเท่านั้น เพราะ compileBill() ใน dashboard ถูกเรียก
