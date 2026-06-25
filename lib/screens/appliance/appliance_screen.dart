@@ -77,8 +77,16 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     return total;
   }
 
-  int get _scheduledCount =>
-      _appliances.where((a) => a.schedules.isNotEmpty).length;
+  // ค่าเฉลี่ยชั่วโมงการใช้งานต่อวัน (เฉลี่ยจาก hoursPerDay ของทุกอุปกรณ์)
+  double get _avgHoursPerDay {
+    if (_appliances.isEmpty) return 0;
+    final total = _appliances.fold<double>(
+      0,
+      (sum, a) =>
+          sum + (a.schedules.isNotEmpty ? a.schedules.first.hoursPerDay : 0),
+    );
+    return total / _appliances.length;
+  }
 
   // สรุปตารางการใช้งานเป็นข้อความสั้นๆ จากข้อมูลที่มีจริง (days + จำนวนชม./วัน)
   // หมายเหตุ: ฟอร์มเพิ่ม/แก้ไขอุปกรณ์ไม่มีช่องกรอก "เวลาเริ่มใช้งาน" จึงไม่แสดง
@@ -87,10 +95,17 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     if (a.schedules.isEmpty) return 'ยังไม่ได้ตั้งตารางการใช้งาน';
     final s = a.schedules.first;
     final daysLabel = _daysLabel(s.days);
-    final hoursLabel = s.hoursPerDay % 1 == 0
-        ? s.hoursPerDay.toStringAsFixed(0)
-        : s.hoursPerDay.toStringAsFixed(1);
-    return '$daysLabel ใช้วันละ $hoursLabel ชม.';
+    return '$daysLabel ใช้วันละ ${_durationLabel(s.hoursPerDay)}';
+  }
+
+  // แปลงชั่วโมงแบบทศนิยม (เช่น 0.25) ให้เป็นข้อความที่อ่านง่าย
+  // เช่น 0.25 ชม. -> '15 นาที', 1.5 ชม. -> '1 ชม. 30 นาที'
+  String _durationLabel(double hours) {
+    final h = hours.floor();
+    final m = ((hours - h) * 60).round();
+    if (h == 0) return '$m นาที';
+    if (m == 0) return '$h ชม.';
+    return '$h ชม. $m นาที';
   }
 
   String _daysLabel(List<int> days) {
@@ -136,8 +151,8 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _summaryBox(
-                          label: 'ตารางใช้งาน',
-                          value: '$_scheduledCount ชิ้น',
+                          label: 'เฉลี่ย ชม./วัน',
+                          value: _durationLabel(_avgHoursPerDay),
                         ),
                       ),
                       const SizedBox(width: 10),

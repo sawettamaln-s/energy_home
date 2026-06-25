@@ -90,9 +90,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: _green))
-          : _bills.isEmpty
-              ? _emptyState('ยังไม่มีข้อมูลบิลให้วิเคราะห์')
-              : TabBarView(
+          : TabBarView(
                   controller: _tabController,
                   children: [
                     _UtilityTab(
@@ -215,17 +213,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       ),
     );
   }
-
-  Widget _emptyState(String text) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.bar_chart, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
-            Text(text, style: const TextStyle(color: Colors.grey)),
-          ],
-        ),
-      );
 }
 
 // ==================== Tab ไฟฟ้า / น้ำ ====================
