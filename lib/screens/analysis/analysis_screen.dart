@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +28,13 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   late TabController _tabController;
   List<BillModel> _bills = [];
   List<ApplianceModel> _appliances = [];
+  Map<String, CurrentCycleForecast>? _currentCycle;
   bool _isLoading = true;
+
+  // เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
+  // (เดิมไม่เก็บไว้เลย ทำให้ setState ถูกเรียกหลัง widget dispose ไปแล้ว
+  // ถ้า user ออกจากหน้านี้ระหว่างที่ Firestore ยังส่ง snapshot ใหม่เข้ามา)
+  StreamSubscription<List<ApplianceModel>>? _applianceSub;
 
   static const _green = Color(0xFF2E7D32);
 
@@ -39,6 +47,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   @override
   void dispose() {
+    _applianceSub?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -49,20 +58,37 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       final uid = FirebaseAuth.instance.currentUser!.uid;
       debugPrint('🔵 uid: $uid');
 
+      // ต้องดึง user มาก่อน เพื่อเอา billingDay ไปคำนวณขอบเขตรอบบิลปัจจุบัน
+      final user = await _firestoreService.getUser(uid);
+      final billingDay = user?.billingDay ?? 30;
+
       final bills = await _analysisService.fetchBills(uid);
       debugPrint('🔵 bills: ${bills.length}');
 
-      _firestoreService.getAppliances(uid).listen((data) {
-        setState(() => _appliances = data);
+      final currentCycle = await _analysisService.forecastCurrentCycle(
+        uid: uid,
+        firestoreService: _firestoreService,
+        billingDay: billingDay,
+      );
+
+      _applianceSub?.cancel();
+      _applianceSub = _firestoreService.getAppliances(uid).listen((data) {
+        if (mounted) setState(() => _appliances = data);
       });
 
+      if (!mounted) return;
       setState(() {
         _bills = bills;
+        _currentCycle = currentCycle;
         _isLoading = false;
       });
     } catch (e) {
       debugPrint('🔴 ERROR: $e');
+      if (!mounted) return;
       setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('โหลดข้อมูลไม่สำเร็จ: $e')),
+      );
     }
   }
 
@@ -76,6 +102,12 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         title: const Text('วิเคราะห์',
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black54),
+            onPressed: _isLoading ? null : _loadData,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: _green,
@@ -91,30 +123,32 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: _green))
           : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _UtilityTab(
-                      bills: _bills,
-                      analysisService: _analysisService,
-                      selector: (b) => b.electricityCost,
-                      unitSelector: (b) => b.electricityUsed,
-                      unitLabel: 'หน่วย',
-                      title: 'ค่าไฟฟ้า',
-                    ),
-                    _UtilityTab(
-                      bills: _bills,
-                      analysisService: _analysisService,
-                      selector: (b) => b.waterCost,
-                      unitSelector: (b) => b.waterUsed,
-                      unitLabel: 'หน่วย',
-                      title: 'ค่าน้ำ',
-                    ),
-                    _ApplianceTab(
-                      appliances: _appliances,
-                      analysisService: _analysisService,
-                    ),
-                  ],
+              controller: _tabController,
+              children: [
+                _UtilityTab(
+                  bills: _bills,
+                  analysisService: _analysisService,
+                  selector: (b) => b.electricityCost,
+                  unitLabel: 'หน่วย',
+                  title: 'ค่าไฟฟ้า',
+                  label: 'ค่าไฟ',
+                  currentCycle: _currentCycle?['electricity'],
                 ),
+                _UtilityTab(
+                  bills: _bills,
+                  analysisService: _analysisService,
+                  selector: (b) => b.waterCost,
+                  unitLabel: 'หน่วย',
+                  title: 'ค่าน้ำ',
+                  label: 'ค่าน้ำ',
+                  currentCycle: _currentCycle?['water'],
+                ),
+                _ApplianceTab(
+                  appliances: _appliances,
+                  analysisService: _analysisService,
+                ),
+              ],
+            ),
       bottomNavigationBar: _buildBottomNavBar(
         currentIndex: 1,
         onTap: (index) {
@@ -220,20 +254,23 @@ class _UtilityTab extends StatelessWidget {
   final List<BillModel> bills;
   final AnalysisService analysisService;
   final double Function(BillModel) selector; // ค่าใช้จ่าย (บาท)
-  final double Function(BillModel) unitSelector; // หน่วยที่ใช้
-  final String unitLabel;
-  final String title;
+  final String unitLabel; // หน่วยที่ใช้ เช่น 'หน่วย'
+  final String title; // หัวข้อยาว เช่น 'ค่าไฟฟ้า' ใช้ในกราฟเทรนด์
+  final String label; // หัวข้อสั้น เช่น 'ค่าไฟ' ใช้ในข้อความ insight
+  final CurrentCycleForecast? currentCycle;
 
   static const _green = Color(0xFF2E7D32);
   final _fmt = NumberFormat('#,##0.00');
+  final _fmtUnit = NumberFormat('#,##0.0');
 
   _UtilityTab({
     required this.bills,
     required this.analysisService,
     required this.selector,
-    required this.unitSelector,
     required this.unitLabel,
     required this.title,
+    required this.label,
+    required this.currentCycle,
   });
 
   @override
@@ -243,9 +280,23 @@ class _UtilityTab extends StatelessWidget {
     final forecast =
         analysisService.forecastNextMonth(bills, selector: selector);
 
+    final insights = analysisService.generateUtilityInsights(
+      label: label,
+      bills: bills,
+      selector: selector,
+      mom: mom,
+      yoy: yoy,
+      forecastNextMonth: forecast,
+      currentCycle: currentCycle,
+    );
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (currentCycle != null && currentCycle!.hasData) ...[
+          _currentCycleCard(),
+          const SizedBox(height: 16),
+        ],
         _trendChart(),
         const SizedBox(height: 16),
         Row(
@@ -258,6 +309,108 @@ class _UtilityTab extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _forecastCard(forecast),
+        if (insights.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _insightsCard(insights),
+        ],
+      ],
+    );
+  }
+
+  // ----- การ์ดพยากรณ์ยอดบิลรอบปัจจุบัน (Moving Average ถึงวันตัดรอบ) -----
+  Widget _currentCycleCard() {
+    final c = currentCycle!;
+    final progressPercent = (c.progress * 100).toStringAsFixed(0);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.timelapse, color: _green, size: 18),
+              const SizedBox(width: 6),
+              const Text('พยากรณ์ยอดบิลรอบนี้',
+                  style:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const Spacer(),
+              Text('ผ่านมาแล้ว $progressPercent%',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: c.progress,
+              minHeight: 6,
+              backgroundColor: _green.withOpacity(0.12),
+              valueColor: const AlwaysStoppedAnimation(_green),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _cycleStat(
+                    'ใช้ไปแล้ว', '฿${_fmt.format(c.currentCost)}'),
+              ),
+              Expanded(
+                child: _cycleStat(
+                    'คาดว่าจะจบรอบที่', '฿${_fmt.format(c.forecastCost)}',
+                    highlight: true),
+              ),
+              Expanded(
+                child: _cycleStat('เหลืออีก', '${c.remainingDays} วัน'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.speed, size: 14, color: Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'ใช้ไป ${_fmtUnit.format(c.currentUnits)} $unitLabel '
+                    '• คาดว่าจะใช้ทั้งสิ้น ${_fmtUnit.format(c.forecastUnits)} $unitLabel',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cycleStat(String label, String value, {bool highlight = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+        const SizedBox(height: 4),
+        Text(value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: highlight ? 15 : 13,
+              color: highlight ? _green : Colors.black87,
+            )),
       ],
     );
   }
@@ -355,6 +508,18 @@ class _UtilityTab extends StatelessWidget {
           if (r == null)
             const Text('ไม่มีข้อมูลพอเทียบ',
                 style: TextStyle(fontSize: 12, color: Colors.grey))
+          else if (r.isUnchanged)
+            const Row(
+              children: [
+                Icon(Icons.remove, size: 16, color: Colors.grey),
+                SizedBox(width: 4),
+                Text('ไม่เปลี่ยนแปลง',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.grey)),
+              ],
+            )
           else
             Row(
               children: [
@@ -396,7 +561,9 @@ class _UtilityTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('คาดการณ์เดือนถัดไป',
+                // เปลี่ยนชื่อให้ชัดว่าเป็นแนวโน้ม "ระยะยาว" (Linear Regression
+                // จากบิลย้อนหลังทั้งหมด) ต่างจากการ์ดด้านบนที่พยากรณ์แค่รอบนี้
+                const Text('แนวโน้มระยะยาว (เดือนถัดไป)',
                     style: TextStyle(fontSize: 12, color: Colors.grey)),
                 Text('฿${_fmt.format(forecast)}',
                     style: const TextStyle(
@@ -406,11 +573,80 @@ class _UtilityTab extends StatelessWidget {
               ],
             ),
           ),
-          const Text('(แนวโน้มจากข้อมูลย้อนหลัง)',
+          const Text('(Linear Regression\nจากบิลย้อนหลัง)',
+              textAlign: TextAlign.right,
               style: TextStyle(fontSize: 10, color: Colors.grey)),
         ],
       ),
     );
+  }
+
+  // ----- การ์ดข้อสังเกต/คำแนะนำที่วิเคราะห์มาจากข้อมูลจริง -----
+  Widget _insightsCard(List<AnalysisInsight> insights) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.lightbulb_outline, size: 16, color: _green),
+              SizedBox(width: 6),
+              Text('ข้อสังเกต',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...insights.map((i) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      _insightIcon(i.level),
+                      size: 16,
+                      color: _insightColor(i.level),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(i.text,
+                          style: const TextStyle(fontSize: 12.5, height: 1.4)),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  IconData _insightIcon(InsightLevel level) {
+    switch (level) {
+      case InsightLevel.good:
+        return Icons.check_circle;
+      case InsightLevel.warning:
+        return Icons.warning_amber_rounded;
+      case InsightLevel.neutral:
+        return Icons.info_outline;
+    }
+  }
+
+  Color _insightColor(InsightLevel level) {
+    switch (level) {
+      case InsightLevel.good:
+        return _green;
+      case InsightLevel.warning:
+        return Colors.orange.shade800;
+      case InsightLevel.neutral:
+        return Colors.grey.shade600;
+    }
   }
 }
 
@@ -441,6 +677,8 @@ class _ApplianceTab extends StatelessWidget {
         ),
       );
     }
+
+    final insights = analysisService.generateApplianceInsights(breakdown);
 
     final colors = [
       _green,
@@ -546,9 +784,61 @@ class _ApplianceTab extends StatelessWidget {
         }),
         const SizedBox(height: 8),
         Text(
-          '* เป็นค่าประมาณการจากกำลังไฟ (วัตต์) × ชั่วโมงที่ตั้งไว้ ไม่ใช่ค่าจากมิเตอร์จริงรายอุปกรณ์',
+          '* เป็นค่าประมาณการจากกำลังไฟ (วัตต์) × ชั่วโมงที่ตั้งไว้ ไม่ใช่ค่าจากมิเตอร์จริงรายอุปกรณ์ '
+          'และใช้อัตราเฉลี่ย 4.5 บาท/หน่วย จึงอาจไม่ตรงกับยอดบิลจริงที่คิดตามอัตราขั้นบันได',
           style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
         ),
+        if (insights.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline, size: 16, color: _green),
+                    SizedBox(width: 6),
+                    Text('ข้อสังเกต',
+                        style:
+                            TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ...insights.map((i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            i.level == InsightLevel.warning
+                                ? Icons.warning_amber_rounded
+                                : Icons.info_outline,
+                            size: 16,
+                            color: i.level == InsightLevel.warning
+                                ? Colors.orange.shade800
+                                : Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(i.text,
+                                style: const TextStyle(
+                                    fontSize: 12.5, height: 1.4)),
+                          ),
+                        ],
+                      ),
+                    )),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
