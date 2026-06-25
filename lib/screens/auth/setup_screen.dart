@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/thai_date_utils.dart';
 import '../dashboard/dashboard_screen.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -33,21 +34,6 @@ class _SetupScreenState extends State<SetupScreen> {
   String _startMeterError = '';
 
   bool _isLoading = false;
-
-  final List<String> _thaiMonths = [
-    'มกราคม',
-    'กุมภาพันธ์',
-    'มีนาคม',
-    'เมษายน',
-    'พฤษภาคม',
-    'มิถุนายน',
-    'กรกฎาคม',
-    'สิงหาคม',
-    'กันยายน',
-    'ตุลาคม',
-    'พฤศจิกายน',
-    'ธันวาคม'
-  ];
 
   @override
   void dispose() {
@@ -499,7 +485,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   items: List.generate(12, (i) {
                     return DropdownMenuItem(
                       value: i + 1,
-                      child: Text(_thaiMonths[i]),
+                      child: Text(thaiMonths[i]),
                     );
                   }),
                   onChanged: (val) =>

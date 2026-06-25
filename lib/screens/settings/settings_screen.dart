@@ -10,6 +10,7 @@ import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/thai_date_utils.dart';
 import '../analysis/analysis_screen.dart';
 import '../appliance/appliance_screen.dart';
 import '../auth/auth_gate.dart';
@@ -728,21 +729,6 @@ void _handleBottomNavTap(int index) {
     int selectedMonth = _user?.startBillingMonth ?? DateTime.now().month;
     int selectedYear = _user?.startBillingYear ?? DateTime.now().year;
 
-    final List<String> thaiMonths = [
-      'มกราคม',
-      'กุมภาพันธ์',
-      'มีนาคม',
-      'เมษายน',
-      'พฤษภาคม',
-      'มิถุนายน',
-      'กรกฎาคม',
-      'สิงหาคม',
-      'กันยายน',
-      'ตุลาคม',
-      'พฤศจิกายน',
-      'ธันวาคม',
-    ];
-
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -976,11 +962,6 @@ class _AddHistoricalBillSheet extends StatefulWidget {
 }
 
 class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
-  static const _thaiMonths = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
-  ];
-
   late final List<DateTime> _monthOptions;
   late DateTime _selectedMonth;
   Set<String> _takenMonths = {}; // เก็บ 'year-month' ของเดือนที่มีบิลแล้ว
@@ -1214,8 +1195,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                               enabled: !taken,
                               child: Text(
                                 taken
-                                    ? '${_thaiMonths[d.month - 1]} ${d.year} (มีบิลแล้ว)'
-                                    : '${_thaiMonths[d.month - 1]} ${d.year}',
+                                    ? '${thaiMonths[d.month - 1]} ${d.year} (มีบิลแล้ว)'
+                                    : '${thaiMonths[d.month - 1]} ${d.year}',
                                 style: TextStyle(
                                   color: taken ? Colors.grey.shade400 : null,
                                 ),
@@ -1379,11 +1360,6 @@ class _HistoricalBillListScreen extends StatefulWidget {
 
 class _HistoricalBillListScreenState
     extends State<_HistoricalBillListScreen> {
-  static const _thaiMonths = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
-  ];
-
   List<BillModel> _bills = [];
   bool _isLoading = true;
 
@@ -1427,7 +1403,7 @@ class _HistoricalBillListScreenState
       builder: (context) => AlertDialog(
         title: const Text('ลบบิลนี้?'),
         content: Text(
-            'ต้องการลบบันทึกบิลของเดือน ${_thaiMonths[bill.month - 1]} ${bill.year} ใช่ไหมคะ'),
+            'ต้องการลบบันทึกบิลของเดือน ${thaiMonths[bill.month - 1]} ${bill.year} ใช่ไหมคะ'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1473,7 +1449,7 @@ class _HistoricalBillListScreenState
                     return Card(
                       child: ListTile(
                         title: Text(
-                            '${_thaiMonths[bill.month - 1]} ${bill.year}'),
+                            '${thaiMonths[bill.month - 1]} ${bill.year}'),
                         subtitle:
                             Text('ยอดรวม ฿${formatter.format(bill.totalCost)}'),
                         onTap: () => _openSheet(existingBill: bill),
@@ -1987,11 +1963,6 @@ class _StartMeterHistoryScreen extends StatefulWidget {
 }
 
 class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
-  static const _thaiMonths = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
-  ];
-
   List<StartMeterRecordModel> _records = [];
   bool _isLoading = true;
 
@@ -2123,7 +2094,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            'ล่าสุด ${_thaiMonths[_records.first.billingMonth - 1]}',
+                            'ล่าสุด ${thaiMonths[_records.first.billingMonth - 1]}',
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 11.5),
                           ),
@@ -2233,7 +2204,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
                                               children: [
                                                 Expanded(
                                                   child: Text(
-                                                    'ต้นรอบ ${_thaiMonths[r.billingMonth - 1]} ${r.billingYear}',
+                                                    'ต้นรอบ ${thaiMonths[r.billingMonth - 1]} ${r.billingYear}',
                                                     style: const TextStyle(
                                                       fontWeight: FontWeight.bold,
                                                       fontSize: 14.5,
