@@ -68,6 +68,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Navigator.pop(context);
       }
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       setState(() {
         switch (e.code) {
           case 'email-already-in-use':
@@ -84,7 +85,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       });
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

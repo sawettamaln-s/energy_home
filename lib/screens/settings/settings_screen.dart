@@ -15,7 +15,7 @@ import '../analysis/analysis_screen.dart';
 import '../appliance/appliance_screen.dart';
 import '../auth/auth_gate.dart';
 import '../dashboard/dashboard_screen.dart';
-
+import '../../widgets/confirm_dialog.dart';
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -54,22 +54,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // พาไป Dashboard ให้ ค้างอยู่หน้า Login เฉยๆ — ต้อง push ไปที่ AuthGate()
   // แทน เพราะ AuthGate มี StreamBuilder ของตัวเองสดๆติดไปด้วยทุกครั้ง
   Future<void> _confirmSignOut() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ออกจากระบบ'),
-        content: const Text('ต้องการออกจากระบบใช่ไหมคะ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ออกจากระบบ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+ final confirmed = await showConfirmDialog(
+      context,
+      title: 'ออกจากระบบ',
+      content: 'ต้องการออกจากระบบใช่ไหมคะ?',
+      confirmLabel: 'ออกจากระบบ',
     );
     if (confirmed != true) return;
 
@@ -1398,23 +1387,10 @@ class _HistoricalBillListScreenState
   }
 
   Future<void> _confirmDelete(BillModel bill) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ลบบิลนี้?'),
-        content: Text(
-            'ต้องการลบบันทึกบิลของเดือน ${thaiMonths[bill.month - 1]} ${bill.year} ใช่ไหมคะ'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+final confirmed = await showConfirmDialog(
+      context,
+      title: 'ลบบิลนี้?',
+      content: 'ต้องการลบบันทึกบิลของเดือน ${thaiMonths[bill.month - 1]} ${bill.year} ใช่ไหมคะ',
     );
     if (confirmed == true) {
       await widget.firestoreService.deleteBill(widget.uid, bill.id);
@@ -1622,22 +1598,10 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   }
 
   Future<void> _confirmDelete(ElectricityLogModel log) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ลบข้อมูล'),
-        content: const Text('ต้องการลบข้อมูลนี้ใช่ไหมคะ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+final confirm = await showConfirmDialog(
+      context,
+      title: 'ลบข้อมูล',
+      content: 'ต้องการลบข้อมูลนี้ใช่ไหมคะ?',
     );
     if (confirm == true) {
       await widget.firestoreService.deleteElectricityLog(log.uid, log.id);
@@ -1802,22 +1766,10 @@ class _WaterLogTabState extends State<_WaterLogTab> {
   }
 
   Future<void> _confirmDelete(WaterLogModel log) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ลบข้อมูล'),
-        content: const Text('ต้องการลบข้อมูลนี้ใช่ไหมคะ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+final confirm = await showConfirmDialog(
+      context,
+      title: 'ลบข้อมูล',
+      content: 'ต้องการลบข้อมูลนี้ใช่ไหมคะ?',
     );
     if (confirm == true) {
       await widget.firestoreService.deleteWaterLog(log.uid, log.id);
@@ -1984,23 +1936,11 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
   }
 
   Future<void> _confirmDelete(StartMeterRecordModel record) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('ลบรายการนี้?'),
-        content: const Text('ต้องการลบประวัติการตั้งค่ามิเตอร์ต้นรอบรายการนี้ใช่ไหมคะ'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+final confirmed = await showConfirmDialog(
+      context,
+      title: 'ลบรายการนี้?',
+      content: 'ต้องการลบประวัติการตั้งค่ามิเตอร์ต้นรอบรายการนี้ใช่ไหมคะ',
+      borderRadius: 16,
     );
     if (confirmed == true) {
       await widget.firestoreService.deleteStartMeterRecord(widget.uid, record.id);
@@ -2503,22 +2443,10 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
   }
 
   Future<void> _confirmDelete(FixedCostItemModel item) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ลบรายการนี้?'),
-        content: Text('ต้องการลบ "${item.name}" ออกจาก Fixed Cost ใช่ไหมคะ'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+final confirmed = await showConfirmDialog(
+      context,
+      title: 'ลบรายการนี้?',
+      content: 'ต้องการลบ "${item.name}" ออกจาก Fixed Cost ใช่ไหมคะ',
     );
     if (confirmed == true) {
       await widget.firestoreService.deleteFixedCostItem(widget.uid, item.id);

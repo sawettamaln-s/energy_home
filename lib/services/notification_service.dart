@@ -38,6 +38,7 @@ class NotificationService {
   static const int idSpikeWater = 1004;
   static const int idCycleSummary = 1005;
   static const int idWelcome = 1006;
+  static const int idForecastHigher = 1007;
 
   // ----- Channel สำหรับ Android -----
   static const String _channelId = 'energy_home_channel';
@@ -205,7 +206,8 @@ class NotificationService {
     await _showAndLog(
       pluginId: idMeterReminder,
       title: 'ยังไม่ได้บันทึกมิเตอร์เลยค่ะ',
-      body: 'คุณยังไม่ได้บันทึกค่ามิเตอร์มา $daysSince วันแล้วนะคะ ลองเปิดแอปบันทึกดูนะคะ',
+      body:
+          'คุณยังไม่ได้บันทึกค่ามิเตอร์มา $daysSince วันแล้วนะคะ ลองเปิดแอปบันทึกดูนะคะ',
       type: 'meter',
     );
     await _markNotifiedToday('meter_reminder');
@@ -222,9 +224,10 @@ class NotificationService {
     double thresholdPercent = 30,
   }) async {
     if (lastMonthElectricityCost > 0) {
-      final percentChange = ((currentElectricityCost - lastMonthElectricityCost) /
-              lastMonthElectricityCost) *
-          100;
+      final percentChange =
+          ((currentElectricityCost - lastMonthElectricityCost) /
+                  lastMonthElectricityCost) *
+              100;
       if (percentChange >= thresholdPercent &&
           !await _alreadyNotifiedToday('spike_electricity')) {
         await _showAndLog(
@@ -253,6 +256,35 @@ class NotificationService {
         await _markNotifiedToday('spike_water');
       }
     }
+  }
+
+// =====================================================================
+  // (Instant) เตือนล่วงหน้าเมื่อ "ค่าพยากรณ์สิ้นเดือน" (Moving Average)
+  // สูงกว่ายอดรวมเดือนก่อนเกิน threshold% — ต่างจาก checkUsageSpike ที่เช็ค
+  // ยอดที่เกิดไปแล้ว ตัวนี้เตือนล่วงหน้าก่อนบิลจะออกจริง
+  // =====================================================================
+  Future<void> checkForecastHigherThanLastMonth({
+    required double forecastTotal,
+    required double lastMonthTotal,
+    double thresholdPercent = 15,
+  }) async {
+    if (lastMonthTotal <= 0) return;
+
+    final percentChange =
+        ((forecastTotal - lastMonthTotal) / lastMonthTotal) * 100;
+
+    if (percentChange < thresholdPercent) return;
+    if (await _alreadyNotifiedToday('forecast_higher')) return;
+
+    await _showAndLog(
+      pluginId: idForecastHigher,
+      title: 'แนวโน้มค่าใช้จ่ายเดือนนี้สูงขึ้นค่ะ 📈',
+      body:
+          'คาดว่าค่าใช้จ่ายสิ้นเดือนนี้จะสูงกว่าเดือนก่อนประมาณ ${percentChange.toStringAsFixed(0)}% '
+          'ลองดูการใช้พลังงานตอนนี้เลยดีกว่าค่ะ',
+      type: 'forecast',
+    );
+    await _markNotifiedToday('forecast_higher');
   }
 
   // =====================================================================
@@ -293,7 +325,8 @@ class NotificationService {
     await _showAndLog(
       pluginId: idWelcome,
       title: 'ยินดีต้อนรับสู่ Energy Home ค่ะ 🏠',
-      body: 'แอปจะช่วยติดตามค่าไฟ-น้ำให้คุณทุกวันค่ะ แตะเพื่อดูคู่มือเริ่มต้นใช้งานนะคะ',
+      body:
+          'แอปจะช่วยติดตามค่าไฟ-น้ำให้คุณทุกวันค่ะ แตะเพื่อดูคู่มือเริ่มต้นใช้งานนะคะ',
       type: 'welcome',
     );
   }
@@ -390,6 +423,7 @@ class NotificationService {
 
   Future<void> _markNotifiedToday(String key) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('notif_${key}_date', DateTime.now().toIso8601String());
+    await prefs.setString(
+        'notif_${key}_date', DateTime.now().toIso8601String());
   }
 }

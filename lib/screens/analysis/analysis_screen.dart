@@ -56,14 +56,12 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     setState(() => _isLoading = true);
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      debugPrint('🔵 uid: $uid');
 
       // ต้องดึง user มาก่อน เพื่อเอา billingDay ไปคำนวณขอบเขตรอบบิลปัจจุบัน
       final user = await _firestoreService.getUser(uid);
       final billingDay = user?.billingDay ?? 30;
 
       final bills = await _analysisService.fetchBills(uid);
-      debugPrint('🔵 bills: ${bills.length}');
 
       final currentCycle = await _analysisService.forecastCurrentCycle(
         uid: uid,
@@ -83,7 +81,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('🔴 ERROR: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(

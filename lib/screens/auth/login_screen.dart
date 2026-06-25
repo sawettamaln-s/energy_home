@@ -42,8 +42,8 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       // ถ้าสำเร็จ Firebase จะ trigger AuthState เองอัตโนมัติ
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       setState(() {
-        // แปลง error code เป็นข้อความภาษาไทย
         switch (e.code) {
           case 'user-not-found':
             _errorMessage = 'ไม่พบบัญชีผู้ใช้นี้ในระบบค่ะ กรุณาตรวจสอบอีเมลของคุณอีกครั้ง';
@@ -59,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       });
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

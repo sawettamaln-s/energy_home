@@ -7,6 +7,7 @@ import '../../models/appliance_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/default_appliances.dart';
 import '../../utils/thai_date_utils.dart';
+import '../../widgets/confirm_dialog.dart';
 import '../analysis/analysis_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../settings/settings_screen.dart';
@@ -496,21 +497,12 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     );
   }
 
-  Future<void> _confirmDelete(ApplianceModel a) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ลบอุปกรณ์'),
-        content: Text('ต้องการลบ "${a.name}" ใช่ไหมคะ'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('ยกเลิก')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('ลบ', style: TextStyle(color: Colors.red))),
-        ],
-      ),
+ 
+Future<void> _confirmDelete(ApplianceModel a) async {
+    final confirm = await showConfirmDialog(
+      context,
+      title: 'ลบอุปกรณ์',
+      content: 'ต้องการลบ "${a.name}" ใช่ไหมคะ',
     );
     if (confirm == true) {
       await _firestoreService.deleteAppliance(a.uid, a.id);
@@ -770,7 +762,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
         );
       }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
