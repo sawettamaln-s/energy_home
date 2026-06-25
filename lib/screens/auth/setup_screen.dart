@@ -387,7 +387,7 @@ class _SetupScreenState extends State<SetupScreen> {
               Text(
                 '1. ดูตัวเลขบนมิเตอร์ เช่น "5(15)A" หรือ "15(45)A"\n'
                 '2. หรือดูจากใบแจ้งหนี้ค่าไฟ MEA\n'
-                '3. ถ้าไม่แน่ใจ เลือก "เกิน 5(15)A" ไว้ก่อนได้เลยครับ',
+                '3. ถ้าไม่แน่ใจ เลือก "เกิน 5(15)A" ไว้ก่อนได้เลยค่ะ',
                 style: TextStyle(color: Color(0xFF2E7D32), fontSize: 12),
               ),
             ],

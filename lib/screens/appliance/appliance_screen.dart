@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../models/appliance_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/default_appliances.dart';
+import '../../utils/thai_date_utils.dart';
 import '../analysis/analysis_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../settings/settings_screen.dart';
@@ -93,10 +94,9 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   }
 
   String _daysLabel(List<int> days) {
-    const names = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
     if (days.length >= 7) return 'ทุกวัน';
     final sorted = [...days]..sort();
-    return sorted.map((d) => names[d % 7]).join(' ');
+    return sorted.map((d) => thaiWeekdaysShort[d % 7]).join(' ');
   }
 
   @override
@@ -963,7 +963,6 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
   }
 
   Widget _buildDaySelector() {
-    const labels = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
@@ -998,7 +997,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                 ),
               ),
               child: Text(
-                labels[index],
+                thaiWeekdaysShort[index],
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
