@@ -486,7 +486,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ลบอุปกรณ์'),
-        content: Text('ต้องการลบ "${a.name}" ใช่ไหม?'),
+        content: Text('ต้องการลบ "${a.name}" ใช่ไหมคะ'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -712,13 +712,13 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
   Future<void> _save() async {
     if (_nameController.text.isEmpty || _wattController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบ')),
+        const SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบค่ะ')),
       );
       return;
     }
     if (_selectedDays.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเลือกวันที่ใช้งานอย่างน้อย 1 วัน')),
+        const SnackBar(content: Text('กรุณาเลือกวันที่ใช้งานอย่างน้อย 1 วันค่ะ')),
       );
       return;
     }
@@ -751,7 +751,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่')),
+          const SnackBar(content: Text('เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง')),
         );
       }
     } finally {

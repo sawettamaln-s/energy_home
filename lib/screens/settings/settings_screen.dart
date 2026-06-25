@@ -1084,13 +1084,13 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     final isEditing = widget.existingBill != null;
     if (_isSelectedMonthTaken) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เดือนนี้มีบิลบันทึกไว้แล้ว')),
+        const SnackBar(content: Text('เดือนนี้มีบิลบันทึกไว้แล้วค่ะ')),
       );
       return;
     }
     if (_total == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณากรอกยอดค่าไฟหรือค่าน้ำอย่างน้อย 1 ช่อง')),
+        const SnackBar(content: Text('กรุณากรอกยอดค่าไฟหรือค่าน้ำอย่างน้อย 1 ช่องค่ะ')),
       );
       return;
     }
@@ -1120,7 +1120,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่')),
+          const SnackBar(content: Text('เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง')),
         );
       }
     } finally {
@@ -1427,7 +1427,7 @@ class _HistoricalBillListScreenState
       builder: (context) => AlertDialog(
         title: const Text('ลบบิลนี้?'),
         content: Text(
-            'ลบบันทึกบิลของเดือน ${_thaiMonths[bill.month - 1]} ${bill.year}'),
+            'ต้องการลบบันทึกบิลของเดือน ${_thaiMonths[bill.month - 1]} ${bill.year} ใช่ไหมคะ'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1650,7 +1650,7 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ลบข้อมูล'),
-        content: const Text('ต้องการลบข้อมูลนี้ใช่ไหม?'),
+        content: const Text('ต้องการลบข้อมูลนี้ใช่ไหมคะ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1830,7 +1830,7 @@ class _WaterLogTabState extends State<_WaterLogTab> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ลบข้อมูล'),
-        content: const Text('ต้องการลบข้อมูลนี้ใช่ไหม?'),
+        content: const Text('ต้องการลบข้อมูลนี้ใช่ไหมคะ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -2018,7 +2018,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('ลบรายการนี้?'),
-        content: const Text('ลบประวัติการตั้งค่ามิเตอร์ต้นรอบรายการนี้'),
+        content: const Text('ต้องการลบประวัติการตั้งค่ามิเตอร์ต้นรอบรายการนี้ใช่ไหมคะ'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -2536,7 +2536,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ลบรายการนี้?'),
-        content: Text('ลบ "${item.name}" ออกจาก Fixed Cost'),
+        content: Text('ต้องการลบ "${item.name}" ออกจาก Fixed Cost ใช่ไหมคะ'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
