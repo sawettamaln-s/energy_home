@@ -197,6 +197,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // หรือยัง ถ้าถึงแล้วจะถูกบันทึกเข้า history ให้เห็นในหน้า Notification
       await NotificationService.instance.syncDeliveredScheduledNotifications();
 
+      // (Instant) เตือนล่วงหน้าถ้าพยากรณ์สิ้นเดือนจะสูงกว่าเดือนก่อน
+      await NotificationService.instance.checkForecastHigherThanLastMonth(
+        forecastTotal: _forecastTotal,
+        lastMonthTotal: _lastMonthElectricityCost + _lastMonthWaterCost,
+      );
+
       // อัปเดตจำนวนแจ้งเตือนที่ยังไม่อ่าน เพื่อโชว์ badge ตัวเลขที่ปุ่มกระดิ่ง
       _unreadNotifications =
           await NotificationService.instance.getUnreadCount();
