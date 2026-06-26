@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -24,16 +26,29 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   List<ApplianceModel> _appliances = [];
   bool _isLoading = true;
 
+  // เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
+  // (เดิมไม่เก็บไว้เลย ทำให้ setState ถูกเรียกหลัง widget dispose ไปแล้ว
+  // ตอนสลับแท็บบ่อยๆ เกิด memory leak / error "setState() called after dispose()")
+  StreamSubscription<List<ApplianceModel>>? _applianceSub;
+
   @override
   void initState() {
     super.initState();
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _applianceSub?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    _firestoreService.getAppliances(uid).listen((data) {
+    await _applianceSub?.cancel();
+    _applianceSub = _firestoreService.getAppliances(uid).listen((data) {
+      if (!mounted) return;
       setState(() {
         _appliances = data;
         _isLoading = false;

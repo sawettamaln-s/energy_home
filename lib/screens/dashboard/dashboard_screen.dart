@@ -10,9 +10,8 @@ import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
+import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/onboarding_guide.dart';
-import '../analysis/analysis_screen.dart';
-import '../appliance/appliance_screen.dart';
 import '../settings/settings_screen.dart';
 import 'dashboard_styles.dart';
 import 'notification_screen.dart';
@@ -31,7 +30,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _electricityOffPeakController = TextEditingController(); // TOU off-peak
   final _waterController = TextEditingController();
 
-  int _currentIndex = 0;
+
 
   UserModel? _user;
   ElectricityLogModel? _latestElectricityLog;
@@ -636,7 +635,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-      bottomNavigationBar: _buildBottomNavBar(),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
     );
   }
 
@@ -820,102 +819,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // -------------------------------------------------------------------
-  // บาร์ล่างแบบใหม่ — floating pill style แทน BottomNavigationBar เดิม
+  // บาร์ล่าง — ย้ายไปเป็น widget กลางที่ใช้ร่วมกันทุกหน้าแล้ว
+  // ดู lib/widgets/app_bottom_nav_bar.dart
   // -------------------------------------------------------------------
-  Widget _buildBottomNavBar() {
-    final items = [
-      (icon: Icons.dashboard_rounded, label: 'หน้าหลัก'),
-      (icon: Icons.bar_chart_rounded, label: 'วิเคราะห์'),
-      (icon: Icons.electrical_services, label: 'อุปกรณ์'),
-      (icon: Icons.settings_rounded, label: 'ตั้งค่า'),
-    ];
-
-    void onTap(int index) {
-      if (index == 1) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AnalysisScreen()),
-        );
-      } else if (index == 2) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ApplianceScreen()),
-        );
-      } else if (index == 3) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const SettingsScreen()),
-        );
-      } else {
-        setState(() => _currentIndex = index);
-      }
-    }
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(items.length, (index) {
-          final isSelected = index == _currentIndex;
-          final item = items[index];
-          return Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onTap(index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? DashboardStyles.primaryGreen.withOpacity(0.12)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      item.icon,
-                      size: 22,
-                      color: isSelected
-                          ? DashboardStyles.primaryGreen
-                          : Colors.grey.shade500,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected
-                            ? DashboardStyles.primaryGreen
-                            : Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
 
   // =====================================================================
   // การ์ดบันทึกมิเตอร์ (ไฟฟ้า/น้ำ)

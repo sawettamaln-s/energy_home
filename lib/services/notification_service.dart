@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,6 +49,16 @@ class NotificationService {
 
   // ----- key ที่เก็บ history ใน SharedPreferences -----
   static const String _historyKey = 'notification_history';
+
+  // =====================================================================
+  // ผูก key ทุกตัวที่เก็บใน SharedPreferences กับ uid ของบัญชีที่ login
+  // อยู่ตอนนั้น (เดิม key พวกนี้ผูกกับ "เครื่อง" เฉยๆ ทำให้ถ้าเครื่องเดียว
+  // ถูกใช้ login สลับกัน 2 บัญชี ประวัติแจ้งเตือน/unread badge/สถานะกันยิงซ้ำ
+  // ของบัญชี A จะรั่วไปโชว์ในบัญชี B ทันที) ถ้าไม่มี user login อยู่ (เคสที่
+  // ไม่ควรเกิดในทางปฏิบัติ) fallback ไปใช้ 'guest' กันแอป crash
+  // =====================================================================
+  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? 'guest';
+  String _scopedKey(String key) => '${_uid}_$key';
 
   // =====================================================================
   // เรียกครั้งเดียวตอนเปิดแอป (เช่นใน main() ก่อน runApp)
@@ -164,7 +175,8 @@ class NotificationService {
     // ขึ้นใน history แล้วหรือยัง (ดูเมธอด syncDeliveredScheduledNotifications)
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-        'pending_billing_reminder_time', scheduledTime.toIso8601String());
+        _scopedKey('pending_billing_reminder_time'),
+        scheduledTime.toIso8601String());
   }
 
   // เรียกตอนเปิดแอป (ทุกครั้งที่ _loadData ทำงาน) เพื่อเช็คว่า scheduled
@@ -172,7 +184,8 @@ class NotificationService {
   // history เพื่อให้หน้า Notification Center เห็นรายการนี้ด้วย
   Future<void> syncDeliveredScheduledNotifications() async {
     final prefs = await SharedPreferences.getInstance();
-    final pendingStr = prefs.getString('pending_billing_reminder_time');
+    final key = _scopedKey('pending_billing_reminder_time');
+    final pendingStr = prefs.getString(key);
     if (pendingStr == null) return;
 
     final pendingTime = DateTime.tryParse(pendingStr);
@@ -186,7 +199,7 @@ class NotificationService {
         type: 'billing',
         timestamp: pendingTime,
       ));
-      await prefs.remove('pending_billing_reminder_time');
+      await prefs.remove(key);
     }
   }
 
@@ -297,7 +310,7 @@ class NotificationService {
     required int year,
     required int month,
   }) async {
-    final key = 'cycle_summary_$billId';
+    final key = _scopedKey('cycle_summary_$billId');
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(key) ?? false) return;
 
@@ -342,7 +355,7 @@ class NotificationService {
     // เก็บแค่ 100 รายการล่าสุด กันข้อมูลบวมไม่จำกัด
     final trimmed = list.length > 100 ? list.sublist(0, 100) : list;
     await prefs.setString(
-      _historyKey,
+      _scopedKey(_historyKey),
       jsonEncode(trimmed.map((e) => e.toMap()).toList()),
     );
   }
@@ -350,7 +363,7 @@ class NotificationService {
   /// ดึงประวัติแจ้งเตือนทั้งหมด เรียงใหม่สุดมาก่อน
   Future<List<NotificationItem>> getHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_historyKey);
+    final raw = prefs.getString(_scopedKey(_historyKey));
     if (raw == null || raw.isEmpty) return [];
     try {
       final decoded = jsonDecode(raw) as List;
@@ -375,7 +388,7 @@ class NotificationService {
     final updated =
         list.map((e) => e.id == id ? e.copyWith(isRead: true) : e).toList();
     await prefs.setString(
-      _historyKey,
+      _scopedKey(_historyKey),
       jsonEncode(updated.map((e) => e.toMap()).toList()),
     );
   }
@@ -386,7 +399,7 @@ class NotificationService {
     final list = await getHistory();
     final updated = list.map((e) => e.copyWith(isRead: true)).toList();
     await prefs.setString(
-      _historyKey,
+      _scopedKey(_historyKey),
       jsonEncode(updated.map((e) => e.toMap()).toList()),
     );
   }
@@ -397,7 +410,7 @@ class NotificationService {
     final list = await getHistory();
     list.removeWhere((e) => e.id == id);
     await prefs.setString(
-      _historyKey,
+      _scopedKey(_historyKey),
       jsonEncode(list.map((e) => e.toMap()).toList()),
     );
   }
@@ -405,13 +418,13 @@ class NotificationService {
   /// ลบทั้งหมด
   Future<void> clearHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_historyKey);
+    await prefs.remove(_scopedKey(_historyKey));
   }
 
   // ----- helper กันแจ้งเตือนซ้ำในวันเดียวกัน (ต่อประเภท) -----
   Future<bool> _alreadyNotifiedToday(String key) async {
     final prefs = await SharedPreferences.getInstance();
-    final lastDateStr = prefs.getString('notif_${key}_date');
+    final lastDateStr = prefs.getString(_scopedKey('notif_${key}_date'));
     if (lastDateStr == null) return false;
     final lastDate = DateTime.tryParse(lastDateStr);
     if (lastDate == null) return false;
@@ -424,6 +437,6 @@ class NotificationService {
   Future<void> _markNotifiedToday(String key) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-        'notif_${key}_date', DateTime.now().toIso8601String());
+        _scopedKey('notif_${key}_date'), DateTime.now().toIso8601String());
   }
 }
