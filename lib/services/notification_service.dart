@@ -278,7 +278,7 @@ class NotificationService {
 
     await _showAndLog(
       pluginId: idForecastHigher,
-      title: 'แนวโน้มค่าใช้จ่ายเดือนนี้สูงขึ้นค่ะ 📈',
+      title: 'แนวโน้มค่าใช้จ่ายเดือนนี้สูงขึ้นค่ะ',
       body:
           'คาดว่าค่าใช้จ่ายสิ้นเดือนนี้จะสูงกว่าเดือนก่อนประมาณ ${percentChange.toStringAsFixed(0)}% '
           'ลองดูการใช้พลังงานตอนนี้เลยดีกว่าค่ะ',

@@ -8,7 +8,7 @@ class NotificationItem {
   final String id; // unique ต่อรายการ (ไม่ใช่ id ของ plugin)
   final String title;
   final String body;
-  final String type; // 'billing' | 'meter' | 'spike' | 'summary' | 'welcome'
+  final String type; // 'billing' | 'meter' | 'spike' | 'summary' | 'welcome' | 'forecast'
   final DateTime timestamp;
   final bool isRead;
 

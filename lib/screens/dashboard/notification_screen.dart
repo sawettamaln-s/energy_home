@@ -58,7 +58,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('ลบแจ้งเตือนทั้งหมด?'),
-        content: const Text('เมื่อลบแล้ว คุณจะไม่สามารถย้อนดูประวัติเดิมได้นะคะ'),
+        content:
+            const Text('เมื่อลบแล้ว คุณจะไม่สามารถย้อนดูประวัติเดิมได้นะคะ'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -81,11 +82,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
   ({IconData icon, Color color}) _styleForType(String type) {
     switch (type) {
       case 'billing':
-        return (icon: Icons.calendar_month_rounded, color: const Color(0xFF2E7D32));
+        return (
+          icon: Icons.calendar_month_rounded,
+          color: const Color(0xFF2E7D32)
+        );
       case 'meter':
         return (icon: Icons.edit_note_rounded, color: Colors.blueGrey);
       case 'spike':
         return (icon: Icons.trending_up_rounded, color: Colors.red);
+      case 'spike':
+        return (icon: Icons.trending_up_rounded, color: Colors.red);
+      case 'forecast':
+        return (icon: Icons.show_chart_rounded, color: Colors.deepOrange);
       case 'summary':
         return (icon: Icons.receipt_long_rounded, color: Colors.orange);
       case 'welcome':
@@ -133,7 +141,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : !hasItems
               ? _buildEmptyState()
               : RefreshIndicator(
@@ -222,8 +231,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             item.title,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight:
-                                  item.isRead ? FontWeight.w500 : FontWeight.bold,
+                              fontWeight: item.isRead
+                                  ? FontWeight.w500
+                                  : FontWeight.bold,
                               color: const Color(0xFF333333),
                             ),
                           ),
@@ -243,12 +253,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     const SizedBox(height: 4),
                     Text(
                       item.body,
-                      style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                      style: TextStyle(
+                          fontSize: 12.5, color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       _timeAgo(item.timestamp),
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade400),
                     ),
                   ],
                 ),
