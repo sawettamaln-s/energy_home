@@ -23,7 +23,10 @@ class _SetupScreenState extends State<SetupScreen> {
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
   String _selectedMeterSize = '15a';
-  int _selectedBillingDay = 30;
+  // null = ยังไม่ได้เลือกวันตัดรอบบิล (ผู้ใช้กดข้ามไปก่อนได้ ไปตั้งทีหลังที่
+  // หน้าตั้งค่าได้) ตอนบันทึกจริงถ้ายังเป็น null จะ fallback เป็นวันที่ 30
+  // ตาม default ของ UserModel
+  int? _selectedBillingDay;
 
   final _electricityStartController = TextEditingController();
   final _peakStartController = TextEditingController();
@@ -32,6 +35,9 @@ class _SetupScreenState extends State<SetupScreen> {
   int _selectedStartMonth = DateTime.now().month;
   int _selectedStartYear = DateTime.now().year;
   String _startMeterError = '';
+  // ผู้ใช้กดข้ามขั้นตอนนี้ไปก่อน (ยังไม่มีใบแจ้งหนี้ตอนสมัคร) ไปกรอกทีหลัง
+  // ได้ที่หน้าตั้งค่า ตอนข้ามจะไม่บังคับกรอกและตั้งค่าตั้งต้นเป็น 0 ไปก่อน
+  bool _startMeterSkipped = false;
 
   bool _isLoading = false;
 
@@ -45,6 +51,12 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   bool _validateStartMeter() {
+    // กดข้ามไปก่อนแล้ว ไม่ต้องเช็คอะไรเลย ปล่อยผ่านได้ทันที
+    if (_startMeterSkipped) {
+      setState(() => _startMeterError = '');
+      return true;
+    }
+
     if (_waterStartController.text.isEmpty) {
       setState(() => _startMeterError = 'กรุณากรอกค่ามิเตอร์น้ำ');
       return false;
@@ -97,17 +109,22 @@ class _SetupScreenState extends State<SetupScreen> {
         area: _selectedArea,
         meterType: _selectedMeterType,
         meterSize: _selectedMeterSize,
-        billingDay: _selectedBillingDay,
-        startElectricityValue: _selectedMeterType == 'tou'
+        billingDay: _selectedBillingDay ?? 30,
+        startElectricityValue:
+            (_startMeterSkipped || _selectedMeterType == 'tou')
+                ? 0
+                : (double.tryParse(_electricityStartController.text) ?? 0),
+        startWaterValue: _startMeterSkipped
             ? 0
-            : double.parse(_electricityStartController.text),
-        startWaterValue: double.parse(_waterStartController.text),
-        startPeakValue: _selectedMeterType == 'tou'
-            ? double.parse(_peakStartController.text)
+            : (double.tryParse(_waterStartController.text) ?? 0),
+        startPeakValue: (!_startMeterSkipped && _selectedMeterType == 'tou')
+            ? (double.tryParse(_peakStartController.text) ?? 0)
             : 0,
-        startOffPeakValue: _selectedMeterType == 'tou'
-            ? double.parse(_offPeakStartController.text)
-            : 0,
+        startOffPeakValue:
+            (!_startMeterSkipped && _selectedMeterType == 'tou')
+                ? (double.tryParse(_offPeakStartController.text) ?? 0)
+                : 0,
+        startMeterConfigured: !_startMeterSkipped,
         startBillingMonth: _selectedStartMonth,
         startBillingYear: _selectedStartYear,
       );
@@ -398,54 +415,303 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildBillingDayStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'วันตัดรอบบิล',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'ดูได้จากใบแจ้งหนี้ค่าไฟหรือค่าน้ำของคุณ',
-          style: TextStyle(color: Colors.grey),
-        ),
-        const SizedBox(height: 32),
-        Center(
-          child: Text(
-            'วันที่ $_selectedBillingDay',
-            style: const TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2E7D32),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'วันตัดรอบบิล',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.help_outline,
+                    color: Color(0xFF2E7D32), size: 22),
+                onPressed: () => _showInfoPopup(
+                  'วันตัดรอบบิลคืออะไร?',
+                  'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
+                      'มาถึงบ้านของคุณค่ะ ระบบจะใช้วันนี้แจ้งเตือนเมื่อ'
+                      'ใกล้ถึงรอบชำระเงิน และเตือนให้มาบันทึกค่ามิเตอร์'
+                      'ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือน'
+                      'ถัดไปให้โดยอัตโนมัติค่ะ',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'ดูได้จากใบแจ้งหนี้ค่าไฟหรือค่าน้ำของคุณ',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          ),
+          const SizedBox(height: 24),
+
+          // ฟิลด์กดเปิดปฏิทินเลือกวัน — แทนกริด 31 ช่องเต็มหน้าจอที่กินพื้นที่
+          // เกินไปบนมือถือ คงรูปแบบฟิลด์ให้เหมือน DropdownButtonFormField เดิม
+          // (กรอบ, padding, มุมโค้ง) เพื่อความสอดคล้องกับฟิลด์อื่นในวิซาร์ดนี้
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: _openBillingDayPicker,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_month_rounded,
+                      color: _selectedBillingDay != null
+                          ? const Color(0xFF2E7D32)
+                          : Colors.grey.shade400,
+                      size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _selectedBillingDay != null
+                          ? 'วันที่ $_selectedBillingDay ของทุกเดือน'
+                          : 'แตะเพื่อเลือกวันตัดรอบบิล',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: _selectedBillingDay != null
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                        color: _selectedBillingDay != null
+                            ? Colors.black87
+                            : Colors.grey.shade500,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded,
+                      color: Colors.grey.shade400),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ข้ามไปก่อนได้ — เผื่อตอนสมัครยังไม่มีใบแจ้งหนี้ติดตัวอยู่
+          // มาตั้งค่าทีหลังได้ที่เมนูตั้งค่า > วันตัดรอบบิล
+          if (_selectedBillingDay != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => setState(() => _selectedBillingDay = null),
+                icon: Icon(Icons.skip_next_rounded,
+                    size: 18, color: Colors.grey.shade600),
+                label: Text(
+                  'ยังไม่รู้วันตัดรอบบิล ข้ามไปก่อน',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline,
+                      color: Colors.grey.shade600, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'ข้ามขั้นตอนนี้ไปก่อนได้ค่ะ ระบบจะใช้วันที่ 30 เป็น'
+                      'ค่าเริ่มต้นไปก่อน แล้วค่อยมาตั้งวันที่ถูกต้องได้'
+                      'ทีหลังที่หน้าตั้งค่า',
+                      style: TextStyle(
+                          color: Colors.grey.shade600, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // dialog ปฏิทินเลือกวันตัดรอบบิล — เปิดจากฟิลด์ด้านบน (ดีไซน์เดียวกับ
+  // หน้าตั้งค่า แต่ทำงานกับตัวแปร temp ในนี้ก่อน ค่อยยืนยันลง state จริง
+  // ตอนกด "ยืนยัน" กันเผลอกดวันแล้วเปลี่ยนใจ ปิด dialog ทิ้งได้แบบไม่บันทึก)
+  void _openBillingDayPicker() {
+    int? tempSelected = _selectedBillingDay;
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'เลือกวันตัดรอบบิล',
+                        style:
+                            TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.help_outline,
+                          color: Color(0xFF2E7D32), size: 20),
+                      onPressed: () => _showInfoPopup(
+                        'วันตัดรอบบิลคืออะไร?',
+                        'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
+                            'มาถึงบ้านของคุณค่ะ ระบบจะใช้วันนี้แจ้งเตือนเมื่อ'
+                            'ใกล้ถึงรอบชำระเงิน และเตือนให้มาบันทึกค่ามิเตอร์'
+                            'ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือน'
+                            'ถัดไปให้โดยอัตโนมัติค่ะ',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'แตะที่วันบนใบแจ้งหนี้ล่าสุดของคุณได้เลยค่ะ',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 16),
+                GridView.count(
+                  crossAxisCount: 7,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  children: List.generate(31, (i) {
+                    final day = i + 1;
+                    return _buildBillingDayCell(
+                      day: day,
+                      isSelected: day == tempSelected,
+                      onTap: () => setDialogState(() => tempSelected = day),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    tempSelected != null
+                        ? 'วันที่เลือก: ทุกวันที่ $tempSelected ของเดือน'
+                        : 'ยังไม่ได้เลือกวันค่ะ',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: tempSelected != null
+                          ? const Color(0xFF2E7D32)
+                          : Colors.grey.shade500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('ยกเลิก'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: tempSelected == null
+                            ? null
+                            : () {
+                                setState(
+                                    () => _selectedBillingDay = tempSelected);
+                                Navigator.pop(context);
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('ยืนยัน'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
-        const Center(
-          child: Text(
-            'ของทุกเดือน',
-            style: TextStyle(color: Colors.grey),
+      ),
+    );
+  }
+
+  // ช่องวันที่หนึ่งช่องในปฏิทินเลือกวันตัดรอบบิล (ดีไซน์เดียวกับหน้าตั้งค่า)
+  Widget _buildBillingDayCell({
+    required int day,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color:
+                isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
           ),
         ),
-        const SizedBox(height: 24),
-        DropdownButtonFormField<int>(
-          value: _selectedBillingDay,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+        alignment: Alignment.center,
+        child: Text(
+          '$day',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // popup อธิบายข้อมูล (ดีไซน์เดียวกับหน้าตั้งค่า)
+  void _showInfoPopup(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(title, style: const TextStyle(fontSize: 16)),
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          ),
-          items: List.generate(31, (i) {
-            return DropdownMenuItem(
-              value: i + 1,
-              child: Text('วันที่ ${i + 1}'),
-            );
-          }),
-          onChanged: (val) => setState(() => _selectedBillingDay = val!),
+          ],
         ),
-      ],
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: 13.5, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('เข้าใจแล้วค่ะ'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -454,16 +720,72 @@ class _SetupScreenState extends State<SetupScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'ค่ามิเตอร์ตามใบแจ้งหนี้',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'ค่ามิเตอร์ตามใบแจ้งหนี้',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+              ),
+              // สวิตช์ "ข้ามไปก่อน" — เผื่อตอนสมัครยังไม่มีใบแจ้งหนี้ติดตัว
+              // มากรอกทีหลังได้ที่หน้าตั้งค่า > ค่ามิเตอร์ตั้งต้น
+              Tooltip(
+                message: 'ข้ามไปก่อน กรอกทีหลังได้ที่หน้าตั้งค่า',
+                child: Switch(
+                  value: _startMeterSkipped,
+                  activeColor: const Color(0xFF2E7D32),
+                  onChanged: (val) =>
+                      setState(() => _startMeterSkipped = val),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'กรอกค่ามิเตอร์จากใบแจ้งหนี้ล่าสุดของคุณ\nเพื่อใช้เป็นหน่วยตั้งต้นในการคำนวณ',
-            style: TextStyle(color: Colors.grey),
+          const SizedBox(height: 4),
+          Text(
+            _startMeterSkipped
+                ? 'ข้ามไปก่อน — ระบบจะตั้งหน่วยเริ่มต้นเป็น 0 ไปก่อนค่ะ'
+                : 'กรอกค่ามิเตอร์จากใบแจ้งหนี้ล่าสุดของคุณ\nเพื่อใช้เป็นหน่วยตั้งต้นในการคำนวณ',
+            style: TextStyle(
+              color: _startMeterSkipped
+                  ? const Color(0xFF2E7D32)
+                  : Colors.grey,
+              fontWeight:
+                  _startMeterSkipped ? FontWeight.w600 : FontWeight.normal,
+            ),
           ),
           const SizedBox(height: 24),
+          if (_startMeterSkipped)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E7D32).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: const Color(0xFF2E7D32).withOpacity(0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline,
+                      color: Color(0xFF2E7D32), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'ไม่บังคับค่ะ มากรอกทีหลังก็ได้ที่หน้าตั้งค่า > '
+                      'ค่ามิเตอร์ตั้งต้น ระหว่างนี้ระบบจะยังคำนวณหน่วยที่ใช้'
+                      'ให้ไม่ได้จนกว่าจะกรอกค่าเริ่มต้นค่ะ',
+                      style: TextStyle(
+                        color: const Color(0xFF2E7D32),
+                        fontSize: 12.5,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
           const Text(
             'ใบแจ้งหนี้เดือน',
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
@@ -628,6 +950,7 @@ class _SetupScreenState extends State<SetupScreen> {
               ],
             ),
           ),
+          ], // ปิด else ของ if (_startMeterSkipped)
         ],
       ),
     );

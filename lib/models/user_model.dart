@@ -17,6 +17,12 @@ class UserModel {
   final int startBillingMonth; // เดือนที่ตั้งต้น เช่น 5
   final int startBillingYear; // ปีที่ตั้งต้น เช่น 2026
 
+  // true = ผู้ใช้กรอกค่ามิเตอร์ตั้งต้นเรียบร้อยแล้ว (ไม่ว่าจะตอนสมัครหรือ
+  // มาตั้งทีหลังที่หน้าตั้งค่า) / false = ตอนสมัครกด "ข้ามไปก่อน" ไว้ ยังไม่
+  // เคยกรอกค่าจริง — ใช้แยกเคส "ข้าม" ออกจาก "กรอกเป็น 0 จริง" เพื่อกัน
+  // ไม่ให้ Dashboard เอา 0 ไปคำนวณหน่วยที่ใช้แบบผิดๆตอนยังไม่ได้ตั้งค่า
+  final bool startMeterConfigured;
+
   UserModel({
     required this.uid,
     required this.name,
@@ -33,6 +39,7 @@ class UserModel {
     this.startWaterValue = 0,
     this.startBillingMonth = 0,
     this.startBillingYear = 0,
+    this.startMeterConfigured = true,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -52,6 +59,10 @@ class UserModel {
       startOffPeakValue: (map['startOffPeakValue'] ?? 0).toDouble(),
       startBillingMonth: map['startBillingMonth'] ?? 0,
       startBillingYear: map['startBillingYear'] ?? 0,
+      // บัญชีเก่าก่อนมี field นี้ (map ไม่มี key) ให้ default เป็น true เสมอ
+      // เพราะบัญชีเก่าทุกบัญชีกรอกค่ามิเตอร์ตั้งต้นไว้แล้วตั้งแต่ตอนนั้น
+      // (ฟีเจอร์ "ข้ามได้" เพิ่งมีทีหลัง)
+      startMeterConfigured: map['startMeterConfigured'] ?? true,
     );
   }
 
@@ -72,6 +83,7 @@ class UserModel {
       'startOffPeakValue': startOffPeakValue,
       'startBillingMonth': startBillingMonth,
       'startBillingYear': startBillingYear,
+      'startMeterConfigured': startMeterConfigured,
     };
   }
 }
