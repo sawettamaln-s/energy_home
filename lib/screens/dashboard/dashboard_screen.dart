@@ -753,17 +753,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
       NumberFormat formatter, NumberFormat unitFormatter) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: DashboardStyles.primaryGreen,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: DashboardStyles.primaryGreen.withOpacity(0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('ค่าใช้จ่ายเดือนนี้',
-              style: TextStyle(color: Colors.white70, fontSize: 13)),
-          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.receipt_long_outlined,
+                  color: Colors.white.withOpacity(0.85), size: 16),
+              const SizedBox(width: 6),
+              const Text('ค่าใช้จ่ายเดือนนี้',
+                  style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -780,7 +797,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       '${unitFormatter.format(_forecastElectricityUnits)} หน่วย • ฿${formatter.format(_forecastElectricityCost)}',
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: _buildCostCard(
                   icon: Icons.water_drop,
@@ -795,20 +812,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(10),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
                 const Icon(Icons.trending_up, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
-                Text(
-                  'ยอดคาดการณ์สิ้นเดือน: ฿${formatter.format(_forecastTotal)}',
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                Expanded(
+                  child: Text(
+                    'ยอดคาดการณ์สิ้นเดือน: ฿${formatter.format(_forecastTotal)}',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -822,6 +845,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // บาร์ล่าง — ย้ายไปเป็น widget กลางที่ใช้ร่วมกันทุกหน้าแล้ว
   // ดู lib/widgets/app_bottom_nav_bar.dart
   // -------------------------------------------------------------------
+
+  // =====================================================================
+  // ดีไซน์ช่องกรอกมิเตอร์ที่ใช้ร่วมกันทั้งฟิลด์ปกติและฟิลด์ TOU
+  // ของเดิมเป็นกล่องสีพื้นเรียบๆไม่มีกรอบเลย ไม่มีสถานะ focus ให้เห็น
+  // ของใหม่: มีกรอบบางๆตอนปกติ เด่นขึ้นตอน focus ด้วยสีของแต่ละมิเตอร์
+  // และตัวเลขหน่วยท้ายช่องดูเป็น label มากกว่า placeholder ลอยๆ
+  // =====================================================================
+  InputDecoration _meterFieldDecoration({
+    required String hint,
+    required String unit,
+    required Color accent,
+    required Color fieldBg,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: DashboardStyles.hintStyle,
+      suffixText: unit,
+      suffixStyle: TextStyle(
+        color: accent,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w700,
+      ),
+      isDense: true,
+      filled: true,
+      fillColor: fieldBg,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: accent, width: 1.6),
+      ),
+    );
+  }
 
   // =====================================================================
   // การ์ดบันทึกมิเตอร์ (ไฟฟ้า/น้ำ)
@@ -876,24 +940,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
               color: DashboardStyles.textDark,
             ),
-            decoration: InputDecoration(
-              hintText: hint,
-              // ตัวอย่างในช่องกรอก (เช่น 14052 / เช่น 178) ให้จางลง
-              hintStyle: DashboardStyles.hintStyle,
-              suffixText: unit,
-              isDense: true,
-              filled: true,
-              fillColor: fieldBg,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
+            decoration: _meterFieldDecoration(
+              hint: hint,
+              unit: unit,
+              accent: accent,
+              fieldBg: fieldBg,
             ),
           ),
           if (error.isNotEmpty)
@@ -994,38 +1049,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSummaryCard(NumberFormat formatter, int buddhistYear) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: DashboardStyles.creamBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'ยอดรวมค่าใช้จ่ายทั้งหมด พ.ศ. $buddhistYear',
-            style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: DashboardStyles.textDark),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(Icons.summarize_outlined,
+                    color: Colors.orange, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'ยอดรวมค่าใช้จ่ายทั้งหมด พ.ศ. $buddhistYear',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14.5,
+                      color: DashboardStyles.textDark),
+                ),
+              ),
+            ],
           ),
-          const Divider(height: 20, color: DashboardStyles.creamBorder),
+          const SizedBox(height: 18),
           _buildSummaryRow(
             'ค่าไฟ + น้ำ (พยากรณ์)',
             '฿${formatter.format(_currentElectricityCost + _currentWaterCost)}',
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           _buildSummaryRow(
             'Fixed Cost',
             '฿${formatter.format(_user?.fixedCost ?? 0)}',
           ),
-          const Divider(height: 20, color: DashboardStyles.creamBorder),
-          _buildSummaryRow(
-            'รวมทั้งสิ้น',
-            '฿${formatter.format((_currentElectricityCost + _currentWaterCost) + (_user?.fixedCost ?? 0))}',
-            isBold: true,
-            color: Colors.orange,
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: DashboardStyles.creamBorder),
+          const SizedBox(height: 16),
+          // แถบ "รวมทั้งสิ้น" — แยกเป็นกล่องไฮไลต์ ให้รู้สึกเป็นยอดสุดท้ายจริง ๆ
+          // (เลขที่คำนวณเหมือนเดิมทุกอย่าง แค่ดีไซน์ให้เด่นขึ้น)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3E0),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'รวมทั้งสิ้น',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: DashboardStyles.textDark,
+                  ),
+                ),
+                Text(
+                  '฿${formatter.format((_currentElectricityCost + _currentWaterCost) + (_user?.fixedCost ?? 0))}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 19,
+                    color: Colors.orange,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1158,18 +1263,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   controller: _electricityPeakController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    hintText: 'เช่น 100',
-                    hintStyle: DashboardStyles.hintStyle,
-                    suffixText: 'หน่วย',
-                    filled: true,
-                    fillColor: DashboardStyles.electricityFieldBg,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: DashboardStyles.textDark,
+                  ),
+                  decoration: _meterFieldDecoration(
+                    hint: 'เช่น 100',
+                    unit: 'หน่วย',
+                    accent: Colors.orange,
+                    fieldBg: DashboardStyles.electricityFieldBg,
                   ),
                 ),
               ),
@@ -1189,18 +1292,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   controller: _electricityOffPeakController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    hintText: 'เช่น 200',
-                    hintStyle: DashboardStyles.hintStyle,
-                    suffixText: 'หน่วย',
-                    filled: true,
-                    fillColor: DashboardStyles.electricityFieldBg,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: DashboardStyles.textDark,
+                  ),
+                  decoration: _meterFieldDecoration(
+                    hint: 'เช่น 200',
+                    unit: 'หน่วย',
+                    accent: Colors.deepOrange,
+                    fieldBg: DashboardStyles.electricityFieldBg,
                   ),
                 ),
               ),

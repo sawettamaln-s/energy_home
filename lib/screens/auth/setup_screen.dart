@@ -716,241 +716,340 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildStartMeterStep() {
+    const green = Color(0xFF2E7D32);
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // หัวข้อ + คำอธิบาย — แยกออกจากสวิตช์ข้าม เพื่อไม่ให้ปนกัน
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.receipt_long_outlined, color: green),
+              ),
+              const SizedBox(width: 14),
               const Expanded(
-                child: Text(
-                  'ค่ามิเตอร์ตามใบแจ้งหนี้',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-              ),
-              // สวิตช์ "ข้ามไปก่อน" — เผื่อตอนสมัครยังไม่มีใบแจ้งหนี้ติดตัว
-              // มากรอกทีหลังได้ที่หน้าตั้งค่า > ค่ามิเตอร์ตั้งต้น
-              Tooltip(
-                message: 'ข้ามไปก่อน กรอกทีหลังได้ที่หน้าตั้งค่า',
-                child: Switch(
-                  value: _startMeterSkipped,
-                  activeColor: const Color(0xFF2E7D32),
-                  onChanged: (val) =>
-                      setState(() => _startMeterSkipped = val),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _startMeterSkipped
-                ? 'ข้ามไปก่อน — ระบบจะตั้งหน่วยเริ่มต้นเป็น 0 ไปก่อนค่ะ'
-                : 'กรอกค่ามิเตอร์จากใบแจ้งหนี้ล่าสุดของคุณ\nเพื่อใช้เป็นหน่วยตั้งต้นในการคำนวณ',
-            style: TextStyle(
-              color: _startMeterSkipped
-                  ? const Color(0xFF2E7D32)
-                  : Colors.grey,
-              fontWeight:
-                  _startMeterSkipped ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-          const SizedBox(height: 24),
-          if (_startMeterSkipped)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2E7D32).withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: const Color(0xFF2E7D32).withOpacity(0.3)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.info_outline,
-                      color: Color(0xFF2E7D32), size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'ไม่บังคับค่ะ มากรอกทีหลังก็ได้ที่หน้าตั้งค่า > '
-                      'ค่ามิเตอร์ตั้งต้น ระหว่างนี้ระบบจะยังคำนวณหน่วยที่ใช้'
-                      'ให้ไม่ได้จนกว่าจะกรอกค่าเริ่มต้นค่ะ',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ค่ามิเตอร์ตามใบแจ้งหนี้',
+                      style:
+                          TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'กรอกค่ามิเตอร์จากใบแจ้งหนี้ล่าสุด เพื่อใช้เป็น'
+                      'หน่วยตั้งต้นในการคำนวณค่าไฟ-น้ำของคุณ',
                       style: TextStyle(
-                        color: const Color(0xFF2E7D32),
-                        fontSize: 12.5,
-                        height: 1.4,
-                      ),
+                          color: Colors.grey, fontSize: 13, height: 1.4),
                     ),
-                  ),
-                ],
-              ),
-            )
-          else ...[
-          const Text(
-            'ใบแจ้งหนี้เดือน',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<int>(
-                  value: _selectedStartMonth,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  items: List.generate(12, (i) {
-                    return DropdownMenuItem(
-                      value: i + 1,
-                      child: Text(thaiMonths[i]),
-                    );
-                  }),
-                  onChanged: (val) =>
-                      setState(() => _selectedStartMonth = val!),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<int>(
-                  value: _selectedStartYear,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  items: [
-                    DateTime.now().year - 1,
-                    DateTime.now().year,
-                  ].map((year) {
-                    return DropdownMenuItem(
-                      value: year,
-                      child: Text('$year'),
-                    );
-                  }).toList(),
-                  onChanged: (val) => setState(() => _selectedStartYear = val!),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          if (_selectedMeterType == 'tou') ...[
-            // กรอกแยก Peak/Off-Peak สำหรับ TOU
-            const Text(
-              'หน่วย On-Peak (ตามใบแจ้งหนี้)',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _peakStartController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                hintText: 'เช่น 1200',
-                prefixIcon: const Icon(Icons.bolt, color: Colors.orange),
-                suffixText: 'หน่วย',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+
+          // การ์ดสวิตช์ "ข้ามไปก่อน" — มีข้อความบอกความหมายตรงๆ ในตัว
+          // ไม่ใช่แค่ไอคอนสวิตช์ลอยๆ ที่ต้องกด tooltip ดู (ซึ่งบนมือถือ
+          // โดยเฉพาะ iOS ไม่มีทาง long-press เจอ tooltip อยู่แล้ว)
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () =>
+                setState(() => _startMeterSkipped = !_startMeterSkipped),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _startMeterSkipped
+                    ? green.withOpacity(0.08)
+                    : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _startMeterSkipped
+                      ? green.withOpacity(0.4)
+                      : Colors.grey.shade200,
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'หน่วย Off-Peak (ตามใบแจ้งหนี้)',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _offPeakStartController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                hintText: 'เช่น 3500',
-                prefixIcon: const Icon(Icons.bolt, color: Colors.deepOrange),
-                suffixText: 'หน่วย',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ] else ...[
-            // กรอกแบบปกติ
-            const Text(
-              'หน่วยไฟฟ้า (ตามใบแจ้งหนี้)',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _electricityStartController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                hintText: 'เช่น 14009',
-                prefixIcon: const Icon(Icons.bolt, color: Colors.orange),
-                suffixText: 'หน่วย',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          const Text(
-            'หน่วยน้ำประปา (ตามใบแจ้งหนี้)',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _waterStartController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              hintText: 'เช่น 148',
-              prefixIcon: const Icon(Icons.water_drop, color: Colors.blue),
-              suffixText: 'หน่วย',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          if (_startMeterError.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _startMeterError,
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2E7D32).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 18),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'กรอกหน่วยสะสมทั้งหมดตามมิเตอร์จริง ไม่ใช่หน่วยที่ใช้ในเดือนนั้น\nเช่น ถ้ามิเตอร์แสดง 14009 ก็กรอก 14009',
-                    style: TextStyle(
-                      color: Color(0xFF2E7D32),
-                      fontSize: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ยังไม่มีใบแจ้งหนี้ตอนนี้?',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: _startMeterSkipped
+                                ? green
+                                : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _startMeterSkipped
+                              ? 'ข้ามไปก่อน — ไปกรอกทีหลังได้ที่หน้าตั้งค่า'
+                              : 'ข้ามขั้นตอนนี้ไปก่อนได้ กรอกทีหลังได้ที่หน้าตั้งค่า',
+                          style: const TextStyle(
+                              color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Switch(
+                    value: _startMeterSkipped,
+                    activeColor: green,
+                    onChanged: (val) =>
+                        setState(() => _startMeterSkipped = val),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          if (_startMeterSkipped)
+            _buildInfoBanner(
+              'ไม่บังคับค่ะ มากรอกทีหลังก็ได้ที่หน้าตั้งค่า > '
+              'ค่ามิเตอร์ตั้งต้น ระหว่างนี้ระบบจะยังคำนวณหน่วยที่ใช้'
+              'ให้ไม่ได้จนกว่าจะกรอกค่าเริ่มต้นค่ะ',
+              green: green,
+            )
+          else ...[
+            _buildFieldGroupLabel('ใบแจ้งหนี้เดือน', Icons.event_outlined),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<int>(
+                    value: _selectedStartMonth,
+                    decoration: _dropdownDecoration(),
+                    items: List.generate(12, (i) {
+                      return DropdownMenuItem(
+                        value: i + 1,
+                        child: Text(thaiMonths[i]),
+                      );
+                    }),
+                    onChanged: (val) =>
+                        setState(() => _selectedStartMonth = val!),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    value: _selectedStartYear,
+                    decoration: _dropdownDecoration(),
+                    items: [
+                      DateTime.now().year - 1,
+                      DateTime.now().year,
+                    ].map((year) {
+                      return DropdownMenuItem(
+                        value: year,
+                        child: Text('$year'),
+                      );
+                    }).toList(),
+                    onChanged: (val) =>
+                        setState(() => _selectedStartYear = val!),
                   ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 24),
+            _buildFieldGroupLabel(
+                'หน่วยมิเตอร์ตามใบแจ้งหนี้', Icons.speed_outlined),
+            const SizedBox(height: 12),
+            if (_selectedMeterType == 'tou') ...[
+              // กรอกแยก Peak/Off-Peak สำหรับ TOU
+              _buildMeterField(
+                label: 'หน่วย On-Peak',
+                controller: _peakStartController,
+                hint: 'เช่น 1200',
+                icon: Icons.bolt,
+                color: Colors.orange,
+              ),
+              const SizedBox(height: 14),
+              _buildMeterField(
+                label: 'หน่วย Off-Peak',
+                controller: _offPeakStartController,
+                hint: 'เช่น 3500',
+                icon: Icons.bolt,
+                color: Colors.deepOrange,
+              ),
+            ] else ...[
+              // กรอกแบบปกติ
+              _buildMeterField(
+                label: 'หน่วยไฟฟ้า',
+                controller: _electricityStartController,
+                hint: 'เช่น 14009',
+                icon: Icons.bolt,
+                color: Colors.orange,
+              ),
+            ],
+            const SizedBox(height: 14),
+            _buildMeterField(
+              label: 'หน่วยน้ำประปา',
+              controller: _waterStartController,
+              hint: 'เช่น 148',
+              icon: Icons.water_drop,
+              color: Colors.blue,
+            ),
+            if (_startMeterError.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline,
+                        color: Colors.red, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      _startMeterError,
+                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 18),
+            _buildInfoBanner(
+              'กรอกหน่วยสะสมทั้งหมดตามมิเตอร์จริง ไม่ใช่หน่วยที่ใช้ในเดือนนั้น\n'
+              'เช่น ถ้ามิเตอร์แสดง 14009 ก็กรอก 14009',
+              green: green,
+            ),
           ], // ปิด else ของ if (_startMeterSkipped)
+        ],
+      ),
+    );
+  }
+
+  // ป้ายชื่อหัวข้อกลุ่มฟิลด์ — ใช้ร่วมกันทุกกลุ่ม ให้ดูเป็นโครงเดียวกัน
+  Widget _buildFieldGroupLabel(String text, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade600),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: Colors.grey.shade700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _dropdownDecoration() {
+    return InputDecoration(
+      filled: true,
+      fillColor: Colors.grey.shade50,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 1.5),
+      ),
+    );
+  }
+
+  // ฟิลด์กรอกหน่วยมิเตอร์ — ไอคอนเป็นชิปสีในกรอบ ดูเป็นมือชั้นมือ
+  // กว่า prefixIcon ลอยๆ แบบเดิม และ label คงที่ ไม่ใช้ placeholder ลวง
+  Widget _buildMeterField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(
+                color: Colors.grey.shade400, fontWeight: FontWeight.normal),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 17),
+              ),
+            ),
+            suffixText: 'หน่วย',
+            suffixStyle:
+                TextStyle(color: Colors.grey.shade500, fontSize: 13),
+            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: color, width: 1.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // กล่องข้อความแจ้งเตือน/คำอธิบาย สีเขียวอ่อน ใช้ร่วมกันทุกจุดในหน้านี้
+  Widget _buildInfoBanner(String text, {required Color green}) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: green.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: green.withOpacity(0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, color: green, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: green, fontSize: 12.5, height: 1.4),
+            ),
+          ),
         ],
       ),
     );
