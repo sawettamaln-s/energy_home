@@ -9,10 +9,8 @@ import '../../models/appliance_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/default_appliances.dart';
 import '../../utils/thai_date_utils.dart';
+import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/confirm_dialog.dart';
-import '../analysis/analysis_screen.dart';
-import '../dashboard/dashboard_screen.dart';
-import '../settings/settings_screen.dart';
 
 class ApplianceScreen extends StatefulWidget {
   const ApplianceScreen({super.key});
@@ -368,107 +366,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                 ),
               ],
             ),
-      bottomNavigationBar: _buildBottomNavBar(
-        currentIndex: 2,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const DashboardScreen()),
-            );
-          } else if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const AnalysisScreen()),
-            );
-          } else if (index == 3) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            );
-          }
-        },
-      ),
-    );
-  }
-
-  // -------------------------------------------------------------------
-  // บาร์ล่างแบบ floating pill — เหมือนกันทุกหน้า (วางโค้ดนี้ก๊อปไว้ทุกไฟล์)
-  // -------------------------------------------------------------------
-  Widget _buildBottomNavBar({
-    required int currentIndex,
-    required void Function(int) onTap,
-  }) {
-    final items = [
-      (icon: Icons.dashboard_rounded, label: 'หน้าหลัก'),
-      (icon: Icons.bar_chart_rounded, label: 'วิเคราะห์'),
-      (icon: Icons.electrical_services, label: 'อุปกรณ์'),
-      (icon: Icons.settings_rounded, label: 'ตั้งค่า'),
-    ];
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(items.length, (index) {
-          final isSelected = index == currentIndex;
-          final item = items[index];
-          return Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onTap(index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF2E7D32).withOpacity(0.12)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      item.icon,
-                      size: 22,
-                      color: isSelected
-                          ? const Color(0xFF2E7D32)
-                          : Colors.grey.shade500,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected
-                            ? const Color(0xFF2E7D32)
-                            : Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: 2),
     );
   }
 

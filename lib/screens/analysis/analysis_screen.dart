@@ -9,9 +9,7 @@ import '../../models/appliance_model.dart';
 import '../../models/bill_model.dart';
 import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
-import '../appliance/appliance_screen.dart';
-import '../dashboard/dashboard_screen.dart';
-import '../settings/settings_screen.dart';
+import '../../widgets/app_bottom_nav_bar.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -146,104 +144,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 ),
               ],
             ),
-      bottomNavigationBar: _buildBottomNavBar(
-        currentIndex: 1,
-        onTap: (index) {
-          if (index == 1) return;
-          if (index == 0) {
-            Navigator.pushReplacement(context,
-                MaterialPageRoute(builder: (_) => const DashboardScreen()));
-          } else if (index == 2) {
-            Navigator.pushReplacement(context,
-                MaterialPageRoute(builder: (_) => const ApplianceScreen()));
-          } else if (index == 3) {
-            Navigator.pushReplacement(context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()));
-          }
-        },
-      ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: 1),
     );
   }
 
-  // -------------------------------------------------------------------
-  // บาร์ล่างแบบ floating pill — เหมือนกันทุกหน้า (วางโค้ดนี้ก๊อปไว้ทุกไฟล์)
-  // -------------------------------------------------------------------
-  Widget _buildBottomNavBar({
-    required int currentIndex,
-    required void Function(int) onTap,
-  }) {
-    final items = [
-      (icon: Icons.dashboard_rounded, label: 'หน้าหลัก'),
-      (icon: Icons.bar_chart_rounded, label: 'วิเคราะห์'),
-      (icon: Icons.electrical_services, label: 'อุปกรณ์'),
-      (icon: Icons.settings_rounded, label: 'ตั้งค่า'),
-    ];
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(items.length, (index) {
-          final isSelected = index == currentIndex;
-          final item = items[index];
-          return Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onTap(index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF2E7D32).withOpacity(0.12)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      item.icon,
-                      size: 22,
-                      color: isSelected
-                          ? const Color(0xFF2E7D32)
-                          : Colors.grey.shade500,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected
-                            ? const Color(0xFF2E7D32)
-                            : Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
 }
 
 // ==================== Tab ไฟฟ้า / น้ำ ====================
