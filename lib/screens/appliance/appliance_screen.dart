@@ -71,7 +71,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   double get _totalMonthlyCost {
     double total = 0;
     for (var a in _appliances) {
-      if (a.isActive && a.schedules.isNotEmpty) {
+      if (a.schedules.isNotEmpty) {
         total += _estimateApplianceMonthlyCost(a);
       }
     }
