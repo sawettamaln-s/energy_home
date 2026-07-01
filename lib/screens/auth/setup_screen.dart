@@ -18,8 +18,7 @@ class _SetupScreenState extends State<SetupScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   int _currentStep = 0;
-  int get _totalSteps =>
-      (_selectedArea == 'bangkok' && _selectedMeterType == 'normal') ? 5 : 4;
+  int get _totalSteps => 4;
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
   String _selectedMeterSize = '15a';
@@ -247,69 +246,89 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildStep(int step) {
-    if (_selectedArea == 'bangkok' && _selectedMeterType == 'normal') {
-      // กรุงเทพ มี 5 ขั้นตอน (เพิ่มเลือกขนาดมิเตอร์)
-      switch (step) {
-        case 0:
-          return _buildAreaStep();
-        case 1:
-          return _buildMeterTypeStep();
-        case 2:
-          return _buildMeterSizeStep();
-        case 3:
-          return _buildBillingDayStep();
-        case 4:
-          return _buildStartMeterStep();
-        default:
-          return const SizedBox();
-      }
-    } else {
-      // ต่างจังหวัด มี 4 ขั้นตอนเหมือนเดิม ไม่มีเลือกขนาดมิเตอร์
-      switch (step) {
-        case 0:
-          return _buildAreaStep();
-        case 1:
-          return _buildMeterTypeStep();
-        case 2:
-          return _buildBillingDayStep();
-        case 3:
-          return _buildStartMeterStep();
-        default:
-          return const SizedBox();
-      }
+    // ทุกเส้นทางมี 4 ขั้นตอนเสมอ (ขั้น 0 รวมพื้นที่ + ขนาดมิเตอร์ไว้ด้วยกัน
+    // ขนาดมิเตอร์จะโชว์เป็นส่วนที่ 2 เฉพาะกรณี กทม. + มิเตอร์ปกติเท่านั้น)
+    switch (step) {
+      case 0:
+        return _buildAreaAndMeterSizeStep();
+      case 1:
+        return _buildMeterTypeStep();
+      case 2:
+        return _buildBillingDayStep();
+      case 3:
+        return _buildStartMeterStep();
+      default:
+        return const SizedBox();
     }
   }
 
-  Widget _buildAreaStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'คุณอยู่ในพื้นที่ไหน?',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+  // ขั้นรวม: ส่วนที่ 1 เลือกพื้นที่ + ส่วนที่ 2 เลือกขนาดมิเตอร์ไฟฟ้า
+  // (ส่วนที่ 2 โชว์เฉพาะ กทม. + มิเตอร์ปกติ เหมือนเงื่อนไขเดิมของ
+  // _buildMeterSizeStep ก่อนแยกเป็นขั้นตอนต่างหาก)
+  Widget _buildAreaAndMeterSizeStep() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTag('ส่วนที่ 1'),
+          const SizedBox(height: 10),
+          const Text(
+            'คุณอยู่ในพื้นที่ไหน?',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'เพื่อคำนวณค่าน้ำให้ถูกต้องตามพื้นที่ของคุณ',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 20),
+          _buildSelectionCard(
+            title: 'กรุงเทพและปริมณฑล',
+            subtitle: 'ใช้อัตราค่าน้ำ MWA',
+            icon: Icons.location_city,
+            isSelected: _selectedArea == 'bangkok',
+            onTap: () => setState(() => _selectedArea = 'bangkok'),
+          ),
+          const SizedBox(height: 12),
+          _buildSelectionCard(
+            title: 'ต่างจังหวัด',
+            subtitle: 'ใช้อัตราค่าน้ำ PWA',
+            icon: Icons.nature,
+            isSelected: _selectedArea == 'province',
+            onTap: () => setState(() => _selectedArea = 'province'),
+          ),
+
+          // ส่วนที่ 2 โชว์เฉพาะ กทม. + มิเตอร์ปกติ (ระบบคิดค่าไฟตามขนาดมิเตอร์
+          // มีผลเฉพาะอัตรา MEA ประเภท 1.1/1.2 เท่านั้น)
+          if (_selectedArea == 'bangkok' && _selectedMeterType == 'normal') ...[
+            const SizedBox(height: 28),
+            Divider(color: Colors.grey.shade200, thickness: 1),
+            const SizedBox(height: 20),
+            _buildSectionTag('ส่วนที่ 2'),
+            const SizedBox(height: 10),
+            _buildMeterSizeStep(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ป้าย "ส่วนที่ N" ใช้ร่วมกันสำหรับ step ที่มีหลาย section ในหน้าเดียว
+  Widget _buildSectionTag(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2E7D32).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF2E7D32),
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'เพื่อคำนวณค่าน้ำให้ถูกต้องตามพื้นที่ของคุณ',
-          style: TextStyle(color: Colors.grey),
-        ),
-        const SizedBox(height: 32),
-        _buildSelectionCard(
-          title: 'กรุงเทพและปริมณฑล',
-          subtitle: 'ใช้อัตราค่าน้ำ MWA',
-          icon: Icons.location_city,
-          isSelected: _selectedArea == 'bangkok',
-          onTap: () => setState(() => _selectedArea = 'bangkok'),
-        ),
-        const SizedBox(height: 12),
-        _buildSelectionCard(
-          title: 'ต่างจังหวัด',
-          subtitle: 'ใช้อัตราค่าน้ำ PWA',
-          icon: Icons.nature,
-          isSelected: _selectedArea == 'province',
-          onTap: () => setState(() => _selectedArea = 'province'),
-        ),
-      ],
+      ),
     );
   }
 
