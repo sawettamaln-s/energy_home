@@ -19,10 +19,11 @@ class _SetupScreenState extends State<SetupScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   int _currentStep = 0;
-  // คงที่ 5 ขั้นตอนเสมอ: พื้นที่ / ประเภทมิเตอร์ / อธิบายสูตรคำนวณ /
-  // วันตัดรอบบิล / บิลตั้งต้น — ไม่ผันแปรตามพื้นที่หรือประเภทมิเตอร์แล้ว
-  // (เดิมกรุงเทพ+ปกติมี step เลือกขนาดมิเตอร์เพิ่ม ตอนนี้ตัดออกเป็นค่าตายตัว)
-  static const int _totalSteps = 5;
+  // คงที่ 4 ขั้นตอนเสมอ: พื้นที่+อธิบายสูตรคำนวณ (รวมเป็นขั้นเดียว) /
+  // ประเภทมิเตอร์ / วันตัดรอบบิล / บิลตั้งต้น
+  // (เดิมพื้นที่กับอธิบายสูตรคำนวณแยกกัน 2 ขั้น ตอนนี้รวมเป็นขั้นเดียวแบบ
+  // ส่วนที่ 1 / ส่วนที่ 2 ในหน้าเดียว)
+  static const int _totalSteps = 4;
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
   // ล็อกไว้ที่ประเภท 1.2 (มิเตอร์ปกติเกิน 5(15)A) เสมอ ไม่ให้ผู้ใช้เลือกอีก
@@ -275,50 +276,103 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget _buildStep(int step) {
     switch (step) {
       case 0:
-        return _buildAreaStep();
+        return _buildAreaAndRateExplanationStep();
       case 1:
         return _buildMeterTypeStep();
       case 2:
-        return _buildRateExplanationStep();
-      case 3:
         return _buildBillingDayStep();
-      case 4:
+      case 3:
         return _buildStartMeterStep();
       default:
         return const SizedBox();
     }
   }
 
-  Widget _buildAreaStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'คุณอยู่ในพื้นที่ไหน?',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'เพื่อคำนวณค่าไฟและค่าน้ำให้ถูกต้องตามพื้นที่ของคุณ',
-          style: TextStyle(color: Colors.grey),
-        ),
-        const SizedBox(height: 32),
-        _buildSelectionCard(
-          title: 'กรุงเทพและปริมณฑล',
-          subtitle: 'ไฟฟ้านครหลวง (MEA) • ประปานครหลวง (MWA)',
-          icon: Icons.location_city,
-          isSelected: _selectedArea == 'bangkok',
-          onTap: () => setState(() => _selectedArea = 'bangkok'),
-        ),
-        const SizedBox(height: 12),
-        _buildSelectionCard(
-          title: 'ส่วนภูมิภาค',
-          subtitle: 'ไฟฟ้าส่วนภูมิภาค (PEA) • ประปาส่วนภูมิภาค (PWA)',
-          icon: Icons.nature,
-          isSelected: _selectedArea == 'province',
-          onTap: () => setState(() => _selectedArea = 'province'),
-        ),
-      ],
+  // ขั้นรวม: ส่วนที่ 1 เลือกพื้นที่ + ส่วนที่ 2 อธิบายสูตรคำนวณ
+  // หมายเหตุ: ส่วนที่ 2 อ้างอิง _selectedMeterType ซึ่งผู้ใช้ยังไม่ได้เลือกจน
+  // กว่าจะถึงขั้นตอนถัดไป (ค่าเริ่มต้นคือ 'normal') คำอธิบายที่โชว์ตอนนี้จึง
+  // เป็นค่าตั้งต้นไปก่อน แล้วจะอัปเดตถูกต้องถ้าผู้ใช้กดย้อนกลับมาดูอีกที
+  // หลังเลือกประเภทมิเตอร์แล้ว
+  Widget _buildAreaAndRateExplanationStep() {
+    final isBangkok = _selectedArea == 'bangkok';
+    final isTou = _selectedMeterType == 'tou';
+
+    late final String electricityTitle;
+    late final String electricityBody;
+    if (isTou) {
+      electricityTitle = 'ค่าไฟฟ้า (มิเตอร์ TOU)';
+      electricityBody =
+          'เหมือนค่าทางด่วน ช่วงคนใช้เยอะ (On-Peak กลางวัน) แพงกว่า '
+          'ช่วงคนใช้น้อย (Off-Peak กลางคืน/วันหยุด) ถูกกว่า '
+          'บวกค่า Ft และค่าบริการรายเดือนตามปกติ';
+    } else if (isBangkok) {
+      electricityTitle = 'ค่าไฟฟ้า (MEA)';
+      electricityBody =
+          'คิดแบบขั้นบันได ยิ่งใช้เยอะยิ่งแพงขึ้นทีละขั้น บวกค่า Ft และ'
+          'ค่าบริการรายเดือน • ระบบล็อกมิเตอร์เป็นประเภท 1.2 (เกิน 5(15)A) '
+          'ให้อัตโนมัติ เป็นมิเตอร์ขนาดนิยมของบ้านทั่วไป';
+    } else {
+      electricityTitle = 'ค่าไฟฟ้า (PEA)';
+      electricityBody =
+          'คิดแบบขั้นบันไดเหมือนกัน แต่ระบบเลือกอัตราให้เองอัตโนมัติจาก'
+          'หน่วยที่ใช้จริงในแต่ละเดือน ใช้ไม่เกิน 150 หน่วยจะได้อัตราถูกกว่า';
+    }
+
+    final waterTitle = isBangkok ? 'ค่าน้ำประปา (MWA)' : 'ค่าน้ำประปา (PWA)';
+    final waterBody = isBangkok
+        ? 'คิดแบบขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือนและค่าน้ำดิบเล็กน้อย'
+        : 'คิดแบบขั้นบันไดเหมือนกัน บวกค่าบริการรายเดือน ';
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'คุณอยู่ในพื้นที่ไหน?',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'เพื่อคำนวณค่าไฟและค่าน้ำให้ถูกต้องตามพื้นที่ของคุณ',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 20),
+          _buildSelectionCard(
+            title: 'กรุงเทพและปริมณฑล',
+            subtitle: 'ไฟฟ้านครหลวง (MEA) • ประปานครหลวง (MWA)',
+            icon: Icons.location_city,
+            isSelected: _selectedArea == 'bangkok',
+            onTap: () => setState(() => _selectedArea = 'bangkok'),
+          ),
+          const SizedBox(height: 12),
+          _buildSelectionCard(
+            title: 'ส่วนภูมิภาค',
+            subtitle: 'ไฟฟ้าส่วนภูมิภาค (PEA) • ประปาส่วนภูมิภาค (PWA)',
+            icon: Icons.nature,
+            isSelected: _selectedArea == 'province',
+            onTap: () => setState(() => _selectedArea = 'province'),
+          ),
+
+          const SizedBox(height: 24),
+          Divider(color: Colors.grey.shade200, thickness: 1),
+          const SizedBox(height: 20),
+
+          _buildFieldGroupLabel(
+              'ระบบคิดค่าใช้จ่ายให้คุณยังไง?', Icons.info_outline),
+          const SizedBox(height: 12),
+          _buildRateInfoCard(
+            icon: Icons.bolt,
+            title: electricityTitle,
+            body: electricityBody,
+          ),
+          const SizedBox(height: 12),
+          _buildRateInfoCard(
+            icon: Icons.water_drop,
+            title: waterTitle,
+            body: waterBody,
+          ),
+        ],
+      ),
     );
   }
 
@@ -353,74 +407,6 @@ class _SetupScreenState extends State<SetupScreen> {
           onTap: () => setState(() => _selectedMeterType = 'tou'),
         ),
       ],
-    );
-  }
-
-  // ขั้นตอนอธิบายสูตรคำนวณ (แทนที่การให้เลือกขนาดมิเตอร์เดิม) — ไม่มีตัวเลือก
-  // ให้กด แค่อธิบายว่าค่าไฟ/ค่าน้ำของผู้ใช้จะถูกคิดยังไงตามพื้นที่และประเภท
-  // มิเตอร์ที่เพิ่งเลือกไป 2 ขั้นตอนก่อนหน้า
-  Widget _buildRateExplanationStep() {
-    final isBangkok = _selectedArea == 'bangkok';
-    final isTou = _selectedMeterType == 'tou';
-
-    late final String electricityTitle;
-    late final String electricityBody;
-    if (isTou) {
-      electricityTitle = 'ค่าไฟฟ้า (มิเตอร์ TOU)';
-      electricityBody =
-          'คิดแยกช่วงเวลา: หน่วยที่ใช้ตอนกลางวัน (On-Peak) คิดอัตราแพงกว่า '
-          'หน่วยที่ใช้ตอนกลางคืน/วันหยุด (Off-Peak) บวกค่า Ft และค่าบริการ '
-          'รายเดือนตามมาตรฐานเดียวกันทั้งประเทศ ไม่ผูกกับขนาดมิเตอร์';
-    } else if (isBangkok) {
-      electricityTitle = 'ค่าไฟฟ้า (MEA)';
-      electricityBody =
-          'คิดแบบอัตราขั้นบันได ยิ่งใช้มากยิ่งแพงต่อหน่วย บวกค่า Ft และ'
-          'ค่าบริการรายเดือน • ระบบตั้งเป็นมิเตอร์ขนาดปกติ (เกิน 5(15)A) ให้'
-          'ตายตัว เพราะเป็นขนาดที่บ้านทั่วไปใช้กันอยู่แล้ว และเกณฑ์แยกขนาด'
-          'มิเตอร์เล็ก/ใหญ่ของ MEA เองก็เปลี่ยนได้ตามช่วงเวลา ให้ค่าคงที่แบบนี้'
-          'แม่นยำกว่าในระยะยาว';
-    } else {
-      electricityTitle = 'ค่าไฟฟ้า (PEA)';
-      electricityBody =
-          'คิดแบบอัตราขั้นบันไดเช่นกัน แต่ PEA เลือกอัตราให้อัตโนมัติจาก'
-          'จำนวนหน่วยที่ใช้จริงในแต่ละเดือน (ใช้ไม่เกิน 150 หน่วยจะได้อัตรา'
-          'ที่ถูกกว่า) ไม่ต้องอิงขนาดมิเตอร์เหมือน MEA';
-    }
-
-    final waterTitle = isBangkok ? 'ค่าน้ำประปา (MWA)' : 'ค่าน้ำประปา (PWA)';
-    final waterBody = isBangkok
-        ? 'คิดแบบอัตราขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือนและ'
-            'ค่าน้ำดิบเล็กน้อยต่อหน่วย'
-        : 'คิดแบบอัตราขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือน '
-            '(อัตราของ PWA แยกจาก MWA เพราะเป็นคนละหน่วยงานกัน)';
-
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'ระบบคิดค่าใช้จ่ายให้คุณยังไง?',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'สรุปสั้นๆ ก่อนไปขั้นตอนถัดไป ไม่ต้องเลือกอะไรในหน้านี้',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 28),
-          _buildRateInfoCard(
-            icon: Icons.bolt,
-            title: electricityTitle,
-            body: electricityBody,
-          ),
-          const SizedBox(height: 12),
-          _buildRateInfoCard(
-            icon: Icons.water_drop,
-            title: waterTitle,
-            body: waterBody,
-          ),
-        ],
-      ),
     );
   }
 
