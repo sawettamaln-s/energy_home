@@ -6,6 +6,7 @@ import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/thai_date_utils.dart';
 import '../dashboard/dashboard_screen.dart';
+import 'setup_complete_screen.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -18,10 +19,16 @@ class _SetupScreenState extends State<SetupScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   int _currentStep = 0;
-  int get _totalSteps => 4;
+  // คงที่ 5 ขั้นตอนเสมอ: พื้นที่ / ประเภทมิเตอร์ / อธิบายสูตรคำนวณ /
+  // วันตัดรอบบิล / บิลตั้งต้น — ไม่ผันแปรตามพื้นที่หรือประเภทมิเตอร์แล้ว
+  // (เดิมกรุงเทพ+ปกติมี step เลือกขนาดมิเตอร์เพิ่ม ตอนนี้ตัดออกเป็นค่าตายตัว)
+  static const int _totalSteps = 5;
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
-  String _selectedMeterSize = '15a';
+  // ล็อกไว้ที่ประเภท 1.2 (มิเตอร์ปกติเกิน 5(15)A) เสมอ ไม่ให้ผู้ใช้เลือกอีก
+  // ต่อไป เพราะเกณฑ์ประเภท 1.1 ↔ 1.2 บนเว็บการไฟฟ้าเองก็ปรับเปลี่ยนไม่ตายตัว
+  // และมิเตอร์ปกติของบ้านทั่วไปที่ผู้ใช้แอปนี้มีอยู่แล้วเป็นขนาดนี้เป็นส่วนใหญ่
+  static const String _fixedMeterSize = '15a';
   // null = ยังไม่ได้เลือกวันตัดรอบบิล (ผู้ใช้กดข้ามไปก่อนได้ ไปตั้งทีหลังที่
   // หน้าตั้งค่าได้) ตอนบันทึกจริงถ้ายังเป็น null จะ fallback เป็นวันที่ 30
   // ตาม default ของ UserModel
@@ -107,7 +114,7 @@ class _SetupScreenState extends State<SetupScreen> {
         email: user.email ?? '',
         area: _selectedArea,
         meterType: _selectedMeterType,
-        meterSize: _selectedMeterSize,
+        meterSize: _fixedMeterSize,
         billingDay: _selectedBillingDay ?? 30,
         startElectricityValue:
             (_startMeterSkipped || _selectedMeterType == 'tou')
@@ -137,12 +144,32 @@ class _SetupScreenState extends State<SetupScreen> {
       // ไม่ใช่บัญชี
       await NotificationService.instance.notifyWelcome();
 
-      if (mounted) {
+      if (!mounted) return;
+
+      // ถ้ากรอกครบทุกอย่างไม่มีการข้าม ไม่ต้องแวะหน้าสรุป เข้า Dashboard ได้เลย
+      // แต่ถ้าข้ามวันตัดรอบบิลหรือบิลตั้งต้นไปข้อใดข้อหนึ่ง ให้แวะหน้าสรุป
+      // ก่อน เพื่อเตือนว่ายังมีอะไรค้างอยู่บ้าง
+      final skippedSomething =
+          _selectedBillingDay == null || _startMeterSkipped;
+
+      if (!skippedSomething) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
           (route) => false,
         );
+        return;
       }
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => SetupCompleteScreen(
+            billingDayConfigured: _selectedBillingDay != null,
+            startMeterConfigured: !_startMeterSkipped,
+            startElectricityValue: userModel.startElectricityValue,
+          ),
+        ),
+        (route) => false,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -246,89 +273,52 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildStep(int step) {
-    // ทุกเส้นทางมี 4 ขั้นตอนเสมอ (ขั้น 0 รวมพื้นที่ + ขนาดมิเตอร์ไว้ด้วยกัน
-    // ขนาดมิเตอร์จะโชว์เป็นส่วนที่ 2 เฉพาะกรณี กทม. + มิเตอร์ปกติเท่านั้น)
     switch (step) {
       case 0:
-        return _buildAreaAndMeterSizeStep();
+        return _buildAreaStep();
       case 1:
         return _buildMeterTypeStep();
       case 2:
-        return _buildBillingDayStep();
+        return _buildRateExplanationStep();
       case 3:
+        return _buildBillingDayStep();
+      case 4:
         return _buildStartMeterStep();
       default:
         return const SizedBox();
     }
   }
 
-  // ขั้นรวม: ส่วนที่ 1 เลือกพื้นที่ + ส่วนที่ 2 เลือกขนาดมิเตอร์ไฟฟ้า
-  // (ส่วนที่ 2 โชว์เฉพาะ กทม. + มิเตอร์ปกติ เหมือนเงื่อนไขเดิมของ
-  // _buildMeterSizeStep ก่อนแยกเป็นขั้นตอนต่างหาก)
-  Widget _buildAreaAndMeterSizeStep() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionTag('ส่วนที่ 1'),
-          const SizedBox(height: 10),
-          const Text(
-            'คุณอยู่ในพื้นที่ไหน?',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'เพื่อคำนวณค่าน้ำให้ถูกต้องตามพื้นที่ของคุณ',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 20),
-          _buildSelectionCard(
-            title: 'กรุงเทพและปริมณฑล',
-            subtitle: 'ใช้อัตราค่าน้ำ MWA',
-            icon: Icons.location_city,
-            isSelected: _selectedArea == 'bangkok',
-            onTap: () => setState(() => _selectedArea = 'bangkok'),
-          ),
-          const SizedBox(height: 12),
-          _buildSelectionCard(
-            title: 'ต่างจังหวัด',
-            subtitle: 'ใช้อัตราค่าน้ำ PWA',
-            icon: Icons.nature,
-            isSelected: _selectedArea == 'province',
-            onTap: () => setState(() => _selectedArea = 'province'),
-          ),
-
-          // ส่วนที่ 2 โชว์เฉพาะ กทม. + มิเตอร์ปกติ (ระบบคิดค่าไฟตามขนาดมิเตอร์
-          // มีผลเฉพาะอัตรา MEA ประเภท 1.1/1.2 เท่านั้น)
-          if (_selectedArea == 'bangkok' && _selectedMeterType == 'normal') ...[
-            const SizedBox(height: 28),
-            Divider(color: Colors.grey.shade200, thickness: 1),
-            const SizedBox(height: 20),
-            _buildSectionTag('ส่วนที่ 2'),
-            const SizedBox(height: 10),
-            _buildMeterSizeStep(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ป้าย "ส่วนที่ N" ใช้ร่วมกันสำหรับ step ที่มีหลาย section ในหน้าเดียว
-  Widget _buildSectionTag(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2E7D32).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFF2E7D32),
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
+  Widget _buildAreaStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'คุณอยู่ในพื้นที่ไหน?',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
-      ),
+        const SizedBox(height: 8),
+        const Text(
+          'เพื่อคำนวณค่าไฟและค่าน้ำให้ถูกต้องตามพื้นที่ของคุณ',
+          style: TextStyle(color: Colors.grey),
+        ),
+        const SizedBox(height: 32),
+        _buildSelectionCard(
+          title: 'กรุงเทพและปริมณฑล',
+          subtitle: 'ไฟฟ้านครหลวง (MEA) • ประปานครหลวง (MWA)',
+          icon: Icons.location_city,
+          isSelected: _selectedArea == 'bangkok',
+          onTap: () => setState(() => _selectedArea = 'bangkok'),
+        ),
+        const SizedBox(height: 12),
+        _buildSelectionCard(
+          title: 'ส่วนภูมิภาค',
+          subtitle: 'ไฟฟ้าส่วนภูมิภาค (PEA) • ประปาส่วนภูมิภาค (PWA)',
+          icon: Icons.nature,
+          isSelected: _selectedArea == 'province',
+          onTap: () => setState(() => _selectedArea = 'province'),
+        ),
+      ],
     );
   }
 
@@ -366,70 +356,110 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ขั้นเพิ่มเติม (เฉพาะกรุงเทพ): เลือกขนาดมิเตอร์
-  Widget _buildMeterSizeStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'ขนาดมิเตอร์ไฟฟ้า',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'ดูได้จากตัวเลขบนมิเตอร์หรือใบแจ้งหนี้ค่าไฟ MEA',
-          style: TextStyle(color: Colors.grey),
-        ),
-        const SizedBox(height: 32),
-        _buildSelectionCard(
-          title: 'มิเตอร์ปกติ เกิน 5(15)A',
-          subtitle:
-              'บ้านเดี่ยว ทาวน์เฮาส์ คอนโดทั่วไป\nคิดอัตราประเภท 1.2 เสมอ',
-          icon: Icons.electric_meter,
-          isSelected: _selectedMeterSize == '15a',
-          onTap: () => setState(() => _selectedMeterSize = '15a'),
-        ),
-        const SizedBox(height: 12),
-        _buildSelectionCard(
-          title: 'มิเตอร์เล็ก 5(15)A',
-          subtitle:
-              'ห้องเช่า บ้านเก่าขนาดเล็ก\nคิดอัตราประเภท 1.1 ถ้าใช้ไม่เกิน 150 หน่วย',
-          icon: Icons.electric_meter_outlined,
-          isSelected: _selectedMeterSize == '5a',
-          onTap: () => setState(() => _selectedMeterSize = '5a'),
-        ),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2E7D32).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+  // ขั้นตอนอธิบายสูตรคำนวณ (แทนที่การให้เลือกขนาดมิเตอร์เดิม) — ไม่มีตัวเลือก
+  // ให้กด แค่อธิบายว่าค่าไฟ/ค่าน้ำของผู้ใช้จะถูกคิดยังไงตามพื้นที่และประเภท
+  // มิเตอร์ที่เพิ่งเลือกไป 2 ขั้นตอนก่อนหน้า
+  Widget _buildRateExplanationStep() {
+    final isBangkok = _selectedArea == 'bangkok';
+    final isTou = _selectedMeterType == 'tou';
+
+    late final String electricityTitle;
+    late final String electricityBody;
+    if (isTou) {
+      electricityTitle = 'ค่าไฟฟ้า (มิเตอร์ TOU)';
+      electricityBody =
+          'คิดแยกช่วงเวลา: หน่วยที่ใช้ตอนกลางวัน (On-Peak) คิดอัตราแพงกว่า '
+          'หน่วยที่ใช้ตอนกลางคืน/วันหยุด (Off-Peak) บวกค่า Ft และค่าบริการ '
+          'รายเดือนตามมาตรฐานเดียวกันทั้งประเทศ ไม่ผูกกับขนาดมิเตอร์';
+    } else if (isBangkok) {
+      electricityTitle = 'ค่าไฟฟ้า (MEA)';
+      electricityBody =
+          'คิดแบบอัตราขั้นบันได ยิ่งใช้มากยิ่งแพงต่อหน่วย บวกค่า Ft และ'
+          'ค่าบริการรายเดือน • ระบบตั้งเป็นมิเตอร์ขนาดปกติ (เกิน 5(15)A) ให้'
+          'ตายตัว เพราะเป็นขนาดที่บ้านทั่วไปใช้กันอยู่แล้ว และเกณฑ์แยกขนาด'
+          'มิเตอร์เล็ก/ใหญ่ของ MEA เองก็เปลี่ยนได้ตามช่วงเวลา ให้ค่าคงที่แบบนี้'
+          'แม่นยำกว่าในระยะยาว';
+    } else {
+      electricityTitle = 'ค่าไฟฟ้า (PEA)';
+      electricityBody =
+          'คิดแบบอัตราขั้นบันไดเช่นกัน แต่ PEA เลือกอัตราให้อัตโนมัติจาก'
+          'จำนวนหน่วยที่ใช้จริงในแต่ละเดือน (ใช้ไม่เกิน 150 หน่วยจะได้อัตรา'
+          'ที่ถูกกว่า) ไม่ต้องอิงขนาดมิเตอร์เหมือน MEA';
+    }
+
+    final waterTitle = isBangkok ? 'ค่าน้ำประปา (MWA)' : 'ค่าน้ำประปา (PWA)';
+    final waterBody = isBangkok
+        ? 'คิดแบบอัตราขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือนและ'
+            'ค่าน้ำดิบเล็กน้อยต่อหน่วย'
+        : 'คิดแบบอัตราขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือน '
+            '(อัตราของ PWA แยกจาก MWA เพราะเป็นคนละหน่วยงานกัน)';
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'ระบบคิดค่าใช้จ่ายให้คุณยังไง?',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 8),
+          const Text(
+            'สรุปสั้นๆ ก่อนไปขั้นตอนถัดไป ไม่ต้องเลือกอะไรในหน้านี้',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 28),
+          _buildRateInfoCard(
+            icon: Icons.bolt,
+            title: electricityTitle,
+            body: electricityBody,
+          ),
+          const SizedBox(height: 12),
+          _buildRateInfoCard(
+            icon: Icons.water_drop,
+            title: waterTitle,
+            body: waterBody,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRateInfoCard({
+    required IconData icon,
+    required String title,
+    required String body,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2E7D32).withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'วิธีเช็คขนาดมิเตอร์',
-                    style: TextStyle(
-                        color: Color(0xFF2E7D32), fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
+              Icon(icon, color: const Color(0xFF2E7D32), size: 20),
+              const SizedBox(width: 8),
               Text(
-                '1. ดูตัวเลขบนมิเตอร์ เช่น "5(15)A" หรือ "15(45)A"\n'
-                '2. หรือดูจากใบแจ้งหนี้ค่าไฟ MEA\n'
-                '3. ถ้าไม่แน่ใจ เลือก "เกิน 5(15)A" ไว้ก่อนได้เลยค่ะ',
-                style: TextStyle(color: Color(0xFF2E7D32), fontSize: 12),
+                title,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Color(0xFF2E7D32)),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade800, height: 1.4),
+          ),
+        ],
+      ),
     );
   }
 
