@@ -129,7 +129,6 @@ class EnergyCalculator {
     }
   }
   // ==================== ค่าน้ำประปา ====================
-  // (ยังต้องตรวจสอบ PWA เพิ่ม - คงไว้ตามเดิมก่อน)
 
   static double calculateWaterMWA(double units) {
     if (units <= 0) return 0;
@@ -229,16 +228,29 @@ class EnergyCalculator {
 
     double serviceFee = 25.00;
     double rawWaterFee = units * 0.15;
-    double total = (cost + serviceFee + rawWaterFee) * 1.07;
+    double subtotal = cost + serviceFee + rawWaterFee;
+
+    // ค่าน้ำขั้นต่ำของ กปน. คือ 45 บาท/เดือน (ก่อน VAT) สำหรับผู้ใช้น้ำ
+    // ช่วง 0-30 หน่วย ตามประกาศอัตราค่าน้ำ กปน. — กันเคสใช้น้ำน้อยมากๆ
+    // ที่คำนวณตามขั้นบันไดแล้วต่ำกว่าค่าขั้นต่ำที่ กปน. เรียกเก็บจริง
+    if (subtotal < 45.00) {
+      subtotal = 45.00;
+    }
+
+    double total = subtotal * 1.07;
 
     return double.parse(total.toStringAsFixed(2));
   }
 
-  // PWA - คงเดิมไว้ก่อน ต้องเช็คเพิ่มทีหลัง
+  // PWA (ต่างจังหวัด)
+  // อ้างอิงตารางหมายเลข 3 (กปภ.สาขาอื่นทั่วประเทศ) จาก pwa.co.th เพราะ
+  // ครอบคลุมสาขาส่วนใหญ่ของประเทศ (ยกเว้นบางสาขาในตารางหมายเลข 1, 2 ที่มี
+  // อัตราของตัวเองต่างหาก ซึ่งแอปนี้ไม่ได้แยกตามสาขา)
   static double calculateWaterPWA(double units) {
     if (units <= 0) return 0;
     double cost = 0;
 
+    // ประเภท 1 ที่อยู่อาศัย: ใช้อัตรานี้เฉพาะหน่วยที่ 1-50 เท่านั้น
     if (units <= 10) {
       cost = units * 10.20;
     } else if (units <= 20) {
@@ -254,15 +266,62 @@ class EnergyCalculator {
       cost += 10 * 19.00;
       cost += (units - 30) * 21.20;
     } else {
+      // เดือนไหนใช้เกิน 50 หน่วย กปภ. จะคิดหน่วยที่ 51 เป็นต้นไปด้วย
+      // อัตราประเภท 2 (ราชการ/ธุรกิจขนาดเล็ก) แทน ไม่ใช่อัตราที่อยู่อาศัย
+      // ต่อเนื่อง — หน่วยที่ 1-50 ยังคงคิดอัตราประเภท 1 เดิมตามปกติ
       cost = 10 * 10.20;
       cost += 10 * 16.00;
       cost += 10 * 19.00;
       cost += 20 * 21.20;
-      cost += (units - 50) * 25.00;
+
+      if (units <= 80) {
+        cost += (units - 50) * 21.60;
+      } else if (units <= 100) {
+        cost += 30 * 21.60;
+        cost += (units - 80) * 21.65;
+      } else if (units <= 300) {
+        cost += 30 * 21.60;
+        cost += 20 * 21.65;
+        cost += (units - 100) * 21.70;
+      } else if (units <= 1000) {
+        cost += 30 * 21.60;
+        cost += 20 * 21.65;
+        cost += 200 * 21.70;
+        cost += (units - 300) * 21.75;
+      } else if (units <= 2000) {
+        cost += 30 * 21.60;
+        cost += 20 * 21.65;
+        cost += 200 * 21.70;
+        cost += 700 * 21.75;
+        cost += (units - 1000) * 21.80;
+      } else if (units <= 3000) {
+        cost += 30 * 21.60;
+        cost += 20 * 21.65;
+        cost += 200 * 21.70;
+        cost += 700 * 21.75;
+        cost += 1000 * 21.80;
+        cost += (units - 2000) * 21.85;
+      } else {
+        cost += 30 * 21.60;
+        cost += 20 * 21.65;
+        cost += 200 * 21.70;
+        cost += 700 * 21.75;
+        cost += 1000 * 21.80;
+        cost += 1000 * 21.85;
+        cost += (units - 3000) * 21.90;
+      }
     }
 
-    double serviceFee = 30.00; // เพิ่มค่าบริการตามที่เจอในรูป
-    double total = (cost + serviceFee) * 1.07;
+    double serviceFee = 30.00;
+    double subtotal = cost + serviceFee;
+
+    // ค่าน้ำขั้นต่ำของ กปภ. สำหรับผู้ใช้น้ำประเภทที่อยู่อาศัย คือ 50 บาท/เดือน
+    // (ก่อน VAT) กันเคสใช้น้ำน้อยมากๆ ที่คำนวณได้ต่ำกว่าค่าขั้นต่ำจริง
+    if (subtotal < 50.00) {
+      subtotal = 50.00;
+    }
+
+    double total = subtotal * 1.07;
 
     return double.parse(total.toStringAsFixed(2));
   }
