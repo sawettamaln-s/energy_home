@@ -768,6 +768,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // สัญลักษณ์ "พุ่งขึ้น" ถ้าค่าใช้จ่ายปัจจุบันสูงกว่าเดือนก่อน และบรรทัด
   // ยอดคาดการณ์สิ้นเดือนแยกไฟฟ้า/น้ำ ไว้ด้านล่างของแต่ละช่อง
   // =====================================================================
+  // =====================================================================
+  // อธิบายที่มาของตัวเลขในการ์ด "ค่าใช้จ่ายเดือนนี้" แบบเข้าใจง่าย
+  // ครอบคลุม 2 เรื่อง: (1) สูตรอัตราค่าไฟ/ค่าน้ำ อ้างอิง utils/calculator.dart
+  // (2) สูตรพยากรณ์ยอดสิ้นเดือน อ้างอิง utils/forecaster.dart (Moving Average)
+  // =====================================================================
+  void _showCostFormulaInfo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline,
+                color: DashboardStyles.primaryGreen, size: 20),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('ตัวเลขนี้คำนวณอย่างไร?',
+                  style: TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Text(
+            '⚡ ค่าไฟฟ้า\n'
+            'ยิ่งใช้เยอะ อัตราต่อหน่วยจะขยับสูงขึ้นเป็นขั้นๆ (อัตราขั้นบันได) '
+            'ตามพื้นที่และประเภทมิเตอร์ที่ตั้งไว้ในโปรไฟล์ของคุณ '
+            'จากนั้นบวกค่า Ft (ค่าไฟผันแปรที่ประกาศทุก 4 เดือน) '
+            'และค่าบริการรายเดือน แล้วคูณ VAT 7% ทั้งหมด\n\n'
+            '💧 ค่าน้ำ\n'
+            'คิดแบบเดียวกัน คือใช้อัตราขั้นบันไดของการประปาตามพื้นที่ '
+            'บวกค่าบริการ แล้วคูณ VAT 7%\n\n'
+            '📈 ยอดคาดการณ์สิ้นเดือน\n'
+            'ใช้วิธี "ค่าเฉลี่ยเคลื่อนที่" ง่ายๆ คือดูว่าตั้งแต่ต้นรอบบิลถึงวันนี้ '
+            'เฉลี่ยแล้วใช้เงินไปวันละเท่าไหร่ แล้วคูณด้วยจำนวนวันที่เหลือในรอบ '
+            'บวกกับยอดที่ใช้จริงไปแล้ว เหมือนสมมติว่าช่วงที่เหลือของเดือน '
+            'จะใช้ในอัตราเดิมต่อไปเรื่อยๆ\n\n'
+            'ทำไมถึงใช้วิธีนี้: ไม่ต้องรอสะสมข้อมูลหลายเดือนก็พยากรณ์ได้ทันที '
+            'จากพฤติกรรมการใช้จริงในรอบปัจจุบัน และปรับตัวไวถ้าคุณใช้เยอะขึ้น'
+            'หรือน้อยลงระหว่างเดือน แต่ถ้าใช้งานไม่สม่ำเสมอมากๆ '
+            '(เช่น ต้นเดือนใช้น้อย ปลายเดือนใช้พุ่ง) ตัวเลขอาจคลาดเคลื่อนได้บ้างค่ะ',
+            style: TextStyle(fontSize: 13.5, height: 1.6),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('เข้าใจแล้วค่ะ'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCostSummaryCard(
       NumberFormat formatter, NumberFormat unitFormatter) {
     return Container(
@@ -797,6 +850,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: Colors.white70,
                       fontSize: 13,
                       fontWeight: FontWeight.w500)),
+              const Spacer(),
+              GestureDetector(
+                onTap: _showCostFormulaInfo,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.2),
+                  ),
+                  child: const Text('!',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1228,6 +1299,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // อธิบายมิเตอร์ TOU ตอนกำลังจะกรอกค่าจริง — เนื้อหาคล้ายตอน setup แต่เน้น
+  // ว่าช่องไหนคือช่องไหน เผื่อผู้ใช้ลืมความหมายไปแล้วตั้งแต่ตอนสมัคร
+  void _showTOUInfoPopup() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline,
+                color: DashboardStyles.primaryGreen, size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('On-Peak / Off-Peak คืออะไร?',
+                  style: TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+        content: const Text(
+          'มิเตอร์ TOU แยกคิดค่าไฟตามช่วงเวลาที่ใช้ แทนที่จะคิดรวมทั้งเดือน '
+          'เหมือนมิเตอร์ปกติ:\n\n'
+          '• On-Peak (จ-ศ 09:00-22:00): ช่วงเวลาที่ความต้องการใช้ไฟฟ้า '
+          'ของประเทศสูง อัตราต่อหน่วยจะแพงกว่า\n\n'
+          '• Off-Peak (จ-ศ 22:00-09:00 และวันหยุด/นักขัตฤกษ์ทั้งวัน): '
+          'ช่วงที่ความต้องการใช้ไฟต่ำ อัตราต่อหน่วยจะถูกกว่า\n\n'
+          'ให้กรอกเลขที่อ่านได้จากมิเตอร์จริงของแต่ละช่วง — ถ้ามิเตอร์ '
+          'TOU ของคุณมีจอแสดงแยก 2 ค่า (On-Peak กับ Off-Peak) '
+          'ก็กรอกตามนั้นได้เลยค่ะ',
+          style: TextStyle(fontSize: 13.5, height: 1.6),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('เข้าใจแล้วค่ะ'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSummaryRow(String label, String value,
       {bool isBold = false, Color? color}) {
     return Row(
@@ -1256,12 +1367,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.bolt, color: Colors.orange, size: 20),
-              SizedBox(width: 8),
-              Text('บันทึกค่ามิเตอร์ไฟฟ้า (TOU)',
+              const Icon(Icons.bolt, color: Colors.orange, size: 20),
+              const SizedBox(width: 8),
+              const Text('บันทึกค่ามิเตอร์ไฟฟ้า (TOU)',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const Spacer(),
+              GestureDetector(
+                onTap: _showTOUInfoPopup,
+                child: Icon(Icons.info_outline,
+                    size: 18, color: Colors.grey.shade500),
+              ),
             ],
           ),
           const SizedBox(height: 4),

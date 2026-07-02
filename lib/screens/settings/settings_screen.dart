@@ -307,6 +307,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: 'ดูค่าที่เคยตั้ง/แก้ไขไว้ทั้งหมด',
             onTap: () => _showStartMeterHistory(),
           ),
+          const Divider(height: 1, indent: 56),
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E7D32).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.notifications_active_outlined,
+                  color: Color(0xFF2E7D32), size: 20),
+            ),
+            title: const Text(
+              'การแจ้งเตือน',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            subtitle: Text(
+              _notificationStatus == PermissionStatus.granted
+                  ? 'เปิดอยู่'
+                  : 'ปิดอยู่',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            trailing: Switch(
+              value: _notificationStatus == PermissionStatus.granted,
+              activeColor: const Color(0xFF2E7D32),
+              onChanged: (val) => _toggleNotification(val),
+            ),
+          ),
         ],
       ),
     );
@@ -2240,6 +2269,42 @@ String _labelForFixedCostCategory(String key) {
   return 'อื่นๆ';
 }
 
+// อธิบายว่า Fixed Cost คืออะไร ทำไมต้องแยกเป็นรายการย่อยแทนยอดเดียว
+void _showFixedCostInfoPopup(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Row(
+        children: [
+          Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text('Fixed Cost คืออะไร?', style: TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+      content: const Text(
+        'Fixed Cost คือค่าใช้จ่ายประจำที่ไม่ใช่ค่าไฟหรือค่าน้ำ แต่จ่ายทุกเดือน '
+        'ในจำนวนที่ค่อนข้างคงที่ เช่น ค่าแก๊สหุงต้ม ค่าอินเทอร์เน็ต '
+        'ค่าส่วนกลางหมู่บ้าน/คอนโด เพื่อให้เห็น "ยอดค่าใช้จ่ายเดือนนี้" '
+        'ที่ตรงกับความเป็นจริงมากขึ้น ไม่ใช่แค่ค่าไฟ-น้ำอย่างเดียว\n\n'
+        'ทำไมต้องแยกเป็นรายการย่อย: เพราะแต่ละรายการเปลี่ยนแปลงไม่พร้อมกัน '
+        '(เช่น เดือนนี้ค่าแก๊สขึ้น แต่ค่าอินเทอร์เน็ตเท่าเดิม) การแยกรายการ '
+        'ทำให้แก้ไขหรือลบทีละรายการได้ง่าย โดยระบบจะรวมยอดทั้งหมดให้อัตโนมัติ '
+        'แล้วนำไปบวกกับค่าไฟ-น้ำในหน้าหลักและหน้าวิเคราะห์ค่ะ',
+        style: TextStyle(fontSize: 13.5, height: 1.6),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('เข้าใจแล้วค่ะ'),
+        ),
+      ],
+    ),
+  );
+}
+
 class _FixedCostScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
@@ -2420,7 +2485,15 @@ final confirmed = await showConfirmDialog(
     final formatter = NumberFormat('#,##0');
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(title: const Text('Fixed Cost รายเดือน')),
+      appBar: AppBar(
+        title: const Text('Fixed Cost รายเดือน'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => _showFixedCostInfoPopup(context),
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : Column(

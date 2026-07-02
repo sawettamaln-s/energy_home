@@ -102,6 +102,23 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     return total / _appliances.length;
   }
 
+  // สีของแถบตารางการใช้งาน ไล่ตามชั่วโมง/วันที่ใช้จริง เพื่อให้เห็นความ
+  // หนักเบาของแต่ละอุปกรณ์ได้ไวๆ โดยไม่ต้องอ่านตัวเลข
+  // <=5 ชม. เขียว (เบา) | <=10 ชม. เหลือง | <=15 ชม. ส้ม | >15 ชม. แดง (หนัก)
+  Color _scheduleBgColor(double hoursPerDay) {
+    if (hoursPerDay <= 5) return const Color(0xFFE8F5E9);
+    if (hoursPerDay <= 10) return const Color(0xFFFFF8E1);
+    if (hoursPerDay <= 15) return const Color(0xFFFFF3E0);
+    return const Color(0xFFFFEBEE);
+  }
+
+  Color _scheduleFgColor(double hoursPerDay) {
+    if (hoursPerDay <= 5) return const Color(0xFF2E7D32);
+    if (hoursPerDay <= 10) return const Color(0xFFF9A825);
+    if (hoursPerDay <= 15) return const Color(0xFFEF6C00);
+    return const Color(0xFFC62828);
+  }
+
   // สรุปตารางการใช้งานเป็นข้อความสั้นๆ จากข้อมูลที่มีจริง (days + จำนวนชม./วัน)
   // หมายเหตุ: ฟอร์มเพิ่ม/แก้ไขอุปกรณ์ไม่มีช่องกรอก "เวลาเริ่มใช้งาน" จึงไม่แสดง
   // เป็นช่วงเวลา (เช่น 00:00-08:00) เพราะนั่นจะเป็นข้อมูลที่ผู้ใช้ไม่ได้กรอกจริง
@@ -277,7 +294,8 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                         horizontal: 14, vertical: 8),
                                     decoration: BoxDecoration(
                                       color: hasSchedule
-                                          ? const Color(0xFFE8F5E9)
+                                          ? _scheduleBgColor(
+                                              a.schedules.first.hoursPerDay)
                                           : Colors.grey.shade100,
                                     ),
                                     child: Row(
@@ -288,7 +306,8 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                               : Icons.schedule_outlined,
                                           size: 14,
                                           color: hasSchedule
-                                              ? const Color(0xFF2E7D32)
+                                              ? _scheduleFgColor(
+                                                  a.schedules.first.hoursPerDay)
                                               : Colors.grey,
                                         ),
                                         const SizedBox(width: 6),
@@ -298,7 +317,10 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                             style: TextStyle(
                                               fontSize: 11,
                                               color: hasSchedule
-                                                  ? const Color(0xFF2E7D32)
+                                                  ? _scheduleFgColor(a
+                                                      .schedules
+                                                      .first
+                                                      .hoursPerDay)
                                                   : Colors.grey.shade600,
                                             ),
                                           ),
@@ -931,6 +953,50 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     );
   }
 
+  // =====================================================================
+  // อธิบายที่มาของตัวเลขประมาณการ อ้างอิงสูตรมาตรฐานที่การไฟฟ้า/เว็บคำนวณ
+  // ค่าไฟทั่วไปใช้ (วัตต์ × ชั่วโมง ÷ 1000 = kWh) คูณอัตราเฉลี่ยประมาณการ
+  // พร้อมเตือนเคสอุปกรณ์ที่มีคอมเพรสเซอร์ (ตู้เย็น/แอร์) ที่วัตต์บนฉลาก
+  // มักเป็นค่าสูงสุด ไม่ใช่ค่าเฉลี่ยที่ใช้จริงตลอดเวลาที่เปิด
+  // =====================================================================
+  void _showEstimateInfoPopup() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('ตัวเลขนี้คำนวณอย่างไร?', style: TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+        content: const Text(
+          'ใช้สูตรมาตรฐานเดียวกับที่การไฟฟ้าและเว็บคำนวณค่าไฟทั่วไปใช้ค่ะ\n\n'
+          'หน่วยไฟ/วัน = (วัตต์ × ชั่วโมงที่เปิด ÷ 1,000)\n'
+          'ค่าไฟ = หน่วยไฟ × อัตราเฉลี่ยประมาณการ 4.5 บาท/หน่วย\n\n'
+          'อัตรานี้เป็นค่าเฉลี่ยคร่าวๆ (รวม Ft และ VAT) ไม่ใช่อัตราขั้นบันไดจริง '
+          'จึงอาจไม่ตรงกับยอดบิลเป๊ะๆ แต่ใช้เทียบสัดส่วนระหว่างอุปกรณ์ได้ดี\n\n'
+          '⚠️ อุปกรณ์ที่มีคอมเพรสเซอร์ เช่น ตู้เย็นหรือแอร์ วัตต์ที่เขียนบนฉลาก '
+          'มักเป็นกำลังไฟสูงสุดตอนคอมเพรสเซอร์ทำงาน ไม่ใช่ค่าเฉลี่ยที่ใช้จริงตลอดเวลา '
+          '(เพราะคอมเพรสเซอร์จะตัดเข้า-ออกเป็นรอบ ไม่ได้ทำงานเต็มกำลังตลอด 24 ชม.) '
+          'ถ้าใส่วัตต์บนฉลากตรงๆ ตัวเลขที่ได้อาจสูงกว่าความเป็นจริงพอสมควร '
+          'ถ้าอยากได้ค่าที่แม่นกว่านี้ ลองดู "หน่วยไฟฟ้าต่อปี" บนฉลากประหยัดไฟเบอร์ 5 '
+          'ของเครื่องนั้นแทนค่ะ',
+          style: TextStyle(fontSize: 13.5, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('เข้าใจแล้วค่ะ'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEstimateCard() {
     double watt = double.tryParse(_wattController.text) ?? 0;
     double hours = _totalHours;
@@ -953,8 +1019,18 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('ประมาณการค่าไฟ',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          Row(
+            children: [
+              const Text('ประมาณการค่าไฟ',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: _showEstimateInfoPopup,
+                child: Icon(Icons.info_outline,
+                    size: 16, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           Row(
             children: [

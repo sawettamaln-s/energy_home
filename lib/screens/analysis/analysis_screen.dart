@@ -10,6 +10,7 @@ import '../../models/bill_model.dart';
 import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
+import '../dashboard/dashboard_styles.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -97,12 +98,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         title: const Text('วิเคราะห์',
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black54),
-            onPressed: _isLoading ? null : _loadData,
-          ),
-        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: _green,
@@ -375,15 +370,60 @@ class _UtilityTab extends StatelessWidget {
           const SizedBox(height: 12),
           Expanded(
             child: spots.length < 2
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        _trendEmptyMessage(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ? Stack(
+                    children: [
+                      // กราฟจำลองจางๆ ให้เห็นรูปทรงว่าพอมีข้อมูลแล้วจะเป็นแบบนี้
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: LineChart(
+                            LineChartData(
+                              gridData: const FlGridData(show: false),
+                              titlesData: const FlTitlesData(show: false),
+                              borderData: FlBorderData(show: false),
+                              lineTouchData:
+                                  const LineTouchData(enabled: false),
+                              minY: 0,
+                              maxY: 8,
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: const [
+                                    FlSpot(0, 3),
+                                    FlSpot(1, 5),
+                                    FlSpot(2, 3.5),
+                                    FlSpot(3, 6),
+                                    FlSpot(4, 4.5),
+                                    FlSpot(5, 6.5),
+                                  ],
+                                  isCurved: true,
+                                  color: Colors.grey.shade300,
+                                  barWidth: 3,
+                                  dotData: const FlDotData(show: false),
+                                  belowBarData: BarAreaData(
+                                      show: true,
+                                      color: Colors.grey.shade100),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.92),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            _trendEmptyMessage(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    ],
                   )
                 : LineChart(
                     LineChartData(
@@ -480,7 +520,9 @@ class _UtilityTab extends StatelessWidget {
                             ? Icons.arrow_upward
                             : Icons.arrow_downward,
                         size: 16,
-                        color: r.isIncrease ? Colors.red : _green,
+                        color: r.isIncrease
+                            ? DashboardStyles.spikeUp
+                            : DashboardStyles.spikeDown,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -490,7 +532,9 @@ class _UtilityTab extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: r.isIncrease ? Colors.red : _green,
+                          color: r.isIncrease
+                              ? DashboardStyles.spikeUp
+                              : DashboardStyles.spikeDown,
                         ),
                       ),
                     ],
@@ -612,6 +656,46 @@ class _UtilityTab extends StatelessWidget {
   }
 }
 
+// อธิบายที่มาของตัวเลขประมาณการอุปกรณ์ — เนื้อหาเดียวกับ popup ใน
+// appliance_screen.dart เพื่อให้ทั้งสองหน้าอธิบายเรื่องเดียวกันด้วยคำเดียวกัน
+void _showApplianceEstimateInfo(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('ตัวเลขนี้คำนวณอย่างไร?', style: TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+      content: const Text(
+        'ใช้สูตรมาตรฐานเดียวกับที่การไฟฟ้าและเว็บคำนวณค่าไฟทั่วไปใช้ค่ะ\n\n'
+        'หน่วยไฟ/วัน = (วัตต์ × ชั่วโมงที่เปิด ÷ 1,000)\n'
+        'ค่าไฟ = หน่วยไฟ × อัตราเฉลี่ยประมาณการ 4.5 บาท/หน่วย\n\n'
+        'อัตรานี้เป็นค่าเฉลี่ยคร่าวๆ (รวม Ft และ VAT) ไม่ใช่อัตราขั้นบันไดจริง '
+        'จึงอาจไม่ตรงกับยอดบิลเป๊ะๆ แต่ใช้เทียบสัดส่วนระหว่างอุปกรณ์ได้ดี\n\n'
+        '⚠️ อุปกรณ์ที่มีคอมเพรสเซอร์ เช่น ตู้เย็นหรือแอร์ วัตต์ที่เขียนบนฉลาก '
+        'มักเป็นกำลังไฟสูงสุดตอนคอมเพรสเซอร์ทำงาน ไม่ใช่ค่าเฉลี่ยที่ใช้จริงตลอดเวลา '
+        '(เพราะคอมเพรสเซอร์จะตัดเข้า-ออกเป็นรอบ ไม่ได้ทำงานเต็มกำลังตลอด 24 ชม.) '
+        'ถ้าใส่วัตต์บนฉลากตรงๆ ตัวเลขที่ได้อาจสูงกว่าความเป็นจริงพอสมควร '
+        'ถ้าอยากได้ค่าที่แม่นกว่านี้ ลองดู "หน่วยไฟฟ้าต่อปี" บนฉลากประหยัดไฟเบอร์ 5 '
+        'ของเครื่องนั้นแทนค่ะ',
+        style: TextStyle(fontSize: 13.5, height: 1.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('เข้าใจแล้วค่ะ'),
+        ),
+      ],
+    ),
+  );
+}
+
 // ==================== Tab อุปกรณ์ ====================
 class _ApplianceTab extends StatelessWidget {
   final List<ApplianceModel> appliances;
@@ -631,8 +715,44 @@ class _ApplianceTab extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.devices_other, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
+            SizedBox(
+              height: 160,
+              width: 160,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // โดนัทจำลองจางๆ ให้เห็นรูปทรงว่าพอมีข้อมูลแล้วจะเป็นแบบนี้
+                  PieChart(
+                    PieChartData(
+                      sectionsSpace: 3,
+                      centerSpaceRadius: 46,
+                      sections: [
+                        PieChartSectionData(
+                          value: 40,
+                          color: Colors.grey.shade200,
+                          showTitle: false,
+                          radius: 34,
+                        ),
+                        PieChartSectionData(
+                          value: 25,
+                          color: Colors.grey.shade100,
+                          showTitle: false,
+                          radius: 34,
+                        ),
+                        PieChartSectionData(
+                          value: 35,
+                          color: Colors.grey.shade200,
+                          showTitle: false,
+                          radius: 34,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.devices_other, size: 36, color: Colors.grey.shade300),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             const Text('ยังไม่มีอุปกรณ์ที่ตั้งตารางการใช้งาน',
                 style: TextStyle(color: Colors.grey)),
           ],
@@ -745,10 +865,20 @@ class _ApplianceTab extends StatelessWidget {
           );
         }),
         const SizedBox(height: 8),
-        Text(
-          '* เป็นค่าประมาณการจากกำลังไฟ (วัตต์) × ชั่วโมงที่ตั้งไว้ ไม่ใช่ค่าจากมิเตอร์จริงรายอุปกรณ์ '
-          'และใช้อัตราเฉลี่ย 4.5 บาท/หน่วย จึงอาจไม่ตรงกับยอดบิลจริงที่คิดตามอัตราขั้นบันได',
-          style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+        GestureDetector(
+          onTap: () => _showApplianceEstimateInfo(context),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 13, color: Colors.grey.shade500),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  'เป็นค่าประมาณการ ไม่ใช่ค่าจากมิเตอร์จริง — แตะเพื่อดูรายละเอียด',
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                ),
+              ),
+            ],
+          ),
         ),
         if (insights.isNotEmpty) ...[
           const SizedBox(height: 16),

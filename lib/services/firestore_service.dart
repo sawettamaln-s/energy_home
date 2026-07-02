@@ -346,7 +346,7 @@ class FirestoreService {
         .doc(uid)
         .collection('water_logs')
         .where('date', isGreaterThanOrEqualTo: startDate.toIso8601String())
-        .where('date', isLessThanOrEqualTo: endDate.toIso8601String())
+        .where('date', isLessThan: endDate.toIso8601String())
         .orderBy('date', descending: true)
         .get();
     return snapshot.docs
