@@ -288,55 +288,34 @@ class _SetupScreenState extends State<SetupScreen> {
     }
   }
 
-  // ขั้นรวม: ส่วนที่ 1 เลือกพื้นที่ + ส่วนที่ 2 อธิบายสูตรคำนวณ
-  // หมายเหตุ: ส่วนที่ 2 อ้างอิง _selectedMeterType ซึ่งผู้ใช้ยังไม่ได้เลือกจน
-  // กว่าจะถึงขั้นตอนถัดไป (ค่าเริ่มต้นคือ 'normal') คำอธิบายที่โชว์ตอนนี้จึง
-  // เป็นค่าตั้งต้นไปก่อน แล้วจะอัปเดตถูกต้องถ้าผู้ใช้กดย้อนกลับมาดูอีกที
-  // หลังเลือกประเภทมิเตอร์แล้ว
+  // ขั้นรวม: ส่วนที่ 1 เลือกพื้นที่ + ส่วนที่ 2 อธิบายสูตรคำนวณแบบภาพรวม
+  // (ไม่ลงรายละเอียดปกติ/TOU ตรงนี้ เพราะยังไม่เลือกในขั้นตอนนี้ — รายละเอียด
+  // แยกตามประเภทมิเตอร์ย้ายไปอยู่ในหน้าเลือกประเภทมิเตอร์แทนแล้ว)
   Widget _buildAreaAndRateExplanationStep() {
     final isBangkok = _selectedArea == 'bangkok';
-    final isTou = _selectedMeterType == 'tou';
 
-    late final String electricityTitle;
-    late final String electricityBody;
-    if (isTou) {
-      electricityTitle = 'ค่าไฟฟ้า (มิเตอร์ TOU)';
-      electricityBody =
-          'เหมือนค่าทางด่วน ช่วงคนใช้เยอะ (On-Peak กลางวัน) แพงกว่า '
-          'ช่วงคนใช้น้อย (Off-Peak กลางคืน/วันหยุด) ถูกกว่า '
-          'บวกค่า Ft และค่าบริการรายเดือนตามปกติ';
-    } else if (isBangkok) {
-      electricityTitle = 'ค่าไฟฟ้า (MEA)';
-      electricityBody =
-          'คิดแบบขั้นบันได ยิ่งใช้เยอะยิ่งแพงขึ้นทีละขั้น บวกค่า Ft และ'
-          'ค่าบริการรายเดือน • ระบบล็อกมิเตอร์เป็นประเภท 1.2 (เกิน 5(15)A) '
-          'ให้อัตโนมัติ เป็นมิเตอร์ขนาดนิยมของบ้านทั่วไป';
-    } else {
-      electricityTitle = 'ค่าไฟฟ้า (PEA)';
-      electricityBody =
-          'คิดแบบขั้นบันไดเหมือนกัน แต่ระบบเลือกอัตราให้เองอัตโนมัติจาก'
-          'หน่วยที่ใช้จริงในแต่ละเดือน ใช้ไม่เกิน 150 หน่วยจะได้อัตราถูกกว่า';
-    }
-
-    final waterTitle = isBangkok ? 'ค่าน้ำประปา (MWA)' : 'ค่าน้ำประปา (PWA)';
-    final waterBody = isBangkok
-        ? 'คิดแบบขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือนและค่าน้ำดิบเล็กน้อย'
-        : 'คิดแบบขั้นบันไดเหมือนกัน บวกค่าบริการรายเดือน ';
+    final electricityLine = isBangkok
+        ? '• ค่าไฟ (MEA): คิดขั้นบันไดตามหน่วยที่ใช้ บวกค่า Ft และค่าบริการ'
+            'รายเดือน'
+        : '• ค่าไฟ (PEA): คิดขั้นบันไดเช่นกัน แต่เลือกอัตราให้อัตโนมัติตาม'
+            'หน่วยที่ใช้จริงแต่ละเดือน';
+    final waterLine = isBangkok
+        ? '• ค่าน้ำ (MWA): คิดขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือน'
+            'และค่าน้ำดิบเล็กน้อย'
+        : '• ค่าน้ำ (PWA): คิดขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือน';
 
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'คุณอยู่ในพื้นที่ไหน?',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          _buildStepHeader(
+            icon: Icons.location_city,
+            title: 'คุณอยู่ในพื้นที่ไหน?',
+            subtitle: 'เพื่อคำนวณค่าไฟและค่าน้ำให้ถูกต้องตามพื้นที่ของคุณ',
+            helpTitle: 'ค่าไฟและค่าน้ำคิดยังไง?',
+            helpMessage: '$electricityLine\n\n$waterLine',
           ),
-          const SizedBox(height: 6),
-          const Text(
-            'เพื่อคำนวณค่าไฟและค่าน้ำให้ถูกต้องตามพื้นที่ของคุณ',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
           _buildSelectionCard(
             title: 'กรุงเทพและปริมณฑล',
             subtitle: 'ไฟฟ้านครหลวง (MEA) • ประปานครหลวง (MWA)',
@@ -352,25 +331,6 @@ class _SetupScreenState extends State<SetupScreen> {
             isSelected: _selectedArea == 'province',
             onTap: () => setState(() => _selectedArea = 'province'),
           ),
-
-          const SizedBox(height: 24),
-          Divider(color: Colors.grey.shade200, thickness: 1),
-          const SizedBox(height: 20),
-
-          _buildFieldGroupLabel(
-              'ระบบคิดค่าใช้จ่ายให้คุณยังไง?', Icons.info_outline),
-          const SizedBox(height: 12),
-          _buildRateInfoCard(
-            icon: Icons.bolt,
-            title: electricityTitle,
-            body: electricityBody,
-          ),
-          const SizedBox(height: 12),
-          _buildRateInfoCard(
-            icon: Icons.water_drop,
-            title: waterTitle,
-            body: waterBody,
-          ),
         ],
       ),
     );
@@ -380,19 +340,24 @@ class _SetupScreenState extends State<SetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'ประเภทมิเตอร์ไฟฟ้า',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        _buildStepHeader(
+          icon: Icons.electric_meter,
+          title: 'ประเภทมิเตอร์ไฟฟ้า',
+          subtitle: 'เลือกตามที่ระบุในใบแจ้งหนี้ค่าไฟของคุณ',
+          helpTitle: 'ปกติ vs TOU ต่างกันยังไง?',
+          helpMessage:
+              '• มิเตอร์ปกติ: คิดอัตราขั้นบันไดตามหน่วยรวมทั้งเดือน ระบบ'
+              'ล็อกเป็นประเภท 1.2 (มิเตอร์เกิน 5(15)A) ให้อัตโนมัติ '
+              'เพราะเป็นขนาดที่บ้านทั่วไปใช้กันอยู่แล้ว และเกณฑ์แยกขนาด'
+              'มิเตอร์ของ MEA เองก็ปรับเปลี่ยนได้ไม่ตายตัว\n\n'
+              '• มิเตอร์ TOU: คิดแยกช่วงเวลา กลางวัน (On-Peak) แพงกว่า '
+              'กลางคืน/วันหยุด (Off-Peak) ถูกกว่า เหมาะกับบ้านที่ใช้ไฟ'
+              'ช่วงกลางคืนเยอะ เช่น เปิดแอร์นอน',
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'ดูได้จากใบแจ้งหนี้ค่าไฟของคุณ',
-          style: TextStyle(color: Colors.grey),
-        ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         _buildSelectionCard(
           title: 'มิเตอร์ปกติ',
-          subtitle: 'คิดค่าไฟตามอัตราขั้นบันได\nเหมาะสำหรับบ้านทั่วไป',
+          subtitle: 'คิดอัตราขั้นบันได เหมาะสำหรับบ้านทั่วไป',
           icon: Icons.electric_meter,
           isSelected: _selectedMeterType == 'normal',
           onTap: () => setState(() => _selectedMeterType = 'normal'),
@@ -400,8 +365,7 @@ class _SetupScreenState extends State<SetupScreen> {
         const SizedBox(height: 12),
         _buildSelectionCard(
           title: 'มิเตอร์ TOU',
-          subtitle:
-              'คิดค่าไฟแยก Peak/Off-Peak\nเหมาะสำหรับบ้านที่ใช้ไฟช่วงกลางคืน',
+          subtitle: 'คิดแยก Peak/Off-Peak เหมาะกับบ้านที่ใช้ไฟกลางคืนเยอะ',
           icon: Icons.access_time,
           isSelected: _selectedMeterType == 'tou',
           onTap: () => setState(() => _selectedMeterType = 'tou'),
@@ -410,79 +374,23 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  Widget _buildRateInfoCard({
-    required IconData icon,
-    required String title,
-    required String body,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2E7D32).withOpacity(0.06),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: const Color(0xFF2E7D32), size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: Color(0xFF2E7D32)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            body,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade800, height: 1.4),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBillingDayStep() {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'วันตัดรอบบิล',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.help_outline,
-                    color: Color(0xFF2E7D32), size: 22),
-                onPressed: () => _showInfoPopup(
-                  'วันตัดรอบบิลคืออะไร?',
-                  'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
-                      'มาถึงบ้านของคุณค่ะ ระบบจะใช้วันนี้แจ้งเตือนเมื่อ'
-                      'ใกล้ถึงรอบชำระเงิน และเตือนให้มาบันทึกค่ามิเตอร์'
-                      'ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือน'
-                      'ถัดไปให้โดยอัตโนมัติค่ะ',
-                ),
-              ),
-            ],
+          _buildStepHeader(
+            icon: Icons.calendar_month_rounded,
+            title: 'วันตัดรอบบิล',
+            subtitle: 'ดูได้จากใบแจ้งหนี้ค่าไฟหรือค่าน้ำของคุณ',
+            helpTitle: 'วันตัดรอบบิลคืออะไร?',
+            helpMessage: 'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
+                'มาถึงบ้านของคุณค่ะ ระบบจะใช้วันนี้แจ้งเตือนเมื่อ'
+                'ใกล้ถึงรอบชำระเงิน และเตือนให้มาบันทึกค่ามิเตอร์'
+                'ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือน'
+                'ถัดไปให้โดยอัตโนมัติค่ะ',
           ),
-          const SizedBox(height: 4),
-          Text(
-            'ดูได้จากใบแจ้งหนี้ค่าไฟหรือค่าน้ำของคุณ',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
           // ฟิลด์กดเปิดปฏิทินเลือกวัน — แทนกริด 31 ช่องเต็มหน้าจอที่กินพื้นที่
           // เกินไปบนมือถือ คงรูปแบบฟิลด์ให้เหมือน DropdownButtonFormField เดิม
@@ -597,19 +505,6 @@ class _SetupScreenState extends State<SetupScreen> {
                         'เลือกวันตัดรอบบิล',
                         style:
                             TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-                      ),
-                    ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.help_outline,
-                          color: Color(0xFF2E7D32), size: 20),
-                      onPressed: () => _showInfoPopup(
-                        'วันตัดรอบบิลคืออะไร?',
-                        'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
-                            'มาถึงบ้านของคุณค่ะ ระบบจะใช้วันนี้แจ้งเตือนเมื่อ'
-                            'ใกล้ถึงรอบชำระเงิน และเตือนให้มาบันทึกค่ามิเตอร์'
-                            'ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือน'
-                            'ถัดไปให้โดยอัตโนมัติค่ะ',
                       ),
                     ),
                   ],
@@ -757,39 +652,16 @@ class _SetupScreenState extends State<SetupScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // หัวข้อ + คำอธิบาย — แยกออกจากสวิตช์ข้าม เพื่อไม่ให้ปนกัน
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.receipt_long_outlined, color: green),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ค่ามิเตอร์ตามใบแจ้งหนี้',
-                      style:
-                          TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'กรอกค่ามิเตอร์จากใบแจ้งหนี้ล่าสุด เพื่อใช้เป็น'
-                      'หน่วยตั้งต้นในการคำนวณค่าไฟ-น้ำของคุณ',
-                      style: TextStyle(
-                          color: Colors.grey, fontSize: 13, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _buildStepHeader(
+            icon: Icons.receipt_long_outlined,
+            title: 'ค่ามิเตอร์ตามใบแจ้งหนี้',
+            subtitle: 'กรอกค่ามิเตอร์จากใบแจ้งหนี้ล่าสุด เพื่อใช้เป็น'
+                'หน่วยตั้งต้นในการคำนวณค่าไฟ-น้ำของคุณ',
+            helpTitle: 'ทำไมต้องกรอกค่ามิเตอร์ตั้งต้น?',
+            helpMessage: 'ระบบใช้ค่านี้เทียบกับค่ามิเตอร์ที่คุณบันทึกครั้ง'
+                'ถัดไป เพื่อคำนวณว่าใช้ไฟ/น้ำไปกี่หน่วยในรอบบิลนี้ค่ะ '
+                'ถ้าข้ามขั้นตอนนี้ไป ระบบจะยังคำนวณหน่วยที่ใช้ให้ไม่ได้'
+                'จนกว่าจะมากรอกค่านี้ทีหลังที่หน้าตั้งค่าค่ะ',
           ),
           const SizedBox(height: 20),
 
@@ -978,6 +850,70 @@ class _SetupScreenState extends State<SetupScreen> {
             fontWeight: FontWeight.w600,
             fontSize: 13,
             color: Colors.grey.shade700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // หัวข้อของแต่ละ step — ใช้โครงเดียวกันทั้ง 4 หน้า: ไอคอนกล่องสีเขียว +
+  // หัวข้อ + คำอธิบายสั้น 1 บรรทัด + ปุ่ม "?" (ถ้ามีอะไรอธิบายเพิ่ม เปิด
+  // popup เดียวกับที่ใช้ในหน้าตั้งค่า) แทนที่จะโชว์คำอธิบายยาวเต็มหน้าแบบ
+  // เดิมที่แต่ละ step ทำคนละสไตล์กัน
+  Widget _buildStepHeader({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    String? helpTitle,
+    String? helpMessage,
+  }) {
+    const green = Color(0xFF2E7D32);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: green.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: green),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  if (helpMessage != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.help_outline,
+                          color: green, size: 22),
+                      onPressed: () =>
+                          _showInfoPopup(helpTitle ?? title, helpMessage),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                    color: Colors.grey.shade600, fontSize: 13, height: 1.4),
+              ),
+            ],
           ),
         ),
       ],

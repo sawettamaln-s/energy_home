@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../models/bill_model.dart';
@@ -10,6 +11,7 @@ import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/notification_service.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/confirm_dialog.dart';
@@ -26,10 +28,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
   UserModel? _user;
   bool _isLoading = true;
 
+  // สถานะสิทธิ์แจ้งเตือนของเครื่อง — เก็บแยกจาก _isLoading เพราะโหลดเสร็จ
+  // ไม่พร้อมกัน (ไม่อยากให้การ์ดอื่นรอสถานะแจ้งเตือนก่อนโชว์)
+  PermissionStatus? _notificationStatus;
+
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _loadNotificationStatus();
+  }
+
+  Future<void> _loadNotificationStatus() async {
+    final status = await Permission.notification.status;
+    if (mounted) setState(() => _notificationStatus = status);
+  }
+
+  // เปิด: ถ้ายังไม่เคยขอสิทธิ์มาก่อนขอผ่าน dialog ของระบบได้เลย แต่ถ้าเคย
+  // กดปฏิเสธถาวรไปแล้ว (permanentlyDenied) ระบบจะไม่ยอมเด้ง dialog ขอซ้ำ
+  // ให้อีก ต้องพาไปหน้าตั้งค่าเครื่องเพื่อเปิดเอง
+  // ปิด: iOS/Android ไม่มี API ให้แอปถอนสิทธิ์ตัวเองได้ ต้องพาไปหน้าตั้งค่า
+  // เครื่องเหมือนกัน (อธิบายให้ผู้ใช้เข้าใจก่อนผ่าน popup กันงง)
+  Future<void> _toggleNotification(bool turnOn) async {
+    if (turnOn && _notificationStatus != PermissionStatus.permanentlyDenied) {
+      await NotificationService.instance.requestPermission();
+      await _loadNotificationStatus();
+      return;
+    }
+
+    // เปิดไม่ได้จากในแอปแล้ว (เคยปฏิเสธถาวร) หรือกำลังจะปิด — ทั้งสองกรณี
+    // ต้องพาไปหน้าตั้งค่าเครื่องเท่านั้น เลยรวม popup ไว้ด้วยกัน แค่เปลี่ยน
+    // ข้อความอธิบายตามบริบท
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(turnOn ? 'เปิดแจ้งเตือนไม่ได้จากในแอป' : 'ปิดแจ้งเตือน'),
+        content: Text(
+          turnOn
+              ? 'คุณเคยปิดสิทธิ์แจ้งเตือนของแอปนี้ไว้ค่ะ กรุณาไปเปิดเองที่'
+                  'หน้าตั้งค่าเครื่อง > แอป > Energy Home > การแจ้งเตือน'
+              : 'ระบบมือถือไม่อนุญาตให้แอปปิดสิทธิ์แจ้งเตือนเองได้ค่ะ กรุณา'
+                  'ไปปิดที่หน้าตั้งค่าเครื่อง > แอป > Energy Home > '
+                  'การแจ้งเตือน',
+          style: const TextStyle(fontSize: 13.5, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ปิด'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('ไปที่ตั้งค่าเครื่อง'),
+          ),
+        ],
+      ),
+    );
+    await _loadNotificationStatus();
   }
 
   Future<void> _loadUser() async {
