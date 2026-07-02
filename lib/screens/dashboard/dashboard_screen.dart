@@ -17,7 +17,13 @@ import 'dashboard_styles.dart';
 import 'notification_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  // true เฉพาะตอนเพิ่ง push มาจาก setup_screen/setup_complete_screen หลัง
+  // สมัครสมาชิกเสร็จหมาดๆ ใช้กันไม่ให้แจ้งเตือนหลายๆ อย่างยิง popup รัว
+  // พร้อมกันตั้งแต่เปิดแอปครั้งแรก (ยังเห็นแค่ welcome พอ ที่เหลือถ้ามี
+  // จะถูกบันทึกเงียบๆ ไว้ในหน้าแจ้งเตือนแทน ไปดูเองได้)
+  final bool justCompletedSetup;
+
+  const DashboardScreen({super.key, this.justCompletedSetup = false});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -62,6 +68,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _unreadNotifications =
       0; // จำนวนแจ้งเตือนที่ยังไม่อ่าน (badge ที่ปุ่มกระดิ่ง)
 
+  // เช็คแค่ "ครั้งแรก" ที่ _loadData() รัน (ไม่ใช่ทุกครั้งที่ pull-to-refresh)
+  // ใช้คู่กับ widget.justCompletedSetup เพื่อทำให้แจ้งเตือนเงียบแค่รอบเดียว
+  bool _isFirstLoad = true;
+
   @override
   void initState() {
     super.initState();
@@ -94,6 +104,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    // เงียบเฉพาะโหลดรอบแรกจริงๆ หลังสมัครสมาชิกเสร็จ — รอบถัดไป (pull-to-
+    // refresh, กลับมาเปิดแอปใหม่) ยิง popup ตามปกติ
+    final bool silentThisLoad = widget.justCompletedSetup && _isFirstLoad;
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
       _user = await _firestoreService.getUser(uid);
@@ -144,6 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               totalCost: allBills.first.totalCost,
               year: allBills.first.year,
               month: allBills.first.month,
+              silent: silentThisLoad,
             );
           }
         } else {
@@ -181,6 +195,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         latestLogDates.sort();
         await NotificationService.instance.checkMeterNotRecorded(
           lastLogDate: latestLogDates.last, // log ล่าสุด (ใหม่ที่สุด)
+          silent: silentThisLoad,
         );
       }
 
@@ -190,6 +205,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         lastMonthElectricityCost: _lastMonthElectricityCost,
         currentWaterCost: _currentWaterCost,
         lastMonthWaterCost: _lastMonthWaterCost,
+        cycleStart: startDate,
+        silent: silentThisLoad,
       );
 
       // sync ดูว่า scheduled notification (เตือนใกล้วันบิล) ถึงกำหนดยิงแล้ว
@@ -200,6 +217,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await NotificationService.instance.checkForecastHigherThanLastMonth(
         forecastTotal: _forecastTotal,
         lastMonthTotal: _lastMonthElectricityCost + _lastMonthWaterCost,
+        cycleStart: startDate,
+        silent: silentThisLoad,
       );
 
       // อัปเดตจำนวนแจ้งเตือนที่ยังไม่อ่าน เพื่อโชว์ badge ตัวเลขที่ปุ่มกระดิ่ง
@@ -208,6 +227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       debugPrint('Error: $e');
     } finally {
+      _isFirstLoad = false;
       setState(() => _isLoading = false);
     }
   }

@@ -127,8 +127,16 @@ class NotificationService {
     required String title,
     required String body,
     required String type,
+    // silent = true: บันทึกลงประวัติ (โชว์ในหน้าแจ้งเตือน) แต่ไม่ยิง
+    // push notification จริง — ใช้ตอนโหลด Dashboard ครั้งแรกหลังสมัคร
+    // สมาชิกเสร็จ กันไม่ให้มี notification popup ขึ้นถี่เกินไปตั้งแต่
+    // เพิ่งเข้าแอปครั้งแรก (ให้เห็นแค่ welcome message พอ ที่เหลือไปดูเอา
+    // ในหน้าแจ้งเตือนได้)
+    bool silent = false,
   }) async {
-    await _plugin.show(pluginId, title, body, _details());
+    if (!silent) {
+      await _plugin.show(pluginId, title, body, _details());
+    }
     await _addToHistory(NotificationItem(
       id: const Uuid().v4(),
       title: title,
@@ -210,6 +218,7 @@ class NotificationService {
   Future<void> checkMeterNotRecorded({
     required DateTime? lastLogDate,
     int thresholdDays = 5,
+    bool silent = false,
   }) async {
     if (lastLogDate == null) return;
     final daysSince = DateTime.now().difference(lastLogDate).inDays;
@@ -222,6 +231,7 @@ class NotificationService {
       body:
           'คุณยังไม่ได้บันทึกค่ามิเตอร์มา $daysSince วันแล้วนะคะ ลองเปิดแอปบันทึกดูนะคะ',
       type: 'meter',
+      silent: silent,
     );
     await _markNotifiedToday('meter_reminder');
   }
@@ -234,7 +244,9 @@ class NotificationService {
     required double lastMonthElectricityCost,
     required double currentWaterCost,
     required double lastMonthWaterCost,
+    required DateTime cycleStart,
     double thresholdPercent = 30,
+    bool silent = false,
   }) async {
     if (lastMonthElectricityCost > 0) {
       final percentChange =
@@ -242,15 +254,16 @@ class NotificationService {
                   lastMonthElectricityCost) *
               100;
       if (percentChange >= thresholdPercent &&
-          !await _alreadyNotifiedToday('spike_electricity')) {
+          !await _alreadyNotifiedThisCycle('spike_electricity', cycleStart)) {
         await _showAndLog(
           pluginId: idSpikeElectricity,
           title: 'ค่าไฟพุ่งขึ้นค่ะ ⚡',
           body:
               'ค่าไฟเดือนนี้ของคุณสูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะคะ',
           type: 'spike',
+          silent: silent,
         );
-        await _markNotifiedToday('spike_electricity');
+        await _markNotifiedThisCycle('spike_electricity', cycleStart);
       }
     }
 
@@ -258,15 +271,16 @@ class NotificationService {
       final percentChange =
           ((currentWaterCost - lastMonthWaterCost) / lastMonthWaterCost) * 100;
       if (percentChange >= thresholdPercent &&
-          !await _alreadyNotifiedToday('spike_water')) {
+          !await _alreadyNotifiedThisCycle('spike_water', cycleStart)) {
         await _showAndLog(
           pluginId: idSpikeWater,
           title: 'ค่าน้ำพุ่งขึ้นค่ะ 💧',
           body:
               'ค่าน้ำเดือนนี้ของคุณสูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะคะ',
           type: 'spike',
+          silent: silent,
         );
-        await _markNotifiedToday('spike_water');
+        await _markNotifiedThisCycle('spike_water', cycleStart);
       }
     }
   }
@@ -279,7 +293,9 @@ class NotificationService {
   Future<void> checkForecastHigherThanLastMonth({
     required double forecastTotal,
     required double lastMonthTotal,
+    required DateTime cycleStart,
     double thresholdPercent = 15,
+    bool silent = false,
   }) async {
     if (lastMonthTotal <= 0) return;
 
@@ -287,7 +303,9 @@ class NotificationService {
         ((forecastTotal - lastMonthTotal) / lastMonthTotal) * 100;
 
     if (percentChange < thresholdPercent) return;
-    if (await _alreadyNotifiedToday('forecast_higher')) return;
+    if (await _alreadyNotifiedThisCycle('forecast_higher', cycleStart)) {
+      return;
+    }
 
     await _showAndLog(
       pluginId: idForecastHigher,
@@ -296,8 +314,9 @@ class NotificationService {
           'คาดว่าค่าใช้จ่ายสิ้นเดือนนี้จะสูงกว่าเดือนก่อนประมาณ ${percentChange.toStringAsFixed(0)}% '
           'ลองดูการใช้พลังงานตอนนี้เลยดีกว่าค่ะ',
       type: 'forecast',
+      silent: silent,
     );
-    await _markNotifiedToday('forecast_higher');
+    await _markNotifiedThisCycle('forecast_higher', cycleStart);
   }
 
   // =====================================================================
@@ -309,6 +328,7 @@ class NotificationService {
     required double totalCost,
     required int year,
     required int month,
+    bool silent = false,
   }) async {
     final key = _scopedKey('cycle_summary_$billId');
     final prefs = await SharedPreferences.getInstance();
@@ -320,6 +340,7 @@ class NotificationService {
       body:
           'รอบบิลเดือน $month/$year ปิดแล้ว ยอดรวมทั้งสิ้น ฿${totalCost.toStringAsFixed(2)} ค่ะ',
       type: 'summary',
+      silent: silent,
     );
     await prefs.setBool(key, true);
   }
@@ -438,5 +459,27 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
         _scopedKey('notif_${key}_date'), DateTime.now().toIso8601String());
+  }
+
+  // ----- helper กันแจ้งเตือนซ้ำ "ต่อรอบบิล" (ไม่ใช่ต่อวัน) -----
+  // ใช้กับแจ้งเตือนที่ถ้าเงื่อนไขยังคงจริงอยู่ทุกวัน (เช่นค่าไฟพุ่งขึ้น
+  // ค้างอยู่แบบนั้นทั้งเดือน) ไม่อยากให้เตือนซ้ำทุกวันจนน่ารำคาญ — เตือน
+  // แค่ครั้งเดียวพอต่อ 1 รอบบิล จนกว่าจะขึ้นรอบใหม่ค่อยเตือนได้อีกครั้ง
+  Future<bool> _alreadyNotifiedThisCycle(
+      String key, DateTime cycleStart) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastCycleStr = prefs.getString(_scopedKey('notif_${key}_cycle'));
+    if (lastCycleStr == null) return false;
+    final lastCycle = DateTime.tryParse(lastCycleStr);
+    if (lastCycle == null) return false;
+    return lastCycle.year == cycleStart.year &&
+        lastCycle.month == cycleStart.month &&
+        lastCycle.day == cycleStart.day;
+  }
+
+  Future<void> _markNotifiedThisCycle(String key, DateTime cycleStart) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        _scopedKey('notif_${key}_cycle'), cycleStart.toIso8601String());
   }
 }

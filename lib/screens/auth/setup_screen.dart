@@ -155,7 +155,9 @@ class _SetupScreenState extends State<SetupScreen> {
 
       if (!skippedSomething) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          MaterialPageRoute(
+              builder: (context) =>
+                  const DashboardScreen(justCompletedSetup: true)),
           (route) => false,
         );
         return;

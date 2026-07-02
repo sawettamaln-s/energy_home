@@ -103,7 +103,7 @@ class SetupCompleteScreen extends StatelessWidget {
                         iconBg: const Color(0xFFFCE4EC),
                         iconColor: Colors.pink,
                         title: 'เพิ่มเครื่องใช้ไฟฟ้า',
-                        subtitle: 'แนะนำเพื่อวิเคราะห์ที่แม่นยำขึ้น(ไม่บังคับ)',
+                        subtitle: 'แนะนำเพื่อวิเคราะห์ที่แม่นยำขึ้น',
                         done: false,
                       ),
                     ],
@@ -157,7 +157,9 @@ class SetupCompleteScreen extends StatelessWidget {
 
   void _goToDashboard(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      MaterialPageRoute(
+          builder: (context) =>
+              const DashboardScreen(justCompletedSetup: true)),
       (route) => false,
     );
   }
