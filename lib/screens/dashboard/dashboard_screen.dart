@@ -36,8 +36,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _electricityOffPeakController = TextEditingController(); // TOU off-peak
   final _waterController = TextEditingController();
 
-
-
   UserModel? _user;
   ElectricityLogModel? _latestElectricityLog;
   WaterLogModel? _latestWaterLog;
@@ -329,7 +327,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (isTOU) {
       if (_electricityPeakController.text.isEmpty ||
           _electricityOffPeakController.text.isEmpty) {
-        setState(() => _electricityError = 'กรุณากรอกหน่วย Peak และ Off-Peak ให้ครบค่ะ');
+        setState(() =>
+            _electricityError = 'กรุณากรอกหน่วย Peak และ Off-Peak ให้ครบค่ะ');
         return;
       }
     } else {
@@ -376,14 +375,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _latestElectricityLog?.offPeakMeterValue ?? startOffPeak;
 
         if (peakValue < startPeak || offPeakValue < startOffPeak) {
-          setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบค่ะ');
+          setState(() =>
+              _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
         if (peakValue < lastPeak || offPeakValue < lastOffPeak) {
-          setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุดค่ะ');
+          setState(() =>
+              _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุดค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
@@ -407,14 +406,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final lastE = _latestElectricityLog?.meterValue ?? startE;
 
         if (normalValue < startE) {
-          setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE) ค่ะ');
+          setState(() => _electricityError =
+              'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE) ค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
         if (normalValue < lastE) {
-          setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE) ค่ะ');
+          setState(() => _electricityError =
+              'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE) ค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
@@ -457,7 +456,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
     } catch (e) {
-      setState(() => _electricityError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
+      setState(() =>
+          _electricityError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setState(() => _isSavingElectricity = false);
     }
@@ -528,7 +528,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
     } catch (e) {
-      setState(() => _waterError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
+      setState(
+          () => _waterError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setState(() => _isSavingWater = false);
     }
@@ -808,13 +809,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildCostCard(
                   icon: Icons.bolt,
                   label: 'ค่าไฟฟ้า',
-                  amount: '฿${formatter.format(_currentElectricityCost)}',
+                  amount: '${formatter.format(_currentElectricityCost)} บาท',
                   sub:
                       '${_currentElectricityFromStart.toStringAsFixed(1)} หน่วย',
                   isUp: _currentElectricityCost > _lastMonthElectricityCost &&
                       _lastMonthElectricityCost > 0,
                   forecastLine:
-                      '${unitFormatter.format(_forecastElectricityUnits)} หน่วย • ฿${formatter.format(_forecastElectricityCost)}',
+                      '${unitFormatter.format(_forecastElectricityUnits)} หน่วย • ${formatter.format(_forecastElectricityCost)} บาท',
                 ),
               ),
               const SizedBox(width: 14),
@@ -822,12 +823,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildCostCard(
                   icon: Icons.water_drop,
                   label: 'ค่าน้ำ',
-                  amount: '฿${formatter.format(_currentWaterCost)}',
+                  amount: '${formatter.format(_currentWaterCost)} บาท',
                   sub: '${_currentWaterFromStart.toStringAsFixed(1)} ลบ.ม.',
                   isUp: _currentWaterCost > _lastMonthWaterCost &&
                       _lastMonthWaterCost > 0,
                   forecastLine:
-                      '${unitFormatter.format(_forecastWaterUnits)} ลบ.ม. • ฿${formatter.format(_forecastWaterCost)}',
+                      '${unitFormatter.format(_forecastWaterUnits)} ลบ.ม. • ${formatter.format(_forecastWaterCost)} บาท',
                 ),
               ),
             ],
@@ -846,7 +847,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'ยอดคาดการณ์สิ้นเดือน: ฿${formatter.format(_forecastTotal)}',
+                    'ยอดคาดการณ์สิ้นเดือน: ${formatter.format(_forecastTotal)} บาท',
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13,
@@ -890,8 +891,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       isDense: true,
       filled: true,
       fillColor: fieldBg,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -1048,7 +1048,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             Text(
-              '฿${formatter.format(_user?.fixedCost ?? 0)}',
+              '${formatter.format(_user?.fixedCost ?? 0)} บาท',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
@@ -1111,12 +1111,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 18),
           _buildSummaryRow(
             'ค่าไฟ + น้ำ (พยากรณ์)',
-            '฿${formatter.format(_currentElectricityCost + _currentWaterCost)}',
+            '${formatter.format(_currentElectricityCost + _currentWaterCost)} บาท',
           ),
           const SizedBox(height: 10),
           _buildSummaryRow(
             'Fixed Cost',
-            '฿${formatter.format(_user?.fixedCost ?? 0)}',
+            '${formatter.format(_user?.fixedCost ?? 0)} บาท',
           ),
           const SizedBox(height: 16),
           const Divider(height: 1, color: DashboardStyles.creamBorder),
@@ -1142,7 +1142,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 Text(
-                  '฿${formatter.format((_currentElectricityCost + _currentWaterCost) + (_user?.fixedCost ?? 0))}',
+                  '${formatter.format((_currentElectricityCost + _currentWaterCost) + (_user?.fixedCost ?? 0))} บาท',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 19,
