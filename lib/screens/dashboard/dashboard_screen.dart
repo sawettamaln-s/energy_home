@@ -36,6 +36,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _electricityOffPeakController = TextEditingController(); // TOU off-peak
   final _waterController = TextEditingController();
 
+
+
   UserModel? _user;
   ElectricityLogModel? _latestElectricityLog;
   WaterLogModel? _latestWaterLog;
@@ -327,8 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (isTOU) {
       if (_electricityPeakController.text.isEmpty ||
           _electricityOffPeakController.text.isEmpty) {
-        setState(() =>
-            _electricityError = 'กรุณากรอกหน่วย Peak และ Off-Peak ให้ครบค่ะ');
+        setState(() => _electricityError = 'กรุณากรอกหน่วย Peak และ Off-Peak ให้ครบค่ะ');
         return;
       }
     } else {
@@ -375,14 +376,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _latestElectricityLog?.offPeakMeterValue ?? startOffPeak;
 
         if (peakValue < startPeak || offPeakValue < startOffPeak) {
-          setState(() =>
-              _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบค่ะ');
+          setState(
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
         if (peakValue < lastPeak || offPeakValue < lastOffPeak) {
-          setState(() =>
-              _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุดค่ะ');
+          setState(
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุดค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
@@ -406,14 +407,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final lastE = _latestElectricityLog?.meterValue ?? startE;
 
         if (normalValue < startE) {
-          setState(() => _electricityError =
-              'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE) ค่ะ');
+          setState(
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE) ค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
         if (normalValue < lastE) {
-          setState(() => _electricityError =
-              'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE) ค่ะ');
+          setState(
+              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE) ค่ะ');
           setState(() => _isSavingElectricity = false);
           return;
         }
@@ -425,7 +426,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           units: usedFromStart,
           meterType: 'normal',
           area: _user?.area ?? 'bangkok',
-          meterSize: _user?.meterSize ?? '15a',
         );
       }
 
@@ -456,8 +456,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
     } catch (e) {
-      setState(() =>
-          _electricityError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
+      setState(() => _electricityError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setState(() => _isSavingElectricity = false);
     }
@@ -528,8 +527,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
     } catch (e) {
-      setState(
-          () => _waterError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
+      setState(() => _waterError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setState(() => _isSavingWater = false);
     }
@@ -891,7 +889,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       isDense: true,
       filled: true,
       fillColor: fieldBg,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

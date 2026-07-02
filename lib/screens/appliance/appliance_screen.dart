@@ -173,7 +173,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                       Expanded(
                         child: _summaryBox(
                           label: 'ค่าไฟ/เดือน',
-                          value: '฿${formatter.format(_totalMonthlyCost)}',
+                          value: '${formatter.format(_totalMonthlyCost)} บาท',
                           valueColor: const Color(0xFF2E7D32),
                         ),
                       ),
@@ -254,7 +254,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                                       fontSize: 15)),
                                               const SizedBox(height: 2),
                                               Text(
-                                                '${a.watt.toStringAsFixed(0)} วัตต์ • ฿${formatter.format(monthlyCost)}/เดือน',
+                                                '${a.watt.toStringAsFixed(0)} วัตต์ • ${formatter.format(monthlyCost)} บาท/เดือน',
                                                 style: TextStyle(
                                                     fontSize: 12,
                                                     color:
@@ -502,12 +502,12 @@ Future<void> _confirmDelete(ApplianceModel a) async {
                 children: [
                   Expanded(
                     child: _detailBox('ต่อวันที่ใช้งาน',
-                        '฿${formatter.format(costPerActiveDay)}'),
+                        '${formatter.format(costPerActiveDay)} บาท'),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _detailBox('เฉลี่ย/วัน (ทั้งเดือน)',
-                        '฿${formatter.format(avgCostPerDay)}'),
+                        '${formatter.format(avgCostPerDay)} บาท'),
                   ),
                 ],
               ),
@@ -516,12 +516,12 @@ Future<void> _confirmDelete(ApplianceModel a) async {
                 children: [
                   Expanded(
                     child: _detailBox(
-                        'ต่อเดือน', '฿${formatter.format(costPerMonth)}'),
+                        'ต่อเดือน', '${formatter.format(costPerMonth)} บาท'),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _detailBox(
-                        'ต่อปี', '฿${formatter.format(costPerYear)}'),
+                        'ต่อปี', '${formatter.format(costPerYear)} บาท'),
                   ),
                 ],
               ),
@@ -960,12 +960,12 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
             children: [
               Expanded(
                 child: _estimateBox(
-                    'ค่าไฟ/วัน', '฿${formatter.format(costPerDay)}'),
+                    'ค่าไฟ/วัน', '${formatter.format(costPerDay)} บาท'),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _estimateBox(
-                    'ค่าไฟ/เดือน', '฿${formatter.format(costPerMonth)}'),
+                    'ค่าไฟ/เดือน', '${formatter.format(costPerMonth)} บาท'),
               ),
             ],
           ),
@@ -974,7 +974,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
             children: [
               Expanded(
                 child: _estimateBox(
-                    'ค่าไฟ/ปี', '฿${formatter.format(costPerYear)}'),
+                    'ค่าไฟ/ปี', '${formatter.format(costPerYear)} บาท'),
               ),
               const SizedBox(width: 8),
               Expanded(

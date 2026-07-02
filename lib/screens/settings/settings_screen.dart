@@ -290,7 +290,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.attach_money,
             title: 'Fixed Cost',
             subtitle:
-                '฿${NumberFormat('#,##0.00').format(_user?.fixedCost ?? 0)} / เดือน',
+                '${NumberFormat('#,##0.00').format(_user?.fixedCost ?? 0)} บาท / เดือน',
             onTap: () => _showEditFixedCost(),
           ),
           const Divider(height: 1, indent: 56),
@@ -1185,7 +1185,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                               keyboardType: const TextInputType.numberWithOptions(
                                   decimal: true),
                               decoration:
-                                  _fieldDecoration(hint: '0', suffixText: '฿'),
+                                  _fieldDecoration(hint: '0', suffixText: 'บาท'),
                             ),
                           ],
                         ),
@@ -1221,7 +1221,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                               keyboardType: const TextInputType.numberWithOptions(
                                   decimal: true),
                               decoration:
-                                  _fieldDecoration(hint: '0', suffixText: '฿'),
+                                  _fieldDecoration(hint: '0', suffixText: 'บาท'),
                             ),
                           ],
                         ),
@@ -1234,7 +1234,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                     controller: _fixedCtrl,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    decoration: _fieldDecoration(hint: '0', suffixText: '฿'),
+                    decoration: _fieldDecoration(hint: '0', suffixText: 'บาท'),
                   ),
                   const SizedBox(height: 20),
                   Container(
@@ -1251,7 +1251,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                         Text(
-                          '฿${formatter.format(_total)}',
+                          '${formatter.format(_total)} บาท',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -1388,7 +1388,7 @@ final confirmed = await showConfirmDialog(
                         title: Text(
                             '${thaiMonths[bill.month - 1]} ${bill.year}'),
                         subtitle:
-                            Text('ยอดรวม ฿${formatter.format(bill.totalCost)}'),
+                            Text('ยอดรวม ${formatter.format(bill.totalCost)} บาท'),
                         onTap: () => _openSheet(existingBill: bill),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1512,7 +1512,7 @@ Widget _utilitySummaryBar({
         ),
         const Spacer(),
         Text(
-          'รวม ฿${formatter.format(totalCost)}',
+          'รวม ${formatter.format(totalCost)} บาท',
           style: TextStyle(
               color: color, fontWeight: FontWeight.bold, fontSize: 14),
         ),
@@ -1661,7 +1661,7 @@ final confirm = await showConfirmDialog(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '฿${formatter.format(log.cost)}',
+                          '${formatter.format(log.cost)} บาท',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.orange,
@@ -1829,7 +1829,7 @@ final confirm = await showConfirmDialog(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '฿${formatter.format(log.cost)}',
+                          '${formatter.format(log.cost)} บาท',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue,
@@ -2346,7 +2346,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: 'ยอดต่อเดือน',
-                    prefixText: '฿ ',
+                    suffixText: ' บาท',
                     border:
                         OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     contentPadding: const EdgeInsets.symmetric(
@@ -2455,7 +2455,7 @@ final confirmed = await showConfirmDialog(
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '฿${formatter.format(_total)}',
+                              '${formatter.format(_total)} บาท',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
@@ -2550,7 +2550,7 @@ final confirmed = await showConfirmDialog(
                                     ),
                                   ),
                                   Text(
-                                    '฿${formatter.format(item.amount)}',
+                                    '${formatter.format(item.amount)} บาท',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,

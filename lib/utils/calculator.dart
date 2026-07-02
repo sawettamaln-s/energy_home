@@ -60,9 +60,11 @@ class EnergyCalculator {
   }
 
   // คำนวณค่าไฟฟ้าแบบปกติ
-  // area: 'bangkok' = MEA (มีไฟฟ้าฟรี ≤50 หน่วย), 'province' = PEA (ไม่มีฟรี)
+  // area: 'bangkok' = MEA, 'province' = PEA
+  // หมายเหตุ: แอปรองรับเฉพาะมิเตอร์ 15A ขึ้นไป (ประเภท 1.2) เท่านั้น
+  // เพราะบ้านส่วนใหญ่ในปัจจุบันใช้มิเตอร์ขนาดนี้ ตัดการรองรับมิเตอร์ 5A (ประเภท 1.1) ออกแล้ว
   static Future<double> calculateElectricity(
-      double units, String area, String meterSize) async {
+      double units, String area) async {
     if (units <= 0) return 0;
 
     final ftRate = await getFtRate();
@@ -70,19 +72,11 @@ class EnergyCalculator {
     double serviceFee;
 
     if (area == 'bangkok') {
-      // MEA: ขนาดมิเตอร์เป็นตัวกำหนดหลัก
-      if (meterSize == '5a' && units <= 150) {
-        // มิเตอร์เล็กและใช้ไม่เกิน 150 หน่วย → ประเภท 1.1
-        // ไม่มีฟรี เพราะต้องมีบัตรสวัสดิการแห่งรัฐซึ่งแอปนี้ไม่รองรับ
-        energyCost = _calculateEnergyRateUnder150(units);
-        serviceFee = 8.19;
-      } else {
-        // มิเตอร์ใหญ่ หรือมิเตอร์เล็กแต่ใช้เกิน 150 หน่วย → ประเภท 1.2
-        energyCost = _calculateEnergyRateOver150(units);
-        serviceFee = 24.62;
-      }
+      // MEA: มิเตอร์ 15A ขึ้นไป → ประเภท 1.2 เสมอ
+      energyCost = _calculateEnergyRateOver150(units);
+      serviceFee = 24.62;
     } else {
-      // PEA: หน่วยที่ใช้เป็นตัวกำหนดอย่างเดียว (ไม่ใช้ meterSize)
+      // PEA: หน่วยที่ใช้เป็นตัวกำหนดอย่างเดียว
       if (units <= 150) {
         energyCost = _calculateEnergyRateUnder150(units);
         serviceFee = 8.19;
@@ -122,7 +116,6 @@ class EnergyCalculator {
     required double units,
     required String meterType,
     required String area,
-    String meterSize = '15a',
     double peakUnits = 0,
     double offPeakUnits = 0,
   }) async {
@@ -132,7 +125,7 @@ class EnergyCalculator {
         offPeakUnits: offPeakUnits,
       );
     } else {
-      return calculateElectricity(units, area, meterSize);
+      return calculateElectricity(units, area);
     }
   }
   // ==================== ค่าน้ำประปา ====================

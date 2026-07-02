@@ -285,11 +285,11 @@ class _UtilityTab extends StatelessWidget {
             children: [
               Expanded(
                 child: _cycleStat(
-                    'ใช้ไปแล้ว', '฿${_fmt.format(c.currentCost)}'),
+                    'ใช้ไปแล้ว', '${_fmt.format(c.currentCost)} บาท'),
               ),
               Expanded(
                 child: _cycleStat(
-                    'คาดว่าจะจบรอบที่', '฿${_fmt.format(c.forecastCost)}',
+                    'คาดว่าจะจบรอบที่', '${_fmt.format(c.forecastCost)} บาท',
                     highlight: true),
               ),
               Expanded(
@@ -485,7 +485,7 @@ class _UtilityTab extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         r.percentChange == null
-                            ? '฿${_fmt.format(r.diff.abs())}'
+                            ? '${_fmt.format(r.diff.abs())} บาท'
                             : '${r.percentChange!.abs().toStringAsFixed(1)}%',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
@@ -497,7 +497,7 @@ class _UtilityTab extends StatelessWidget {
                   ),
                 if (fullWidth) ...[
                   const Spacer(),
-                  Text('เฉลี่ย ฿${_fmt.format(r.previousValue)}',
+                  Text('เฉลี่ย ${_fmt.format(r.previousValue)} บาท',
                       style: TextStyle(
                           fontSize: 11.5, color: Colors.grey.shade500)),
                 ],
@@ -527,7 +527,7 @@ class _UtilityTab extends StatelessWidget {
                 // จากบิลย้อนหลังทั้งหมด) ต่างจากการ์ดด้านบนที่พยากรณ์แค่รอบนี้
                 const Text('แนวโน้มระยะยาว (เดือนถัดไป)',
                     style: TextStyle(fontSize: 12, color: Colors.grey)),
-                Text('฿${_fmt.format(forecast)}',
+                Text('${_fmt.format(forecast)} บาท',
                     style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -731,7 +731,7 @@ class _ApplianceTab extends StatelessWidget {
                           style: const TextStyle(
                               fontWeight: FontWeight.w600, fontSize: 13)),
                       Text(
-                          '${u.kWh.toStringAsFixed(1)} kWh • ฿${_fmt.format(u.cost)}',
+                          '${u.kWh.toStringAsFixed(1)} kWh • ${_fmt.format(u.cost)} บาท',
                           style: TextStyle(
                               fontSize: 11, color: Colors.grey.shade600)),
                     ],

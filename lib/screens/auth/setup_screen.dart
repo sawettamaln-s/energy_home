@@ -26,10 +26,6 @@ class _SetupScreenState extends State<SetupScreen> {
   static const int _totalSteps = 4;
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
-  // ล็อกไว้ที่ประเภท 1.2 (มิเตอร์ปกติเกิน 5(15)A) เสมอ ไม่ให้ผู้ใช้เลือกอีก
-  // ต่อไป เพราะเกณฑ์ประเภท 1.1 ↔ 1.2 บนเว็บการไฟฟ้าเองก็ปรับเปลี่ยนไม่ตายตัว
-  // และมิเตอร์ปกติของบ้านทั่วไปที่ผู้ใช้แอปนี้มีอยู่แล้วเป็นขนาดนี้เป็นส่วนใหญ่
-  static const String _fixedMeterSize = '15a';
   // null = ยังไม่ได้เลือกวันตัดรอบบิล (ผู้ใช้กดข้ามไปก่อนได้ ไปตั้งทีหลังที่
   // หน้าตั้งค่าได้) ตอนบันทึกจริงถ้ายังเป็น null จะ fallback เป็นวันที่ 30
   // ตาม default ของ UserModel
@@ -115,7 +111,6 @@ class _SetupScreenState extends State<SetupScreen> {
         email: user.email ?? '',
         area: _selectedArea,
         meterType: _selectedMeterType,
-        meterSize: _fixedMeterSize,
         billingDay: _selectedBillingDay ?? 30,
         startElectricityValue:
             (_startMeterSkipped || _selectedMeterType == 'tou')

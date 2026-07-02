@@ -4,7 +4,6 @@ class UserModel {
   final String email;
   final String area;
   final String meterType; // 'normal' หรือ 'tou'
-  final String meterSize; // '5a' หรือ '15a' - ใช้เฉพาะ MEA (กรุงเทพ)
   final int billingDay;
   final String dailyCutoffTime;
   final double fixedCost;
@@ -29,7 +28,6 @@ class UserModel {
     required this.email,
     this.area = 'bangkok',
     this.meterType = 'normal',
-    this.meterSize = '15a',
     this.billingDay = 30,
     this.dailyCutoffTime = '00:00',
     this.fixedCost = 0,
@@ -49,7 +47,6 @@ class UserModel {
       email: map['email'] ?? '',
       area: map['area'] ?? 'bangkok',
       meterType: map['meterType'] ?? 'normal',
-      meterSize: map['meterSize'] ?? '15a',
       billingDay: map['billingDay'] ?? 30,
       dailyCutoffTime: map['dailyCutoffTime'] ?? '00:00',
       fixedCost: (map['fixedCost'] ?? 0).toDouble(),
@@ -73,7 +70,6 @@ class UserModel {
       'email': email,
       'area': area,
       'meterType': meterType,
-      'meterSize': meterSize,
       'billingDay': billingDay,
       'dailyCutoffTime': dailyCutoffTime,
       'fixedCost': fixedCost,

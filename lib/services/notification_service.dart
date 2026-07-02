@@ -338,7 +338,7 @@ class NotificationService {
       pluginId: idCycleSummary,
       title: 'สรุปบิลรอบที่ผ่านมาค่ะ',
       body:
-          'รอบบิลเดือน $month/$year ปิดแล้ว ยอดรวมทั้งสิ้น ฿${totalCost.toStringAsFixed(2)} ค่ะ',
+          'รอบบิลเดือน $month/$year ปิดแล้ว ยอดรวมทั้งสิ้น ${totalCost.toStringAsFixed(2)} บาท ค่ะ',
       type: 'summary',
       silent: silent,
     );
