@@ -416,7 +416,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: _sectionColor, size: 20),
             ),
             title: const Text(
-              'แจ้งเตือนบิลและมิเตอร์',
+              'การแจ้งเตือนทั้งหมด',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             subtitle: Text(
@@ -433,24 +433,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _notifTypeToggle(
             icon: Icons.event_available_outlined,
             title: 'ใกล้วันตัดรอบบิล',
+            subtitle: 'เตือนล่วงหน้าก่อนถึงวันตัดรอบบิลของคุณ',
             type: 'billing',
             enabled: granted,
           ),
           _notifTypeToggle(
             icon: Icons.speed_outlined,
             title: 'ยังไม่บันทึกมิเตอร์',
+            subtitle: 'เตือนเมื่อถึงเวลาแล้วแต่ยังไม่ได้จดมิเตอร์',
             type: 'meter',
             enabled: granted,
           ),
           _notifTypeToggle(
             icon: Icons.trending_up_rounded,
             title: 'ใช้ไฟ/น้ำพุ่งขึ้นผิดปกติ',
+            subtitle: 'เตือนเมื่อค่าไฟหรือค่าน้ำสูงผิดปกติจากที่ผ่านมา',
             type: 'spike',
             enabled: granted,
           ),
           _notifTypeToggle(
             icon: Icons.summarize_outlined,
             title: 'สรุปยอดท้ายรอบบิล',
+            subtitle: 'แจ้งสรุปค่าใช้จ่ายทันทีที่จบรอบบิลแต่ละเดือน',
             type: 'summary',
             enabled: granted,
             isLast: true,
@@ -465,6 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _notifTypeToggle({
     required IconData icon,
     required String title,
+    required String subtitle,
     required String type,
     required bool enabled,
     bool isLast = false,
@@ -474,24 +479,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         SwitchListTile(
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          dense: true,
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           secondary: Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: (enabled ? _sectionColor : Colors.grey)
                   .withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon,
-                size: 17,
+                size: 20,
                 color: enabled ? _sectionColor : Colors.grey.shade400),
           ),
           title: Text(
             title,
             style: TextStyle(
-              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
               color: enabled ? Colors.black87 : Colors.grey.shade400,
+            ),
+          ),
+          subtitle: Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 12,
+              color: enabled ? Colors.grey : Colors.grey.shade400,
             ),
           ),
           value: value,
