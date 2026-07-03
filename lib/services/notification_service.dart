@@ -51,6 +51,55 @@ class NotificationService {
   static const String _historyKey = 'notification_history';
 
   // =====================================================================
+  // Preference เปิด/ปิดแจ้งเตือนแยกตามประเภท — เก็บใน SharedPreferences
+  // (ไม่ใช่ Firestore) เพราะเป็นแค่ค่าตั้งค่าของเครื่อง/บัญชีที่ล็อกอินอยู่
+  // ไม่จำเป็นต้อง sync ข้ามเครื่อง และไม่มีค่าใช้จ่ายเพิ่มเติมเลย (ต่างจาก
+  // Firestore ที่แม้จะแทบไม่มีค่าใช้จ่ายในสเกลนี้เหมือนกัน แต่การเก็บแบบ
+  // local ตัดความซับซ้อนเรื่อง read/write ออกไปได้เลย)
+  //
+  // ประเภทที่รองรับ (ตรงกับ instant/scheduled check ด้านล่างของไฟล์นี้):
+  //   'billing' -> เตือนใกล้วันตัดรอบบิล
+  //   'meter'   -> เตือนยังไม่บันทึกมิเตอร์
+  //   'spike'   -> เตือนใช้ไฟ/น้ำพุ่งขึ้น + แนวโน้มค่าใช้จ่ายสูงขึ้น (2 เมธอด
+  //                ใช้ toggle เดียวกัน เพราะเป็นเรื่อง "ใช้เกินปกติ" แบบเดียวกัน)
+  //   'summary' -> สรุปยอดท้ายรอบบิล
+  // ค่าเริ่มต้นของทุกประเภทคือ "เปิด" (true) ถ้ายังไม่เคยตั้งค่าไว้
+  static const List<String> notificationTypes = [
+    'billing',
+    'meter',
+    'spike',
+    'summary',
+  ];
+
+  String _prefKey(String type) => 'notif_pref_$type';
+
+  Future<bool> isTypeEnabled(String type) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_scopedKey(_prefKey(type))) ?? true;
+  }
+
+  Future<void> setTypeEnabled(String type, bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_scopedKey(_prefKey(type)), enabled);
+    // 'billing' ใช้ zonedSchedule ตั้งเตือนล่วงหน้าไว้กับ OS ถ้าปิด toggle
+    // ต้องยกเลิกอันที่ตั้งไว้ค้างด้วย ไม่งั้นจะยิงออกมาทั้งที่ปิดไปแล้ว
+    // (ประเภทอื่นเป็น instant ยิงตอนเช็คเงื่อนไขสดๆ ไม่ต้องยกเลิกอะไร)
+    if (type == 'billing' && !enabled) {
+      await _plugin.cancel(idBillingReminder);
+      await prefs.remove(_scopedKey('pending_billing_reminder_time'));
+    }
+  }
+
+  /// ดึงค่าทั้งหมดรวดเดียว ใช้ตอนแสดงผลหน้าตั้งค่า (กัน await วนหลายรอบ)
+  Future<Map<String, bool>> getAllTypePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      for (final type in notificationTypes)
+        type: prefs.getBool(_scopedKey(_prefKey(type))) ?? true,
+    };
+  }
+
+  // =====================================================================
   // ผูก key ทุกตัวที่เก็บใน SharedPreferences กับ uid ของบัญชีที่ login
   // อยู่ตอนนั้น (เดิม key พวกนี้ผูกกับ "เครื่อง" เฉยๆ ทำให้ถ้าเครื่องเดียว
   // ถูกใช้ login สลับกัน 2 บัญชี ประวัติแจ้งเตือน/unread badge/สถานะกันยิงซ้ำ
@@ -157,6 +206,8 @@ class NotificationService {
     required DateTime billingDate,
     int daysBefore = 3,
   }) async {
+    if (!await isTypeEnabled('billing')) return;
+
     final reminderDate = billingDate.subtract(Duration(days: daysBefore));
     if (reminderDate.isBefore(DateTime.now())) return;
 
@@ -220,6 +271,7 @@ class NotificationService {
     int thresholdDays = 5,
     bool silent = false,
   }) async {
+    if (!await isTypeEnabled('meter')) return;
     if (lastLogDate == null) return;
     final daysSince = DateTime.now().difference(lastLogDate).inDays;
     if (daysSince < thresholdDays) return;
@@ -248,6 +300,7 @@ class NotificationService {
     double thresholdPercent = 30,
     bool silent = false,
   }) async {
+    if (!await isTypeEnabled('spike')) return;
     if (lastMonthElectricityCost > 0) {
       final percentChange =
           ((currentElectricityCost - lastMonthElectricityCost) /
@@ -297,6 +350,7 @@ class NotificationService {
     double thresholdPercent = 15,
     bool silent = false,
   }) async {
+    if (!await isTypeEnabled('spike')) return;
     if (lastMonthTotal <= 0) return;
 
     final percentChange =
@@ -330,6 +384,7 @@ class NotificationService {
     required int month,
     bool silent = false,
   }) async {
+    if (!await isTypeEnabled('summary')) return;
     final key = _scopedKey('cycle_summary_$billId');
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(key) ?? false) return;
