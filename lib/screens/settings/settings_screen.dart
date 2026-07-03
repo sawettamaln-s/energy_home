@@ -32,6 +32,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ไม่พร้อมกัน (ไม่อยากให้การ์ดอื่นรอสถานะแจ้งเตือนก่อนโชว์)
   PermissionStatus? _notificationStatus;
 
+  // -------------------------------------------------------------------
+  // สีของหน้าตั้งค่า — ใช้เขียวเดียวกันทุกหมวดเหมือนเดิม (ลองแยกสีตาม
+  // หมวดไปแล้วแต่พอดีอยากได้เขียวเหมือนเดิมมากกว่า) เก็บเป็น constant
+  // ไว้จุดเดียวเผื่ออยากเปลี่ยนสีทีหลัง ไม่ต้องไล่แก้ทีละจุด
+  // -------------------------------------------------------------------
+  static const Color _sectionColor = Color(0xFF2E7D32);
+
   @override
   void initState() {
     super.initState();
@@ -159,18 +166,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ข้อมูลผู้ใช้
-                  _buildSectionHeader('บัญชีผู้ใช้'),
+                  _buildSectionHeader('บัญชีผู้ใช้',
+                      icon: Icons.person_rounded, color: _sectionColor),
                   _buildUserCard(),
                   const SizedBox(height: 24),
 
                   // ตั้งค่าระบบ
-                  _buildSectionHeader('ตั้งค่าระบบ'),
+                  _buildSectionHeader('ตั้งค่าระบบ',
+                      icon: Icons.tune_rounded, color: _sectionColor),
                   _buildSettingsCard(),
                   const SizedBox(height: 24),
 
                   // ข้อมูลและบิล
-                  _buildSectionHeader('ข้อมูลและบิล'),
+                  _buildSectionHeader('ข้อมูลและบิล',
+                      icon: Icons.receipt_long_rounded, color: _sectionColor),
                   _buildDataCard(),
+                  const SizedBox(height: 24),
+
+                  // การแจ้งเตือน — เดิมฝังอยู่ท้าย "ตั้งค่าระบบ" ย้ายออกมา
+                  // เป็นหมวดแยกตามที่ขอ เพราะเป็นเรื่องคนละประเภทกับการตั้งค่า
+                  // ตัวเลข/รอบบิล
+                  _buildSectionHeader('การแจ้งเตือน',
+                      icon: Icons.notifications_active_rounded,
+                      color: _sectionColor),
+                  _buildNotificationCard(),
                   const SizedBox(height: 24),
 
                   // ออกจากระบบ
@@ -201,16 +220,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // -------------------------------------------------------------------
   // บาร์ล่างแบบ floating pill — เหมือนกันทุกหน้า (วางโค้ดนี้ก๊อปไว้ทุกไฟล์)
   // -------------------------------------------------------------------
-  Widget _buildSectionHeader(String title) {
+  // แต่ละหมวดมีไอคอน + สีประจำหมวดของตัวเอง (เดิมเป็นตัวหนังสือสีเทาล้วน
+  // ทุกหมวดเหมือนกันหมด ดูเรียบไป) สีที่เลือกให้ไปในทิศทางเดียวกับสีที่
+  // ใช้อยู่แล้วในแอป: เขียว = สีหลักของระบบ, ส้ม = โทนเดียวกับมิเตอร์ไฟฟ้า,
+  // ฟ้า = โทนเดียวกับมิเตอร์น้ำ, ม่วง = สีใหม่สำหรับหมวดบัญชีผู้ใช้
+  Widget _buildSectionHeader(
+    String title, {
+    required IconData icon,
+    required Color color,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 15,
-          color: Colors.grey,
-        ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 15, color: color),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14.5,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -236,6 +276,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Icons.person,
             'ชื่อ',
             _user?.name ?? '-',
+            color: _sectionColor,
             onEdit: _showEditName,
           ),
           const Divider(height: 16),
@@ -243,20 +284,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Icons.email,
             'อีเมล',
             _user?.email ?? '-',
+            color: _sectionColor,
           ),
           const Divider(height: 16),
-          _buildInfoRow(
-            Icons.location_on,
-            'พื้นที่',
-            _user?.area == 'bangkok'
-                ? 'กรุงเทพและปริมณฑล'
-                : 'ต่างจังหวัด',
-          ),
-          const Divider(height: 16),
+          // รวม "พื้นที่" กับ "ประเภทมิเตอร์" เป็นแถวเดียว — ตามที่ขอ
+          // เพราะสองอย่างนี้เป็นข้อมูลตั้งค่ามิเตอร์เหมือนกัน ไม่จำเป็นต้อง
+          // แยกแถว ใช้จุด (·) คั่นกลาง อ่านง่ายกว่าขึ้นบรรทัดใหม่
           _buildInfoRow(
             Icons.electric_meter,
-            'ประเภทมิเตอร์',
-            _user?.meterType == 'tou' ? 'TOU' : 'ปกติ',
+            'พื้นที่ / ประเภทมิเตอร์',
+            '${_user?.area == 'bangkok' ? 'กรุงเทพและปริมณฑล' : 'ต่างจังหวัด'}'
+                ' · ${_user?.meterType == 'tou' ? 'TOU' : 'ปกติ'}',
+            color: _sectionColor,
           ),
         ],
       ),
@@ -280,63 +319,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           _buildSettingsTile(
-            icon: Icons.calendar_today,
-            title: 'วันตัดรอบบิล',
-            subtitle: 'วันที่ ${_user?.billingDay ?? 30} ของทุกเดือน',
-            onTap: () => _showEditBillingDay(),
-          ),
-          const Divider(height: 1, indent: 56),
-          _buildSettingsTile(
             icon: Icons.attach_money,
             title: 'Fixed Cost',
             subtitle:
                 '${NumberFormat('#,##0.00').format(_user?.fixedCost ?? 0)} บาท / เดือน',
+            color: _sectionColor,
             onTap: () => _showEditFixedCost(),
+          ),
+          const Divider(height: 1, indent: 56),
+          _buildSettingsTile(
+            icon: Icons.calendar_today,
+            title: 'วันตัดรอบบิล',
+            subtitle: 'วันที่ ${_user?.billingDay ?? 30} ของทุกเดือน',
+            color: _sectionColor,
+            onTap: () => _showEditBillingDay(),
           ),
           const Divider(height: 1, indent: 56),
           _buildSettingsTile(
             icon: Icons.history,
             title: 'บันทึกค่ามิเตอร์ต้นรอบ',
             subtitle: 'กรอกหน่วยจากใบแจ้งหนี้ล่าสุด',
+            color: _sectionColor,
             onTap: () => _showEditStartMeter(),
           ),
           const Divider(height: 1, indent: 56),
+          // ย้ายมาจากหมวด "ข้อมูลและบิล" — สลับที่กับ "ประวัติค่ามิเตอร์
+          // ต้นรอบ" ที่ย้ายไปอยู่หมวดนั้นแทน
           _buildSettingsTile(
-            icon: Icons.manage_history,
-            title: 'ประวัติค่ามิเตอร์ต้นรอบ',
-            subtitle: 'ดูค่าที่เคยตั้ง/แก้ไขไว้ทั้งหมด',
-            onTap: () => _showStartMeterHistory(),
-          ),
-          const Divider(height: 1, indent: 56),
-          ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2E7D32).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.notifications_active_outlined,
-                  color: Color(0xFF2E7D32), size: 20),
-            ),
-            title: const Text(
-              'การแจ้งเตือน',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            subtitle: Text(
-              _notificationStatus == PermissionStatus.granted
-                  ? 'เปิดอยู่'
-                  : 'ปิดอยู่',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            trailing: Switch(
-              value: _notificationStatus == PermissionStatus.granted,
-              activeColor: const Color(0xFF2E7D32),
-              onChanged: (val) => _toggleNotification(val),
-            ),
+            icon: Icons.receipt_long,
+            title: 'บันทึกบิลย้อนหลัง',
+            subtitle: 'เพิ่ม แก้ไข หรือลบบิลที่กรอกย้อนหลัง',
+            color: _sectionColor,
+            onTap: () => _showHistoricalBillList(),
           ),
         ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------------
+  // การ์ดการแจ้งเตือน — แยกออกมาจาก _buildSettingsCard เดิม (ก่อนหน้านี้
+  // ฝังเป็น ListTile สุดท้ายของหมวด "ตั้งค่าระบบ") ให้เป็นหมวดของตัวเอง
+  // เพราะเป็นเรื่องสิทธิ์การแจ้งเตือนของเครื่อง คนละประเภทกับตัวเลข/รอบบิล
+  // -------------------------------------------------------------------
+  Widget _buildNotificationCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _sectionColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.notifications_active_outlined,
+              color: _sectionColor, size: 20),
+        ),
+        title: const Text(
+          'แจ้งเตือนบิลและมิเตอร์',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        subtitle: Text(
+          _notificationStatus == PermissionStatus.granted ? 'เปิดอยู่' : 'ปิดอยู่',
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        trailing: Switch(
+          value: _notificationStatus == PermissionStatus.granted,
+          activeColor: _sectionColor,
+          onChanged: (val) => _toggleNotification(val),
+        ),
       ),
     );
   }
@@ -361,14 +424,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.bolt,
             title: 'ประวัติมิเตอร์ไฟฟ้า / ประปา',
             subtitle: 'ดูและลบประวัติการบันทึก แยกแท็บไฟฟ้า-น้ำ',
+            color: _sectionColor,
             onTap: () => _showUtilityHistory(),
           ),
           const Divider(height: 1, indent: 56),
+          // ย้ายมาจากหมวด "ตั้งค่าระบบ" — สลับที่กับ "บันทึกบิลย้อนหลัง"
+          // ที่ย้ายไปอยู่หมวดนั้นแทน
           _buildSettingsTile(
-            icon: Icons.receipt_long,
-            title: 'บันทึกบิลย้อนหลัง',
-            subtitle: 'เพิ่ม แก้ไข หรือลบบิลที่กรอกย้อนหลัง',
-            onTap: () => _showHistoricalBillList(),
+            icon: Icons.manage_history,
+            title: 'ประวัติค่ามิเตอร์ต้นรอบ',
+            subtitle: 'ดูค่าที่เคยตั้ง/แก้ไขไว้ทั้งหมด',
+            color: _sectionColor,
+            onTap: () => _showStartMeterHistory(),
           ),
         ],
       ),
@@ -379,6 +446,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     IconData icon,
     String label,
     String value, {
+    Color color = _sectionColor,
     VoidCallback? onEdit,
   }) {
     return Row(
@@ -387,10 +455,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFF2E7D32).withOpacity(0.1),
+            color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 18, color: const Color(0xFF2E7D32)),
+          child: Icon(icon, size: 18, color: color),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -428,16 +496,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    Color color = _sectionColor,
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF2E7D32).withOpacity(0.1),
+          color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: const Color(0xFF2E7D32), size: 20),
+        child: Icon(icon, color: color, size: 20),
       ),
       title: Text(
         title,
@@ -712,7 +781,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('ค่ามิเตอร์ต้นรอบบิล'),
+          title: Row(
+            children: [
+              const Expanded(child: Text('ค่ามิเตอร์ต้นรอบบิล')),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.help_outline,
+                    color: Color(0xFF2E7D32), size: 20),
+                onPressed: () => _showInfoPopup(
+                  'กรอกเลขจากบิลตรงไหน?',
+                  'เปิดใบแจ้งหนี้ค่าไฟ/ค่าน้ำเดือนล่าสุดของคุณ แล้วมองหาช่อง'
+                      '"เลขอ่านครั้งหลัง" หรือภาษาอังกฤษว่า "Last Meter '
+                      'Reading" ค่ะ — คือเลขที่มิเตอร์อ่านได้ล่าสุดตอนที่'
+                      'เจ้าหน้าที่มาจดในรอบบิลนั้น เอาตัวเลขนี้มากรอกตรงนี้'
+                      'ได้เลย (ไม่ใช่เลข "เลขอ่านครั้งก่อน" ที่อยู่คู่กัน '
+                      'เพราะอันนั้นเป็นเลขของรอบก่อนหน้า)\n\n'
+                      'ระบบจะใช้เลขนี้เป็นจุดเริ่มต้นของรอบบิลถัดไป '
+                      'เพื่อคำนวณว่าคุณใช้ไปกี่หน่วยเมื่อเทียบกับเลขที่คุณ'
+                      'บันทึกในแอปครั้งถัดไปค่ะ',
+                ),
+              ),
+            ],
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -951,7 +1041,6 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   final _eCostCtrl = TextEditingController();
   final _wUsedCtrl = TextEditingController();
   final _wCostCtrl = TextEditingController();
-  late final TextEditingController _fixedCtrl;
 
   @override
   void initState() {
@@ -971,9 +1060,6 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     _selectedMonth = existing != null
         ? DateTime(existing.year, existing.month, 1)
         : _monthOptions.first;
-    _fixedCtrl = TextEditingController(
-        text: (existing?.fixedCost ?? widget.defaultFixedCost)
-            .toStringAsFixed(0));
     if (existing != null) {
       _eUsedCtrl.text = existing.electricityUsed == 0
           ? ''
@@ -987,7 +1073,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     }
     _loadTakenMonths();
 
-    for (final c in [_eUsedCtrl, _eCostCtrl, _wUsedCtrl, _wCostCtrl, _fixedCtrl]) {
+    for (final c in [_eUsedCtrl, _eCostCtrl, _wUsedCtrl, _wCostCtrl]) {
       c.addListener(() => setState(() {}));
     }
   }
@@ -998,7 +1084,6 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     _eCostCtrl.dispose();
     _wUsedCtrl.dispose();
     _wCostCtrl.dispose();
-    _fixedCtrl.dispose();
     super.dispose();
   }
 
@@ -1034,7 +1119,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
 
   double get _eCost => double.tryParse(_eCostCtrl.text) ?? 0;
   double get _wCost => double.tryParse(_wCostCtrl.text) ?? 0;
-  double get _fixed => double.tryParse(_fixedCtrl.text) ?? 0;
+  // เอาช่องกรอก Fixed Cost ออกจากฟอร์มนี้ตามที่ขอ — ใช้ค่า Fixed Cost ที่ตั้ง
+  // ไว้ในหมวด "ตั้งค่าระบบ" โดยอัตโนมัติแทน ไม่ต้องให้ผู้ใช้กรอกซ้ำทุกเดือน
+  double get _fixed => widget.defaultFixedCost;
   double get _total => _eCost + _wCost + _fixed;
 
   bool get _isSelectedMonthTaken =>
@@ -1088,10 +1175,74 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     }
   }
 
-  Widget _label(String text) => Padding(
+  Widget _label(String text, {VoidCallback? onInfoTap}) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
+        child: Row(
+          children: [
+            Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
+            if (onInfoTap != null) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: onInfoTap,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF2E7D32).withOpacity(0.12),
+                  ),
+                  child: const Text('!',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2E7D32))),
+                ),
+              ),
+            ],
+          ],
+        ),
       );
+
+  // อธิบายว่าช่อง "หน่วยที่ใช้" ต้องกรอกอะไร — ปัญหาที่เจอบ่อยคือคนกรอก
+  // "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มาใส่แทนที่จะเป็นยอดหน่วยที่ใช้
+  // จริงของเดือนนั้น ซึ่งฟอร์มนี้ไม่ได้เอาเลขมิเตอร์ของ 2 เดือนมาลบกันให้
+  // (ต่างจากหน้าบันทึกมิเตอร์ปกติที่ระบบลบให้อัตโนมัติ) เพราะบิลย้อนหลัง
+  // แต่ละเดือนไม่ได้ต่อเนื่องกันเสมอไป จึงให้กรอกยอดหน่วยที่ใช้ตรงๆ จากบิล
+  void _showUsageInfoPopup(String utilityLabel, String unitLabel) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('กรอก "$utilityLabel" ตรงไหนของบิล?',
+                  style: const TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+        content: Text(
+          'เปิดบิลเดือนที่จะบันทึกย้อนหลัง แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
+          'หรือ "$unitLabel" ตรงๆ เอาตัวเลขนั้นมากรอกในช่องนี้ได้เลยค่ะ\n\n'
+          '⚠️ ไม่ต้องเอา "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มากรอกนะคะ '
+          'เพราะฟอร์มนี้ไม่ได้เอาเลขมิเตอร์ของแต่ละเดือนมาลบกันให้เหมือนหน้า'
+          'บันทึกมิเตอร์ปกติ — ระบบจะเก็บแค่ยอดหน่วยที่ใช้จริงของเดือนนั้น'
+          'ไปวิเคราะห์ตรงๆ ถ้ากรอกเลขมิเตอร์สะสมมาแทน ตัวเลขในหน้าวิเคราะห์'
+          'จะเพี้ยนไปเยอะเลยค่ะ',
+          style: const TextStyle(fontSize: 13.5, height: 1.6),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('เข้าใจแล้วค่ะ'),
+          ),
+        ],
+      ),
+    );
+  }
 
   InputDecoration _fieldDecoration({String? hint, String? suffixText}) {
     return InputDecoration(
@@ -1192,7 +1343,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('หน่วยไฟที่ใช้'),
+                            _label('หน่วยไฟที่ใช้',
+                                onInfoTap: () =>
+                                    _showUsageInfoPopup('หน่วยไฟที่ใช้', 'kWh')),
                             TextField(
                               controller: _eUsedCtrl,
                               keyboardType: const TextInputType.numberWithOptions(
@@ -1228,7 +1381,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _label('หน่วยน้ำที่ใช้'),
+                            _label('หน่วยน้ำที่ใช้',
+                                onInfoTap: () => _showUsageInfoPopup(
+                                    'หน่วยน้ำที่ใช้', 'ลบ.ม.')),
                             TextField(
                               controller: _wUsedCtrl,
                               keyboardType: const TextInputType.numberWithOptions(
@@ -1257,14 +1412,6 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _label('Fixed Cost'),
-                  TextField(
-                    controller: _fixedCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: _fieldDecoration(hint: '0', suffixText: 'บาท'),
-                  ),
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -1272,19 +1419,36 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       color: const Color(0xFF2E7D32).withOpacity(0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'ยอดรวมเดือนนี้',
-                          style: TextStyle(fontWeight: FontWeight.w600),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'ยอดรวมเดือนนี้',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              '${formatter.format(_total)} บาท',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2E7D32),
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          '${formatter.format(_total)} บาท',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2E7D32),
+                        // บอกไว้เผื่อสงสัยว่าทำไมยอดรวมมากกว่าค่าไฟ+ค่าน้ำที่กรอก
+                        // เพราะเอาช่อง Fixed Cost ออกจากฟอร์มแล้ว แต่ยังบวกรวม
+                        // อัตโนมัติจากค่าที่ตั้งไว้ในหมวด "ตั้งค่าระบบ" อยู่
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'รวม Fixed Cost ${formatter.format(_fixed)} บาท '
+                            'จากตั้งค่าระบบให้อัตโนมัติแล้ว',
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey.shade600),
                           ),
                         ),
                       ],
@@ -1321,6 +1485,46 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
 }
 
 // ==================== รายการบิลย้อนหลัง (แก้ไข/ลบได้) ====================
+// อธิบายภาพรวมของหน้า "บันทึกบิลย้อนหลัง" ไว้ที่ AppBar ของหน้ารายการเลย
+// (ไม่ใช่แค่ในฟอร์มเพิ่ม/แก้ไข) เพราะเดิมผู้ใช้ต้องกดปุ่ม + ก่อนถึงจะเห็น
+// คำอธิบาย ถ้ายังไม่เคยกรอกมาก่อนจะไม่รู้เลยว่าต้องกรอกอะไร
+void _showHistoricalBillInfoPopup(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Row(
+        children: [
+          Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text('หน้านี้ใช้ทำอะไร?', style: TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+      content: const Text(
+        'สำหรับเพิ่มบิลของเดือนก่อนๆ ที่ไม่ได้บันทึกผ่านแอปตั้งแต่แรก '
+        'เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไปเปรียบเทียบได้ (สูงสุด 6 เดือน)\n\n'
+        '📋 กรอกยังไง\n'
+        'เปิดบิลค่าไฟ/ค่าน้ำเดือนนั้น แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
+        '(kWh หรือ ลบ.ม.) กับ "ยอดเงิน" เอาตัวเลขทั้งสองมากรอกตรงๆ ได้เลยค่ะ\n\n'
+        '⚠️ ข้อควรระวัง\n'
+        'อย่ากรอก "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มาแทนนะคะ '
+        'เพราะแต่ละเดือนที่กรอกในหน้านี้ไม่ได้ต่อเนื่องกัน ระบบจึงไม่เอาเลข'
+        'มิเตอร์ของ 2 เดือนมาลบกันให้เหมือนหน้าบันทึกมิเตอร์ปกติ '
+        'ต้องเป็นยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียวเท่านั้นค่ะ',
+        style: TextStyle(fontSize: 13.5, height: 1.6),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('เข้าใจแล้วค่ะ'),
+        ),
+      ],
+    ),
+  );
+}
+
 class _HistoricalBillListScreen extends StatefulWidget {
   final String uid;
   final double defaultFixedCost;
@@ -1388,55 +1592,229 @@ final confirmed = await showConfirmDialog(
     }
   }
 
+  // ก้อนตัวเลข + ไอคอนเล็กๆ ในการ์ดแต่ละบิล — ดีไซน์เดียวกับ _valueChip ใน
+  // หน้าประวัติค่ามิเตอร์ต้นรอบ ให้ทั้งแอปดู consistent กัน
+  Widget _valueChip(IconData icon, Color color, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            '$label $value',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat('#,##0.00');
     return Scaffold(
-      appBar: AppBar(title: const Text('บันทึกบิลย้อนหลัง')),
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: AppBar(
+        title: const Text('บันทึกบิลย้อนหลัง'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => _showHistoricalBillInfoPopup(context),
+          ),
+        ],
+      ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _bills.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'ยังไม่มีบิลย้อนหลัง\nกดปุ่ม + เพื่อเพิ่มบิลของเดือนก่อนๆ',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                  ),
-                )
-              : ListView.separated(
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+          : Column(
+              children: [
+                // การ์ดสรุปด้านบน — สไตล์เดียวกับหน้าประวัติค่ามิเตอร์ต้นรอบ
+                // เดิมหน้านี้ไม่มีการ์ดสรุป ดูจืดกว่าหน้าอื่นในแอป
+                Container(
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   padding: const EdgeInsets.all(16),
-                  itemCount: _bills.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final bill = _bills[index];
-                    return Card(
-                      child: ListTile(
-                        title: Text(
-                            '${thaiMonths[bill.month - 1]} ${bill.year}'),
-                        subtitle:
-                            Text('ยอดรวม ${formatter.format(bill.totalCost)} บาท'),
-                        onTap: () => _openSheet(existingBill: bill),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E7D32),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2E7D32).withOpacity(0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.receipt_long,
+                          color: Colors.white, size: 26),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () => _openSheet(existingBill: bill),
+                            const Text(
+                              'บันทึกบิลย้อนหลังทั้งหมด',
+                              style:
+                                  TextStyle(color: Colors.white70, fontSize: 12),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  size: 20, color: Colors.red),
-                              onPressed: () => _confirmDelete(bill),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${_bills.length} เดือน',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    );
-                  },
+                      if (_bills.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'ล่าสุด ${thaiMonths[_bills.first.month - 1]}',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 11.5),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
+
+                // รายการบิลแต่ละเดือน
+                Expanded(
+                  child: _bills.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.receipt_long_outlined,
+                                    size: 48, color: Colors.grey.shade300),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'ยังไม่มีบิลย้อนหลัง\nกดปุ่ม + เพื่อเพิ่มบิลของเดือนก่อนๆ',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          itemCount: _bills.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final bill = _bills[index];
+                            return Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.08),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '${thaiMonths[bill.month - 1]} ${bill.year}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14.5,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${formatter.format(bill.totalCost)} บาท',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14.5,
+                                          color: Color(0xFF2E7D32),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        icon: const Icon(Icons.edit_outlined,
+                                            size: 19, color: Colors.grey),
+                                        onPressed: () =>
+                                            _openSheet(existingBill: bill),
+                                      ),
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        icon: Icon(Icons.delete_outline,
+                                            size: 19,
+                                            color: Colors.red.shade300),
+                                        onPressed: () => _confirmDelete(bill),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  // แสดงเฉพาะรายการที่มีค่า (บางเดือนอาจกรอก
+                                  // แค่ค่าไฟ หรือแค่ค่าน้ำ ไม่จำเป็นต้องครบ)
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      if (bill.electricityCost > 0)
+                                        _valueChip(
+                                          Icons.bolt,
+                                          Colors.orange.shade700,
+                                          'ไฟ',
+                                          '${formatter.format(bill.electricityCost)} บาท',
+                                        ),
+                                      if (bill.waterCost > 0)
+                                        _valueChip(
+                                          Icons.water_drop,
+                                          Colors.blue,
+                                          'น้ำ',
+                                          '${formatter.format(bill.waterCost)} บาท',
+                                        ),
+                                      if (bill.fixedCost > 0)
+                                        _valueChip(
+                                          Icons.receipt_long,
+                                          Colors.grey.shade700,
+                                          'Fixed Cost',
+                                          '${formatter.format(bill.fixedCost)} บาท',
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openSheet(),
         backgroundColor: const Color(0xFF2E7D32),
