@@ -476,9 +476,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           dense: true,
-          secondary: Icon(icon,
-              size: 19,
-              color: enabled ? Colors.grey.shade600 : Colors.grey.shade300),
+          secondary: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: (enabled ? _sectionColor : Colors.grey)
+                  .withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon,
+                size: 17,
+                color: enabled ? _sectionColor : Colors.grey.shade400),
+          ),
           title: Text(
             title,
             style: TextStyle(
@@ -740,7 +748,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.help_outline,
+                      icon: const Icon(Icons.info_outline,
                           color: Color(0xFF2E7D32), size: 20),
                       onPressed: () => _showInfoPopup(
                         'วันตัดรอบบิลคืออะไร?',
@@ -846,210 +854,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     await _loadUser();
-  }
-
-  void _showEditStartMeter() {
-    final eController = TextEditingController(
-      text: (_user?.startElectricityValue ?? 0).toString(),
-    );
-    final wController = TextEditingController(
-      text: (_user?.startWaterValue ?? 0).toString(),
-    );
-    int selectedMonth = _user?.startBillingMonth ?? DateTime.now().month;
-    int selectedYear = _user?.startBillingYear ?? DateTime.now().year;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Row(
-            children: [
-              const Expanded(child: Text('ค่ามิเตอร์ต้นรอบบิล')),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.help_outline,
-                    color: Color(0xFF2E7D32), size: 20),
-                onPressed: () => _showInfoPopup(
-                  'กรอกเลขจากบิลตรงไหน?',
-                  'เปิดใบแจ้งหนี้ค่าไฟ/ค่าน้ำเดือนล่าสุดของคุณ แล้วมองหาช่อง'
-                      '"เลขอ่านครั้งหลัง" หรือภาษาอังกฤษว่า "Last Meter '
-                      'Reading" ค่ะ — คือเลขที่มิเตอร์อ่านได้ล่าสุดตอนที่'
-                      'เจ้าหน้าที่มาจดในรอบบิลนั้น เอาตัวเลขนี้มากรอกตรงนี้'
-                      'ได้เลย (ไม่ใช่เลข "เลขอ่านครั้งก่อน" ที่อยู่คู่กัน '
-                      'เพราะอันนั้นเป็นเลขของรอบก่อนหน้า)\n\n'
-                      'ระบบจะใช้เลขนี้เป็นจุดเริ่มต้นของรอบบิลถัดไป '
-                      'เพื่อคำนวณว่าคุณใช้ไปกี่หน่วยเมื่อเทียบกับเลขที่คุณ'
-                      'บันทึกในแอปครั้งถัดไปค่ะ',
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'เดือนของใบแจ้งหนี้',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: DropdownButtonFormField<int>(
-                        value: selectedMonth,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: List.generate(12, (i) {
-                          return DropdownMenuItem(
-                            value: i + 1,
-                            child: Text(
-                              thaiMonths[i],
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          );
-                        }),
-                        onChanged: (val) =>
-                            setDialogState(() => selectedMonth = val!),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonFormField<int>(
-                        value: selectedYear,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: [
-                          DateTime.now().year - 1,
-                          DateTime.now().year,
-                        ].map((year) {
-                          return DropdownMenuItem(
-                            value: year,
-                            child: Text(
-                              '$year',
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (val) =>
-                            setDialogState(() => selectedYear = val!),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'หน่วยไฟฟ้า',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: eController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    hintText: 'เช่น 14009',
-                    suffixText: 'หน่วย',
-                    prefixIcon: const Icon(
-                      Icons.bolt,
-                      color: Colors.orange,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'หน่วยน้ำประปา',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: wController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    hintText: 'เช่น 148',
-                    suffixText: 'ลบ.ม.',
-                    prefixIcon: const Icon(
-                      Icons.water_drop,
-                      color: Colors.blue,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ยกเลิก'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final eVal = double.tryParse(eController.text) ?? 0;
-                final wVal = double.tryParse(wController.text) ?? 0;
-                await _firestoreService.updateUser(_user!.uid, {
-                  'startElectricityValue': eVal,
-                  'startWaterValue': wVal,
-                  'startBillingMonth': selectedMonth,
-                  'startBillingYear': selectedYear,
-                });
-                // เก็บ snapshot ไว้ในประวัติ เผื่อย้อนดูทีหลังว่าเคยตั้งค่าอะไรไว้
-                await _firestoreService.saveStartMeterRecord(
-                  StartMeterRecordModel(
-                    id: const Uuid().v4(),
-                    uid: _user!.uid,
-                    electricityValue: eVal,
-                    waterValue: wVal,
-                    peakValue: _user?.startPeakValue ?? 0,
-                    offPeakValue: _user?.startOffPeakValue ?? 0,
-                    billingMonth: selectedMonth,
-                    billingYear: selectedYear,
-                    recordedAt: DateTime.now(),
-                  ),
-                );
-                await _loadUser();
-                if (mounted) Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('บันทึก'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _showStartMeterHistory() {
@@ -1300,15 +1104,45 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
             ),
           ],
         ),
-        content: Text(
-          'เปิดบิลเดือนที่จะบันทึกย้อนหลัง แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
-          'หรือ "$unitLabel" ตรงๆ เอาตัวเลขนั้นมากรอกในช่องนี้ได้เลยค่ะ\n\n'
-          '⚠️ ไม่ต้องเอา "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มากรอกนะคะ '
-          'เพราะฟอร์มนี้ไม่ได้เอาเลขมิเตอร์ของแต่ละเดือนมาลบกันให้เหมือนหน้า'
-          'บันทึกมิเตอร์ปกติ — ระบบจะเก็บแค่ยอดหน่วยที่ใช้จริงของเดือนนั้น'
-          'ไปวิเคราะห์ตรงๆ ถ้ากรอกเลขมิเตอร์สะสมมาแทน ตัวเลขในหน้าวิเคราะห์'
-          'จะเพี้ยนไปเยอะเลยค่ะ',
-          style: const TextStyle(fontSize: 13.5, height: 1.6),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'เปิดบิลเดือนที่จะบันทึกย้อนหลัง แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
+              'หรือ "$unitLabel" ตรงๆ เอาตัวเลขนั้นมากรอกในช่องนี้ได้เลยค่ะ',
+              style: const TextStyle(fontSize: 13.5, height: 1.6),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      size: 16, color: Colors.orange.shade800),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'ไม่ต้องเอา "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มากรอกนะคะ '
+                      'เพราะฟอร์มนี้ไม่ได้เอาเลขมิเตอร์ของแต่ละเดือนมาลบกันให้เหมือนหน้า'
+                      'บันทึกมิเตอร์ปกติ — ระบบจะเก็บแค่ยอดหน่วยที่ใช้จริงของเดือนนั้น'
+                      'ไปวิเคราะห์ตรงๆ ถ้ากรอกเลขมิเตอร์สะสมมาแทน ตัวเลขในหน้าวิเคราะห์'
+                      'จะเพี้ยนไปเยอะเลยค่ะ',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.5,
+                          color: Colors.orange.shade900),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -1543,6 +1377,47 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   }
 }
 
+// วิดเจ็ตหัวข้อย่อยที่ใช้ร่วมกันใน info popup หลายหน้า (แทนอิโมจินำหน้า
+// ข้อความแบบเดิม ให้ใช้ไอคอนจริงแทนเพื่อความสม่ำเสมอกันทั้งแอป)
+Widget _infoSectionHeader(String label, {IconData icon = Icons.checklist_rounded}) {
+  return Row(
+    children: [
+      Icon(icon, size: 15, color: const Color(0xFF2E7D32)),
+      const SizedBox(width: 6),
+      Text(label,
+          style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2E7D32))),
+    ],
+  );
+}
+
+// กล่องข้อควรระวัง — แทนที่การขึ้นต้นด้วย "⚠️" ในข้อความเดิม
+Widget _infoWarningBox(String text) {
+  return Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: Colors.orange.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+                fontSize: 12.5, height: 1.5, color: Colors.orange.shade900),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 // ==================== รายการบิลย้อนหลัง (แก้ไข/ลบได้) ====================
 // อธิบายภาพรวมของหน้า "บันทึกบิลย้อนหลัง" ไว้ที่ AppBar ของหน้ารายการเลย
 // (ไม่ใช่แค่ในฟอร์มเพิ่ม/แก้ไข) เพราะเดิมผู้ใช้ต้องกดปุ่ม + ก่อนถึงจะเห็น
@@ -1561,18 +1436,33 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
           ),
         ],
       ),
-      content: const Text(
-        'สำหรับเพิ่มบิลของเดือนก่อนๆ ที่ไม่ได้บันทึกผ่านแอปตั้งแต่แรก '
-        'เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไปเปรียบเทียบได้ (สูงสุด 6 เดือน)\n\n'
-        '📋 กรอกยังไง\n'
-        'เปิดบิลค่าไฟ/ค่าน้ำเดือนนั้น แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
-        '(kWh หรือ ลบ.ม.) กับ "ยอดเงิน" เอาตัวเลขทั้งสองมากรอกตรงๆ ได้เลยค่ะ\n\n'
-        '⚠️ ข้อควรระวัง\n'
-        'อย่ากรอก "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มาแทนนะคะ '
-        'เพราะแต่ละเดือนที่กรอกในหน้านี้ไม่ได้ต่อเนื่องกัน ระบบจึงไม่เอาเลข'
-        'มิเตอร์ของ 2 เดือนมาลบกันให้เหมือนหน้าบันทึกมิเตอร์ปกติ '
-        'ต้องเป็นยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียวเท่านั้นค่ะ',
-        style: TextStyle(fontSize: 13.5, height: 1.6),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'สำหรับเพิ่มบิลของเดือนก่อนๆ ที่ไม่ได้บันทึกผ่านแอปตั้งแต่แรก '
+              'เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไปเปรียบเทียบได้ (สูงสุด 6 เดือน)',
+              style: TextStyle(fontSize: 13.5, height: 1.6),
+            ),
+            const SizedBox(height: 14),
+            _infoSectionHeader('กรอกยังไง'),
+            const SizedBox(height: 4),
+            const Text(
+              'เปิดบิลค่าไฟ/ค่าน้ำเดือนนั้น แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
+              '(kWh หรือ ลบ.ม.) กับ "ยอดเงิน" เอาตัวเลขทั้งสองมากรอกตรงๆ ได้เลยค่ะ',
+              style: TextStyle(fontSize: 13.5, height: 1.6),
+            ),
+            const SizedBox(height: 12),
+            _infoWarningBox(
+              'อย่ากรอก "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มาแทนนะคะ '
+              'เพราะแต่ละเดือนที่กรอกในหน้านี้ไม่ได้ต่อเนื่องกัน ระบบจึงไม่เอาเลข'
+              'มิเตอร์ของ 2 เดือนมาลบกันให้เหมือนหน้าบันทึกมิเตอร์ปกติ '
+              'ต้องเป็นยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียวเท่านั้นค่ะ',
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -1583,6 +1473,7 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
     ),
   );
 }
+
 
 class _HistoricalBillListScreen extends StatefulWidget {
   final String uid;
@@ -2503,7 +2394,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                         children: [
                           IconButton(
                             visualDensity: VisualDensity.compact,
-                            icon: const Icon(Icons.help_outline,
+                            icon: const Icon(Icons.info_outline,
                                 color: Color(0xFF2E7D32)),
                             onPressed: _showInfoPopup,
                           ),
@@ -2693,6 +2584,41 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
 }
 
 // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
+// อธิบายภาพรวมของหน้า "ค่ามิเตอร์ต้นรอบ" ไว้ที่ AppBar ของหน้านี้เลย —
+// ตามแพทเทิร์นเดียวกับ _showFixedCostInfoPopup / _showHistoricalBillInfoPopup
+void _showStartMeterInfoPopup(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Row(
+        children: [
+          Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text('หน้านี้ใช้ทำอะไร?', style: TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+      content: const Text(
+        'ค่ามิเตอร์ต้นรอบคือเลขที่มิเตอร์อ่านได้ตอนเริ่มรอบบิลใหม่ '
+        'ระบบใช้เลขนี้เป็นจุดตั้งต้นเพื่อคำนวณว่าคุณใช้ไฟ/น้ำไปกี่หน่วย '
+        'เมื่อเทียบกับเลขที่บันทึกในแอปครั้งถัดไป\n\n'
+        'กดปุ่ม + เพื่อบันทึกค่าของรอบบิลใหม่ทุกครั้งที่ใบแจ้งหนี้มาถึง '
+        'ส่วนรายการในหน้านี้คือประวัติค่าที่เคยตั้งไว้ในแต่ละรอบ '
+        'ไว้ย้อนดูทีหลังได้ว่าเดือนไหนตั้งค่าไว้เท่าไหร่',
+        style: TextStyle(fontSize: 13.5, height: 1.6),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('เข้าใจแล้วค่ะ'),
+        ),
+      ],
+    ),
+  );
+}
+
 class _StartMeterHistoryScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
@@ -2792,7 +2718,15 @@ final confirmed = await showConfirmDialog(
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(title: const Text('ค่ามิเตอร์ต้นรอบ')),
+      appBar: AppBar(
+        title: const Text('ค่ามิเตอร์ต้นรอบ'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => _showStartMeterInfoPopup(context),
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : Column(

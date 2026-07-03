@@ -310,7 +310,7 @@ class NotificationService {
           !await _alreadyNotifiedThisCycle('spike_electricity', cycleStart)) {
         await _showAndLog(
           pluginId: idSpikeElectricity,
-          title: 'ค่าไฟพุ่งขึ้นค่ะ ⚡',
+          title: 'ค่าไฟพุ่งขึ้นค่ะ',
           body:
               'ค่าไฟเดือนนี้ของคุณสูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะคะ',
           type: 'spike',
@@ -327,7 +327,7 @@ class NotificationService {
           !await _alreadyNotifiedThisCycle('spike_water', cycleStart)) {
         await _showAndLog(
           pluginId: idSpikeWater,
-          title: 'ค่าน้ำพุ่งขึ้นค่ะ 💧',
+          title: 'ค่าน้ำพุ่งขึ้นค่ะ',
           body:
               'ค่าน้ำเดือนนี้ของคุณสูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะคะ',
           type: 'spike',
@@ -413,7 +413,7 @@ class NotificationService {
   Future<void> notifyWelcome() async {
     await _showAndLog(
       pluginId: idWelcome,
-      title: 'ยินดีต้อนรับสู่ Energy Home ค่ะ 🏠',
+      title: 'ยินดีต้อนรับสู่ Energy Home ค่ะ',
       body:
           'แอปจะช่วยติดตามค่าไฟ-น้ำให้คุณทุกวันค่ะ แตะเพื่อดูคู่มือเริ่มต้นใช้งานนะคะ',
       type: 'welcome',

@@ -897,7 +897,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   if (helpMessage != null)
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.help_outline,
+                      icon: const Icon(Icons.info_outline,
                           color: green, size: 22),
                       onPressed: () =>
                           _showInfoPopup(helpTitle ?? title, helpMessage),

@@ -789,26 +789,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        content: const SingleChildScrollView(
-          child: Text(
-            '⚡ ค่าไฟฟ้า\n'
-            'ยิ่งใช้เยอะ อัตราต่อหน่วยจะขยับสูงขึ้นเป็นขั้นๆ (อัตราขั้นบันได) '
-            'ตามพื้นที่และประเภทมิเตอร์ที่ตั้งไว้ในโปรไฟล์ของคุณ '
-            'จากนั้นบวกค่า Ft (ค่าไฟผันแปรที่ประกาศทุก 4 เดือน) '
-            'และค่าบริการรายเดือน แล้วคูณ VAT 7% ทั้งหมด\n\n'
-            '💧 ค่าน้ำ\n'
-            'คิดแบบเดียวกัน คือใช้อัตราขั้นบันไดของการประปาตามพื้นที่ '
-            'บวกค่าบริการ แล้วคูณ VAT 7%\n\n'
-            '📈 ยอดคาดการณ์สิ้นเดือน\n'
-            'ใช้วิธี "ค่าเฉลี่ยเคลื่อนที่" ง่ายๆ คือดูว่าตั้งแต่ต้นรอบบิลถึงวันนี้ '
-            'เฉลี่ยแล้วใช้เงินไปวันละเท่าไหร่ แล้วคูณด้วยจำนวนวันที่เหลือในรอบ '
-            'บวกกับยอดที่ใช้จริงไปแล้ว เหมือนสมมติว่าช่วงที่เหลือของเดือน '
-            'จะใช้ในอัตราเดิมต่อไปเรื่อยๆ\n\n'
-            'ทำไมถึงใช้วิธีนี้: ไม่ต้องรอสะสมข้อมูลหลายเดือนก็พยากรณ์ได้ทันที '
-            'จากพฤติกรรมการใช้จริงในรอบปัจจุบัน และปรับตัวไวถ้าคุณใช้เยอะขึ้น'
-            'หรือน้อยลงระหว่างเดือน แต่ถ้าใช้งานไม่สม่ำเสมอมากๆ '
-            '(เช่น ต้นเดือนใช้น้อย ปลายเดือนใช้พุ่ง) ตัวเลขอาจคลาดเคลื่อนได้บ้างค่ะ',
-            style: TextStyle(fontSize: 13.5, height: 1.6),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.bolt, size: 16, color: Colors.orange),
+                  const SizedBox(width: 6),
+                  const Text('ค่าไฟฟ้า',
+                      style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'ยิ่งใช้เยอะ อัตราต่อหน่วยจะขยับสูงขึ้นเป็นขั้นๆ (อัตราขั้นบันได) '
+                'ตามพื้นที่และประเภทมิเตอร์ที่ตั้งไว้ในโปรไฟล์ของคุณ '
+                'จากนั้นบวกค่า Ft (ค่าไฟผันแปรที่ประกาศทุก 4 เดือน) '
+                'และค่าบริการรายเดือน แล้วคูณ VAT 7% ทั้งหมด',
+                style: TextStyle(fontSize: 13.5, height: 1.6),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Icon(Icons.water_drop, size: 16, color: Colors.blue),
+                  const SizedBox(width: 6),
+                  const Text('ค่าน้ำ',
+                      style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'คิดแบบเดียวกัน คือใช้อัตราขั้นบันไดของการประปาตามพื้นที่ '
+                'บวกค่าบริการ แล้วคูณ VAT 7%',
+                style: TextStyle(fontSize: 13.5, height: 1.6),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Icon(Icons.show_chart_rounded,
+                      size: 16, color: DashboardStyles.primaryGreen),
+                  const SizedBox(width: 6),
+                  Text('ยอดคาดการณ์สิ้นเดือน',
+                      style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: DashboardStyles.primaryGreen)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'ใช้วิธี "ค่าเฉลี่ยเคลื่อนที่" ง่ายๆ คือดูว่าตั้งแต่ต้นรอบบิลถึงวันนี้ '
+                'เฉลี่ยแล้วใช้เงินไปวันละเท่าไหร่ แล้วคูณด้วยจำนวนวันที่เหลือในรอบ '
+                'บวกกับยอดที่ใช้จริงไปแล้ว เหมือนสมมติว่าช่วงที่เหลือของเดือน '
+                'จะใช้ในอัตราเดิมต่อไปเรื่อยๆ\n\n'
+                'ทำไมถึงใช้วิธีนี้: ไม่ต้องรอสะสมข้อมูลหลายเดือนก็พยากรณ์ได้ทันที '
+                'จากพฤติกรรมการใช้จริงในรอบปัจจุบัน และปรับตัวไวถ้าคุณใช้เยอะขึ้น'
+                'หรือน้อยลงระหว่างเดือน แต่ถ้าใช้งานไม่สม่ำเสมอมากๆ '
+                '(เช่น ต้นเดือนใช้น้อย ปลายเดือนใช้พุ่ง) ตัวเลขอาจคลาดเคลื่อนได้บ้างค่ะ',
+                style: TextStyle(fontSize: 13.5, height: 1.6),
+              ),
+            ],
           ),
         ),
         actions: [

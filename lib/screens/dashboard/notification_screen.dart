@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/notification_item_model.dart';
 import '../../services/notification_service.dart';
+import '../../utils/thai_date_utils.dart';
 
 /// ===========================================================
 /// NotificationScreen
@@ -90,8 +91,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return (icon: Icons.edit_note_rounded, color: Colors.blueGrey);
       case 'spike':
         return (icon: Icons.trending_up_rounded, color: Colors.red);
-      case 'spike':
-        return (icon: Icons.trending_up_rounded, color: Colors.red);
       case 'forecast':
         return (icon: Icons.show_chart_rounded, color: Colors.deepOrange);
       case 'summary':
@@ -101,6 +100,34 @@ class _NotificationScreenState extends State<NotificationScreen> {
       default:
         return (icon: Icons.notifications_rounded, color: Colors.grey);
     }
+  }
+
+  // ป้ายหัวกลุ่มวันที่ — "วันนี้" / "เมื่อวาน" / "d MMMM" (ปีนี้) /
+  // "d MMMM พ.ศ." (ปีอื่น) ใช้ thaiMonths ตัวเดียวกับหน้าอื่นในแอปเพื่อให้
+  // สม่ำเสมอกัน
+  String _dateGroupLabel(DateTime time) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final day = DateTime(time.year, time.month, time.day);
+
+    if (day == today) return 'วันนี้';
+    if (day == yesterday) return 'เมื่อวาน';
+
+    final datePart = '${time.day} ${thaiMonths[time.month - 1]}';
+    if (time.year == now.year) return datePart;
+    return '$datePart พ.ศ. ${time.year + 543}';
+  }
+
+  // แปลง _items (เรียงใหม่สุดบนสุดอยู่แล้ว) เป็นกลุ่มตามวันที่ โดยคง
+  // ลำดับเดิมไว้ในแต่ละกลุ่ม — ใช้ LinkedHashMap ให้กลุ่มไม่สลับที่กันเอง
+  Map<String, List<NotificationItem>> _groupedItems() {
+    final grouped = <String, List<NotificationItem>>{};
+    for (final item in _items) {
+      final label = _dateGroupLabel(item.timestamp);
+      grouped.putIfAbsent(label, () => []).add(item);
+    }
+    return grouped;
   }
 
   String _timeAgo(DateTime time) {
@@ -148,13 +175,39 @@ class _NotificationScreenState extends State<NotificationScreen> {
               : RefreshIndicator(
                   onRefresh: _load,
                   color: const Color(0xFF2E7D32),
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (ctx, index) {
-                      final item = _items[index];
-                      return _buildNotificationTile(item);
+                  child: Builder(
+                    builder: (context) {
+                      final grouped = _groupedItems();
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: grouped.length,
+                        itemBuilder: (ctx, sectionIndex) {
+                          final label = grouped.keys.elementAt(sectionIndex);
+                          final sectionItems = grouped[label]!;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                    4, sectionIndex == 0 ? 0 : 16, 4, 8),
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ),
+                              for (final item in sectionItems)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: _buildNotificationTile(item),
+                                ),
+                            ],
+                          );
+                        },
+                      );
                     },
                   ),
                 ),

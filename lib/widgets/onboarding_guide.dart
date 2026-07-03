@@ -54,7 +54,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
   final List<_GuidePage> _pages = const [
     _GuidePage(
       icon: Icons.waving_hand_rounded,
-      title: 'ยินดีต้อนรับสู่ Energy Home ค่ะ 👋',
+      title: 'ยินดีต้อนรับสู่ Energy Home ค่ะ',
       body:
           'แอปนี้ช่วยติดตามค่าไฟ-ค่าน้ำ โดยคำนวณจาก "รอบบิล" ที่ตั้งไว้ตอน Setup '
           'ยิ่งบันทึกมิเตอร์บ่อย (แนะนำทุกวัน) ระบบจะพยากรณ์ยอดสิ้นเดือนได้แม่นยำขึ้น '
