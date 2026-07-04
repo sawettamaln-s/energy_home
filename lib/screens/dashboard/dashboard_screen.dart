@@ -594,28 +594,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: DashboardStyles.sectionTitle),
                       const SizedBox(height: 10),
 
-                      if (_user?.meterType == 'tou')
-                        _buildTOUMeterCard()
-                      else
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      // ให้ไฟฟ้ากับน้ำอยู่คู่กันแบบ Row เสมอเหมือน layout
+                      // ปกติ ไม่ว่าจะเป็น TOU หรือไม่ — สลับแค่การ์ดฝั่ง
+                      // ไฟฟ้า (TOU การ์ดพิเศษ 2 ช่อง vs การ์ดปกติ 1 ช่อง)
+                      // การ์ด TOU จะสูงกว่าเพราะมี 2 ฟิลด์ แต่ก็แค่สูงกว่า
+                      // ในคอลัมน์ตัวเอง ไม่ดันน้ำตกลงไปด้านล่างอีกต่อไป
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
-                              child: _buildMeterCard(
-                                title: 'ไฟฟ้า',
-                                icon: Icons.bolt,
-                                accent: DashboardStyles.electricityAccent,
-                                fieldBg: DashboardStyles.electricityFieldBg,
-                                controller: _electricityController,
-                                hint: 'เช่น 14052',
-                                lastValue: _latestElectricityLog?.meterValue ??
-                                    _user?.startElectricityValue,
-                                startValue: _user?.startElectricityValue,
-                                error: _electricityError,
-                                isSaving: _isSavingElectricity,
-                                onSave: _saveElectricityLog,
-                                unit: 'หน่วย',
-                              ),
+                              child: _user?.meterType == 'tou'
+                                  ? _buildTOUMeterCard()
+                                  : _buildMeterCard(
+                                      title: 'ไฟฟ้า',
+                                      icon: Icons.bolt,
+                                      accent: DashboardStyles.electricityAccent,
+                                      fieldBg:
+                                          DashboardStyles.electricityFieldBg,
+                                      controller: _electricityController,
+                                      hint: 'เช่น 14052',
+                                      lastValue:
+                                          _latestElectricityLog?.meterValue ??
+                                              _user?.startElectricityValue,
+                                      startValue:
+                                          _user?.startElectricityValue,
+                                      error: _electricityError,
+                                      isSaving: _isSavingElectricity,
+                                      onSave: _saveElectricityLog,
+                                      unit: 'หน่วย',
+                                    ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -637,6 +645,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ],
                         ),
+                      ),
 
                       const SizedBox(height: 16),
 
@@ -796,44 +805,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.bolt, size: 16, color: Colors.orange),
-                  const SizedBox(width: 6),
-                  const Text('ค่าไฟฟ้า',
-                      style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange)),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'ยิ่งใช้เยอะ อัตราต่อหน่วยจะขยับสูงขึ้นเป็นขั้นๆ (อัตราขั้นบันได) '
-                'ตามพื้นที่และประเภทมิเตอร์ที่ตั้งไว้ในโปรไฟล์ของคุณ '
-                'จากนั้นบวกค่า Ft (ค่าไฟผันแปรที่ประกาศทุก 4 เดือน) '
-                'และค่าบริการรายเดือน แล้วคูณ VAT 7% ทั้งหมด',
-                style: TextStyle(fontSize: 13.5, height: 1.6),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  const Icon(Icons.water_drop, size: 16, color: Colors.blue),
-                  const SizedBox(width: 6),
-                  const Text('ค่าน้ำ',
-                      style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue)),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'คิดแบบเดียวกัน คือใช้อัตราขั้นบันไดของการประปาตามพื้นที่ '
-                'บวกค่าบริการ แล้วคูณ VAT 7%',
-                style: TextStyle(fontSize: 13.5, height: 1.6),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
                   Icon(Icons.show_chart_rounded,
                       size: 16, color: DashboardStyles.primaryGreen),
                   const SizedBox(width: 6),
@@ -850,7 +821,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 'เฉลี่ยแล้วใช้เงินไปวันละเท่าไหร่ แล้วคูณด้วยจำนวนวันที่เหลือในรอบ '
                 'บวกกับยอดที่ใช้จริงไปแล้ว เหมือนสมมติว่าช่วงที่เหลือของเดือน '
                 'จะใช้ในอัตราเดิมต่อไปเรื่อยๆ\n\n'
-                'ทำไมถึงใช้วิธีนี้: ไม่ต้องรอสะสมข้อมูลหลายเดือนก็พยากรณ์ได้ทันที '
+                'Tip: วิธีนี้ไม่ต้องรอสะสมข้อมูลหลายเดือนก็พยากรณ์ได้ทันที '
                 'จากพฤติกรรมการใช้จริงในรอบปัจจุบัน และปรับตัวไวถ้าคุณใช้เยอะขึ้น'
                 'หรือน้อยลงระหว่างเดือน แต่ถ้าใช้งานไม่สม่ำเสมอมากๆ '
                 '(เช่น ต้นเดือนใช้น้อย ปลายเดือนใช้พุ่ง) ตัวเลขอาจคลาดเคลื่อนได้บ้างค่ะ',
@@ -1368,13 +1339,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         content: const Text(
           'มิเตอร์ TOU แยกคิดค่าไฟตามช่วงเวลาที่ใช้ แทนที่จะคิดรวมทั้งเดือน '
           'เหมือนมิเตอร์ปกติ:\n\n'
-          '• On-Peak (จ-ศ 09:00-22:00): ช่วงเวลาที่ความต้องการใช้ไฟฟ้า '
+          '• On-Peak (T1) — จ-ศ 09:00-22:00: ช่วงเวลาที่ความต้องการใช้ไฟฟ้า '
           'ของประเทศสูง อัตราต่อหน่วยจะแพงกว่า\n\n'
-          '• Off-Peak (จ-ศ 22:00-09:00 และวันหยุด/นักขัตฤกษ์ทั้งวัน): '
+          '• Off-Peak (T2) — จ-ศ 22:00-09:00 และวันหยุด/นักขัตฤกษ์ทั้งวัน: '
           'ช่วงที่ความต้องการใช้ไฟต่ำ อัตราต่อหน่วยจะถูกกว่า\n\n'
           'ให้กรอกเลขที่อ่านได้จากมิเตอร์จริงของแต่ละช่วง — ถ้ามิเตอร์ '
-          'TOU ของคุณมีจอแสดงแยก 2 ค่า (On-Peak กับ Off-Peak) '
-          'ก็กรอกตามนั้นได้เลยค่ะ',
+          'TOU ของคุณมีจอแสดงแยก 2 ค่า มักจะกดดูได้จากรหัส T1/T2 บนจอ '
+          '(บางรุ่นโชว์เป็นรหัสตัวเลขแทน เช่น 11/12 แล้วแต่ยี่ห้อมิเตอร์) '
+          'กรอกตามค่านั้นได้เลยค่ะ ถ้ามีจอโชว์ "ยอดรวม" แยกต่างหากด้วย '
+          'อันนั้นเป็นแค่ผลบวกของ T1+T2 ไว้ดูภาพรวม ไม่ต้องเอามากรอกในแอป\n\n'
+          'เรื่องรหัสแรงดันไฟฟ้า: อัตรา TOU จริงๆ แบ่งราคาตามระดับแรงดัน '
+          'ที่มิเตอร์ต่อเข้าระบบด้วย (เช่น ต่ำกว่า 22 กิโลโวลต์, 22-33 '
+          'กิโลโวลต์ ฯลฯ) แต่บ้านอยู่อาศัยทั่วไปแทบทั้งหมดต่อที่แรงดัน '
+          'ต่ำกว่า 22 กิโลโวลต์อยู่แล้ว แอปจึงใช้อัตราของระดับนี้คำนวณให้ '
+          'อัตโนมัติ ไม่ต้องเลือกเองค่ะ',
           style: TextStyle(fontSize: 13.5, height: 1.6),
         ),
         actions: [
@@ -1409,36 +1387,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildTOUMeterCard() {
+    final formatter = NumberFormat('#,##0.##');
+    final lastPeak =
+        _latestElectricityLog?.peakMeterValue ?? _user?.startPeakValue;
+    final startPeak = _user?.startPeakValue;
+    final lastOffPeak =
+        _latestElectricityLog?.offPeakMeterValue ?? _user?.startOffPeakValue;
+    final startOffPeak = _user?.startOffPeakValue;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: DashboardStyles.whiteCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.bolt, color: Colors.orange, size: 20),
-              const SizedBox(width: 8),
-              const Text('บันทึกค่ามิเตอร์ไฟฟ้า (TOU)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const Spacer(),
+              const Icon(Icons.bolt, color: Colors.orange, size: 18),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'ไฟฟ้า (TOU)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               GestureDetector(
                 onTap: _showTOUInfoPopup,
                 child: Icon(Icons.info_outline,
-                    size: 18, color: Colors.grey.shade500),
+                    size: 16, color: Colors.grey.shade500),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'On-Peak: จ-ศ 09:00-22:00 | Off-Peak: จ-ศ 22:00-09:00 + วันหยุด',
-            style: TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 2),
 
-          // On-Peak
-          const Text('หน่วย On-Peak',
+          // On-Peak — โชว์ ล่าสุด/ต้นรอบ ของช่วง Peak เหมือนการ์ดมิเตอร์
+          // ปกติ (TOU เทียบแบบเดียวกันเป๊ะ แค่แยกเก็บคนละค่ากับ Off-Peak)
+          const Text('On-Peak (T1)',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          if (lastPeak != null)
+            Text('ล่าสุด: ${formatter.format(lastPeak)} หน่วย',
+                style: DashboardStyles.lastValueStyle),
+          if (startPeak != null)
+            Text('ต้นรอบ: ${formatter.format(startPeak)} หน่วย',
+                style: DashboardStyles.lastValueStyle),
           const SizedBox(height: 6),
           Row(
             children: [
@@ -1465,9 +1457,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           const SizedBox(height: 10),
 
-          // Off-Peak
-          const Text('หน่วย Off-Peak',
+          // Off-Peak — เหมือนกัน แต่เทียบกับต้นรอบ/ล่าสุดของ Off-Peak เอง
+          const Text('Off-Peak (T2)',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          if (lastOffPeak != null)
+            Text('ล่าสุด: ${formatter.format(lastOffPeak)} หน่วย',
+                style: DashboardStyles.lastValueStyle),
+          if (startOffPeak != null)
+            Text('ต้นรอบ: ${formatter.format(startOffPeak)} หน่วย',
+                style: DashboardStyles.lastValueStyle),
           const SizedBox(height: 6),
           Row(
             children: [
