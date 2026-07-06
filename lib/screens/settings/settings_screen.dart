@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../models/bill_model.dart';
 import '../../models/electricity_log_model.dart';
 import '../../models/fixed_cost_item_model.dart';
 import '../../models/start_meter_record_model.dart';
