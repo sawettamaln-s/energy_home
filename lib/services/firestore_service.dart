@@ -362,4 +362,49 @@ class FirestoreService {
         .doc(logId)
         .delete();
   }
+
+  // ==================== ลบบัญชี + ข้อมูลทั้งหมด (PDPA) ====================
+
+  // ลบข้อมูลทุก subcollection ของผู้ใช้ทิ้งทั้งหมด แล้วลบ document หลักด้วย
+  // ต้องไล่ลบทีละ subcollection เอง เพราะ Firestore ไม่มี cascade delete
+  // ให้อัตโนมัติตอนลบ document แม่ — ถ้าลบแค่ users/{uid} เฉยๆ เอกสารย่อย
+  // ทั้งหมด (bills, electricity_logs, ...) จะค้างเป็นข้อมูลกำพร้าอยู่ใน
+  // Firestore ตลอดไป ไม่ตรงกับสิทธิ "ขอให้ลบข้อมูล" ตาม PDPA
+  Future<void> deleteAllUserData(String uid) async {
+    final userDoc = _db.collection('users').doc(uid);
+
+    const subcollections = [
+      'bills',
+      'fixed_costs',
+      'start_meter_history',
+      'appliances',
+      'electricity_logs',
+      'water_logs',
+    ];
+
+    for (final name in subcollections) {
+      await _deleteAllDocsInCollection(userDoc.collection(name));
+    }
+
+    await userDoc.delete();
+  }
+
+  // ลบเอกสารทั้งหมดใน collection เดียวเป็น batch — จำกัดสูงสุด 500 คำสั่ง
+  // ต่อ batch ตามข้อจำกัดของ Firestore WriteBatch จึงต้องแบ่งเป็นชุดๆ
+  // ถ้าเอกสารในนั้นมีเกิน 500 ชิ้น (ปกติของแอปนี้ไม่น่าถึง แต่กันไว้)
+  Future<void> _deleteAllDocsInCollection(
+      CollectionReference<Map<String, dynamic>> ref) async {
+    final snapshot = await ref.get();
+    if (snapshot.docs.isEmpty) return;
+
+    const batchSize = 500;
+    for (var i = 0; i < snapshot.docs.length; i += batchSize) {
+      final batch = _db.batch();
+      final chunk = snapshot.docs.skip(i).take(batchSize);
+      for (final doc in chunk) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
 }

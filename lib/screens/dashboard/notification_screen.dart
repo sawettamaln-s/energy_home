@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/notification_item_model.dart';
 import '../../services/notification_service.dart';
 import '../../utils/thai_date_utils.dart';
+import '../../widgets/confirm_dialog.dart';
 
 /// ===========================================================
 /// NotificationScreen
@@ -55,25 +56,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _onClearAll() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('ลบแจ้งเตือนทั้งหมด?'),
-        content:
-            const Text('เมื่อลบแล้ว คุณจะไม่สามารถย้อนดูประวัติเดิมได้นะคะ'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('ลบทั้งหมด', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+    final confirm = await showConfirmDialog(
+      context,
+      title: 'ลบแจ้งเตือนทั้งหมด?',
+      content: 'เมื่อลบแล้ว คุณจะไม่สามารถย้อนดูประวัติเดิมได้นะคะ',
+      confirmLabel: 'ลบทั้งหมด',
     );
-    if (confirm == true) {
+    if (confirm) {
       await NotificationService.instance.clearHistory();
       await _load();
     }

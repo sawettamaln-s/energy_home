@@ -16,6 +16,7 @@ import '../../utils/calculator.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/info_dialog.dart';
 import '../auth/auth_gate.dart';
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -157,6 +158,123 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ==================== ลบบัญชี + ข้อมูลทั้งหมด (PDPA) ====================
+  // ลำดับขั้นตอนตั้งใจเรียงแบบนี้:
+  // 1) ยืนยันครั้งแรก อธิบายผลที่จะเกิดขึ้นให้ชัดว่าลบอะไรบ้าง กู้คืนไม่ได้
+  // 2) ขอรหัสผ่าน reauthenticate — Firebase บังคับ requires-recent-login
+  //    สำหรับ operation อ่อนไหวแบบลบบัญชีอยู่แล้ว ถ้า session login ค้างไว้
+  //    นานจะโดน FirebaseAuthException 'requires-recent-login' ทันทีถ้าข้าม
+  //    ขั้นตอนนี้ไป
+  // 3) ลบข้อมูลใน Firestore ก่อน แล้วค่อยลบบัญชี Auth เป็นลำดับสุดท้าย
+  //    (ถ้าลบบัญชี Auth ก่อนแล้วลบ Firestore ไม่สำเร็จ จะไม่มีทาง sign-in
+  //    กลับมาลบข้อมูลที่เหลือได้อีก เพราะบัญชีหายไปแล้ว กลายเป็นข้อมูล
+  //    กำพร้าค้างอยู่ถาวร)
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'ลบบัญชีและข้อมูลทั้งหมด?',
+      content: 'การลบบัญชีจะลบข้อมูลทั้งหมดถาวร ได้แก่ ประวัติมิเตอร์ไฟ/น้ำ, '
+          'บิลย้อนหลังทั้งหมด, เครื่องใช้ไฟฟ้าที่บันทึกไว้, ค่าใช้จ่ายคงที่ '
+          'รายเดือน และการตั้งค่าบัญชีทั้งหมด — กู้คืนไม่ได้ไม่ว่ากรณีใดค่ะ',
+      confirmLabel: 'ลบถาวร',
+    );
+    if (!confirmed) return;
+    if (!mounted) return;
+
+    final password = await _askPasswordForDeletion();
+    if (password == null || password.isEmpty) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser!;
+      final cred = EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(cred);
+
+      await _firestoreService.deleteAllUserData(user.uid);
+      await user.delete();
+
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+        (route) => false,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      String message = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้งค่ะ';
+      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        message = 'รหัสผ่านไม่ถูกต้องค่ะ';
+      } else if (e.code == 'too-many-requests') {
+        message = 'ลองผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่ค่ะ';
+      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ลบบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ')),
+      );
+    }
+  }
+
+  // ขอรหัสผ่านก่อนลบบัญชี — คืนค่า null ถ้ากดยกเลิก
+  Future<String?> _askPasswordForDeletion() {
+    final ctrl = TextEditingController();
+    bool obscure = true;
+    return showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('ยืนยันตัวตนก่อนลบบัญชี',
+              style: TextStyle(fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'กรอกรหัสผ่านของบัญชีนี้อีกครั้งเพื่อยืนยันว่าเป็นคุณเอง',
+                style: TextStyle(fontSize: 13.5, height: 1.5),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                obscureText: obscure,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'รหัสผ่าน',
+                  border:
+                      OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                        obscure ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () =>
+                        setDialogState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ยกเลิก'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, ctrl.text),
+              child: const Text('ยืนยัน', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -227,6 +345,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 24),
+
+                  // โซนอันตราย — ลบบัญชี+ข้อมูลทั้งหมดถาวร (PDPA: สิทธิ
+                  // ขอให้ลบข้อมูลส่วนบุคคล) แยกเป็นการ์ดขอบแดงต่างหาก
+                  // ไม่ปนกับหมวดอื่น กันกดโดนโดยไม่ตั้งใจ
+                  _buildSectionHeader('โซนอันตราย',
+                      icon: Icons.warning_amber_rounded, color: Colors.red),
+                  _buildDangerZoneCard(),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -555,6 +681,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // โซนอันตราย: ลบบัญชี + ข้อมูลทั้งหมดถาวร
+  // ทำเป็นการ์ดขอบแดงแยกจาก _buildDataCard ตั้งใจ — ไม่ให้ปุ่มทำลายล้าง
+  // แบบนี้ไปปนกับ tile ธรรมดาที่กดแล้วแค่เปิดดูข้อมูล ลดโอกาสกดพลาด
+  Widget _buildDangerZoneCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _buildSettingsTile(
+        icon: Icons.delete_forever_rounded,
+        title: 'ลบบัญชีและข้อมูลทั้งหมด',
+        subtitle: 'ลบถาวร กู้คืนไม่ได้ • ตามสิทธิ PDPA',
+        color: Colors.red,
+        onTap: () => _confirmDeleteAccount(),
+      ),
+    );
+  }
+
   Widget _buildInfoRow(
     IconData icon,
     String label,
@@ -685,31 +839,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // มีคำอธิบายประกอบ (เช่น Fixed Cost ในอนาคต) เลยแยกเป็นฟังก์ชันกลางไว้
   // -------------------------------------------------------------------
   void _showInfoPopup(String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.info_outline, color: const Color(0xFF2E7D32), size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(title, style: const TextStyle(fontSize: 16)),
-            ),
-          ],
-        ),
-        content: Text(
-          message,
-          style: const TextStyle(fontSize: 13.5, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('เข้าใจแล้วค่ะ'),
-          ),
-        ],
-      ),
-    );
+    showInfoDialog(context, title: title, message: message);
   }
 
   // ช่องวันที่หนึ่งช่องในปฏิทินเลือกวันตัดรอบบิล (ไม่มีเดือน มีแค่เลข 1-31
@@ -1126,76 +1256,58 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   // (ต่างจากหน้าบันทึกมิเตอร์ปกติที่ระบบลบให้อัตโนมัติ) เพราะบิลย้อนหลัง
   // แต่ละเดือนไม่ได้ต่อเนื่องกันเสมอไป จึงให้กรอกยอดหน่วยที่ใช้ตรงๆ จากบิล
   void _showUsageInfoPopup(String utilityLabel, String unitLabel) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text('กรอก "$utilityLabel" ตรงไหนของบิล?',
-                  style: const TextStyle(fontSize: 16)),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    showInfoDialog(
+      context,
+      title: 'กรอก "$utilityLabel" ตรงไหนของบิล?',
+      contentBuilder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'เปิดบิลเดือนที่จะบันทึกย้อนหลัง แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
+            'หรือ "$unitLabel" ตรงๆ เอาตัวเลขนั้นมากรอกในช่องนี้ได้เลยค่ะ',
+            style: const TextStyle(fontSize: 13.5, height: 1.6),
+          ),
+          if (utilityLabel == 'หน่วยไฟที่ใช้') ...[
+            const SizedBox(height: 10),
             Text(
-              'เปิดบิลเดือนที่จะบันทึกย้อนหลัง แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
-              'หรือ "$unitLabel" ตรงๆ เอาตัวเลขนั้นมากรอกในช่องนี้ได้เลยค่ะ',
-              style: const TextStyle(fontSize: 13.5, height: 1.6),
-            ),
-            if (utilityLabel == 'หน่วยไฟที่ใช้') ...[
-              const SizedBox(height: 10),
-              Text(
-                'ถ้ามิเตอร์ของคุณเป็น TOU: ในบิลจริงจะแยกโชว์ On-Peak กับ '
-                'Off-Peak คนละบรรทัด ให้เอาทั้งสองยอดมาบวกกันแล้วกรอกเป็น '
-                'ยอดเดียวในช่องนี้ค่ะ (ช่องนี้ไม่ได้แยก Peak/Off-Peak '
-                'เพราะค่าไฟกรอกตรงจากยอดบิลจริงอยู่แล้ว ไม่ได้เอาไปคำนวณ'
-                'สูตรราคาต่อหน่วยซ้ำอีกที ตัวเลขหน่วยใช้แค่เก็บไว้ดู'
-                'แนวโน้มการใช้ไฟในหน้าวิเคราะห์เท่านั้นค่ะ)',
-                style: TextStyle(fontSize: 12.5, height: 1.6, color: Colors.grey.shade700),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      size: 16, color: Colors.orange.shade800),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'ไม่ต้องเอา "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มากรอกนะคะ '
-                      'เพราะฟอร์มนี้ไม่ได้เอาเลขมิเตอร์ของแต่ละเดือนมาลบกันให้เหมือนหน้า'
-                      'บันทึกมิเตอร์ปกติ — ระบบจะเก็บแค่ยอดหน่วยที่ใช้จริงของเดือนนั้น'
-                      'ไปวิเคราะห์ตรงๆ ถ้ากรอกเลขมิเตอร์สะสมมาแทน ตัวเลขในหน้าวิเคราะห์'
-                      'จะเพี้ยนไปเยอะเลยค่ะ',
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.5,
-                          color: Colors.orange.shade900),
-                    ),
-                  ),
-                ],
-              ),
+              'ถ้ามิเตอร์ของคุณเป็น TOU: ในบิลจริงจะแยกโชว์ On-Peak กับ '
+              'Off-Peak คนละบรรทัด ให้เอาทั้งสองยอดมาบวกกันแล้วกรอกเป็น '
+              'ยอดเดียวในช่องนี้ค่ะ (ช่องนี้ไม่ได้แยก Peak/Off-Peak '
+              'เพราะค่าไฟกรอกตรงจากยอดบิลจริงอยู่แล้ว ไม่ได้เอาไปคำนวณ'
+              'สูตรราคาต่อหน่วยซ้ำอีกที ตัวเลขหน่วยใช้แค่เก็บไว้ดู'
+              'แนวโน้มการใช้ไฟในหน้าวิเคราะห์เท่านั้นค่ะ)',
+              style: TextStyle(fontSize: 12.5, height: 1.6, color: Colors.grey.shade700),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('เข้าใจแล้วค่ะ'),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    size: 16, color: Colors.orange.shade800),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'ไม่ต้องเอา "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มากรอกนะคะ '
+                    'เพราะฟอร์มนี้ไม่ได้เอาเลขมิเตอร์ของแต่ละเดือนมาลบกันให้เหมือนหน้า'
+                    'บันทึกมิเตอร์ปกติ — ระบบจะเก็บแค่ยอดหน่วยที่ใช้จริงของเดือนนั้น'
+                    'ไปวิเคราะห์ตรงๆ ถ้ากรอกเลขมิเตอร์สะสมมาแทน ตัวเลขในหน้าวิเคราะห์'
+                    'จะเพี้ยนไปเยอะเลยค่ะ',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.5,
+                        color: Colors.orange.shade900),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1471,49 +1583,30 @@ Widget _infoWarningBox(String text) {
 // (ไม่ใช่แค่ในฟอร์มเพิ่ม/แก้ไข) เพราะเดิมผู้ใช้ต้องกดปุ่ม + ก่อนถึงจะเห็น
 // คำอธิบาย ถ้ายังไม่เคยกรอกมาก่อนจะไม่รู้เลยว่าต้องกรอกอะไร
 void _showHistoricalBillInfoPopup(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Row(
-        children: [
-          Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text('หน้านี้ใช้ทำอะไร?', style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'สำหรับเพิ่มบิลของเดือนก่อนๆ ที่ไม่ได้บันทึกผ่านแอปตั้งแต่แรก '
-              'เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไปเปรียบเทียบได้ (สูงสุด 6 เดือน)',
-              style: TextStyle(fontSize: 13.5, height: 1.6),
-            ),
-            const SizedBox(height: 14),
-            _infoSectionHeader('กรอกยังไง'),
-            const SizedBox(height: 4),
-            const Text(
-              'เปิดบิลค่าไฟ/ค่าน้ำเดือนนั้น แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
-              '(kWh หรือ ลบ.ม.) กับ "ยอดเงิน" เอาตัวเลขทั้งสองมากรอกตรงๆ ได้เลยค่ะ',
-              style: TextStyle(fontSize: 13.5, height: 1.6),
-            ),
-            const SizedBox(height: 12),
-            _infoWarningBox(
-              'กรอกยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียว ไม่ใช่เลขสะสม'
-              'บนมิเตอร์ (ดูวิธีกรอกละเอียดได้จากไอคอน "!" ข้างช่องกรอกค่ะ)',
-            ),
-          ],
+  showInfoDialog(
+    context,
+    title: 'หน้านี้ใช้ทำอะไร?',
+    contentBuilder: (context) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'สำหรับเพิ่มบิลของเดือนก่อนๆ ที่ไม่ได้บันทึกผ่านแอปตั้งแต่แรก '
+          'เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไปเปรียบเทียบได้ (สูงสุด 6 เดือน)',
+          style: TextStyle(fontSize: 13.5, height: 1.6),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('เข้าใจแล้วค่ะ'),
+        const SizedBox(height: 14),
+        _infoSectionHeader('กรอกยังไง'),
+        const SizedBox(height: 4),
+        const Text(
+          'เปิดบิลค่าไฟ/ค่าน้ำเดือนนั้น แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
+          '(kWh หรือ ลบ.ม.) กับ "ยอดเงิน" เอาตัวเลขทั้งสองมากรอกตรงๆ ได้เลยค่ะ',
+          style: TextStyle(fontSize: 13.5, height: 1.6),
+        ),
+        const SizedBox(height: 12),
+        _infoWarningBox(
+          'กรอกยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียว ไม่ใช่เลขสะสม'
+          'บนมิเตอร์ (ดูวิธีกรอกละเอียดได้จากไอคอน "!" ข้างช่องกรอกค่ะ)',
         ),
       ],
     ),
@@ -2631,13 +2724,10 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   }
 
   void _showInfoPopup() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('กรอกเลขจากบิลตรงไหน?', style: TextStyle(fontSize: 16)),
-        content: const Text(
-          'เปิดใบแจ้งหนี้ค่าไฟ/ค่าน้ำเดือนล่าสุดของคุณ แล้วมองหาช่อง'
+    showInfoDialog(
+      context,
+      title: 'กรอกเลขจากบิลตรงไหน?',
+      message: 'เปิดใบแจ้งหนี้ค่าไฟ/ค่าน้ำเดือนล่าสุดของคุณ แล้วมองหาช่อง'
           '"เลขอ่านครั้งหลัง" หรือภาษาอังกฤษว่า "Last Meter '
           'Reading" ค่ะ — คือเลขที่มิเตอร์อ่านได้ล่าสุดตอนที่'
           'เจ้าหน้าที่มาจดในรอบบิลนั้น เอาตัวเลขนี้มากรอกตรงนี้'
@@ -2646,15 +2736,6 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
           'ระบบจะใช้เลขนี้เป็นจุดเริ่มต้นของรอบบิลถัดไป '
           'เพื่อคำนวณว่าคุณใช้ไปกี่หน่วยเมื่อเทียบกับเลขที่คุณ'
           'บันทึกในแอปครั้งถัดไปค่ะ',
-          style: TextStyle(fontSize: 13.5, height: 1.6),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('เข้าใจแล้วค่ะ'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -2965,35 +3046,15 @@ Future<void> openStartMeterSetup(
 }
 
 void _showStartMeterInfoPopup(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Row(
-        children: [
-          Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text('หน้านี้ใช้ทำอะไร?', style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
-      content: const Text(
-        'ค่ามิเตอร์ต้นรอบคือเลขที่มิเตอร์อ่านได้ตอนเริ่มรอบบิลใหม่ '
+  showInfoDialog(
+    context,
+    title: 'หน้านี้ใช้ทำอะไร?',
+    message: 'ค่ามิเตอร์ต้นรอบคือเลขที่มิเตอร์อ่านได้ตอนเริ่มรอบบิลใหม่ '
         'ระบบใช้เลขนี้เป็นจุดตั้งต้นเพื่อคำนวณว่าคุณใช้ไฟ/น้ำไปกี่หน่วย '
         'เมื่อเทียบกับเลขที่บันทึกในแอปครั้งถัดไป\n\n'
         'กดปุ่ม + เพื่อบันทึกค่าของรอบบิลใหม่ทุกครั้งที่ใบแจ้งหนี้มาถึง '
         'ส่วนรายการในหน้านี้คือประวัติค่าที่เคยตั้งไว้ในแต่ละรอบ '
         'ไว้ย้อนดูทีหลังได้ว่าเดือนไหนตั้งค่าไว้เท่าไหร่',
-        style: TextStyle(fontSize: 13.5, height: 1.6),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('เข้าใจแล้วค่ะ'),
-        ),
-      ],
-    ),
   );
 }
 
@@ -3409,21 +3470,10 @@ String _labelForFixedCostCategory(String key) {
 
 // อธิบายว่า Fixed Cost คืออะไร ทำไมต้องแยกเป็นรายการย่อยแทนยอดเดียว
 void _showFixedCostInfoPopup(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Row(
-        children: [
-          Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text('Fixed Cost คืออะไร?', style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
-      content: const Text(
-        'Fixed Cost คือค่าใช้จ่ายประจำที่ไม่ใช่ค่าไฟหรือค่าน้ำ แต่จ่ายทุกเดือน '
+  showInfoDialog(
+    context,
+    title: 'Fixed Cost คืออะไร?',
+    message: 'Fixed Cost คือค่าใช้จ่ายประจำที่ไม่ใช่ค่าไฟหรือค่าน้ำ แต่จ่ายทุกเดือน '
         'ในจำนวนที่ค่อนข้างคงที่ เช่น ค่าแก๊สหุงต้ม ค่าอินเทอร์เน็ต '
         'ค่าส่วนกลางหมู่บ้าน/คอนโด เพื่อให้เห็น "ยอดค่าใช้จ่ายเดือนนี้" '
         'ที่ตรงกับความเป็นจริงมากขึ้น ไม่ใช่แค่ค่าไฟ-น้ำอย่างเดียว\n\n'
@@ -3431,15 +3481,6 @@ void _showFixedCostInfoPopup(BuildContext context) {
         '(เช่น เดือนนี้ค่าแก๊สขึ้น แต่ค่าอินเทอร์เน็ตเท่าเดิม) การแยกรายการ '
         'ทำให้แก้ไขหรือลบทีละรายการได้ง่าย โดยระบบจะรวมยอดทั้งหมดให้อัตโนมัติ '
         'แล้วนำไปบวกกับค่าไฟ-น้ำในหน้าหลักและหน้าวิเคราะห์ค่ะ',
-        style: TextStyle(fontSize: 13.5, height: 1.6),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('เข้าใจแล้วค่ะ'),
-        ),
-      ],
-    ),
   );
 }
 
@@ -3952,27 +3993,7 @@ class _RateExplanationScreenState extends State<_RateExplanationScreen>
 // _SettingsScreenState แต่ทำเป็นฟังก์ชันแยกเพราะหน้านี้อยู่คนละ State class
 void _showRateInfoDialog(
     BuildContext context, String title, String message) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(
-        children: [
-          const Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
-          const SizedBox(width: 8),
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 16))),
-        ],
-      ),
-      content:
-          Text(message, style: const TextStyle(fontSize: 13.5, height: 1.5)),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('เข้าใจแล้วค่ะ'),
-        ),
-      ],
-    ),
-  );
+  showInfoDialog(context, title: title, message: message);
 }
 
 // การ์ดสีขาวมาตรฐาน — โทนเดียวกับการ์ดอื่นๆ ในหน้าตั้งค่าทั้งแอป
