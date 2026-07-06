@@ -1504,10 +1504,8 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
             ),
             const SizedBox(height: 12),
             _infoWarningBox(
-              'อย่ากรอก "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มาแทนนะคะ '
-              'เพราะแต่ละเดือนที่กรอกในหน้านี้ไม่ได้ต่อเนื่องกัน ระบบจึงไม่เอาเลข'
-              'มิเตอร์ของ 2 เดือนมาลบกันให้เหมือนหน้าบันทึกมิเตอร์ปกติ '
-              'ต้องเป็นยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียวเท่านั้นค่ะ',
+              'กรอกยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียว ไม่ใช่เลขสะสม'
+              'บนมิเตอร์ (ดูวิธีกรอกละเอียดได้จากไอคอน "!" ข้างช่องกรอกค่ะ)',
             ),
           ],
         ),
@@ -1813,26 +1811,33 @@ final confirmed = await showConfirmDialog(
                                                       ),
                                                     ),
                                                   ),
-                                                IconButton(
-                                                  visualDensity:
-                                                      VisualDensity.compact,
-                                                  icon: const Icon(
-                                                      Icons.edit_outlined,
-                                                      size: 19,
-                                                      color: Colors.grey),
-                                                  onPressed: () => _openSheet(
-                                                      existingBill: bill),
-                                                ),
-                                                IconButton(
-                                                  visualDensity:
-                                                      VisualDensity.compact,
-                                                  icon: Icon(
-                                                      Icons.delete_outline,
-                                                      size: 19,
+                                                PopupMenuButton<String>(
+                                                  icon: Icon(Icons.more_vert,
+                                                      size: 18,
                                                       color: Colors
-                                                          .red.shade300),
-                                                  onPressed: () =>
-                                                      _confirmDelete(bill),
+                                                          .grey.shade500),
+                                                  onSelected: (value) {
+                                                    if (value == 'edit') {
+                                                      _openSheet(
+                                                          existingBill: bill);
+                                                    } else if (value ==
+                                                        'delete') {
+                                                      _confirmDelete(bill);
+                                                    }
+                                                  },
+                                                  itemBuilder: (context) => [
+                                                    const PopupMenuItem(
+                                                      value: 'edit',
+                                                      child: Text('แก้ไข'),
+                                                    ),
+                                                    const PopupMenuItem(
+                                                      value: 'delete',
+                                                      child: Text('ลบ',
+                                                          style: TextStyle(
+                                                              color: Colors
+                                                                  .red)),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
@@ -2682,6 +2687,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         'startWaterValue': wVal,
         'startBillingMonth': _selectedMonth,
         'startBillingYear': _selectedYear,
+        // เคยข้ามมาก่อนหรือไม่ก็ตาม กรอกค่าจริงสำเร็จแล้ว = configured แล้ว
+        'startMeterConfigured': true,
       });
       // เก็บ snapshot ไว้ในประวัติ เผื่อย้อนดูทีหลังว่าเคยตั้งค่าอะไรไว้
       await widget.firestoreService.saveStartMeterRecord(
@@ -2936,6 +2943,27 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
 // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
 // อธิบายภาพรวมของหน้า "ค่ามิเตอร์ต้นรอบ" ไว้ที่ AppBar ของหน้านี้เลย —
 // ตามแพทเทิร์นเดียวกับ _showFixedCostInfoPopup / _showHistoricalBillInfoPopup
+// เปิดหน้าตั้งค่ามิเตอร์ต้นรอบจากไฟล์อื่นได้ (เช่น Dashboard ตอนเจอบัญชีที่
+// ข้ามขั้นตอนนี้มาจาก setup) — เพราะ _StartMeterHistoryScreen ด้านล่างเป็น
+// private ในไฟล์นี้ เข้าถึงจากนอกไฟล์ไม่ได้โดยตรง
+Future<void> openStartMeterSetup(
+  BuildContext context,
+  String uid,
+  FirestoreService firestoreService,
+  bool isTou,
+) async {
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => _StartMeterHistoryScreen(
+        uid: uid,
+        firestoreService: firestoreService,
+        isTou: isTou,
+      ),
+    ),
+  );
+}
+
 void _showStartMeterInfoPopup(BuildContext context) {
   showDialog(
     context: context,
@@ -3774,56 +3802,15 @@ final confirmed = await showConfirmDialog(
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          item.name,
-                                                          style: const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w600,
-                                                            fontSize: 14,
-                                                          ),
-                                                          overflow:
-                                                              TextOverflow
-                                                                  .ellipsis,
-                                                        ),
-                                                      ),
-                                                      if (isLatest)
-                                                        Container(
-                                                          margin:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  left: 6),
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
-                                                                  horizontal:
-                                                                      8,
-                                                                  vertical: 3),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            color: accent
-                                                                .withOpacity(
-                                                                    0.1),
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        20),
-                                                          ),
-                                                          child: const Text(
-                                                            'ล่าสุด',
-                                                            style: TextStyle(
-                                                              fontSize: 10.5,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              color: accent,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                    ],
+                                                  Text(
+                                                    item.name,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 14,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                   const SizedBox(height: 2),
                                                   Text(

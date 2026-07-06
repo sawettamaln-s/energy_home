@@ -599,7 +599,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // ไฟฟ้า (TOU การ์ดพิเศษ 2 ช่อง vs การ์ดปกติ 1 ช่อง)
                       // การ์ด TOU จะสูงกว่าเพราะมี 2 ฟิลด์ แต่ก็แค่สูงกว่า
                       // ในคอลัมน์ตัวเอง ไม่ดันน้ำตกลงไปด้านล่างอีกต่อไป
-                      IntrinsicHeight(
+                      _user?.startMeterConfigured == false
+                          ? _buildStartMeterRequiredCard()
+                          : IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -992,6 +994,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: accent, width: 1.6),
+      ),
+    );
+  }
+
+  // =====================================================================
+  // การ์ดเตือนให้ตั้งค่ามิเตอร์ต้นรอบก่อน — แสดงแทนช่องกรอกมิเตอร์ปกติ
+  // เฉพาะบัญชีที่กด "ข้ามไปก่อน" ตอน setup (startMeterConfigured == false)
+  // เพราะถ้าปล่อยให้กรอกเลย ระบบจะเอาเลขมิเตอร์สะสมจริงทั้งก้อน (เช่น
+  // 15,234 หน่วย) ไปคำนวณเป็น "หน่วยที่ใช้เดือนนี้" ทันที ทำให้ค่าไฟ/น้ำ
+  // รอบแรกเพี้ยนมหาศาล และไปกระทบข้อมูลพยากรณ์ในหน้าวิเคราะห์ด้วย
+  // =====================================================================
+  Widget _buildStartMeterRequiredCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.speed_outlined,
+                    color: Colors.orange.shade800, size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'ยังไม่ได้ตั้งค่ามิเตอร์ต้นรอบ',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'ตอนสมัครคุณข้ามขั้นตอนนี้ไว้ ต้องตั้งค่ามิเตอร์ต้นรอบก่อน '
+            'ระบบถึงจะคำนวณหน่วยที่ใช้และค่าไฟ/ค่าน้ำได้ถูกต้องค่ะ',
+            style: TextStyle(fontSize: 12.5, color: Colors.grey, height: 1.5),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                await openStartMeterSetup(
+                  context,
+                  _user!.uid,
+                  _firestoreService,
+                  _user?.meterType == 'tou',
+                );
+                await _loadData();
+              },
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              label: const Text('ตั้งค่ามิเตอร์ต้นรอบ'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DashboardStyles.primaryGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
