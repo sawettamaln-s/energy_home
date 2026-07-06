@@ -13,7 +13,10 @@ import '../../widgets/app_bottom_nav_bar.dart';
 import '../dashboard/dashboard_styles.dart';
 
 class AnalysisScreen extends StatefulWidget {
-  const AnalysisScreen({super.key});
+  // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
+  final ValueChanged<int>? onNavTap;
+
+  const AnalysisScreen({super.key, this.onNavTap});
 
   @override
   State<AnalysisScreen> createState() => _AnalysisScreenState();
@@ -112,7 +115,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: _green))
-          : TabBarView(
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              color: _green,
+              child: TabBarView(
               controller: _tabController,
               children: [
                 _UtilityTab(
@@ -138,8 +144,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   analysisService: _analysisService,
                 ),
               ],
+              ),
             ),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 1),
+      bottomNavigationBar:
+          AppBottomNavBar(currentIndex: 1, onTap: widget.onNavTap),
     );
   }
 
@@ -188,6 +196,7 @@ class _UtilityTab extends StatelessWidget {
     );
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         if (currentCycle != null && currentCycle!.hasData) ...[
@@ -743,52 +752,63 @@ class _ApplianceTab extends StatelessWidget {
     final breakdown = analysisService.applianceBreakdown(appliances);
 
     if (breakdown.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              height: 160,
-              width: 160,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // โดนัทจำลองจางๆ ให้เห็นรูปทรงว่าพอมีข้อมูลแล้วจะเป็นแบบนี้
-                  PieChart(
-                    PieChartData(
-                      sectionsSpace: 3,
-                      centerSpaceRadius: 46,
-                      sections: [
-                        PieChartSectionData(
-                          value: 40,
-                          color: Colors.grey.shade200,
-                          showTitle: false,
-                          radius: 34,
-                        ),
-                        PieChartSectionData(
-                          value: 25,
-                          color: Colors.grey.shade100,
-                          showTitle: false,
-                          radius: 34,
-                        ),
-                        PieChartSectionData(
-                          value: 35,
-                          color: Colors.grey.shade200,
-                          showTitle: false,
-                          radius: 34,
-                        ),
-                      ],
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      height: 160,
+                      width: 160,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // โดนัทจำลองจางๆ ให้เห็นรูปทรงว่าพอมีข้อมูลแล้วจะเป็นแบบนี้
+                          PieChart(
+                            PieChartData(
+                              sectionsSpace: 3,
+                              centerSpaceRadius: 46,
+                              sections: [
+                                PieChartSectionData(
+                                  value: 40,
+                                  color: Colors.grey.shade200,
+                                  showTitle: false,
+                                  radius: 34,
+                                ),
+                                PieChartSectionData(
+                                  value: 25,
+                                  color: Colors.grey.shade100,
+                                  showTitle: false,
+                                  radius: 34,
+                                ),
+                                PieChartSectionData(
+                                  value: 35,
+                                  color: Colors.grey.shade200,
+                                  showTitle: false,
+                                  radius: 34,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.devices_other,
+                              size: 36, color: Colors.grey.shade300),
+                        ],
+                      ),
                     ),
-                  ),
-                  Icon(Icons.devices_other, size: 36, color: Colors.grey.shade300),
-                ],
+                    const SizedBox(height: 16),
+                    const Text('ยังไม่มีอุปกรณ์ที่ตั้งตารางการใช้งาน',
+                        style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 16),
-            const Text('ยังไม่มีอุปกรณ์ที่ตั้งตารางการใช้งาน',
-                style: TextStyle(color: Colors.grey)),
-          ],
-        ),
+          );
+        },
       );
     }
 
@@ -805,6 +825,7 @@ class _ApplianceTab extends StatelessWidget {
     ];
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         Container(

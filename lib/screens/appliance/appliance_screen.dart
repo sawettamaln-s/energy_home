@@ -13,7 +13,10 @@ import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/confirm_dialog.dart';
 
 class ApplianceScreen extends StatefulWidget {
-  const ApplianceScreen({super.key});
+  // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
+  final ValueChanged<int>? onNavTap;
+
+  const ApplianceScreen({super.key, this.onNavTap});
 
   @override
   State<ApplianceScreen> createState() => _ApplianceScreenState();
@@ -166,7 +169,10 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
-          : Column(
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              color: const Color(0xFF2E7D32),
+              child: Column(
               children: [
                 // ---- สรุปยอด 3 ช่อง ----
                 Padding(
@@ -201,23 +207,39 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                 // ---- รายการอุปกรณ์ ----
                 Expanded(
                   child: _appliances.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.devices_other,
-                                  size: 64, color: Colors.grey.shade300),
-                              const SizedBox(height: 12),
-                              const Text('ยังไม่มีเครื่องใช้ไฟฟ้า',
-                                  style: TextStyle(color: Colors.grey)),
-                              const SizedBox(height: 4),
-                              const Text('กดปุ่ม + เพื่อเพิ่มรายการ',
-                                  style: TextStyle(
-                                      color: Colors.grey, fontSize: 12)),
-                            ],
-                          ),
+                      ? LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                    minHeight: constraints.maxHeight),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.devices_other,
+                                          size: 64,
+                                          color: Colors.grey.shade300),
+                                      const SizedBox(height: 12),
+                                      const Text('ยังไม่มีเครื่องใช้ไฟฟ้า',
+                                          style:
+                                              TextStyle(color: Colors.grey)),
+                                      const SizedBox(height: 4),
+                                      const Text('กดปุ่ม + เพื่อเพิ่มรายการ',
+                                          style: TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 12)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         )
                       : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                           itemCount: _appliances.length,
                           itemBuilder: (context, index) {
@@ -388,7 +410,9 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                 ),
               ],
             ),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 2),
+            ),
+      bottomNavigationBar:
+          AppBottomNavBar(currentIndex: 2, onTap: widget.onNavTap),
     );
   }
 

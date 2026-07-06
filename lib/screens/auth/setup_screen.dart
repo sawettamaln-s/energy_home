@@ -5,7 +5,7 @@ import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/thai_date_utils.dart';
-import '../dashboard/dashboard_screen.dart';
+import '../main_shell.dart';
 import 'setup_complete_screen.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -152,7 +152,7 @@ class _SetupScreenState extends State<SetupScreen> {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
               builder: (context) =>
-                  const DashboardScreen(justCompletedSetup: true)),
+                  const MainShell(justCompletedSetup: true)),
           (route) => false,
         );
         return;

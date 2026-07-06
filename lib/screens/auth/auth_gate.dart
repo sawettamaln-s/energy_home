@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/firestore_service.dart';
-import '../dashboard/dashboard_screen.dart';
+import '../main_shell.dart';
 import 'login_screen.dart';
 import 'setup_screen.dart';
 
@@ -61,8 +61,8 @@ class AuthGate extends StatelessWidget {
               return const SetupScreen();
             }
 
-            // มีข้อมูลแล้ว → ไปหน้า Dashboard
-            return const DashboardScreen();
+            // มีข้อมูลแล้ว → เข้าแอปหลัก (MainShell คุมทั้ง 4 แท็บ)
+            return const MainShell();
           },
         );
       },

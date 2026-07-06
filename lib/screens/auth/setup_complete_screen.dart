@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../dashboard/dashboard_screen.dart';
-import '../settings/settings_screen.dart';
+import '../main_shell.dart';
 
 /// หน้าสรุปหลังทำ setup wizard เสร็จ — โชว์เฉพาะกรณีที่ผู้ใช้ข้ามบางขั้นตอน
 /// ไป (วันตัดรอบบิล หรือ บิลตั้งต้น) เพื่อเตือนว่ายังมีอะไรค้างอยู่บ้าง
@@ -158,18 +157,18 @@ class SetupCompleteScreen extends StatelessWidget {
   void _goToDashboard(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-          builder: (context) =>
-              const DashboardScreen(justCompletedSetup: true)),
+          builder: (context) => const MainShell(justCompletedSetup: true)),
       (route) => false,
     );
   }
 
-  // ไปหน้า Settings เพื่อแก้ทีละรายการเอง (วันตัดรอบบิล/บิลตั้งต้น) — ตัว
-  // Settings เองก็เข้าถึง Dashboard ได้ผ่าน bottom nav bar อยู่แล้ว ไม่ต้อง
-  // ทำทางกลับมาที่หน้านี้อีก
+  // ไปแท็บ Settings เพื่อแก้ทีละรายการเอง (วันตัดรอบบิล/บิลตั้งต้น) — เข้า
+  // ผ่าน MainShell ด้วย (initialIndex: 3) เพื่อให้สลับกลับไปแท็บอื่นได้แบบ
+  // IndexedStack ปกติ ไม่ใช่ SettingsScreen โดดๆ แบบเดิม
   void _goToSettings(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+      MaterialPageRoute(
+          builder: (context) => const MainShell(initialIndex: 3)),
       (route) => false,
     );
   }

@@ -9,13 +9,20 @@ import '../screens/settings/settings_screen.dart';
 ///
 /// เดิมโค้ดนี้ก๊อปวางซ้ำอยู่ 4 ไฟล์ (dashboard, analysis, appliance, settings
 /// ~280 บรรทัดรวมกัน) แยกออกมาเป็น widget กลางที่นี่ที่เดียว ทั้งหน้าตา UI
-/// และ logic การสลับแท็บ (Navigator.pushReplacement ไปหน้าที่เลือก)
-/// แต่ละหน้าแค่บอกว่าตัวเองอยู่ index ไหน (currentIndex) ก็พอ ไม่ต้องเขียน
-/// onTap เองอีกแล้ว
+/// และ logic การสลับแท็บ
+///
+/// [onTap] — ถ้ามีมาจาก MainShell (ทางเข้าปกติของแอปหลัง login) จะแค่
+/// setState สลับ index ใน IndexedStack ไม่มีการสร้างหน้าใหม่/โหลดข้อมูลซ้ำ
+/// เลย ตัดปัญหาเดิมที่ทุกครั้งที่สลับแท็บ หน้าปลายทางจะถูกสร้างใหม่ทั้งหมด
+/// ทำให้ initState ยิง fetch Firestore ซ้ำ + เห็น loading spinner วูบทุกครั้ง
+///
+/// ถ้าไม่มี [onTap] (เช่นหน้าที่ถูก push ตรงๆ แยกจาก MainShell) จะ fallback
+/// กลับไปใช้ pushReplacement แบบเดิม กันไม่ให้พังในเคสที่ยังไม่ได้ผ่าน shell
 class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
+  final ValueChanged<int>? onTap;
 
-  const AppBottomNavBar({super.key, required this.currentIndex});
+  const AppBottomNavBar({super.key, required this.currentIndex, this.onTap});
 
   static const _items = [
     (icon: Icons.dashboard_rounded, label: 'หน้าหลัก'),
@@ -35,8 +42,15 @@ class AppBottomNavBar extends StatelessWidget {
   void _onTap(BuildContext context, int index) {
     if (index == currentIndex) return; // อยู่หน้านี้อยู่แล้ว ไม่ต้องทำอะไร
 
-    // ใช้ pushReplacement เสมอ (ไม่ใช่ push) เพื่อไม่ให้ stack โตไม่จำกัด
-    // ตอนสลับแท็บไปเรื่อยๆ — สำคัญมาก ห้ามเปลี่ยนเป็น push เด็ดขาด
+    // ทางหลัก: มาจาก MainShell -> แค่สลับ index ใน IndexedStack ไม่มีการ
+    // สร้างหน้าใหม่/ยิง fetch ซ้ำ/เห็น loading กระพริบเหมือนเดิมอีกต่อไป
+    if (onTap != null) {
+      onTap!(index);
+      return;
+    }
+
+    // Fallback: เผื่อหน้าไหนถูก push ตรงๆ แยกออกมาจาก MainShell (ไม่มี
+    // onTap ส่งมาให้) ใช้ pushReplacement แบบเดิมกันไว้ไม่ให้พัง
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: _destinations[index]!),

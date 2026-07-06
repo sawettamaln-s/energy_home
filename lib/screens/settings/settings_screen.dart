@@ -19,7 +19,10 @@ import '../../widgets/confirm_dialog.dart';
 import '../../widgets/info_dialog.dart';
 import '../auth/auth_gate.dart';
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
+  final ValueChanged<int>? onNavTap;
+
+  const SettingsScreen({super.key, this.onNavTap});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -357,7 +360,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 3),
+      bottomNavigationBar:
+          AppBottomNavBar(currentIndex: 3, onTap: widget.onNavTap),
     );
   }
 

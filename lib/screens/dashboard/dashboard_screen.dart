@@ -23,7 +23,15 @@ class DashboardScreen extends StatefulWidget {
   // จะถูกบันทึกเงียบๆ ไว้ในหน้าแจ้งเตือนแทน ไปดูเองได้)
   final bool justCompletedSetup;
 
-  const DashboardScreen({super.key, this.justCompletedSetup = false});
+  // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
+  // เป็น null ได้ถ้าหน้านี้ถูก push ตรงๆ แยกจาก MainShell (เช่นดีบัก/เทส)
+  final ValueChanged<int>? onNavTap;
+
+  const DashboardScreen({
+    super.key,
+    this.justCompletedSetup = false,
+    this.onNavTap,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -665,7 +673,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
+      bottomNavigationBar:
+          AppBottomNavBar(currentIndex: 0, onTap: widget.onNavTap),
     );
   }
 
