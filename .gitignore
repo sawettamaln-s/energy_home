@@ -92,3 +92,6 @@ lib/firebase_options.dart
 GoogleService-Info.plist
 ios/GoogleService-Info.plist
 android/app/google-services.json
+
+hs_err_pid*.log
+replay_pid*.log
