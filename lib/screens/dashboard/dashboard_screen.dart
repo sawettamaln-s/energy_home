@@ -10,6 +10,7 @@ import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
+import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/onboarding_guide.dart';
 import '../settings/settings_screen.dart';
@@ -559,7 +560,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final remainingDays = EnergyForecaster.getRemainingDays(now, billingDay);
     final daysElapsed = EnergyForecaster.getDaysElapsed(now, billingDay);
     final formatter = NumberFormat('#,##0.00');
-    final unitFormatter = NumberFormat('#,##0.#');
     final buddhistYear = now.year + 543;
 
     return Scaffold(
@@ -591,7 +591,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // (3) การ์ดค่าใช้จ่ายเดือนนี้
                       // เพิ่ม: สัญลักษณ์พุ่งขึ้น + บรรทัดยอดคาดการณ์แยกไฟฟ้า/น้ำ
                       // -------------------------------------------------
-                      _buildCostSummaryCard(formatter, unitFormatter),
+                      _buildCostSummaryCard(formatter),
 
                       const SizedBox(height: 20),
 
@@ -851,8 +851,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildCostSummaryCard(
-      NumberFormat formatter, NumberFormat unitFormatter) {
+  Widget _buildCostSummaryCard(NumberFormat formatter) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -913,8 +912,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       '${_currentElectricityFromStart.toStringAsFixed(1)} หน่วย',
                   isUp: _currentElectricityCost > _lastMonthElectricityCost &&
                       _lastMonthElectricityCost > 0,
-                  forecastLine:
-                      '${unitFormatter.format(_forecastElectricityUnits)} หน่วย • ${formatter.format(_forecastElectricityCost)} บาท',
                 ),
               ),
               const SizedBox(width: 14),
@@ -926,34 +923,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   sub: '${_currentWaterFromStart.toStringAsFixed(1)} ลบ.ม.',
                   isUp: _currentWaterCost > _lastMonthWaterCost &&
                       _lastMonthWaterCost > 0,
-                  forecastLine:
-                      '${unitFormatter.format(_forecastWaterUnits)} ลบ.ม. • ${formatter.format(_forecastWaterCost)} บาท',
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.trending_up, color: Colors.white, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'ยอดคาดการณ์สิ้นเดือน: ${formatter.format(_forecastTotal)} บาท',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600),
+          const SizedBox(height: 14),
+          // ยอดคาดการณ์สิ้นเดือนแบบละเอียด (แยกไฟฟ้า/น้ำ, พยากรณ์รอบปัจจุบัน ฯลฯ)
+          // ย้ายไปโชว์เต็มๆ ที่หน้าวิเคราะห์แทน การ์ดนี้เก็บไว้แค่ปุ่มลิงก์สั้นๆ
+          // ไม่ให้กล่องนี้แน่นเกินไป
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => widget.onNavTap?.call(1),
+            child: Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.trending_up, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'ดูยอดคาดการณ์สิ้นเดือนแบบละเอียดที่หน้าวิเคราะห์',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600),
+                    ),
                   ),
-                ),
-              ],
+                  const Icon(Icons.chevron_right,
+                      color: Colors.white70, size: 18),
+                ],
+              ),
             ),
           ),
         ],
@@ -1191,18 +1196,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   // (4) แถว Fixed Cost
   // พาร์ทนี้ทำหน้าที่: โชว์ยอด fixed cost ประจำเดือน และเมื่อกดจะพาไปหน้า
-  // Settings เพื่อดู/แก้รายการ fixed cost ทั้งหมด (ลิงก์ไปหน้าตั้งค่า)
+  // Fixed Cost โดยตรง (ไม่ต้องผ่านหน้าตั้งค่าก่อน)
   // =====================================================================
   Widget _buildFixedCostRow(NumberFormat formatter) {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        // พาไปหน้า Fixed Cost โดยตรง (ไม่ต้องผ่านหน้าตั้งค่าก่อน) แล้วโหลด
+        // ข้อมูล user ใหม่ตอนกลับมา เผื่อยอดรวม fixed cost เปลี่ยน
+        await Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const SettingsScreen()),
-          // หมายเหตุ: ถ้า SettingsScreen รองรับ initialSection/scroll-to-anchor
-          // ค่อยเพิ่ม parameter ตรงนี้เพื่อเลื่อนไปส่วน Fixed Cost โดยตรง
+          MaterialPageRoute(
+            builder: (context) => FixedCostScreen(
+              uid: _user!.uid,
+              firestoreService: _firestoreService,
+            ),
+          ),
         );
+        if (mounted) _loadData();
       },
       child: Container(
         width: double.infinity,
@@ -1281,7 +1292,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'ยอดรวมค่าใช้จ่ายทั้งหมด พ.ศ. $buddhistYear',
+                  'ยอดรวมค่าใช้จ่ายเดือน${thaiMonths[DateTime.now().month - 1]} $buddhistYear',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14.5,
@@ -1350,7 +1361,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String amount,
     required String sub,
     required bool isUp,
-    required String forecastLine,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1397,16 +1407,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         Text(sub, style: const TextStyle(color: Colors.white60, fontSize: 11)),
-        const SizedBox(height: 6),
-        // บรรทัดยอดคาดการณ์ของรายการนี้ (เพิ่มตามที่ขอ)
-        Text(
-          'คาดการณ์: $forecastLine',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
       ],
     );
   }

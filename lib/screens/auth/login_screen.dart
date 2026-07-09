@@ -182,171 +182,195 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 60),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: ConstrainedBox(
+                // บังคับความสูงขั้นต่ำเท่าพื้นที่จอที่เหลือ เพื่อให้เนื้อหา
+                // "จัดกึ่งกลางแนวตั้ง" พอดีจอตอนไม่มีคีย์บอร์ด แต่ยัง scroll ได้
+                // ปกติตอนคีย์บอร์ดเปิด (กันเนื้อหาล้นจอในมือถือจอเล็ก)
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Spacer(flex: 2),
 
-              // โลโก้และชื่อแอป
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2E7D32),
-                        borderRadius: BorderRadius.circular(20),
+                      // โลโก้และชื่อแอป
+                      Column(
+                        children: [
+                          Container(
+                            width: 76,
+                            height: 76,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2E7D32),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              Icons.bolt,
+                              color: Colors.white,
+                              size: 44,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'EnergyHome',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2E7D32),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'ติดตามพลังงานในบ้านของคุณ',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
-                      child: const Icon(
-                        Icons.bolt,
-                        color: Colors.white,
-                        size: 48,
+
+                      const Spacer(flex: 2),
+
+                      // ฟอร์ม email/password — จัดเป็นบล็อกเดียว ไม่ยืดตาม Spacer
+                      // เพื่อไม่ให้ระยะห่างระหว่างช่องกรอกบิดเบี้ยวตามความสูงจอ
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ช่อง Email
+                          const Text('อีเมล',
+                              style: TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              hintText: 'example@email.com',
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // ช่อง Password
+                          const Text('รหัสผ่าน',
+                              style: TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              hintText: '••••••••',
+                              prefixIcon: const Icon(Icons.lock_outlined),
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // ลิงก์ลืมรหัสผ่าน
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: _showForgotPasswordDialog,
+                              child: const Text(
+                                'ลืมรหัสผ่าน?',
+                                style: TextStyle(
+                                  color: Color(0xFF2E7D32),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          if (_errorMessage.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _errorMessage,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ],
+
+                          const SizedBox(height: 24),
+
+                          // ปุ่ม Login
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _login,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2E7D32),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                          color: Colors.white, strokeWidth: 2.4),
+                                    )
+                                  : const Text('เข้าสู่ระบบ',
+                                      style: TextStyle(fontSize: 16)),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'EnergyHome',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2E7D32),
+
+                      const Spacer(flex: 3),
+
+                      // ลิงก์ไปหน้าสมัครสมาชิก — ติดขอบล่างเสมอ ไม่ลอยกลางจอ
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('ยังไม่มีบัญชี? '),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const RegisterScreen(),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'สมัครสมาชิก',
+                              style: TextStyle(
+                                color: Color(0xFF2E7D32),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const Text(
-                      'ติดตามพลังงานในบ้านของคุณ',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 48),
-
-              // ช่อง Email
-              const Text('อีเมล',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: 'example@email.com',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 8),
+                    ],
                   ),
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              // ช่อง Password
-              const Text('รหัสผ่าน',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscurePassword, // ซ่อน/แสดงตัวอักษร
-                decoration: InputDecoration(
-                  hintText: '••••••••',
-                  prefixIcon: const Icon(Icons.lock_outlined),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword
-                        ? Icons.visibility_off
-                        : Icons.visibility),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // ลิงก์ลืมรหัสผ่าน — จัดชิดขวาใต้ช่อง password ตามตำแหน่งที่
-              // คนคุ้นเคยที่สุด (Gmail, Facebook ฯลฯ ก็วางตรงนี้เหมือนกัน)
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: _showForgotPasswordDialog,
-                  child: const Text(
-                    'ลืมรหัสผ่าน?',
-                    style: TextStyle(
-                      color: Color(0xFF2E7D32),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // แสดง error ถ้ามี
-              if (_errorMessage.isNotEmpty)
-                Text(
-                  _errorMessage,
-                  style: const TextStyle(color: Colors.red),
-                ),
-
-              const SizedBox(height: 24),
-
-              // ปุ่ม Login
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('เข้าสู่ระบบ',
-                          style: TextStyle(fontSize: 16)),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // ลิงก์ไปหน้าสมัครสมาชิก
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('ยังไม่มีบัญชี? '),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RegisterScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'สมัครสมาชิก',
-                      style: TextStyle(
-                        color: Color(0xFF2E7D32),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

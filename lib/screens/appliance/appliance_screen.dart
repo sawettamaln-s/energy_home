@@ -159,6 +159,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
         elevation: 0,
         title: const Text('อุปกรณ์',
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        centerTitle: true,
         automaticallyImplyLeading: false,
       ),
       floatingActionButton: FloatingActionButton(

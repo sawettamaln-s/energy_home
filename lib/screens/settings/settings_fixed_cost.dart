@@ -51,20 +51,20 @@ void _showFixedCostInfoPopup(BuildContext context) {
   );
 }
 
-class _FixedCostScreen extends StatefulWidget {
+class FixedCostScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
 
-  const _FixedCostScreen({
+  const FixedCostScreen({
     required this.uid,
     required this.firestoreService,
   });
 
   @override
-  State<_FixedCostScreen> createState() => _FixedCostScreenState();
+  State<FixedCostScreen> createState() => _FixedCostScreenState();
 }
 
-class _FixedCostScreenState extends State<_FixedCostScreen> {
+class _FixedCostScreenState extends State<FixedCostScreen> {
   List<FixedCostItemModel> _items = [];
   bool _isLoading = true;
 

@@ -309,7 +309,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             fontSize: 18,
           ),
         ),
-        centerTitle: false,
+        centerTitle: true,
         automaticallyImplyLeading: false,
       ),
       body: _isLoading
@@ -1013,7 +1013,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 
   // เดิม Fixed Cost เป็นแค่ช่องกรอกยอดเดียว เปลี่ยนเป็นหน้าแยกที่บันทึก
-  // เป็นรายการย่อยได้ (ค่าแก๊ส, อินเทอร์เน็ต ฯลฯ) — ดู _FixedCostScreen
+  // เป็นรายการย่อยได้ (ค่าแก๊ส, อินเทอร์เน็ต ฯลฯ) — ดู FixedCostScreen
   // ด้านล่างของไฟล์ ส่วนยอดรวมยังถูก sync เข้า _user.fixedCost เหมือนเดิม
   // เลย reload _loadUser() ทุกครั้งที่กลับจากหน้านั้น เพื่อให้ subtitle ในการ์ด
   // ตั้งค่าอัปเดตตามยอดล่าสุด
@@ -1021,7 +1021,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _FixedCostScreen(
+        builder: (context) => FixedCostScreen(
           uid: _user!.uid,
           firestoreService: _firestoreService,
         ),
