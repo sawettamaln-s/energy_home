@@ -12,6 +12,7 @@ import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
+import '../../widgets/info_dialog.dart';
 import '../../widgets/onboarding_guide.dart';
 import '../settings/settings_screen.dart';
 import 'dashboard_styles.dart';
@@ -683,6 +684,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // พาร์ทนี้ทำหน้าที่: แสดงตัวตนผู้ใช้และบอกว่าอยู่ตรงไหนของรอบบิลปัจจุบัน
   // (ผ่านมากี่วัน / เหลืออีกกี่วันก่อนปิดรอบ) ให้รู้สึกเข้าใจง่ายตั้งแต่เปิดแอป
   // =====================================================================
+  // ทักทายตามช่วงเวลาปัจจุบัน ให้ header ดูมีชีวิตชีวาขึ้นแทนคำว่า
+  // "สวัสดี" คงที่ตลอดวัน
+  String _greetingText() {
+    final hour = DateTime.now().hour;
+    final name = _user?.name ?? 'ผู้ใช้';
+    final period = hour < 12
+        ? 'สวัสดีตอนเช้า'
+        : hour < 17
+            ? 'สวัสดีตอนบ่าย'
+            : 'สวัสดีตอนเย็น';
+    return '$period, $name';
+  }
+
   Widget _buildHeader(int daysElapsed, int remainingDays) {
     final totalCycleDays = daysElapsed + remainingDays;
     final progress = totalCycleDays > 0
@@ -713,17 +727,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('สวัสดี, ${_user?.name ?? 'ผู้ใช้'}',
-                  style: DashboardStyles.greeting),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text('ผ่านมา $daysElapsed วัน',
-                      style: DashboardStyles.subGreeting),
-                  const Text(' • ', style: DashboardStyles.subGreeting),
-                  Text('เหลืออีก $remainingDays วัน',
-                      style: DashboardStyles.subGreeting),
-                ],
+              Text(_greetingText(), style: DashboardStyles.greeting),
+              const SizedBox(height: 5),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: DashboardStyles.primaryGreen.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('ผ่านมา $daysElapsed วัน',
+                        style: DashboardStyles.subGreeting),
+                    const Text(' • ', style: DashboardStyles.subGreeting),
+                    Text('เหลืออีก $remainingDays วัน',
+                        style: DashboardStyles.subGreeting),
+                  ],
+                ),
               ),
               const SizedBox(height: 6),
               // แถบความคืบหน้าของรอบบิล (บาง ๆ ใต้ข้อความ)
@@ -785,72 +807,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   // (3) การ์ดค่าใช้จ่ายเดือนนี้
   // พาร์ทนี้ทำหน้าที่: สรุปยอดไฟฟ้า/น้ำของเดือนนี้แบบเทียบกัน พร้อม
-  // สัญลักษณ์ "พุ่งขึ้น" ถ้าค่าใช้จ่ายปัจจุบันสูงกว่าเดือนก่อน และบรรทัด
-  // ยอดคาดการณ์สิ้นเดือนแยกไฟฟ้า/น้ำ ไว้ด้านล่างของแต่ละช่อง
+  // สัญลักษณ์ "พุ่งขึ้น" ถ้าค่าใช้จ่ายปัจจุบันสูงกว่าเดือนก่อน
+  // (ยอดคาดการณ์สิ้นเดือนย้ายไปแสดงที่หน้าวิเคราะห์แทน เพื่อไม่ให้การ์ดนี้แน่นเกินไป)
   // =====================================================================
-  // =====================================================================
-  // อธิบายที่มาของตัวเลขในการ์ด "ค่าใช้จ่ายเดือนนี้" แบบเข้าใจง่าย
-  // ครอบคลุม 2 เรื่อง: (1) สูตรอัตราค่าไฟ/ค่าน้ำ อ้างอิง utils/calculator.dart
-  // (2) สูตรพยากรณ์ยอดสิ้นเดือน อ้างอิง utils/forecaster.dart (Moving Average)
-  // =====================================================================
-  void _showCostFormulaInfo() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.info_outline,
-                color: DashboardStyles.primaryGreen, size: 20),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text('ตัวเลขนี้คำนวณอย่างไร?',
-                  style: TextStyle(fontSize: 16)),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.show_chart_rounded,
-                      size: 16, color: DashboardStyles.primaryGreen),
-                  const SizedBox(width: 6),
-                  Text('ยอดคาดการณ์สิ้นเดือน',
-                      style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                          color: DashboardStyles.primaryGreen)),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'ใช้วิธี "ค่าเฉลี่ยเคลื่อนที่" ง่ายๆ คือดูว่าตั้งแต่ต้นรอบบิลถึงวันนี้ '
-                'เฉลี่ยแล้วใช้เงินไปวันละเท่าไหร่ แล้วคูณด้วยจำนวนวันที่เหลือในรอบ '
-                'บวกกับยอดที่ใช้จริงไปแล้ว เหมือนสมมติว่าช่วงที่เหลือของเดือน '
-                'จะใช้ในอัตราเดิมต่อไปเรื่อยๆ\n\n'
-                'Tip: วิธีนี้ไม่ต้องรอสะสมข้อมูลหลายเดือนก็พยากรณ์ได้ทันที '
-                'จากพฤติกรรมการใช้จริงในรอบปัจจุบัน และปรับตัวไวถ้าคุณใช้เยอะขึ้น'
-                'หรือน้อยลงระหว่างเดือน แต่ถ้าใช้งานไม่สม่ำเสมอมากๆ '
-                '(เช่น ต้นเดือนใช้น้อย ปลายเดือนใช้พุ่ง) ตัวเลขอาจคลาดเคลื่อนได้บ้างค่ะ',
-                style: TextStyle(fontSize: 13.5, height: 1.6),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('เข้าใจแล้วค่ะ'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCostSummaryCard(NumberFormat formatter) {
     return Container(
       width: double.infinity,
@@ -879,24 +838,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: Colors.white70,
                       fontSize: 13,
                       fontWeight: FontWeight.w500)),
-              const Spacer(),
-              GestureDetector(
-                onTap: _showCostFormulaInfo,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.2),
-                  ),
-                  child: const Text('!',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold)),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -926,40 +867,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 14),
-          // ยอดคาดการณ์สิ้นเดือนแบบละเอียด (แยกไฟฟ้า/น้ำ, พยากรณ์รอบปัจจุบัน ฯลฯ)
-          // ย้ายไปโชว์เต็มๆ ที่หน้าวิเคราะห์แทน การ์ดนี้เก็บไว้แค่ปุ่มลิงก์สั้นๆ
-          // ไม่ให้กล่องนี้แน่นเกินไป
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => widget.onNavTap?.call(1),
-            child: Container(
-              width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.trending_up, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'ดูยอดคาดการณ์สิ้นเดือนแบบละเอียดที่หน้าวิเคราะห์',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right,
-                      color: Colors.white70, size: 18),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -1061,7 +968,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 8),
           const Text(
             'ตอนสมัครคุณข้ามขั้นตอนนี้ไว้ ต้องตั้งค่ามิเตอร์ต้นรอบก่อน '
-            'ระบบถึงจะคำนวณหน่วยที่ใช้และค่าไฟ/ค่าน้ำได้ถูกต้องค่ะ',
+            'ระบบถึงจะคำนวณหน่วยที่ใช้และค่าไฟ/ค่าน้ำได้ถูกต้อง',
             style: TextStyle(fontSize: 12.5, color: Colors.grey, height: 1.5),
           ),
           const SizedBox(height: 14),
@@ -1196,24 +1103,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   // (4) แถว Fixed Cost
   // พาร์ทนี้ทำหน้าที่: โชว์ยอด fixed cost ประจำเดือน และเมื่อกดจะพาไปหน้า
-  // Fixed Cost โดยตรง (ไม่ต้องผ่านหน้าตั้งค่าก่อน)
+  // Fixed Cost ในตั้งค่าโดยตรง (ไม่ต้องผ่านหน้าตั้งค่าหลักก่อน)
   // =====================================================================
   Widget _buildFixedCostRow(NumberFormat formatter) {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () async {
-        // พาไปหน้า Fixed Cost โดยตรง (ไม่ต้องผ่านหน้าตั้งค่าก่อน) แล้วโหลด
-        // ข้อมูล user ใหม่ตอนกลับมา เผื่อยอดรวม fixed cost เปลี่ยน
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => FixedCostScreen(
-              uid: _user!.uid,
-              firestoreService: _firestoreService,
-            ),
-          ),
+              builder: (context) =>
+                  const SettingsScreen(openFixedCostOnStart: true)),
         );
-        if (mounted) _loadData();
+        _loadData(); // เผื่อยอด fixed cost เปลี่ยน
       },
       child: Container(
         width: double.infinity,
@@ -1303,7 +1205,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 18),
           _buildSummaryRow(
-            'ค่าไฟ + น้ำ (พยากรณ์)',
+            'ค่าไฟ + น้ำ (ปัจจุบัน)',
             '${formatter.format(_currentElectricityCost + _currentWaterCost)} บาท',
           ),
           const SizedBox(height: 10),
@@ -1406,6 +1308,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ],
         ),
+        const SizedBox(height: 2),
         Text(sub, style: const TextStyle(color: Colors.white60, fontSize: 11)),
       ],
     );
@@ -1414,47 +1317,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // อธิบายมิเตอร์ TOU ตอนกำลังจะกรอกค่าจริง — เนื้อหาคล้ายตอน setup แต่เน้น
   // ว่าช่องไหนคือช่องไหน เผื่อผู้ใช้ลืมความหมายไปแล้วตั้งแต่ตอนสมัคร
   void _showTOUInfoPopup() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.info_outline,
-                color: DashboardStyles.primaryGreen, size: 20),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text('On-Peak / Off-Peak คืออะไร?',
-                  style: TextStyle(fontSize: 16)),
-            ),
-          ],
-        ),
-        content: const Text(
-          'มิเตอร์ TOU แยกคิดค่าไฟตามช่วงเวลาที่ใช้ แทนที่จะคิดรวมทั้งเดือน '
+    showInfoDialog(
+      context,
+      title: 'On-Peak / Off-Peak คืออะไร?',
+      iconColor: DashboardStyles.primaryGreen,
+      message: 'มิเตอร์ TOU แยกคิดค่าไฟตามช่วงเวลาที่ใช้ แทนที่จะคิดรวมทั้งเดือน '
           'เหมือนมิเตอร์ปกติ:\n\n'
           '• On-Peak (T1) — จ-ศ 09:00-22:00: ช่วงเวลาที่ความต้องการใช้ไฟฟ้า '
           'ของประเทศสูง อัตราต่อหน่วยจะแพงกว่า\n\n'
           '• Off-Peak (T2) — จ-ศ 22:00-09:00 และวันหยุด/นักขัตฤกษ์ทั้งวัน: '
           'ช่วงที่ความต้องการใช้ไฟต่ำ อัตราต่อหน่วยจะถูกกว่า\n\n'
-          'ให้กรอกเลขที่อ่านได้จากมิเตอร์จริงของแต่ละช่วง — ถ้ามิเตอร์ '
-          'TOU ของคุณมีจอแสดงแยก 2 ค่า มักจะกดดูได้จากรหัส T1/T2 บนจอ '
-          '(บางรุ่นโชว์เป็นรหัสตัวเลขแทน เช่น 11/12 แล้วแต่ยี่ห้อมิเตอร์) '
-          'กรอกตามค่านั้นได้เลยค่ะ ถ้ามีจอโชว์ "ยอดรวม" แยกต่างหากด้วย '
-          'อันนั้นเป็นแค่ผลบวกของ T1+T2 ไว้ดูภาพรวม ไม่ต้องเอามากรอกในแอป\n\n'
-          'เรื่องรหัสแรงดันไฟฟ้า: อัตรา TOU จริงๆ แบ่งราคาตามระดับแรงดัน '
+          'กรอกเลขที่อ่านได้จากมิเตอร์จริงของแต่ละช่วง หากมิเตอร์ '
+          'TOU มีจอแสดงแยก 2 ค่า มักดูได้จากรหัส T1/T2 บนจอ '
+          '(บางรุ่นแสดงเป็นรหัสตัวเลขแทน เช่น 11/12 แล้วแต่ยี่ห้อมิเตอร์) '
+          'กรอกตามค่านั้นได้ทันที หากมีจอแสดง "ยอดรวม" แยกต่างหากด้วย '
+          'ค่านั้นเป็นผลบวกของ T1+T2 สำหรับดูภาพรวมเท่านั้น ไม่ต้องนำมากรอกในแอป\n\n'
+          'ระดับแรงดันไฟฟ้า: อัตรา TOU แบ่งราคาตามระดับแรงดัน '
           'ที่มิเตอร์ต่อเข้าระบบด้วย (เช่น ต่ำกว่า 22 กิโลโวลต์, 22-33 '
-          'กิโลโวลต์ ฯลฯ) แต่บ้านอยู่อาศัยทั่วไปแทบทั้งหมดต่อที่แรงดัน '
-          'ต่ำกว่า 22 กิโลโวลต์อยู่แล้ว แอปจึงใช้อัตราของระดับนี้คำนวณให้ '
-          'อัตโนมัติ ไม่ต้องเลือกเองค่ะ',
-          style: TextStyle(fontSize: 13.5, height: 1.6),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('เข้าใจแล้วค่ะ'),
-          ),
-        ],
-      ),
+          'กิโลโวลต์ ฯลฯ) แต่บ้านพักอาศัยทั่วไปแทบทั้งหมดต่อที่แรงดัน '
+          'ต่ำกว่า 22 กิโลโวลต์ แอปจึงใช้อัตราของระดับนี้คำนวณให้'
+          'โดยอัตโนมัติ',
     );
   }
 

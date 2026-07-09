@@ -40,31 +40,30 @@ void _showFixedCostInfoPopup(BuildContext context) {
   showInfoDialog(
     context,
     title: 'Fixed Cost คืออะไร?',
-    message: 'Fixed Cost คือค่าใช้จ่ายประจำที่ไม่ใช่ค่าไฟหรือค่าน้ำ แต่จ่ายทุกเดือน '
-        'ในจำนวนที่ค่อนข้างคงที่ เช่น ค่าแก๊สหุงต้ม ค่าอินเทอร์เน็ต '
-        'ค่าส่วนกลางหมู่บ้าน/คอนโด เพื่อให้เห็น "ยอดค่าใช้จ่ายเดือนนี้" '
-        'ที่ตรงกับความเป็นจริงมากขึ้น ไม่ใช่แค่ค่าไฟ-น้ำอย่างเดียว\n\n'
-        'ทำไมต้องแยกเป็นรายการย่อย: เพราะแต่ละรายการเปลี่ยนแปลงไม่พร้อมกัน '
-        '(เช่น เดือนนี้ค่าแก๊สขึ้น แต่ค่าอินเทอร์เน็ตเท่าเดิม) การแยกรายการ '
-        'ทำให้แก้ไขหรือลบทีละรายการได้ง่าย โดยระบบจะรวมยอดทั้งหมดให้อัตโนมัติ '
-        'แล้วนำไปบวกกับค่าไฟ-น้ำในหน้าหลักและหน้าวิเคราะห์ค่ะ',
+    message: 'ค่าใช้จ่ายประจำที่ไม่ใช่ค่าไฟหรือค่าน้ำ แต่จ่ายเป็นจำนวนคงที่ทุกเดือน '
+        'เช่น ค่าแก๊สหุงต้ม ค่าอินเทอร์เน็ต ค่าส่วนกลางหมู่บ้าน/คอนโด '
+        'เพื่อให้ "ยอดค่าใช้จ่ายเดือนนี้" สะท้อนภาพรวมที่แท้จริง '
+        'ไม่จำกัดเฉพาะค่าไฟ-น้ำ\n\n'
+        'ระบบแยกเป็นรายการย่อยเนื่องจากแต่ละรายการเปลี่ยนแปลงไม่พร้อมกัน '
+        'ทำให้แก้ไขหรือลบทีละรายการได้ และรวมยอดทั้งหมดโดยอัตโนมัติเพื่อนำไปบวก'
+        'กับค่าไฟ-น้ำในหน้าหลักและหน้าวิเคราะห์',
   );
 }
 
-class FixedCostScreen extends StatefulWidget {
+class _FixedCostScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
 
-  const FixedCostScreen({
+  const _FixedCostScreen({
     required this.uid,
     required this.firestoreService,
   });
 
   @override
-  State<FixedCostScreen> createState() => _FixedCostScreenState();
+  State<_FixedCostScreen> createState() => _FixedCostScreenState();
 }
 
-class _FixedCostScreenState extends State<FixedCostScreen> {
+class _FixedCostScreenState extends State<_FixedCostScreen> {
   List<FixedCostItemModel> _items = [];
   bool _isLoading = true;
 

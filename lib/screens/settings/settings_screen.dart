@@ -38,7 +38,12 @@ class SettingsScreen extends StatefulWidget {
   // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
   final ValueChanged<int>? onNavTap;
 
-  const SettingsScreen({super.key, this.onNavTap});
+  // true = เปิดหน้านี้แล้วพาไปหน้า Fixed Cost ทันที (ใช้ตอนกดการ์ด
+  // "Fixed Cost ประจำเดือน" จากหน้าหลัก ไม่ต้องมาเจอหน้าตั้งค่าก่อน)
+  final bool openFixedCostOnStart;
+
+  const SettingsScreen(
+      {super.key, this.onNavTap, this.openFixedCostOnStart = false});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -65,6 +70,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ไว้จุดเดียวเผื่ออยากเปลี่ยนสีทีหลัง ไม่ต้องไล่แก้ทีละจุด
   // -------------------------------------------------------------------
   static const Color _sectionColor = Color(0xFF2E7D32);
+
+  // กันไม่ให้ auto-open หน้า Fixed Cost ซ้ำ ถ้า _loadUser ถูกเรียกอีกครั้ง
+  // (เช่น pull-to-refresh หรือ reload หลังปิดหน้า Fixed Cost กลับมา)
+  bool _fixedCostAutoOpened = false;
 
   @override
   void initState() {
@@ -146,6 +155,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     _user = await _firestoreService.getUser(uid);
     setState(() => _isLoading = false);
+    if (widget.openFixedCostOnStart && _fixedCostAutoOpened == false) {
+      _fixedCostAutoOpened = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showEditFixedCost();
+      });
+    }
   }
 
   // เหตุที่ "ออกจากระบบ" เดิมกดแล้วไม่ออก: main.dart มี StreamBuilder
@@ -927,17 +942,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onPressed: () => _showInfoPopup(
                         'วันตัดรอบบิลคืออะไร?',
                         'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
-                            'มาถึงบ้านของคุณค่ะ ระบบจะใช้วันนี้แจ้งเตือนเมื่อ'
-                            'ใกล้ถึงรอบชำระเงิน และเตือนให้มาบันทึกค่ามิเตอร์'
-                            'ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือน'
-                            'ถัดไปให้โดยอัตโนมัติค่ะ',
+                            'มาถึงบ้าน ระบบจะใช้วันนี้แจ้งเตือนเมื่อใกล้ถึง'
+                            'รอบชำระเงิน และเตือนให้บันทึกค่ามิเตอร์ต้นรอบ '
+                            'เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือนถัดไปโดยอัตโนมัติ',
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'แตะที่วันบนใบแจ้งหนี้ล่าสุดของคุณได้เลยค่ะ',
+                  'แตะที่วันบนใบแจ้งหนี้ล่าสุดของคุณ',
                   style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 16),
@@ -1013,7 +1027,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 
   // เดิม Fixed Cost เป็นแค่ช่องกรอกยอดเดียว เปลี่ยนเป็นหน้าแยกที่บันทึก
-  // เป็นรายการย่อยได้ (ค่าแก๊ส, อินเทอร์เน็ต ฯลฯ) — ดู FixedCostScreen
+  // เป็นรายการย่อยได้ (ค่าแก๊ส, อินเทอร์เน็ต ฯลฯ) — ดู _FixedCostScreen
   // ด้านล่างของไฟล์ ส่วนยอดรวมยังถูก sync เข้า _user.fixedCost เหมือนเดิม
   // เลย reload _loadUser() ทุกครั้งที่กลับจากหน้านั้น เพื่อให้ subtitle ในการ์ด
   // ตั้งค่าอัปเดตตามยอดล่าสุด
@@ -1021,7 +1035,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => FixedCostScreen(
+        builder: (context) => _FixedCostScreen(
           uid: _user!.uid,
           firestoreService: _firestoreService,
         ),

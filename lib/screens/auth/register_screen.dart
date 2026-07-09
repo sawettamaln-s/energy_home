@@ -31,19 +31,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     // เช็คว่ากรอกครบไหม
     if (_nameController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'กรุณากรอกชื่อ-นามสกุลของคุณก่อนค่ะ');
+      setState(() => _errorMessage = 'กรุณากรอกชื่อ-นามสกุลของคุณก่อน');
       return;
     }
 
     // เช็คว่า Password ตรงกันไหม
     if (_passwordController.text != _confirmPasswordController.text) {
-      setState(() => _errorMessage = 'รหัสผ่านที่กรอกไม่ตรงกันค่ะ กรุณาตรวจสอบอีกครั้ง');
+      setState(() => _errorMessage = 'รหัสผ่านที่กรอกไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง');
       return;
     }
 
     // เช็คว่า Password ยาวพอไหม
     if (_passwordController.text.length < 6) {
-      setState(() => _errorMessage = 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษรค่ะ');
+      setState(() => _errorMessage = 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
       return;
     }
 
@@ -72,16 +72,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() {
         switch (e.code) {
           case 'email-already-in-use':
-            _errorMessage = 'อีเมลนี้ถูกใช้สมัครสมาชิกไปแล้วค่ะ กรุณาใช้อีเมลอื่น';
+            _errorMessage = 'อีเมลนี้ถูกใช้สมัครสมาชิกไปแล้ว กรุณาใช้อีเมลอื่น';
             break;
           case 'invalid-email':
-            _errorMessage = 'รูปแบบอีเมลไม่ถูกต้องค่ะ กรุณาตรวจสอบอีเมลของคุณ';
+            _errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจสอบอีเมลของคุณ';
             break;
           case 'weak-password':
-            _errorMessage = 'รหัสผ่านนี้ยังไม่ปลอดภัยพอค่ะ กรุณาตั้งรหัสผ่านที่คาดเดายากขึ้น';
+            _errorMessage = 'รหัสผ่านนี้ยังไม่ปลอดภัยพอ กรุณาตั้งรหัสผ่านที่คาดเดายากขึ้น';
             break;
           default:
-            _errorMessage = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง';
+            _errorMessage = 'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง';
         }
       });
     } finally {
@@ -96,35 +96,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'สมัครสมาชิก',
-          style: TextStyle(color: Colors.black),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 16),
-
               // ช่องชื่อ
               const Text('ชื่อ-นามสกุล',
                   style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: 'กรอกชื่อของคุณ',
-                  prefixIcon: const Icon(Icons.person_outlined),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                decoration: _fieldDecoration(
+                  hint: 'กรอกชื่อของคุณ',
+                  icon: Icons.person_outlined,
                 ),
               ),
 
@@ -137,12 +133,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: 'example@email.com',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                decoration: _fieldDecoration(
+                  hint: 'example@email.com',
+                  icon: Icons.email_outlined,
                 ),
               ),
 
@@ -155,18 +148,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  hintText: 'อย่างน้อย 6 ตัวอักษร',
-                  prefixIcon: const Icon(Icons.lock_outlined),
+                decoration: _fieldDecoration(
+                  hint: 'อย่างน้อย 6 ตัวอักษร',
+                  icon: Icons.lock_outlined,
                   suffixIcon: IconButton(
                     icon: Icon(_obscurePassword
                         ? Icons.visibility_off
                         : Icons.visibility),
                     onPressed: () => setState(
                         () => _obscurePassword = !_obscurePassword),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
@@ -180,9 +170,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: _confirmPasswordController,
                 obscureText: _obscureConfirmPassword,
-                decoration: InputDecoration(
-                  hintText: 'กรอกรหัสผ่านอีกครั้ง',
-                  prefixIcon: const Icon(Icons.lock_outlined),
+                decoration: _fieldDecoration(
+                  hint: 'กรอกรหัสผ่านอีกครั้ง',
+                  icon: Icons.lock_outlined,
                   suffixIcon: IconButton(
                     icon: Icon(_obscureConfirmPassword
                         ? Icons.visibility_off
@@ -190,20 +180,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onPressed: () => setState(() =>
                         _obscureConfirmPassword = !_obscureConfirmPassword),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              // แสดง error ถ้ามี
-              if (_errorMessage.isNotEmpty)
-                Text(
-                  _errorMessage,
-                  style: const TextStyle(color: Colors.red),
+              if (_errorMessage.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage,
+                          style: const TextStyle(
+                              color: Colors.red, fontSize: 12.5),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ],
 
               const SizedBox(height: 24),
 
@@ -216,19 +222,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2E7D32),
                     foregroundColor: Colors.white,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2.5),
+                        )
                       : const Text('สมัครสมาชิก',
-                          style: TextStyle(fontSize: 16)),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
               ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // สไตล์ช่องกรอกกลาง — พื้นเทาอ่อนไม่มีเส้นขอบ ให้เป็นชุดเดียวกับหน้า login
+  InputDecoration _fieldDecoration({
+    required String hint,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade400),
+      prefixIcon: Icon(icon, color: Colors.grey.shade500),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: Colors.grey.shade50,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 1.5),
       ),
     );
   }

@@ -406,6 +406,19 @@ class AnalysisService {
       }
     }
 
+    // ----- 5. เดือนที่ใช้สูงสุดในข้อมูลที่เก็บไว้ (ช่วยสังเกตรูปแบบ) -----
+    if (bills.length >= 3) {
+      final peak = bills.reduce(
+          (a, b) => selector(a) >= selector(b) ? a : b);
+      if (peak != bills.last) {
+        insights.add(AnalysisInsight(
+          'เดือนที่ใช้${label}สูงสุดในข้อมูลที่เก็บไว้คือ ${peak.month}/${peak.year} '
+          'ที่ ${selector(peak).toStringAsFixed(0)} บาท ลองสังเกตว่าช่วงนั้นมีอะไรต่างจากปกติ',
+          InsightLevel.neutral,
+        ));
+      }
+    }
+
     // ถ้าไม่มีข้อสังเกตที่น่าเป็นห่วงเลย ให้ feedback เชิงบวกแทนความเงียบ
     if (insights.isEmpty && bills.length >= 2) {
       insights.add(AnalysisInsight(

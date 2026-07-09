@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/appliance_model.dart';
@@ -10,6 +11,7 @@ import '../../models/bill_model.dart';
 import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
+import '../../widgets/info_dialog.dart';
 import '../dashboard/dashboard_styles.dart';
 
 class AnalysisScreen extends StatefulWidget {
@@ -96,17 +98,18 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _green,
         elevation: 0,
-        title: const Text('วิเคราะห์',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         centerTitle: true,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        title: const Text('วิเคราะห์',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         automaticallyImplyLeading: false,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: _green,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: _green,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'ไฟฟ้า'),
             Tab(text: 'น้ำ'),
@@ -273,6 +276,35 @@ class _UtilityTab extends StatelessWidget {
               const Spacer(),
               Text('ผ่านมาแล้ว $progressPercent%',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => showInfoDialog(
+                  context,
+                  title: 'ตัวเลขนี้คำนวณอย่างไร?',
+                  message: 'ใช้วิธีค่าเฉลี่ยเคลื่อนที่ คำนวณจากค่าใช้จ่ายเฉลี่ย'
+                      'ต่อวันตั้งแต่ต้นรอบบิลถึงวันนี้ คูณด้วยจำนวนวันที่เหลือ'
+                      'ในรอบ แล้วบวกกับยอดที่ใช้จริงไปแล้ว โดยสมมติว่าช่วงที่'
+                      'เหลือของเดือนใช้ในอัตราเดิมต่อเนื่อง\n\n'
+                      'วิธีนี้ไม่ต้องรอสะสมข้อมูลหลายเดือน คำนวณได้ทันทีจาก'
+                      'พฤติกรรมการใช้จริงในรอบปัจจุบัน หากใช้งานไม่สม่ำเสมอมาก '
+                      '(เช่น ต้นเดือนใช้น้อย ปลายเดือนใช้พุ่ง) ตัวเลขอาจ'
+                      'คลาดเคลื่อนได้บ้าง',
+                ),
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _green.withOpacity(0.12),
+                  ),
+                  child: const Text('!',
+                      style: TextStyle(
+                          color: _green,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -316,8 +348,7 @@ class _UtilityTab extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'ใช้ไป ${_fmtUnit.format(c.currentUnits)} $unitLabel '
-                    '• คาดว่าจะใช้ทั้งสิ้น ${_fmtUnit.format(c.forecastUnits)} $unitLabel'
-                    '${c.daysElapsed > 0 ? " • เฉลี่ยวันละ ${_fmt.format(c.currentCost / c.daysElapsed)} บาท" : ""}',
+                    '• คาดว่าจะใช้ทั้งสิ้น ${_fmtUnit.format(c.forecastUnits)} $unitLabel',
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                   ),
                 ),
@@ -357,13 +388,18 @@ class _UtilityTab extends StatelessWidget {
   }
 
   Widget _trendChart() {
-    final spots = <FlSpot>[];
+    final values = <double>[];
     for (int i = 0; i < bills.length; i++) {
-      spots.add(FlSpot(i.toDouble(), selector(bills[i])));
+      values.add(selector(bills[i]));
     }
+    final maxVal =
+        values.isEmpty ? 0.0 : values.reduce((a, b) => a > b ? a : b);
+    // เผื่อหัวกราฟด้านบน 25% กันแท่งสูงสุดชนขอบพอดี
+    final maxY = maxVal <= 0 ? 8.0 : maxVal * 1.25;
+    final interval = maxY / 4;
 
     return Container(
-      height: 220,
+      height: 240,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -380,7 +416,7 @@ class _UtilityTab extends StatelessWidget {
                   const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 12),
           Expanded(
-            child: spots.length < 2
+            child: values.length < 2
                 ? Stack(
                     children: [
                       // กราฟจำลองจางๆ ให้เห็นรูปทรงว่าพอมีข้อมูลแล้วจะเป็นแบบนี้
@@ -391,36 +427,19 @@ class _UtilityTab extends StatelessWidget {
                               gridData: const FlGridData(show: false),
                               titlesData: const FlTitlesData(show: false),
                               borderData: FlBorderData(show: false),
-                              barTouchData:
-                                  BarTouchData(enabled: false),
-                              minY: 0,
+                              barTouchData: BarTouchData(enabled: false),
                               maxY: 8,
-                              barGroups: [
-                                BarChartGroupData(x: 0, barRods: [
+                              barGroups: List.generate(6, (i) {
+                                const demo = [3.0, 5.0, 3.5, 6.0, 4.5, 6.5];
+                                return BarChartGroupData(x: i, barRods: [
                                   BarChartRodData(
-                                      toY: 3, color: Colors.grey.shade300, width: 14)
-                                ]),
-                                BarChartGroupData(x: 1, barRods: [
-                                  BarChartRodData(
-                                      toY: 5, color: Colors.grey.shade300, width: 14)
-                                ]),
-                                BarChartGroupData(x: 2, barRods: [
-                                  BarChartRodData(
-                                      toY: 3.5, color: Colors.grey.shade300, width: 14)
-                                ]),
-                                BarChartGroupData(x: 3, barRods: [
-                                  BarChartRodData(
-                                      toY: 6, color: Colors.grey.shade300, width: 14)
-                                ]),
-                                BarChartGroupData(x: 4, barRods: [
-                                  BarChartRodData(
-                                      toY: 4.5, color: Colors.grey.shade300, width: 14)
-                                ]),
-                                BarChartGroupData(x: 5, barRods: [
-                                  BarChartRodData(
-                                      toY: 6.5, color: Colors.grey.shade300, width: 14)
-                                ]),
-                              ],
+                                    toY: demo[i],
+                                    color: Colors.grey.shade300,
+                                    width: 18,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ]);
+                              }),
                             ),
                           ),
                         ),
@@ -445,10 +464,28 @@ class _UtilityTab extends StatelessWidget {
                   )
                 : BarChart(
                     BarChartData(
-                      gridData: const FlGridData(show: false),
+                      maxY: maxY,
+                      alignment: BarChartAlignment.spaceAround,
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: interval == 0 ? 1 : interval,
+                        getDrawingHorizontalLine: (v) => FlLine(
+                            color: Colors.grey.shade200, strokeWidth: 1),
+                      ),
                       titlesData: FlTitlesData(
-                        leftTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 34,
+                            interval: interval == 0 ? 1 : interval,
+                            getTitlesWidget: (value, meta) => Text(
+                              value.toInt().toString(),
+                              style: TextStyle(
+                                  fontSize: 9, color: Colors.grey.shade500),
+                            ),
+                          ),
+                        ),
                         topTitles: const AxisTitles(
                             sideTitles: SideTitles(showTitles: false)),
                         rightTitles: const AxisTitles(
@@ -456,31 +493,28 @@ class _UtilityTab extends StatelessWidget {
                         bottomTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
+                            reservedSize: 22,
                             getTitlesWidget: (value, meta) {
                               final i = value.toInt();
                               if (i < 0 || i >= bills.length) {
                                 return const SizedBox.shrink();
                               }
-                              return Text(
-                                  '${bills[i].month}/${bills[i].year % 100}',
-                                  style: const TextStyle(fontSize: 9));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                    '${bills[i].month}/${bills[i].year % 100}',
+                                    style: const TextStyle(fontSize: 9)),
+                              );
                             },
                           ),
                         ),
                       ),
                       borderData: FlBorderData(show: false),
-                      // แตะแท่งแต่ละแท่งเพื่อดูยอดของเดือนนั้นแบบเป๊ะๆ (ลูกเล่นเล็กๆ
-                      // ที่กราฟเส้นแบบเดิมไม่มี)
                       barTouchData: BarTouchData(
                         touchTooltipData: BarTouchTooltipData(
-                          getTooltipColor: (_) => _green,
                           getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                            final i = group.x;
-                            final monthLabel = i >= 0 && i < bills.length
-                                ? '${bills[i].month}/${bills[i].year % 100}'
-                                : '';
                             return BarTooltipItem(
-                              '$monthLabel\n${rod.toY.toStringAsFixed(0)} บาท',
+                              rod.toY.toStringAsFixed(1),
                               const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
@@ -489,26 +523,15 @@ class _UtilityTab extends StatelessWidget {
                           },
                         ),
                       ),
-                      barGroups: List.generate(spots.length, (i) {
-                        return BarChartGroupData(
-                          x: i,
-                          barRods: [
-                            BarChartRodData(
-                              toY: spots[i].y,
-                              color: _green,
-                              width: 16,
-                              borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(4)),
-                              backDrawRodData: BackgroundBarChartRodData(
-                                show: true,
-                                toY: spots
-                                    .map((s) => s.y)
-                                    .reduce((a, b) => a > b ? a : b),
-                                color: _green.withOpacity(0.06),
-                              ),
-                            ),
-                          ],
-                        );
+                      barGroups: List.generate(values.length, (i) {
+                        return BarChartGroupData(x: i, barRods: [
+                          BarChartRodData(
+                            toY: values[i],
+                            color: _green,
+                            width: 18,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ]);
                       }),
                     ),
                   ),
@@ -704,78 +727,6 @@ class _UtilityTab extends StatelessWidget {
   }
 }
 
-// อธิบายที่มาของตัวเลขประมาณการอุปกรณ์ — เนื้อหาเดียวกับ popup ใน
-// appliance_screen.dart เพื่อให้ทั้งสองหน้าอธิบายเรื่องเดียวกันด้วยคำเดียวกัน
-void _showApplianceEstimateInfo(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(
-        children: [
-          const Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text('ตัวเลขนี้คำนวณอย่างไร?', style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'ใช้สูตรมาตรฐานเดียวกับที่การไฟฟ้าและเว็บคำนวณค่าไฟทั่วไปใช้ค่ะ\n\n'
-              'หน่วยไฟ/วัน = (วัตต์ × ชั่วโมงที่เปิด ÷ 1,000)\n'
-              'ค่าไฟ = หน่วยไฟ × อัตราเฉลี่ยประมาณการ 4.5 บาท/หน่วย\n\n'
-              'อัตรานี้เป็นค่าเฉลี่ยคร่าวๆ (รวม Ft และ VAT) ไม่ใช่อัตราขั้นบันไดจริง '
-              'จึงอาจไม่ตรงกับยอดบิลเป๊ะๆ แต่ใช้เทียบสัดส่วนระหว่างอุปกรณ์ได้ดี',
-              style: TextStyle(fontSize: 13.5, height: 1.5),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      size: 16, color: Colors.orange.shade800),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'อุปกรณ์ที่มีคอมเพรสเซอร์ เช่น ตู้เย็นหรือแอร์ วัตต์ที่เขียนบนฉลาก '
-                      'มักเป็นกำลังไฟสูงสุดตอนคอมเพรสเซอร์ทำงาน ไม่ใช่ค่าเฉลี่ยที่ใช้จริงตลอดเวลา '
-                      '(เพราะคอมเพรสเซอร์จะตัดเข้า-ออกเป็นรอบ ไม่ได้ทำงานเต็มกำลังตลอด 24 ชม.) '
-                      'ถ้าใส่วัตต์บนฉลากตรงๆ ตัวเลขที่ได้อาจสูงกว่าความเป็นจริงพอสมควร '
-                      'ถ้าอยากได้ค่าที่แม่นกว่านี้ ลองดู "หน่วยไฟฟ้าต่อปี" บนฉลากประหยัดไฟเบอร์ 5 '
-                      'ของเครื่องนั้นแทนค่ะ',
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.5,
-                          color: Colors.orange.shade900),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('เข้าใจแล้วค่ะ'),
-        ),
-      ],
-    ),
-  );
-}
-
 // ==================== Tab อุปกรณ์ ====================
 class _ApplianceTab extends StatelessWidget {
   final List<ApplianceModel> appliances;
@@ -863,9 +814,6 @@ class _ApplianceTab extends StatelessWidget {
       Colors.pink,
     ];
 
-    final totalKwh = breakdown.fold<double>(0, (s, u) => s + u.kWh);
-    final totalCost = breakdown.fold<double>(0, (s, u) => s + u.cost);
-
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
@@ -884,52 +832,63 @@ class _ApplianceTab extends StatelessWidget {
             children: [
               const Text('สัดส่วนการใช้พลังงาน (kWh/เดือน, ประมาณการ)',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               SizedBox(
-                height: 200,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    PieChart(
-                      PieChartData(
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 48,
-                        sections: List.generate(breakdown.length, (i) {
-                          final u = breakdown[i];
-                          // สัดส่วนเล็กมากๆ (ต่ำกว่า 8%) ไม่ใส่ตัวหนังสือ %
-                          // บนชิ้นกราฟ เพราะพื้นที่ไม่พอ ทำให้ตัวเลขเบียด/ล้น
-                          // ออกนอกชิ้น — ดูอันดับเต็มๆ ได้จากรายการด้านล่างแทน
-                          final showLabel = u.percentOfTotal >= 8;
-                          return PieChartSectionData(
-                            value: u.kWh,
-                            color: colors[i % colors.length],
-                            title: showLabel
-                                ? '${u.percentOfTotal.toStringAsFixed(0)}%'
-                                : '',
-                            radius: 52,
-                            titlePositionPercentageOffset: 0.62,
-                            titleStyle: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                          );
-                        }),
-                      ),
-                    ),
-                    // ยอดรวมตรงกลางโดนัท — ให้เห็นภาพรวมทันทีโดยไม่ต้องไล่บวกเอง
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('${totalKwh.toStringAsFixed(0)} kWh',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15)),
-                        Text('${_fmt.format(totalCost)} บาท',
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey.shade600)),
-                      ],
-                    ),
-                  ],
+                height: 170,
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                    sections: List.generate(breakdown.length, (i) {
+                      final u = breakdown[i];
+                      // ซ่อนตัวเลข % บนชิ้นที่เล็กเกินไป (ไม่งั้นตัวหนังสือ
+                      // จะเบียดกันเองหรือล้นออกนอกชิ้นพาย) ไปดู % แทนได้
+                      // จาก legend ด้านล่างซึ่งมีพื้นที่พอสำหรับทุกชิ้น
+                      final showTitle = u.percentOfTotal >= 8;
+                      return PieChartSectionData(
+                        value: u.kWh,
+                        color: colors[i % colors.length],
+                        title: showTitle
+                            ? '${u.percentOfTotal.toStringAsFixed(0)}%'
+                            : '',
+                        radius: 56,
+                        titleStyle: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold),
+                      );
+                    }),
+                  ),
                 ),
+              ),
+              const SizedBox(height: 14),
+              // Legend: ชื่ออุปกรณ์ + % ของทุกชิ้น รวมถึงชิ้นเล็กที่ไม่มี
+              // ตัวเลขบนพาย ให้ยังเห็นสัดส่วนครบทุกชิ้นแบบไม่เบียดกัน
+              Wrap(
+                spacing: 14,
+                runSpacing: 8,
+                children: List.generate(breakdown.length, (i) {
+                  final u = breakdown[i];
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: colors[i % colors.length],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${u.appliance.name} ${u.percentOfTotal.toStringAsFixed(0)}%',
+                        style: TextStyle(
+                            fontSize: 11.5, color: Colors.grey.shade700),
+                      ),
+                    ],
+                  );
+                }),
               ),
             ],
           ),
@@ -985,7 +944,7 @@ class _ApplianceTab extends StatelessWidget {
         }),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: () => _showApplianceEstimateInfo(context),
+          onTap: () => showApplianceEstimateInfoDialog(context),
           child: Row(
             children: [
               Icon(Icons.info_outline, size: 13, color: Colors.grey.shade500),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
@@ -11,6 +12,7 @@ import '../../utils/default_appliances.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/info_dialog.dart';
 
 class ApplianceScreen extends StatefulWidget {
   // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
@@ -155,11 +157,12 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF2E7D32),
         elevation: 0,
-        title: const Text('อุปกรณ์',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         centerTitle: true,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        title: const Text('อุปกรณ์',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         automaticallyImplyLeading: false,
       ),
       floatingActionButton: FloatingActionButton(
@@ -985,73 +988,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
   // มักเป็นค่าสูงสุด ไม่ใช่ค่าเฉลี่ยที่ใช้จริงตลอดเวลาที่เปิด
   // =====================================================================
   void _showEstimateInfoPopup() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text('ตัวเลขนี้คำนวณอย่างไร?', style: TextStyle(fontSize: 16)),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'ใช้สูตรมาตรฐานเดียวกับที่การไฟฟ้าและเว็บคำนวณค่าไฟทั่วไปใช้ค่ะ\n\n'
-                'หน่วยไฟ/วัน = (วัตต์ × ชั่วโมงที่เปิด ÷ 1,000)\n'
-                'ค่าไฟ = หน่วยไฟ × อัตราเฉลี่ยประมาณการ 4.5 บาท/หน่วย\n\n'
-                'อัตรานี้เป็นค่าเฉลี่ยคร่าวๆ (รวม Ft และ VAT) ไม่ใช่อัตราขั้นบันไดจริง '
-                'จึงอาจไม่ตรงกับยอดบิลเป๊ะๆ แต่ใช้เทียบสัดส่วนระหว่างอุปกรณ์ได้ดี',
-                style: TextStyle(fontSize: 13.5, height: 1.5),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.warning_amber_rounded,
-                        size: 16, color: Colors.orange.shade800),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'อุปกรณ์ที่มีคอมเพรสเซอร์ เช่น ตู้เย็นหรือแอร์ วัตต์ที่เขียนบนฉลาก '
-                        'มักเป็นกำลังไฟสูงสุดตอนคอมเพรสเซอร์ทำงาน ไม่ใช่ค่าเฉลี่ยที่ใช้จริงตลอดเวลา '
-                        '(เพราะคอมเพรสเซอร์จะตัดเข้า-ออกเป็นรอบ ไม่ได้ทำงานเต็มกำลังตลอด 24 ชม.) '
-                        'ถ้าใส่วัตต์บนฉลากตรงๆ ตัวเลขที่ได้อาจสูงกว่าความเป็นจริงพอสมควร '
-                        'ถ้าอยากได้ค่าที่แม่นกว่านี้ ลองดู "หน่วยไฟฟ้าต่อปี" บนฉลากประหยัดไฟเบอร์ 5 '
-                        'ของเครื่องนั้นแทนค่ะ',
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            height: 1.5,
-                            color: Colors.orange.shade900),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('เข้าใจแล้วค่ะ'),
-          ),
-        ],
-      ),
-    );
+    showApplianceEstimateInfoDialog(context);
   }
 
   Widget _buildEstimateCard() {

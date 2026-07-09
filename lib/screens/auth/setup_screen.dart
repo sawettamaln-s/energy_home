@@ -5,6 +5,7 @@ import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/thai_date_utils.dart';
+import '../../widgets/info_dialog.dart';
 import '../main_shell.dart';
 import 'setup_complete_screen.dart';
 
@@ -382,10 +383,9 @@ class _SetupScreenState extends State<SetupScreen> {
             subtitle: 'ดูได้จากใบแจ้งหนี้ค่าไฟหรือค่าน้ำของคุณ',
             helpTitle: 'วันตัดรอบบิลคืออะไร?',
             helpMessage: 'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
-                'มาถึงบ้านของคุณค่ะ ระบบจะใช้วันนี้แจ้งเตือนเมื่อ'
-                'ใกล้ถึงรอบชำระเงิน และเตือนให้มาบันทึกค่ามิเตอร์'
-                'ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือน'
-                'ถัดไปให้โดยอัตโนมัติค่ะ',
+                'มาถึงบ้าน ระบบจะใช้วันนี้แจ้งเตือนเมื่อใกล้ถึงรอบชำระเงิน '
+                'และเตือนให้บันทึกค่ามิเตอร์ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้น'
+                'ของรอบบิลเดือนถัดไปโดยอัตโนมัติ',
           ),
           const SizedBox(height: 28),
 
@@ -463,9 +463,9 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'ข้ามขั้นตอนนี้ไปก่อนได้ค่ะ ระบบจะใช้วันที่ 30 เป็น'
-                      'ค่าเริ่มต้นไปก่อน แล้วค่อยมาตั้งวันที่ถูกต้องได้'
-                      'ทีหลังที่หน้าตั้งค่า',
+                      'ข้ามขั้นตอนนี้ไปก่อนได้ ระบบจะใช้วันที่ 30 เป็น'
+                      'ค่าเริ่มต้นไปก่อน แล้วมาตั้งวันที่ถูกต้องได้'
+                      'ภายหลังที่หน้าตั้งค่า',
                       style: TextStyle(
                           color: Colors.grey.shade600, fontSize: 12),
                     ),
@@ -508,7 +508,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'แตะที่วันบนใบแจ้งหนี้ล่าสุดของคุณได้เลยค่ะ',
+                  'แตะที่วันบนใบแจ้งหนี้ล่าสุดของคุณ',
                   style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 16),
@@ -532,7 +532,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   child: Text(
                     tempSelected != null
                         ? 'วันที่เลือก: ทุกวันที่ $tempSelected ของเดือน'
-                        : 'ยังไม่ได้เลือกวันค่ะ',
+                        : 'ยังไม่ได้เลือกวัน',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -613,34 +613,11 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // popup อธิบายข้อมูล (ดีไซน์เดียวกับหน้าตั้งค่า)
+  // popup อธิบายข้อมูล — ใช้ widget กลาง showInfoDialog (เดิมมีโค้ดซ้ำในนี้)
   void _showInfoPopup(String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(title, style: const TextStyle(fontSize: 16)),
-            ),
-          ],
-        ),
-        content: Text(
-          message,
-          style: const TextStyle(fontSize: 13.5, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('เข้าใจแล้วค่ะ'),
-          ),
-        ],
-      ),
-    );
+    showInfoDialog(context, title: title, message: message);
   }
+
 
   Widget _buildStartMeterStep() {
     const green = Color(0xFF2E7D32);
@@ -655,10 +632,10 @@ class _SetupScreenState extends State<SetupScreen> {
             subtitle: 'กรอกค่ามิเตอร์จากใบแจ้งหนี้ล่าสุด เพื่อใช้เป็น'
                 'หน่วยตั้งต้นในการคำนวณค่าไฟ-น้ำของคุณ',
             helpTitle: 'ทำไมต้องกรอกค่ามิเตอร์ตั้งต้น?',
-            helpMessage: 'ระบบใช้ค่านี้เทียบกับค่ามิเตอร์ที่คุณบันทึกครั้ง'
-                'ถัดไป เพื่อคำนวณว่าใช้ไฟ/น้ำไปกี่หน่วยในรอบบิลนี้ค่ะ '
-                'ถ้าข้ามขั้นตอนนี้ไป ระบบจะยังคำนวณหน่วยที่ใช้ให้ไม่ได้'
-                'จนกว่าจะมากรอกค่านี้ทีหลังที่หน้าตั้งค่าค่ะ',
+            helpMessage: 'ระบบใช้ค่านี้เทียบกับค่ามิเตอร์ที่บันทึกครั้ง'
+                'ถัดไป เพื่อคำนวณหน่วยไฟ/น้ำที่ใช้ในรอบบิลนี้ '
+                'หากข้ามขั้นตอนนี้ ระบบจะยังคำนวณหน่วยที่ใช้ให้ไม่ได้'
+                'จนกว่าจะกรอกค่านี้ภายหลังที่หน้าตั้งค่า',
           ),
           const SizedBox(height: 20),
 
@@ -724,9 +701,9 @@ class _SetupScreenState extends State<SetupScreen> {
 
           if (_startMeterSkipped)
             _buildInfoBanner(
-              'ไม่บังคับค่ะ มากรอกทีหลังก็ได้ที่หน้าตั้งค่า > '
+              'ไม่บังคับ กรอกภายหลังได้ที่หน้าตั้งค่า > '
               'ค่ามิเตอร์ตั้งต้น ระหว่างนี้ระบบจะยังคำนวณหน่วยที่ใช้'
-              'ให้ไม่ได้จนกว่าจะกรอกค่าเริ่มต้นค่ะ',
+              'ให้ไม่ได้จนกว่าจะกรอกค่าเริ่มต้น',
               green: green,
             )
           else ...[
