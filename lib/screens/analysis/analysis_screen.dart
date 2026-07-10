@@ -310,7 +310,7 @@ class _UtilityTab extends StatelessWidget {
 
     String avgPart(ComparisonResult a, {String? connector}) {
       final lead = connector ?? '';
-      if (a.isUnchanged) return '${lead}เท่ากับค่าเฉลี่ย 6 เดือนที่ผ่านมา';
+      if (a.isUnchanged) return '$leadเท่ากับค่าเฉลี่ย 6 เดือนที่ผ่านมา';
       final dir = a.isIncrease ? 'สูงกว่า' : 'ต่ำกว่า';
       final pct = a.percentChange != null
           ? ' ${a.percentChange!.abs().toStringAsFixed(0)}%'
@@ -1002,16 +1002,16 @@ class _UtilityTab extends StatelessWidget {
                               padding: const EdgeInsets.only(top: 4),
                               child: GestureDetector(
                                 onTap: onViewAppliances,
-                                child: Row(
+                                child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text('ดูอุปกรณ์ที่ใช้ไฟมากสุด',
+                                    const Text('ดูอุปกรณ์ที่ใช้ไฟมากสุด',
                                         style: TextStyle(
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.bold,
                                             color: _green)),
                                     const SizedBox(width: 2),
-                                    Icon(Icons.arrow_forward_ios,
+                                    const Icon(Icons.arrow_forward_ios,
                                         size: 10, color: _green),
                                   ],
                                 ),
