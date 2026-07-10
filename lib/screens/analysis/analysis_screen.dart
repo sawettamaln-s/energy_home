@@ -204,7 +204,7 @@ class _UtilityTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         if (currentCycle != null && currentCycle!.hasData) ...[
-          _currentCycleCard(),
+          _currentCycleCard(context),
           const SizedBox(height: 16),
         ],
         _trendChart(),
@@ -250,7 +250,7 @@ class _UtilityTab extends StatelessWidget {
   }
 
   // ----- การ์ดพยากรณ์ยอดบิลรอบปัจจุบัน (Moving Average ถึงวันตัดรอบ) -----
-  Widget _currentCycleCard() {
+  Widget _currentCycleCard(BuildContext context) {
     final c = currentCycle!;
     final progressPercent = (c.progress * 100).toStringAsFixed(0);
 
@@ -834,7 +834,7 @@ class _ApplianceTab extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 8),
               SizedBox(
-                height: 170,
+                height: 190,
                 child: PieChart(
                   PieChartData(
                     sectionsSpace: 2,
@@ -897,51 +897,10 @@ class _ApplianceTab extends StatelessWidget {
         const Text('อันดับอุปกรณ์กินไฟ',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 8),
-        ...List.generate(breakdown.length, (i) {
-          final u = breakdown[i];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(color: Colors.grey.withOpacity(0.06), blurRadius: 4)
-              ],
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: colors[i % colors.length].withOpacity(0.15),
-                  child: Text('${i + 1}',
-                      style: TextStyle(
-                          color: colors[i % colors.length],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(u.appliance.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 13)),
-                      Text(
-                          '${u.kWh.toStringAsFixed(1)} kWh • ${_fmt.format(u.cost)} บาท',
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade600)),
-                    ],
-                  ),
-                ),
-                Text('${u.percentOfTotal.toStringAsFixed(0)}%',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, color: _green)),
-              ],
-            ),
-          );
-        }),
+        // แสดง top 3 ก่อนเสมอ ถ้ามีมากกว่านั้นค่อยกดขยายดูที่เหลือ
+        // (ใช้ widget แยกเพราะ _ApplianceTab เป็น StatelessWidget
+        // ไม่มี setState ให้ toggle เอง)
+        _ApplianceRankingList(breakdown: breakdown, colors: colors, fmt: _fmt),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: () => showApplianceEstimateInfoDialog(context),
@@ -1009,6 +968,111 @@ class _ApplianceTab extends StatelessWidget {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+// =====================================================================
+// รายการอันดับอุปกรณ์กินไฟ — โชว์แค่ top 3 ก่อนเสมอ (กันไม่ให้ยาวเกินไป
+// ถ้ามีอุปกรณ์เยอะ) มีปุ่ม "ดูทั้งหมด" ให้กดขยายดูที่เหลือได้ ถ้ามี ≤ 3
+// ตัวอยู่แล้วจะโชว์ครบโดยไม่มีปุ่มเลย
+// =====================================================================
+class _ApplianceRankingList extends StatefulWidget {
+  final List<ApplianceUsage> breakdown;
+  final List<Color> colors;
+  final NumberFormat fmt;
+
+  const _ApplianceRankingList({
+    required this.breakdown,
+    required this.colors,
+    required this.fmt,
+  });
+
+  @override
+  State<_ApplianceRankingList> createState() => _ApplianceRankingListState();
+}
+
+class _ApplianceRankingListState extends State<_ApplianceRankingList> {
+  static const _green = Color(0xFF2E7D32);
+  static const _collapsedCount = 3;
+
+  bool _showAll = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final breakdown = widget.breakdown;
+    final hasMore = breakdown.length > _collapsedCount;
+    final visibleCount =
+        _showAll || !hasMore ? breakdown.length : _collapsedCount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...List.generate(visibleCount, (i) {
+          final u = breakdown[i];
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(color: Colors.grey.withOpacity(0.06), blurRadius: 4)
+              ],
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor:
+                      widget.colors[i % widget.colors.length].withOpacity(0.15),
+                  child: Text('${i + 1}',
+                      style: TextStyle(
+                          color: widget.colors[i % widget.colors.length],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(u.appliance.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 13)),
+                      Text(
+                          '${u.kWh.toStringAsFixed(1)} kWh • '
+                          '${widget.fmt.format(u.cost)} บาท',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+                Text('${u.percentOfTotal.toStringAsFixed(0)}%',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, color: _green)),
+              ],
+            ),
+          );
+        }),
+        if (hasMore)
+          GestureDetector(
+            onTap: () => setState(() => _showAll = !_showAll),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              alignment: Alignment.center,
+              child: Text(
+                _showAll ? 'ย่อรายการ' : 'ดูทั้งหมด (${breakdown.length})',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                  color: _green,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
@@ -176,7 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // พาไป Dashboard ให้ ค้างอยู่หน้า Login เฉยๆ — ต้อง push ไปที่ AuthGate()
   // แทน เพราะ AuthGate มี StreamBuilder ของตัวเองสดๆติดไปด้วยทุกครั้ง
   Future<void> _confirmSignOut() async {
- final confirmed = await showConfirmDialog(
+    final confirmed = await showConfirmDialog(
       context,
       title: 'ออกจากระบบ',
       content: 'ต้องการออกจากระบบใช่ไหมคะ?',
@@ -250,7 +251,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ')),
+        const SnackBar(
+            content: Text('ลบบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ')),
       );
     }
   }
@@ -282,13 +284,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 autofocus: true,
                 decoration: InputDecoration(
                   labelText: 'รหัสผ่าน',
-                  border:
-                      OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                        obscure ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () =>
-                        setDialogState(() => obscure = !obscure),
+                    icon:
+                        Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
                   ),
                 ),
               ),
@@ -314,17 +315,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF2E7D32),
         elevation: 0,
+        centerTitle: true,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         title: const Text(
           'ตั้งค่า',
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 18,
           ),
         ),
-        centerTitle: true,
         automaticallyImplyLeading: false,
       ),
       body: _isLoading
@@ -645,8 +646,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           secondary: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: (enabled ? _sectionColor : Colors.grey)
-                  .withOpacity(0.1),
+              color: (enabled ? _sectionColor : Colors.grey).withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon,
@@ -784,8 +784,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         if (onEdit != null)
           IconButton(
-            icon: const Icon(Icons.edit_outlined,
-                size: 18, color: Colors.grey),
+            icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.grey),
             visualDensity: VisualDensity.compact,
             onPressed: onEdit,
           ),
@@ -892,9 +891,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF2E7D32)
-                : Colors.grey.shade200,
+            color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
           ),
         ),
         alignment: Alignment.center,
@@ -916,7 +913,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
             child: Column(
@@ -1024,7 +1022,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
 
   // เดิม Fixed Cost เป็นแค่ช่องกรอกยอดเดียว เปลี่ยนเป็นหน้าแยกที่บันทึก
   // เป็นรายการย่อยได้ (ค่าแก๊ส, อินเทอร์เน็ต ฯลฯ) — ดู _FixedCostScreen
