@@ -30,6 +30,16 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   final _wUsedCtrl = TextEditingController();
   final _wCostCtrl = TextEditingController();
 
+  // ----- ส่วนเสริม: ตั้งค่ามิเตอร์ต้นรอบต่อในฟอร์มเดียวกันเลย -----
+  // โหลด user มาเองอิสระ (ตามแพทเทิร์นเดียวกับ _AddStartMeterSheet) เพื่อรู้
+  // ว่าเป็นมิเตอร์ TOU ไหม และผู้ใช้เคยตั้งค่ามิเตอร์ต้นรอบไปแล้วหรือยัง
+  // (ถ้าตั้งแล้วไม่โชว์ซ้ำ กันการเผลอเขียนทับค่าจริงที่ผู้ใช้บันทึกไปแล้ว)
+  UserModel? _user;
+  final _meterECtrl = TextEditingController();
+  final _meterPeakCtrl = TextEditingController();
+  final _meterOffPeakCtrl = TextEditingController();
+  final _meterWCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -60,10 +70,16 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
           existing.waterCost == 0 ? '' : existing.waterCost.toStringAsFixed(2);
     }
     _loadTakenMonths();
+    _loadUser();
 
     for (final c in [_eUsedCtrl, _eCostCtrl, _wUsedCtrl, _wCostCtrl]) {
       c.addListener(() => setState(() {}));
     }
+  }
+
+  Future<void> _loadUser() async {
+    final user = await widget.firestoreService.getUser(widget.uid);
+    if (mounted) setState(() => _user = user);
   }
 
   @override
@@ -72,6 +88,10 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     _eCostCtrl.dispose();
     _wUsedCtrl.dispose();
     _wCostCtrl.dispose();
+    _meterECtrl.dispose();
+    _meterPeakCtrl.dispose();
+    _meterOffPeakCtrl.dispose();
+    _meterWCtrl.dispose();
     super.dispose();
   }
 
@@ -114,6 +134,21 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   bool get _isSelectedMonthTaken =>
       _takenMonths.contains('${_selectedMonth.year}-${_selectedMonth.month}');
 
+  // เดือนล่าสุดใน 6 ตัวเลือก (เดือนก่อนเดือนนี้ทันที) — ต่อจากเดือนนี้คือรอบ
+  // ที่ระบบจะเริ่ม track จริงผ่าน log มิเตอร์ จึงเป็นจุดเดียวที่ควรถามเลขมิเตอร์
+  // ต้นรอบต่อ (เดือนอื่นๆ ที่เก่ากว่าไม่เกี่ยวกับรอบปัจจุบันแล้ว ไม่ต้องถาม)
+  bool get _isMostRecentMonthSelected =>
+      _selectedMonth.year == _monthOptions.first.year &&
+      _selectedMonth.month == _monthOptions.first.month;
+
+  // โชว์เฉพาะตอนเพิ่มใหม่ (ไม่ใช่แก้ไขบิลเก่า) + เลือกเดือนล่าสุด + ผู้ใช้
+  // ยังไม่เคยตั้งค่ามิเตอร์ต้นรอบมาก่อน (กันเขียนทับค่าจริงที่ตั้งไปแล้ว)
+  bool get _showStartMeterSection =>
+      widget.existingBill == null &&
+      _user != null &&
+      !_user!.startMeterConfigured &&
+      _isMostRecentMonthSelected;
+
   Future<void> _save() async {
     final isEditing = widget.existingBill != null;
     if (_isSelectedMonthTaken) {
@@ -149,6 +184,50 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
         source: 'imported',
       );
       await widget.firestoreService.saveBill(bill);
+
+      // ----- ถ้าโชว์ส่วนตั้งค่ามิเตอร์ต้นรอบต่อ และผู้ใช้กรอกอย่างน้อย 1 ช่อง
+      // ให้ตั้งค่าต้นรอบต่อเนื่องไปเลยในการกดบันทึกครั้งเดียวกัน (ไม่ต้อง
+      // ไปเปิดหน้า "บันทึกมิเตอร์ต้นรอบ" แยกอีกรอบ) — เขียนทับ logic เดิม
+      // เป๊ะๆ กับที่ settings_start_meter.dart ใช้ เพื่อให้ผลลัพธ์ตรงกัน -----
+      if (_showStartMeterSection) {
+        final eVal = double.tryParse(_meterECtrl.text) ?? 0;
+        final peakVal = double.tryParse(_meterPeakCtrl.text) ?? 0;
+        final offPeakVal = double.tryParse(_meterOffPeakCtrl.text) ?? 0;
+        final wVal = double.tryParse(_meterWCtrl.text) ?? 0;
+        final filledAnyMeterField =
+            eVal > 0 || peakVal > 0 || offPeakVal > 0 || wVal > 0;
+
+        if (filledAnyMeterField) {
+          // รอบถัดจากเดือนที่เพิ่งกรอกบิล คือรอบที่เลขมิเตอร์นี้จะถูกใช้เป็น
+          // จุดตั้งต้น (เช่น กรอกบิลเดือน 6 → ตั้งต้นให้รอบเดือน 7)
+          final nextCycle =
+              DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1);
+
+          await widget.firestoreService.updateUser(widget.uid, {
+            'startElectricityValue': eVal,
+            'startPeakValue': peakVal,
+            'startOffPeakValue': offPeakVal,
+            'startWaterValue': wVal,
+            'startBillingMonth': nextCycle.month,
+            'startBillingYear': nextCycle.year,
+            'startMeterConfigured': true,
+          });
+          await widget.firestoreService.saveStartMeterRecord(
+            StartMeterRecordModel(
+              id: const Uuid().v4(),
+              uid: widget.uid,
+              electricityValue: eVal,
+              waterValue: wVal,
+              peakValue: peakVal,
+              offPeakValue: offPeakVal,
+              billingMonth: nextCycle.month,
+              billingYear: nextCycle.year,
+              recordedAt: DateTime.now(),
+            ),
+          );
+        }
+      }
+
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -249,6 +328,22 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showMeterBundleInfoPopup() {
+    showInfoDialog(
+      context,
+      title: 'เลขนี้เอาไปใช้ทำอะไร?',
+      message: 'เดือนนี้เป็นเดือนล่าสุดก่อนที่แอปจะเริ่มติดตามการใช้ไฟ/น้ำ'
+          'จริงผ่านการบันทึกมิเตอร์ทุกวัน ระบบจึงต้องมี "เลขมิเตอร์สะสม" '
+          'ณ วันตัดรอบของเดือนนี้ไว้เป็นจุดเริ่มต้น เพื่อคำนวณหน่วยที่ใช้'
+          'ของรอบถัดไปให้ถูกต้อง\n\n'
+          'เปิดใบแจ้งหนี้เดือนนี้ แล้วมองหาช่อง "เลขอ่านครั้งหลัง" '
+          '(ตัวเลขสะสมบนมิเตอร์ ไม่ใช่หน่วยที่ใช้ที่กรอกด้านบน) '
+          'กรอกที่นี่ได้เลย ไม่ต้องไปกรอกซ้ำที่หน้า "บันทึกมิเตอร์ต้นรอบ" อีก\n\n'
+          'ไม่บังคับ — ถ้าข้ามไป ยังไปตั้งค่าที่หน้า "บันทึกมิเตอร์ต้นรอบ" '
+          'ทีหลังได้ตามปกติ',
     );
   }
 
@@ -420,6 +515,121 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       ),
                     ],
                   ),
+                  if (_showStartMeterSection) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.speed,
+                                  size: 16, color: Colors.blue.shade700),
+                              const SizedBox(width: 6),
+                              const Expanded(
+                                child: Text(
+                                  'ตั้งเลขมิเตอร์ต้นรอบเดือนถัดไปเลยไหม?',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: _showMeterBundleInfoPopup,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.blue.withOpacity(0.15),
+                                  ),
+                                  child: Text('!',
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade700)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'ไม่บังคับ • กรอกเลขมิเตอร์สะสม (ไม่ใช่หน่วยที่ใช้) '
+                            'จากใบแจ้งหนี้เดือนนี้ ข้ามได้ถ้าจะไปตั้งทีหลัง',
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey.shade600),
+                          ),
+                          const SizedBox(height: 12),
+                          if (_user!.meterType == 'tou') ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _label('เลขมิเตอร์ On-Peak'),
+                                      TextField(
+                                        controller: _meterPeakCtrl,
+                                        keyboardType: const TextInputType
+                                            .numberWithOptions(decimal: true),
+                                        decoration: _fieldDecoration(
+                                            hint: 'เช่น 8500',
+                                            suffixText: 'หน่วย'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _label('เลขมิเตอร์ Off-Peak'),
+                                      TextField(
+                                        controller: _meterOffPeakCtrl,
+                                        keyboardType: const TextInputType
+                                            .numberWithOptions(decimal: true),
+                                        decoration: _fieldDecoration(
+                                            hint: 'เช่น 5400',
+                                            suffixText: 'หน่วย'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            _label('เลขมิเตอร์ไฟฟ้า'),
+                            TextField(
+                              controller: _meterECtrl,
+                              keyboardType: const TextInputType
+                                  .numberWithOptions(decimal: true),
+                              decoration: _fieldDecoration(
+                                  hint: 'เช่น 14009', suffixText: 'หน่วย'),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          _label('เลขมิเตอร์น้ำ'),
+                          TextField(
+                            controller: _meterWCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            decoration: _fieldDecoration(
+                                hint: 'เช่น 148', suffixText: 'หน่วย'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(16),
