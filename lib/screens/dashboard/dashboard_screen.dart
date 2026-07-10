@@ -624,7 +624,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       fieldBg:
                                           DashboardStyles.electricityFieldBg,
                                       controller: _electricityController,
-                                      hint: 'เช่น 14052',
+                                      hint: 'เช่น 00000',
                                       lastValue:
                                           _latestElectricityLog?.meterValue ??
                                               _user?.startElectricityValue,
@@ -644,7 +644,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 accent: DashboardStyles.waterAccent,
                                 fieldBg: DashboardStyles.waterFieldBg,
                                 controller: _waterController,
-                                hint: 'เช่น 178',
+                                hint: 'เช่น 00000',
                                 lastValue: _latestWaterLog?.meterValue ??
                                     _user?.startWaterValue,
                                 startValue: _user?.startWaterValue,

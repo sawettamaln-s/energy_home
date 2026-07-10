@@ -876,11 +876,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showInfoDialog(context, title: title, message: message);
   }
 
+  // วันที่ "ยอดนิยม" ที่ให้ป้ายกำกับในปฏิทินเลือกวันตัดรอบบิล — เป็นชุดคงที่
+  // สำหรับความสวยงามของ UI เท่านั้น (แอปยังไม่ได้เก็บสถิติวันที่ผู้ใช้เลือกจริง)
+  static const Set<int> _popularBillingDays = {1, 15, 20, 25, 30};
+
   // ช่องวันที่หนึ่งช่องในปฏิทินเลือกวันตัดรอบบิล (ไม่มีเดือน มีแค่เลข 1-31
   // เพราะวันตัดรอบบิลซ้ำทุกเดือนอยู่แล้ว ไม่ต้องให้เลือกเดือน)
   Widget _buildBillingDayCell({
     required int day,
     required bool isSelected,
+    required bool isPopular,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -888,20 +893,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade100,
+          color: isSelected ? const Color(0xFF2E7D32) : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
           ),
         ),
         alignment: Alignment.center,
-        child: Text(
-          '$day',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : Colors.black87,
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$day',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : Colors.black87,
+              ),
+            ),
+            if (isPopular)
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Text(
+                  'ยอดนิยม',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : Colors.green.shade700,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -954,21 +977,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // ปฏิทินเลือกวัน 1-31 แบบกริด 7 คอลัมน์
-                GridView.count(
-                  crossAxisCount: 7,
+                // ปฏิทินเลือกวัน 1-31 แบบกริด 7 คอลัมน์ — mainAxisExtent คงที่
+                // เพื่อให้ช่องที่มีป้าย "ยอดนิยม" กับช่องปกติสูงเท่ากัน
+                GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  children: List.generate(31, (i) {
-                    final day = i + 1;
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 6,
+                    mainAxisExtent: 46,
+                  ),
+                  // +1 ช่องแรกเป็นช่องว่าง เพื่อให้เลข 1 เริ่มเยื้องคอลัมน์ที่ 2
+                  // ตามแพทเทิร์นเลย์เอาต์ปฏิทินที่อ้างอิงมา
+                  itemCount: 32,
+                  itemBuilder: (context, i) {
+                    if (i == 0) return const SizedBox.shrink();
+                    final day = i;
                     return _buildBillingDayCell(
                       day: day,
                       isSelected: day == selectedDay,
+                      isPopular: _popularBillingDays.contains(day),
                       onTap: () => setDialogState(() => selectedDay = day),
                     );
-                  }),
+                  },
                 ),
                 const SizedBox(height: 8),
                 Center(

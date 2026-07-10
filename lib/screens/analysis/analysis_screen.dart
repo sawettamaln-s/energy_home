@@ -123,38 +123,37 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               onRefresh: _loadData,
               color: _green,
               child: TabBarView(
-              controller: _tabController,
-              children: [
-                _UtilityTab(
-                  bills: _bills,
-                  analysisService: _analysisService,
-                  selector: (b) => b.electricityCost,
-                  unitLabel: 'หน่วย',
-                  title: 'ค่าไฟฟ้า',
-                  label: 'ค่าไฟ',
-                  currentCycle: _currentCycle?['electricity'],
-                ),
-                _UtilityTab(
-                  bills: _bills,
-                  analysisService: _analysisService,
-                  selector: (b) => b.waterCost,
-                  unitLabel: 'หน่วย',
-                  title: 'ค่าน้ำ',
-                  label: 'ค่าน้ำ',
-                  currentCycle: _currentCycle?['water'],
-                ),
-                _ApplianceTab(
-                  appliances: _appliances,
-                  analysisService: _analysisService,
-                ),
-              ],
+                controller: _tabController,
+                children: [
+                  _UtilityTab(
+                    bills: _bills,
+                    analysisService: _analysisService,
+                    selector: (b) => b.electricityCost,
+                    unitLabel: 'หน่วย',
+                    title: 'ค่าไฟฟ้า',
+                    label: 'ค่าไฟ',
+                    currentCycle: _currentCycle?['electricity'],
+                  ),
+                  _UtilityTab(
+                    bills: _bills,
+                    analysisService: _analysisService,
+                    selector: (b) => b.waterCost,
+                    unitLabel: 'หน่วย',
+                    title: 'ค่าน้ำ',
+                    label: 'ค่าน้ำ',
+                    currentCycle: _currentCycle?['water'],
+                  ),
+                  _ApplianceTab(
+                    appliances: _appliances,
+                    analysisService: _analysisService,
+                  ),
+                ],
               ),
             ),
       bottomNavigationBar:
           AppBottomNavBar(currentIndex: 1, onTap: widget.onNavTap),
     );
   }
-
 }
 
 // ==================== Tab ไฟฟ้า / น้ำ ====================
@@ -271,8 +270,7 @@ class _UtilityTab extends StatelessWidget {
               const Icon(Icons.timelapse, color: _green, size: 18),
               const SizedBox(width: 6),
               const Text('พยากรณ์ยอดบิลรอบนี้',
-                  style:
-                      TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const Spacer(),
               Text('ผ่านมาแล้ว $progressPercent%',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
@@ -364,7 +362,8 @@ class _UtilityTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+        Text(label,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
         const SizedBox(height: 4),
         Text(value,
             style: TextStyle(
@@ -470,8 +469,8 @@ class _UtilityTab extends StatelessWidget {
                         show: true,
                         drawVerticalLine: false,
                         horizontalInterval: interval == 0 ? 1 : interval,
-                        getDrawingHorizontalLine: (v) => FlLine(
-                            color: Colors.grey.shade200, strokeWidth: 1),
+                        getDrawingHorizontalLine: (v) =>
+                            FlLine(color: Colors.grey.shade200, strokeWidth: 1),
                       ),
                       titlesData: FlTitlesData(
                         leftTitles: AxisTitles(
@@ -861,35 +860,6 @@ class _ApplianceTab extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
-              // Legend: ชื่ออุปกรณ์ + % ของทุกชิ้น รวมถึงชิ้นเล็กที่ไม่มี
-              // ตัวเลขบนพาย ให้ยังเห็นสัดส่วนครบทุกชิ้นแบบไม่เบียดกัน
-              Wrap(
-                spacing: 14,
-                runSpacing: 8,
-                children: List.generate(breakdown.length, (i) {
-                  final u = breakdown[i];
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          color: colors[i % colors.length],
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '${u.appliance.name} ${u.percentOfTotal.toStringAsFixed(0)}%',
-                        style: TextStyle(
-                            fontSize: 11.5, color: Colors.grey.shade700),
-                      ),
-                    ],
-                  );
-                }),
-              ),
             ],
           ),
         ),
@@ -936,8 +906,8 @@ class _ApplianceTab extends StatelessWidget {
                     Icon(Icons.lightbulb_outline, size: 16, color: _green),
                     SizedBox(width: 6),
                     Text('ข้อสังเกต',
-                        style:
-                            TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
                   ],
                 ),
                 const SizedBox(height: 10),
