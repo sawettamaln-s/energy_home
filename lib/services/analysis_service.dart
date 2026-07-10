@@ -78,7 +78,12 @@ class AnalysisInsight {
   final String text;
   final InsightLevel level;
 
-  AnalysisInsight(this.text, this.level);
+  // true เฉพาะข้อสังเกตที่ชี้ไปยัง "เดือนที่ใช้สูงสุด" — ให้ UI ต่อท้ายด้วย
+  // ปุ่มลิงก์ไปแท็บอุปกรณ์ เพื่อให้ผู้ใช้ตรวจสอบต่อได้ทันทีว่าอุปกรณ์ไหน
+  // กินไฟเยอะสุด แทนที่จะบอกข้อสังเกตเฉยๆ แล้วจบ
+  final bool showApplianceCta;
+
+  AnalysisInsight(this.text, this.level, {this.showApplianceCta = false});
 }
 
 class AnalysisService {
@@ -340,6 +345,7 @@ class AnalysisService {
     required ComparisonResult? yoy,
     required double forecastNextMonth,
     CurrentCycleForecast? currentCycle,
+    bool trackAppliances = true,
   }) {
     final insights = <AnalysisInsight>[];
 
@@ -415,6 +421,7 @@ class AnalysisService {
           'เดือนที่ใช้${label}สูงสุดในข้อมูลที่เก็บไว้คือ ${peak.month}/${peak.year} '
           'ที่ ${selector(peak).toStringAsFixed(0)} บาท ลองสังเกตว่าช่วงนั้นมีอะไรต่างจากปกติ',
           InsightLevel.neutral,
+          showApplianceCta: trackAppliances,
         ));
       }
     }
