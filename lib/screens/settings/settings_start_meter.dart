@@ -22,12 +22,22 @@ class _AddStartMeterSheet extends StatefulWidget {
 
 class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   bool _isLoading = true;
+  UserModel? _user;
   final _eCtrl = TextEditingController();
   final _peakCtrl = TextEditingController();
   final _offPeakCtrl = TextEditingController();
   final _wCtrl = TextEditingController();
-  int _selectedMonth = DateTime.now().month;
-  int _selectedYear = DateTime.now().year;
+  // ค่ามิเตอร์ต้นรอบมาจากใบแจ้งหนี้ที่เพิ่ง "ปิดรอบ" ไปแล้วเสมอ ไม่ใช่ของ
+  // เดือนปัจจุบันที่ใบแจ้งหนี้ยังไม่ออก จึง default เป็นเดือนก่อนหน้า
+  // (ใช้ DateTime(year, month - 1, 1) เพื่อให้ Dart ช่วย wrap ปีให้เองตอน
+  // เดือนปัจจุบันเป็นมกราคม — จะได้ธันวาคมของปีก่อนหน้าอัตโนมัติ)
+  static DateTime get _defaultInvoiceMonth {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month - 1, 1);
+  }
+
+  int _selectedMonth = _defaultInvoiceMonth.month;
+  int _selectedYear = _defaultInvoiceMonth.year;
   bool _isSaving = false;
 
   @override
@@ -41,6 +51,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   // widget นี้ใช้งานได้เองอิสระ ไม่ผูกกับ state ของหน้าตั้งค่า
   Future<void> _loadCurrent() async {
     final user = await widget.firestoreService.getUser(widget.uid);
+    _user = user;
     if (user != null && mounted) {
       _eCtrl.text = user.startElectricityValue == 0
           ? ''
@@ -53,10 +64,10 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       _wCtrl.text =
           user.startWaterValue == 0 ? '' : user.startWaterValue.toString();
       _selectedMonth = user.startBillingMonth == 0
-          ? DateTime.now().month
+          ? _defaultInvoiceMonth.month
           : user.startBillingMonth;
       _selectedYear = user.startBillingYear == 0
-          ? DateTime.now().year
+          ? _defaultInvoiceMonth.year
           : user.startBillingYear;
     }
     if (mounted) setState(() => _isLoading = false);
@@ -131,6 +142,44 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
           recordedAt: DateTime.now(),
         ),
       );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  // ล้างค่ามิเตอร์ต้นรอบ "จริง" ที่หน้าแรกใช้แสดงผล (user.startElectricityValue
+  // ฯลฯ) — คนละอันกับการลบประวัติ (StartMeterRecordModel) ที่แค่ลบ snapshot
+  // ไว้ดูย้อนหลังเฉยๆ ไม่เคยมีผลกับค่าจริงเลย ปุ่มนี้ตั้งใจแยกไว้ให้ชัดว่า
+  // เป็น action ที่กระทบมากกว่า ต้องมี confirm แยกต่างหาก
+  Future<void> _confirmClearStartMeter() async {
+    final confirm = await showConfirmDialog(
+      context,
+      title: 'ล้างค่ามิเตอร์ต้นรอบ',
+      content: 'ค่ามิเตอร์ต้นรอบทั้งหมดจะถูกล้าง ต้องตั้งค่าใหม่ก่อนถึงจะ'
+          'บันทึกมิเตอร์รายวันต่อได้\n\nประวัติมิเตอร์ที่บันทึกไว้ในรอบนี้'
+          'จะยังอยู่ แต่จะคำนวณอ้างอิงกับต้นรอบเดิมไม่ได้แล้ว จนกว่าจะตั้ง'
+          'ค่าต้นรอบใหม่อีกครั้ง ต้องการดำเนินการต่อใช่ไหมคะ?',
+    );
+    if (confirm != true) return;
+
+    setState(() => _isSaving = true);
+    try {
+      await widget.firestoreService.updateUser(widget.uid, {
+        'startElectricityValue': 0,
+        'startPeakValue': 0,
+        'startOffPeakValue': 0,
+        'startWaterValue': 0,
+        'startBillingMonth': 0,
+        'startBillingYear': 0,
+        'startMeterConfigured': false,
+      });
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -357,6 +406,23 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                 : const Text('บันทึก'),
                           ),
                         ),
+                        if (_user?.startMeterConfigured == true) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: TextButton.icon(
+                              onPressed:
+                                  _isSaving ? null : _confirmClearStartMeter,
+                              icon: Icon(Icons.delete_forever_outlined,
+                                  size: 18, color: Colors.red.shade300),
+                              label: Text(
+                                'ล้างค่ามิเตอร์ต้นรอบ',
+                                style: TextStyle(color: Colors.red.shade300),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

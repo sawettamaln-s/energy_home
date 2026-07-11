@@ -9,6 +9,7 @@ import '../models/fixed_cost_item_model.dart';
 import '../models/start_meter_record_model.dart';
 import '../models/user_model.dart';
 import '../models/water_log_model.dart';
+import '../utils/data_refresh_bus.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -29,9 +30,10 @@ class FirestoreService {
     return null;
   }
 
-  // อัพเดทข้อมูลผู้ใช้
+  // อัพเดทข้อมูลผู้ใช้ (ครอบคลุมทั้งตั้ง/ล้างค่ามิเตอร์ต้นรอบ ฯลฯ)
   Future<void> updateUser(String uid, Map<String, dynamic> data) async {
     await _db.collection('users').doc(uid).update(data);
+    DataRefreshBus.instance.notifyChanged();
   }
 
   // ==================== FIXED COST ITEMS ====================
@@ -90,6 +92,7 @@ class FirestoreService {
         .collection('start_meter_history')
         .doc(record.id)
         .set(record.toMap());
+    DataRefreshBus.instance.notifyChanged();
   }
 
   // ดึงประวัติทั้งหมด เรียงจากล่าสุดไปเก่าสุด
@@ -117,6 +120,7 @@ class FirestoreService {
         .collection('start_meter_history')
         .doc(recordId)
         .delete();
+    DataRefreshBus.instance.notifyChanged();
   }
 
   // ==================== BILLS ====================
@@ -129,6 +133,7 @@ class FirestoreService {
         .collection('bills')
         .doc(bill.id)
         .set(bill.toMap());
+    DataRefreshBus.instance.notifyChanged();
   }
 
   // ลบบิล (ใช้สำหรับลบบิลย้อนหลังที่กรอกผิด)
@@ -139,6 +144,7 @@ class FirestoreService {
         .collection('bills')
         .doc(billId)
         .delete();
+    DataRefreshBus.instance.notifyChanged();
   }
 
   /// รวม logs ของรอบบิลที่ปิดแล้ว (startDate -> endDate) → สร้าง Bill
@@ -274,6 +280,7 @@ class FirestoreService {
         .collection('electricity_logs')
         .doc(log.id)
         .set(log.toMap());
+    DataRefreshBus.instance.notifyChanged();
   }
 
   Future<ElectricityLogModel?> getLatestElectricityLog(String uid) async {
@@ -312,6 +319,7 @@ class FirestoreService {
         .collection('electricity_logs')
         .doc(logId)
         .delete();
+    DataRefreshBus.instance.notifyChanged();
   }
 
   // ==================== WATER LOGS ====================
@@ -323,6 +331,7 @@ class FirestoreService {
         .collection('water_logs')
         .doc(log.id)
         .set(log.toMap());
+    DataRefreshBus.instance.notifyChanged();
   }
 
   Future<WaterLogModel?> getLatestWaterLog(String uid) async {
@@ -361,6 +370,7 @@ class FirestoreService {
         .collection('water_logs')
         .doc(logId)
         .delete();
+    DataRefreshBus.instance.notifyChanged();
   }
 
   // ==================== ลบบัญชี + ข้อมูลทั้งหมด (PDPA) ====================

@@ -121,6 +121,10 @@ class _ElectricityLogTab extends StatefulWidget {
 class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   List<ElectricityLogModel> _logs = [];
   bool _isLoading = true;
+  // จุดเริ่มต้นของรอบบิลปัจจุบัน — log ที่เก่ากว่านี้ถือว่าอยู่ในรอบที่ปิด
+  // ไปแล้ว ห้ามแก้ไข/ลบ เพราะถูกใช้คำนวณบิลที่ปิดไปแล้วแล้ว แก้ย้อนหลังจะ
+  // ทำให้ตัวเลขบิลเก่ากับ log ไม่ตรงกัน
+  DateTime? _cycleStart;
 
   @override
   void initState() {
@@ -133,12 +137,19 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
     final now = DateTime.now();
     final startDate = DateTime(now.year - 1, now.month, 1);
     final endDate = DateTime(now.year + 1, now.month, 1);
+    final user = await widget.firestoreService.getUser(widget.uid);
+    _cycleStart = EnergyForecaster.getCycleStart(now, user?.billingDay ?? 30);
     _logs = await widget.firestoreService.getCurrentMonthElectricityLogs(
       widget.uid,
       startDate,
       endDate,
     );
     setState(() => _isLoading = false);
+  }
+
+  bool _isEditable(ElectricityLogModel log) {
+    if (_cycleStart == null) return false;
+    return !log.date.isBefore(_cycleStart!);
   }
 
   Future<void> _confirmDelete(ElectricityLogModel log) async {
@@ -151,6 +162,16 @@ final confirm = await showConfirmDialog(
       await widget.firestoreService.deleteElectricityLog(log.uid, log.id);
       await _loadLogs();
     }
+  }
+
+  void _showLockedNotice() {
+    showInfoDialog(
+      context,
+      title: 'แก้ไขไม่ได้แล้ว',
+      message: 'รายการนี้อยู่ในรอบบิลที่ปิดไปแล้ว ถูกใช้คำนวณบิลเดือนนั้น'
+          'เรียบร้อยแล้ว จึงแก้ไข/ลบไม่ได้ เพื่อไม่ให้ตัวเลขบิลเก่ากับ'
+          'ประวัติไม่ตรงกัน',
+    );
   }
 
   @override
@@ -290,10 +311,16 @@ final confirm = await showConfirmDialog(
                                     ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    icon: Icon(Icons.delete_outline,
-                                        size: 19,
-                                        color: Colors.red.shade300),
-                                    onPressed: () => _confirmDelete(log),
+                                    icon: _isEditable(log)
+                                        ? Icon(Icons.delete_outline,
+                                            size: 19,
+                                            color: Colors.red.shade300)
+                                        : Icon(Icons.lock_outline,
+                                            size: 18,
+                                            color: Colors.grey.shade400),
+                                    onPressed: _isEditable(log)
+                                        ? () => _confirmDelete(log)
+                                        : _showLockedNotice,
                                   ),
                                 ],
                               ),
@@ -390,6 +417,7 @@ class _WaterLogTab extends StatefulWidget {
 class _WaterLogTabState extends State<_WaterLogTab> {
   List<WaterLogModel> _logs = [];
   bool _isLoading = true;
+  DateTime? _cycleStart;
 
   @override
   void initState() {
@@ -402,12 +430,19 @@ class _WaterLogTabState extends State<_WaterLogTab> {
     final now = DateTime.now();
     final startDate = DateTime(now.year - 1, now.month, 1);
     final endDate = DateTime(now.year + 1, now.month, 1);
+    final user = await widget.firestoreService.getUser(widget.uid);
+    _cycleStart = EnergyForecaster.getCycleStart(now, user?.billingDay ?? 30);
     _logs = await widget.firestoreService.getCurrentMonthWaterLogs(
       widget.uid,
       startDate,
       endDate,
     );
     setState(() => _isLoading = false);
+  }
+
+  bool _isEditable(WaterLogModel log) {
+    if (_cycleStart == null) return false;
+    return !log.date.isBefore(_cycleStart!);
   }
 
   Future<void> _confirmDelete(WaterLogModel log) async {
@@ -420,6 +455,16 @@ final confirm = await showConfirmDialog(
       await widget.firestoreService.deleteWaterLog(log.uid, log.id);
       await _loadLogs();
     }
+  }
+
+  void _showLockedNotice() {
+    showInfoDialog(
+      context,
+      title: 'แก้ไขไม่ได้แล้ว',
+      message: 'รายการนี้อยู่ในรอบบิลที่ปิดไปแล้ว ถูกใช้คำนวณบิลเดือนนั้น'
+          'เรียบร้อยแล้ว จึงแก้ไข/ลบไม่ได้ เพื่อไม่ให้ตัวเลขบิลเก่ากับ'
+          'ประวัติไม่ตรงกัน',
+    );
   }
 
   @override
@@ -559,10 +604,16 @@ final confirm = await showConfirmDialog(
                                     ),
                                   IconButton(
                                     visualDensity: VisualDensity.compact,
-                                    icon: Icon(Icons.delete_outline,
-                                        size: 19,
-                                        color: Colors.red.shade300),
-                                    onPressed: () => _confirmDelete(log),
+                                    icon: _isEditable(log)
+                                        ? Icon(Icons.delete_outline,
+                                            size: 19,
+                                            color: Colors.red.shade300)
+                                        : Icon(Icons.lock_outline,
+                                            size: 18,
+                                            color: Colors.grey.shade400),
+                                    onPressed: _isEditable(log)
+                                        ? () => _confirmDelete(log)
+                                        : _showLockedNotice,
                                   ),
                                 ],
                               ),

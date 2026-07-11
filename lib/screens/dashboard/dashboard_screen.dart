@@ -9,6 +9,7 @@ import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/calculator.dart';
+import '../../utils/data_refresh_bus.dart';
 import '../../utils/forecaster.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
@@ -93,6 +94,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _loadData();
 
+    // แท็บนี้ถูกเก็บไว้ใน IndexedStack ของ MainShell ตลอด ไม่มี route
+    // pop/push ให้ RouteAware ทำงานตอนสลับแท็บ เลยต้องฟัง DataRefreshBus
+    // แทน — พอมีการแก้/ลบข้อมูลจากแท็บอื่น (เช่น ลบ log ที่หน้าตั้งค่า)
+    // หน้านี้จะโหลดข้อมูลใหม่ให้เองโดยไม่ต้องรอผู้ใช้ pull-to-refresh
+    DataRefreshBus.instance.version.addListener(_onDataChangedElsewhere);
+
     // อัปเดตจุดสถานะ "กรอกแล้ว" บนปุ่มสลับ On-Peak/Off-Peak แบบเรียลไทม์
     // ระหว่างพิมพ์ (ไม่งั้นพอสลับแท็บไปมาจะไม่รู้ว่าอีกช่วงกรอกไปหรือยัง)
     _electricityPeakController.addListener(_onTouFieldChanged);
@@ -115,8 +122,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (mounted) setState(() {});
   }
 
+  void _onDataChangedElsewhere() {
+    if (mounted) _loadData();
+  }
+
   @override
   void dispose() {
+    DataRefreshBus.instance.version.removeListener(_onDataChangedElsewhere);
     _electricityPeakController.removeListener(_onTouFieldChanged);
     _electricityOffPeakController.removeListener(_onTouFieldChanged);
     _electricityController.dispose();
