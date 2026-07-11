@@ -19,6 +19,10 @@ class DashboardStyles {
   static const Color waterAccent = Colors.blue;
   static const Color waterFieldBg = Color(0xFFE3F2FD);
 
+  // ---------- สีกรอบการ์ดมิเตอร์วันนี้ (เลย์เอาต์ใหม่ กรอบสีตามประเภท) ----------
+  static const Color electricityBorder = Color(0xFFC98A4B); // น้ำตาล-ส้ม
+  static const Color waterBorder = Color(0xFF2F9E8F); // เขียวอมฟ้า
+
   // ---------- สีสถานะ (เพิ่มขึ้น/ลดลง) ----------
   static const Color spikeUp = Color(0xFFE53935); // ค่าใช้จ่ายพุ่งขึ้น
   static const Color spikeDown = Color(0xFF2E7D32); // ค่าใช้จ่ายลดลง
@@ -40,6 +44,22 @@ class DashboardStyles {
           BoxShadow(
             color: Colors.grey.withOpacity(0.08),
             blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      );
+
+  // การ์ดพื้นขาวมีกรอบสี — ใช้กับการ์ดมิเตอร์ไฟฟ้า/น้ำ เลย์เอาต์ใหม่ที่
+  // แต่ละการ์ดมีกรอบสีของตัวเองแทนเงาเบาๆ แบบเดิม
+  static BoxDecoration accentCard(Color borderColor, {double radius = 16}) =>
+      BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: borderColor, width: 1.4),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.05),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],

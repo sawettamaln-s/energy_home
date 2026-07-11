@@ -78,6 +78,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _unreadNotifications =
       0; // จำนวนแจ้งเตือนที่ยังไม่อ่าน (badge ที่ปุ่มกระดิ่ง)
 
+  // การ์ด TOU: สลับโชว์ทีละช่วง (0 = On-Peak, 1 = Off-Peak) แทนที่จะโชว์
+  // ทั้ง 2 ฟิลด์พร้อมกัน — ทำให้การ์ดสูงพอๆ กับการ์ดน้ำ (ฟิลด์เดียว) บนจอ
+  // มือถือ ค่าที่กรอกไว้ในแต่ละช่วงยังอยู่ครบแม้จะสลับแท็บ (ผูกกับ
+  // controller เดิม ไม่ได้ล้างตอนสลับ)
+  int _touPeriod = 0;
+
   // เช็คแค่ "ครั้งแรก" ที่ _loadData() รัน (ไม่ใช่ทุกครั้งที่ pull-to-refresh)
   // ใช้คู่กับ widget.justCompletedSetup เพื่อทำให้แจ้งเตือนเงียบแค่รอบเดียว
   bool _isFirstLoad = true;
@@ -86,6 +92,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadData();
+
+    // อัปเดตจุดสถานะ "กรอกแล้ว" บนปุ่มสลับ On-Peak/Off-Peak แบบเรียลไทม์
+    // ระหว่างพิมพ์ (ไม่งั้นพอสลับแท็บไปมาจะไม่รู้ว่าอีกช่วงกรอกไปหรือยัง)
+    _electricityPeakController.addListener(_onTouFieldChanged);
+    _electricityOffPeakController.addListener(_onTouFieldChanged);
 
     // โชว์คู่มือเริ่มต้นใช้งาน (เฉพาะครั้งแรกที่เข้า Dashboard เท่านั้น)
     // ใช้ addPostFrameCallback เพื่อรอให้ widget tree พร้อมก่อนเปิด dialog
@@ -100,8 +111,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void _onTouFieldChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _electricityPeakController.removeListener(_onTouFieldChanged);
+    _electricityOffPeakController.removeListener(_onTouFieldChanged);
     _electricityController.dispose();
     _electricityPeakController.dispose();
     _electricityOffPeakController.dispose();
@@ -336,10 +353,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _saveElectricityLog() async {
     final isTOU = _user?.meterType == 'tou';
 
+    // ค่าต้นรอบ/ล่าสุดของ TOU เตรียมไว้ใช้ทั้งตอน validate และตอนเติมให้
+    // อัตโนมัติเวลาผู้ใช้กรอกแค่ช่องเดียว (คำนวณล่วงหน้าตรงนี้เพราะต้องใช้
+    // ทั้งก่อนและหลัง setState _isSavingElectricity)
+    final startPeak = _user?.startPeakValue ?? 0;
+    final startOffPeak = _user?.startOffPeakValue ?? 0;
+    final lastPeak = _latestElectricityLog?.peakMeterValue ?? startPeak;
+    final lastOffPeak =
+        _latestElectricityLog?.offPeakMeterValue ?? startOffPeak;
+
     if (isTOU) {
-      if (_electricityPeakController.text.isEmpty ||
-          _electricityOffPeakController.text.isEmpty) {
-        setState(() => _electricityError = 'กรุณากรอกหน่วย Peak และ Off-Peak ให้ครบค่ะ');
+      final peakEmpty = _electricityPeakController.text.trim().isEmpty;
+      final offPeakEmpty = _electricityOffPeakController.text.trim().isEmpty;
+      // เดิมบังคับกรอกครบทั้ง Peak และ Off-Peak — เปลี่ยนให้กรอกแค่ช่อง
+      // เดียวก็คำนวณได้เลย เหมือนแบบฟอร์มประมาณการของเว็บ กฟภ/กฟน (ช่องที่
+      // เว้นว่างไว้ = ช่วงนั้นไม่ได้ใช้เพิ่ม จะใช้ค่าล่าสุดเดิมแทน)
+      if (peakEmpty && offPeakEmpty) {
+        setState(() => _electricityError =
+            'กรุณากรอกหน่วย Peak หรือ Off-Peak อย่างน้อย 1 ช่องค่ะ');
         return;
       }
     } else {
@@ -355,8 +386,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       if (isTOU) {
-        peakValue = double.parse(_electricityPeakController.text);
-        offPeakValue = double.parse(_electricityOffPeakController.text);
+        // ช่องไหนเว้นว่างไว้ -> ใช้ค่าล่าสุดเดิม (เท่ากับหน่วยที่ใช้เพิ่ม
+        // ในช่วงนั้น = 0)
+        peakValue = _electricityPeakController.text.trim().isEmpty
+            ? lastPeak
+            : double.parse(_electricityPeakController.text);
+        offPeakValue = _electricityOffPeakController.text.trim().isEmpty
+            ? lastOffPeak
+            : double.parse(_electricityOffPeakController.text);
       } else {
         normalValue = double.parse(_electricityController.text);
       }
@@ -379,12 +416,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       double offPeakUnits = 0;
 
       if (isTOU) {
-        final startPeak = _user?.startPeakValue ?? 0;
-        final startOffPeak = _user?.startOffPeakValue ?? 0;
-        final lastPeak = _latestElectricityLog?.peakMeterValue ?? startPeak;
-        final lastOffPeak =
-            _latestElectricityLog?.offPeakMeterValue ?? startOffPeak;
-
         if (peakValue < startPeak || offPeakValue < startOffPeak) {
           setState(
               () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบค่ะ');
@@ -603,60 +634,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: DashboardStyles.sectionTitle),
                       const SizedBox(height: 10),
 
-                      // ให้ไฟฟ้ากับน้ำอยู่คู่กันแบบ Row เสมอเหมือน layout
-                      // ปกติ ไม่ว่าจะเป็น TOU หรือไม่ — สลับแค่การ์ดฝั่ง
-                      // ไฟฟ้า (TOU การ์ดพิเศษ 2 ช่อง vs การ์ดปกติ 1 ช่อง)
-                      // การ์ด TOU จะสูงกว่าเพราะมี 2 ฟิลด์ แต่ก็แค่สูงกว่า
-                      // ในคอลัมน์ตัวเอง ไม่ดันน้ำตกลงไปด้านล่างอีกต่อไป
+                      // การ์ดไฟฟ้ากับน้ำอยู่คู่กันแบบ Row ซ้าย-ขวา (กลับมา
+                      // ใช้เลย์เอาต์นี้ตามที่ขอ เพราะแบบซ้อน Column เต็ม
+                      // ความกว้างเมื่อก่อนดูใหญ่คับจอไป) ใช้ IntrinsicHeight
+                      // ให้การ์ด TOU (2 ฟิลด์) กับการ์ดน้ำ (1 ฟิลด์) สูงเท่ากัน
                       _user?.startMeterConfigured == false
                           ? _buildStartMeterRequiredCard()
                           : IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: _user?.meterType == 'tou'
-                                  ? _buildTOUMeterCard()
-                                  : _buildMeterCard(
-                                      title: 'ไฟฟ้า',
-                                      icon: Icons.bolt,
-                                      accent: DashboardStyles.electricityAccent,
-                                      fieldBg:
-                                          DashboardStyles.electricityFieldBg,
-                                      controller: _electricityController,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: _user?.meterType == 'tou'
+                                        ? _buildTOUMeterCard()
+                                        : _buildMeterCard(
+                                            title: 'ไฟฟ้า',
+                                            icon: Icons.bolt,
+                                            accent:
+                                                DashboardStyles.electricityAccent,
+                                            borderColor: DashboardStyles
+                                                .electricityBorder,
+                                            fieldBg: DashboardStyles
+                                                .electricityFieldBg,
+                                            controller: _electricityController,
+                                            hint: 'เช่น 00000',
+                                            lastValue: _latestElectricityLog
+                                                    ?.meterValue ??
+                                                _user?.startElectricityValue,
+                                            startValue:
+                                                _user?.startElectricityValue,
+                                            error: _electricityError,
+                                            isSaving: _isSavingElectricity,
+                                            onSave: _saveElectricityLog,
+                                            unit: 'หน่วย',
+                                          ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildMeterCard(
+                                      title: 'น้ำ',
+                                      icon: Icons.water_drop,
+                                      accent: DashboardStyles.waterAccent,
+                                      borderColor: DashboardStyles.waterBorder,
+                                      fieldBg: DashboardStyles.waterFieldBg,
+                                      controller: _waterController,
                                       hint: 'เช่น 00000',
-                                      lastValue:
-                                          _latestElectricityLog?.meterValue ??
-                                              _user?.startElectricityValue,
-                                      startValue:
-                                          _user?.startElectricityValue,
-                                      error: _electricityError,
-                                      isSaving: _isSavingElectricity,
-                                      onSave: _saveElectricityLog,
-                                      unit: 'หน่วย',
+                                      lastValue: _latestWaterLog?.meterValue ??
+                                          _user?.startWaterValue,
+                                      startValue: _user?.startWaterValue,
+                                      error: _waterError,
+                                      isSaving: _isSavingWater,
+                                      onSave: _saveWaterLog,
+                                      unit: 'ลบ.ม.',
                                     ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildMeterCard(
-                                title: 'น้ำ',
-                                icon: Icons.water_drop,
-                                accent: DashboardStyles.waterAccent,
-                                fieldBg: DashboardStyles.waterFieldBg,
-                                controller: _waterController,
-                                hint: 'เช่น 00000',
-                                lastValue: _latestWaterLog?.meterValue ??
-                                    _user?.startWaterValue,
-                                startValue: _user?.startWaterValue,
-                                error: _waterError,
-                                isSaving: _isSavingWater,
-                                onSave: _saveWaterLog,
-                                unit: 'ลบ.ม.',
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
 
                       const SizedBox(height: 16),
 
@@ -1047,11 +1081,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String unit,
     double? lastValue,
     double? startValue,
+    Color? borderColor,
   }) {
     final formatter = NumberFormat('#,##0.##');
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(14),
-      decoration: DashboardStyles.whiteCard(),
+      decoration: DashboardStyles.accentCard(borderColor ?? accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1069,8 +1105,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 2),
-          // ค่าล่าสุด/ต้นรอบ -> ใช้สีจางลง (lastValueStyle) ตามที่ขอ
+          const SizedBox(height: 4),
+          // ล่าสุด/ต้นรอบ กลับไปแยกคนละบรรทัดแบบเดิม (บรรทัดเดียวทำให้
+          // ล้นช่องแคบเวลาวางการ์ดคู่กันแบบ Row)
           if (lastValue != null)
             Text('ล่าสุด: ${formatter.format(lastValue)} $unit',
                 style: DashboardStyles.lastValueStyle),
@@ -1398,9 +1435,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _latestElectricityLog?.offPeakMeterValue ?? _user?.startOffPeakValue;
     final startOffPeak = _user?.startOffPeakValue;
 
+    final peakFilled = _electricityPeakController.text.trim().isNotEmpty;
+    final offPeakFilled =
+        _electricityOffPeakController.text.trim().isNotEmpty;
+    final isPeakTab = _touPeriod == 0;
+
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(14),
-      decoration: DashboardStyles.whiteCard(),
+      decoration: DashboardStyles.accentCard(DashboardStyles.electricityBorder),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1422,76 +1465,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 8),
 
-          // On-Peak — โชว์ ล่าสุด/ต้นรอบ ของช่วง Peak เหมือนการ์ดมิเตอร์
-          // ปกติ (TOU เทียบแบบเดียวกันเป๊ะ แค่แยกเก็บคนละค่ากับ Off-Peak)
-          const Text('On-Peak (T1)',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          if (lastPeak != null)
-            Text('ล่าสุด: ${formatter.format(lastPeak)} หน่วย',
-                style: DashboardStyles.lastValueStyle),
-          if (startPeak != null)
-            Text('ต้นรอบ: ${formatter.format(startPeak)} หน่วย',
-                style: DashboardStyles.lastValueStyle),
-          const SizedBox(height: 6),
+          // ปุ่มสลับ On-Peak / Off-Peak — โชว์ทีละช่วงแทนที่จะยัดทั้ง 2
+          // ฟิลด์พร้อมกัน ทำให้การ์ดสูงพอๆ กับการ์ดน้ำ (ฟิลด์เดียว) บนจอ
+          // มือถือ จุดเขียวข้างชื่อช่วง = กรอกไว้แล้ว กันลืมว่าเหลืออีก
+          // ช่วงที่ยังไม่ได้กรอก
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _electricityPeakController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: DashboardStyles.textDark,
-                  ),
-                  decoration: _meterFieldDecoration(
-                    hint: 'เช่น 100',
-                    unit: 'หน่วย',
-                    accent: Colors.orange,
-                    fieldBg: DashboardStyles.electricityFieldBg,
-                  ),
+                child: _buildTouTabButton(
+                  label: 'On-Peak (T1)',
+                  selected: isPeakTab,
+                  filled: peakFilled,
+                  onTap: () => setState(() => _touPeriod = 0),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildTouTabButton(
+                  label: 'Off-Peak (T2)',
+                  selected: !isPeakTab,
+                  filled: offPeakFilled,
+                  onTap: () => setState(() => _touPeriod = 1),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 8),
 
-          const SizedBox(height: 10),
-
-          // Off-Peak — เหมือนกัน แต่เทียบกับต้นรอบ/ล่าสุดของ Off-Peak เอง
-          const Text('Off-Peak (T2)',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          if (lastOffPeak != null)
-            Text('ล่าสุด: ${formatter.format(lastOffPeak)} หน่วย',
-                style: DashboardStyles.lastValueStyle),
-          if (startOffPeak != null)
-            Text('ต้นรอบ: ${formatter.format(startOffPeak)} หน่วย',
-                style: DashboardStyles.lastValueStyle),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _electricityOffPeakController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: DashboardStyles.textDark,
-                  ),
-                  decoration: _meterFieldDecoration(
-                    hint: 'เช่น 200',
-                    unit: 'หน่วย',
-                    accent: Colors.deepOrange,
-                    fieldBg: DashboardStyles.electricityFieldBg,
-                  ),
-                ),
+          // เนื้อหาของช่วงที่เลือกอยู่ — ล่าสุด/ต้นรอบ + ช่องกรอก ของช่วง
+          // นั้นเท่านั้น (ค่าที่กรอกไว้ในอีกช่วงยังอยู่ครบ ไม่หายตอนสลับ
+          // เพราะผูกกับ controller เดิม)
+          if (isPeakTab) ...[
+            if (lastPeak != null)
+              Text('ล่าสุด: ${formatter.format(lastPeak)} หน่วย',
+                  style: DashboardStyles.lastValueStyle),
+            if (startPeak != null)
+              Text('ต้นรอบ: ${formatter.format(startPeak)} หน่วย',
+                  style: DashboardStyles.lastValueStyle),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _electricityPeakController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: DashboardStyles.textDark,
               ),
-            ],
-          ),
+              decoration: _meterFieldDecoration(
+                hint: 'เช่น 100',
+                unit: 'หน่วย',
+                accent: Colors.orange,
+                fieldBg: DashboardStyles.electricityFieldBg,
+              ),
+            ),
+          ] else ...[
+            if (lastOffPeak != null)
+              Text('ล่าสุด: ${formatter.format(lastOffPeak)} หน่วย',
+                  style: DashboardStyles.lastValueStyle),
+            if (startOffPeak != null)
+              Text('ต้นรอบ: ${formatter.format(startOffPeak)} หน่วย',
+                  style: DashboardStyles.lastValueStyle),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _electricityOffPeakController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: DashboardStyles.textDark,
+              ),
+              decoration: _meterFieldDecoration(
+                hint: 'เช่น 200',
+                unit: 'หน่วย',
+                accent: Colors.deepOrange,
+                fieldBg: DashboardStyles.electricityFieldBg,
+              ),
+            ),
+          ],
 
           if (_electricityError.isNotEmpty)
             Padding(
@@ -1525,6 +1577,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // =====================================================================
+  // ปุ่มแท็บสลับ On-Peak/Off-Peak ในการ์ด TOU — โชว์จุดเขียวเล็กๆ ถ้าช่วง
+  // นั้นกรอกเลขไว้แล้ว กันลืมว่าเหลืออีกช่วงที่ยังไม่ได้กรอกก่อนกดบันทึก
+  // =====================================================================
+  Widget _buildTouTabButton({
+    required String label,
+    required bool selected,
+    required bool filled,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: selected ? Colors.orange.withOpacity(0.12) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? Colors.orange : Colors.grey.shade300,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: selected
+                      ? Colors.orange.shade800
+                      : Colors.grey.shade600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (filled) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.check_circle,
+                  size: 13, color: Colors.green.shade600),
+            ],
+          ],
+        ),
       ),
     );
   }
