@@ -62,18 +62,6 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   // กำลังตั้งค่าต้นรอบใหม่สำหรับรอบถัดไป
   bool get _isEditingCurrentCycle => _editingRecordId != null;
 
-  // ทางเลือกเดือนที่ "มีความหมายจริง" เท่านั้น — รอบล่าสุดที่ควรตั้ง กับ
-  // ย้อนอีก 1 รอบก่อนหน้านั้น (เผื่อกรณียังไม่เคยตั้งค่ารอบก่อนหน้าเลย)
-  // แทนการให้เลือกอิสระ 12 เดือน x 2 ปี ซึ่งเปิดช่องให้เลือกเดือนที่ไม่ตรง
-  // กับรอบบิลจริงได้ ทำให้ระบบ lock (โหมดแก้ไข/ตั้งใหม่) อิงผิดจุด
-  List<DateTime> get _monthChoices {
-    final billingDay = _user?.billingDay ?? 30;
-    final latest = _expectedInvoiceMonth(billingDay);
-    final oneCycleBack =
-        EnergyForecaster.getPreviousCycleStart(latest, billingDay);
-    return [latest, oneCycleBack];
-  }
-
   @override
   void initState() {
     super.initState();
@@ -319,10 +307,10 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                         //
                         // ตอนนี้: โหมดแก้ไข (ยังอยู่รอบเดิม) แสดงเป็นข้อความ
                         // เฉยๆ ไม่ให้เปลี่ยน เพราะกำลังแก้ค่าของรอบที่ระบุ
-                        // ตายตัวอยู่แล้ว / โหมดตั้งใหม่ ให้เลือกได้แค่ 2
-                        // ทางเลือกที่มีความหมายจริงเท่านั้น (รอบล่าสุดที่ควร
-                        // ตั้ง กับย้อนอีก 1 รอบ เผื่อกรณียังไม่เคยตั้งรอบก่อน
-                        // หน้านี้เลย) ตัดทางเลือกที่ผิดรอบออกไปทั้งหมด
+                        // ตายตัวอยู่แล้ว / โหมดตั้งใหม่ แสดงเดือนที่ระบบ
+                        // คำนวณให้อัตโนมัติเดือนเดียว ไม่ให้ผู้ใช้เลือกเอง
+                        // เลย (เคยมีลิงก์ให้ย้อนไปตั้งรอบก่อนหน้าได้ด้วย แต่
+                        // ตัดออกแล้ว ดูเหตุผลที่คอมเมนต์ก่อนกล่องด้านล่าง)
                         if (_isEditingCurrentCycle)
                           Container(
                             width: double.infinity,
@@ -354,71 +342,29 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             ),
                           )
                         else
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // ระบบรู้อยู่แล้วว่า "ตอนนี้ควรตั้งค่าเดือนไหน"
-                              // จาก billingDay จริง จึงเลือกให้อัตโนมัติเลย
-                              // ไม่ต้องให้ผู้ใช้ตัดสินใจเรื่องที่ระบบมีคำตอบ
-                              // อยู่แล้ว — ทางเลือกย้อนหลัง (เผื่อยังไม่เคย
-                              // ตั้งรอบก่อนหน้าเลย) ซ่อนไว้เป็นลิงก์เล็กๆ แทน
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2E7D32)
-                                      .withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF2E7D32)),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Builder(builder: (context) {
-                                final altMonth = _monthChoices.length > 1
-                                    ? _monthChoices[1]
-                                    : null;
-                                final isShowingLatest =
-                                    _monthChoices.isNotEmpty &&
-                                        _selectedMonth ==
-                                            _monthChoices[0].month &&
-                                        _selectedYear ==
-                                            _monthChoices[0].year;
-                                if (altMonth == null) {
-                                  return const SizedBox.shrink();
-                                }
-                                return GestureDetector(
-                                  onTap: () => setState(() {
-                                    final target = isShowingLatest
-                                        ? altMonth
-                                        : _monthChoices[0];
-                                    _selectedMonth = target.month;
-                                    _selectedYear = target.year;
-                                  }),
-                                  child: Text(
-                                    isShowingLatest
-                                        ? 'ยังไม่เคยตั้งค่ารอบ '
-                                            '${thaiMonths[altMonth.month - 1]} '
-                                            '${altMonth.year} ด้วย? '
-                                            'กดเพื่อตั้งค่ารอบนั้นแทน'
-                                        : 'กลับไปตั้งค่ารอบล่าสุด '
-                                            '(${thaiMonths[_monthChoices[0].month - 1]} '
-                                            '${_monthChoices[0].year}) แทน',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ],
+                          // ระบบรู้อยู่แล้วว่า "ตอนนี้ควรตั้งค่าเดือนไหน" จาก
+                          // billingDay จริง (คำนวณถูกต้องแม้แต่วันสุดท้ายก่อน
+                          // ตัดรอบ — ดู getCycleStart ใน forecaster.dart)
+                          // จึงเลือกให้อัตโนมัติเลยเดือนเดียว ไม่ต้องให้
+                          // ผู้ใช้เลือกเอง (เดิมมีลิงก์ให้ย้อนไปตั้งรอบก่อน
+                          // หน้าได้ด้วย แต่เคสที่จำเป็นต้องใช้จริงแคบมาก
+                          // ไม่คุ้มกับความซับซ้อนที่เพิ่มใน UI เลยตัดออก)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color:
+                                  const Color(0xFF2E7D32).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF2E7D32)),
+                            ),
                           ),
                         const SizedBox(height: 4),
                         // ใช้ widget กลาง (StartMeterFieldsSection) แทนโค้ด

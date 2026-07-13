@@ -10,6 +10,7 @@ import '../../models/appliance_model.dart';
 import '../../models/bill_model.dart';
 import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/data_refresh_bus.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/info_dialog.dart';
 import '../dashboard/dashboard_styles.dart';
@@ -47,10 +48,22 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadData();
+
+    // แท็บนี้ถูกเก็บไว้ใน IndexedStack ของ MainShell ตลอด ไม่มี route
+    // pop/push ให้ RouteAware ทำงานตอนสลับแท็บ เลยต้องฟัง DataRefreshBus
+    // แทน (แพทเทิร์นเดียวกับ DashboardScreen) — พอมีการแก้/ลบข้อมูลจากแท็บ
+    // อื่น (เช่น ลบ log ที่หน้าตั้งค่า) หน้านี้จะโหลดข้อมูลใหม่ให้เองโดย
+    // ไม่ต้องรอผู้ใช้ pull-to-refresh
+    DataRefreshBus.instance.version.addListener(_onDataChangedElsewhere);
+  }
+
+  void _onDataChangedElsewhere() {
+    if (mounted) _loadData();
   }
 
   @override
   void dispose() {
+    DataRefreshBus.instance.version.removeListener(_onDataChangedElsewhere);
     _applianceSub?.cancel();
     _tabController.dispose();
     super.dispose();
@@ -282,8 +295,16 @@ class _UtilityTab extends StatelessWidget {
               'ช่วยให้เห็นภาพที่นิ่งกว่าการเทียบเดือนก่อนเดือนเดียว เผื่อเดือนก่อน '
               'มีอะไรผิดปกติไปเอง (เช่น ไปต่างจังหวัดทั้งเดือน) ก็จะไม่ทำให้เดือนนี้ดูเหมือนพุ่งทั้งที่จริงแค่กลับสู่ปกติ',
         ),
-        const SizedBox(height: 10),
-        _forecastCard(context, forecast, lowConfidence: forecastLowConfidence),
+        // ไม่มีบิลเลยสักเดือน = พยากรณ์ไม่มีความหมายอะไรทั้งสิ้น (ไม่ใช่แค่
+        // "ความมั่นใจต่ำ") ซ่อนการ์ดนี้ไปเลยดีกว่าโชว์ "0.00 บาท" ซึ่งดู
+        // เหมือนระบบฟันธงว่าเดือนหน้าจะไม่มีค่าใช้จ่าย ทั้งที่จริงคือยังไม่มี
+        // ข้อมูลให้คำนวณ — กราฟเทรนด์ด้านบนมี empty-state อธิบายเรื่องนี้
+        // ให้ผู้ใช้แล้ว ไม่ต้องพูดซ้ำอีกรอบในการ์ดนี้
+        if (bills.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _forecastCard(context, forecast,
+              lowConfidence: forecastLowConfidence),
+        ],
         if (insights.isNotEmpty) ...[
           const SizedBox(height: 16),
           _insightsCard(insights),
