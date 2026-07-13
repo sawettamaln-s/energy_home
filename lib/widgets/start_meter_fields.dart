@@ -17,6 +17,10 @@ import 'info_dialog.dart';
 /// มิเตอร์ vs จำนวนหน่วยที่ใช้ไปในเดือนนั้น) — ใส่ตัวอย่างตัวเลขกำกับไว้ใน
 /// hint ทุกช่องด้วย เพื่อให้เห็น "ขนาด" ของตัวเลขที่ควรกรอกโดยไม่ต้องเปิด
 /// popup อธิบายก่อนถึงจะรู้
+///
+/// เรื่องสี: ตอนแรกใช้กรอบสีฟ้า แต่พอดูจริงแล้วแอปทั้งหมดใช้เขียว
+/// (0xFF2E7D32) เป็นสีหลักอย่างเดียว กรอบฟ้าเลยดูเหมือนหลุดมาจากแอปอื่น
+/// เปลี่ยนเป็นกรอบเทาเป็นกลางแทน ไม่แข่งกับสีหลักของแอป
 class StartMeterFieldsSection extends StatelessWidget {
   final bool isTou;
   final TextEditingController electricityCtrl;
@@ -135,16 +139,16 @@ class StartMeterFieldsSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.05),
+        color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.blue.withOpacity(0.18)),
+        border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.speed, size: 17, color: Colors.blue.shade700),
+              Icon(Icons.speed, size: 17, color: Colors.grey.shade700),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -158,7 +162,7 @@ class StartMeterFieldsSection extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 icon: Icon(Icons.info_outline,
-                    size: 18, color: Colors.blue.shade700),
+                    size: 18, color: Colors.grey.shade600),
                 onPressed: () => _showWhatIsThisPopup(context),
               ),
             ],
@@ -216,7 +220,7 @@ class StartMeterFieldsSection extends StatelessWidget {
             _field(
               controller: electricityCtrl,
               label: 'เลขมิเตอร์ไฟฟ้า',
-              hint: 'เช่น 14,009 (ตัวเลขหลักหมื่นบนหน้าปัดมิเตอร์)',
+              hint: 'เช่น 14,009',
               suffixText: 'หน่วย',
               icon: Icons.bolt,
               iconColor: Colors.orange,
@@ -226,7 +230,7 @@ class StartMeterFieldsSection extends StatelessWidget {
             controller: waterCtrl,
             label: 'เลขมิเตอร์น้ำ',
             hint: 'เช่น 148',
-            suffixText: 'ลบ.ม.',
+            suffixText: 'หน่วย',
             icon: Icons.water_drop,
             iconColor: Colors.blue,
           ),

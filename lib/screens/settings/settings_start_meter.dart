@@ -62,6 +62,18 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   // กำลังตั้งค่าต้นรอบใหม่สำหรับรอบถัดไป
   bool get _isEditingCurrentCycle => _editingRecordId != null;
 
+  // ทางเลือกเดือนที่ "มีความหมายจริง" เท่านั้น — รอบล่าสุดที่ควรตั้ง กับ
+  // ย้อนอีก 1 รอบก่อนหน้านั้น (เผื่อกรณียังไม่เคยตั้งค่ารอบก่อนหน้าเลย)
+  // แทนการให้เลือกอิสระ 12 เดือน x 2 ปี ซึ่งเปิดช่องให้เลือกเดือนที่ไม่ตรง
+  // กับรอบบิลจริงได้ ทำให้ระบบ lock (โหมดแก้ไข/ตั้งใหม่) อิงผิดจุด
+  List<DateTime> get _monthChoices {
+    final billingDay = _user?.billingDay ?? 30;
+    final latest = _expectedInvoiceMonth(billingDay);
+    final oneCycleBack =
+        EnergyForecaster.getPreviousCycleStart(latest, billingDay);
+    return [latest, oneCycleBack];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -286,117 +298,138 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // แจ้งผู้ใช้ให้ชัดว่ากำลังแก้ไขค่าที่ตั้งไว้ล่าสุด
-                        // (ยังอยู่รอบเดิม) หรือกำลังตั้งค่าต้นรอบใหม่ กันสับสน
-                        // ว่าทำไมบางทีฟอร์มขึ้นมาว่าง บางทีมีค่าเดิมเติมไว้
-                        if (_user != null) ...[
+                        // เดิมมีกล่องแบนเนอร์สีเต็มความกว้างแยกต่างหากบอก
+                        // โหมดแก้ไข/ตั้งใหม่ แต่พอมาดูของจริงแล้วมันซ้ำกับ
+                        // สิ่งที่ส่วนเลือกเดือนด้านล่างสื่อสารอยู่แล้ว (โหมด
+                        // แก้ไข = กล่องเทาล็อกไว้เฉยๆ, โหมดตั้งใหม่ = มีให้
+                        // เลือก 2 ทาง) เลยตัดออก เหลือแค่ tag เล็กๆ ข้าง label
+                        // พอ ไม่ต้องมีกล่องสีเต็มความกว้างซ้อนกันอีกกล่อง
+                        Row(
+                          children: [
+                            const Text(
+                              'เดือนของใบแจ้งหนี้',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 13),
+                            ),
+                            if (_user != null) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _isEditingCurrentCycle ? 'แก้ไข' : 'ตั้งใหม่',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // แก้ตามที่ทดลองใช้จริงแล้วพบว่าไม่สมเหตุสมผล:
+                        // เดิมให้เลือกได้ทั้ง 12 เดือน x 2 ปี (24 ทาง) ทั้งที่
+                        // ระบบรู้อยู่แล้วว่า "เดือนที่ควรตั้งตอนนี้" คือเดือน
+                        // ไหนจากวันตัดรอบบิลจริง (billingDay) — การให้เลือก
+                        // อิสระขนาดนั้นแค่เปิดช่องให้เลือกเดือนที่ไม่ตรงกับ
+                        // รอบจริงเลย ซึ่งจะทำให้ระบบ lock (โหมดแก้ไข/ตั้งใหม่)
+                        // สับสน เพราะอิงกับเดือนที่คำนวณจาก billingDay เท่านั้น
+                        //
+                        // ตอนนี้: โหมดแก้ไข (ยังอยู่รอบเดิม) แสดงเป็นข้อความ
+                        // เฉยๆ ไม่ให้เปลี่ยน เพราะกำลังแก้ค่าของรอบที่ระบุ
+                        // ตายตัวอยู่แล้ว / โหมดตั้งใหม่ ให้เลือกได้แค่ 2
+                        // ทางเลือกที่มีความหมายจริงเท่านั้น (รอบล่าสุดที่ควร
+                        // ตั้ง กับย้อนอีก 1 รอบ เผื่อกรณียังไม่เคยตั้งรอบก่อน
+                        // หน้านี้เลย) ตัดทางเลือกที่ผิดรอบออกไปทั้งหมด
+                        if (_isEditingCurrentCycle)
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                                horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
-                              color: (_isEditingCurrentCycle
-                                      ? Colors.blue
-                                      : const Color(0xFF2E7D32))
-                                  .withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _isEditingCurrentCycle
-                                      ? Icons.edit_outlined
-                                      : Icons.fiber_new_outlined,
-                                  size: 15,
-                                  color: _isEditingCurrentCycle
-                                      ? Colors.blue.shade700
-                                      : const Color(0xFF2E7D32),
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    _isEditingCurrentCycle
-                                        ? 'แก้ไขค่าที่ตั้งไว้ล่าสุด (ยังอยู่รอบเดิม ยังไม่ถึงวันตัดรอบถัดไป)'
-                                        : 'ตั้งค่าต้นรอบใหม่สำหรับรอบถัดไป',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: _isEditingCurrentCycle
-                                          ? Colors.blue.shade700
-                                          : const Color(0xFF2E7D32),
+                            child: Text(
+                              '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
+                              style: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                          )
+                        else
+                          Row(
+                            children: _monthChoices
+                                .asMap()
+                                .entries
+                                .map((entry) {
+                              final isFirst = entry.key == 0;
+                              final d = entry.value;
+                              final isSelected = d.year == _selectedYear &&
+                                  d.month == _selectedMonth;
+                              return Expanded(
+                                child: Padding(
+                                  padding:
+                                      EdgeInsets.only(right: isFirst ? 8 : 0),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () => setState(() {
+                                      _selectedMonth = d.month;
+                                      _selectedYear = d.year;
+                                    }),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? const Color(0xFF2E7D32)
+                                                .withOpacity(0.1)
+                                            : Colors.grey.shade50,
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? const Color(0xFF2E7D32)
+                                              : Colors.grey.shade300,
+                                          width: isSelected ? 1.5 : 1,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            isFirst ? 'ล่าสุด' : 'ย้อนอีก 1 รอบ',
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              color: isSelected
+                                                  ? const Color(0xFF2E7D32)
+                                                  : Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${thaiMonths[d.month - 1]} ${d.year}',
+                                            style: TextStyle(
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: isSelected
+                                                  ? const Color(0xFF2E7D32)
+                                                  : Colors.black87,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              );
+                            }).toList(),
                           ),
-                          const SizedBox(height: 12),
-                        ],
-                        const Text(
-                          'เดือนของใบแจ้งหนี้',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: DropdownButtonFormField<int>(
-                                value: _selectedMonth,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                items: List.generate(12, (i) {
-                                  return DropdownMenuItem(
-                                    value: i + 1,
-                                    child: Text(
-                                      thaiMonths[i],
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  );
-                                }),
-                                onChanged: (val) =>
-                                    setState(() => _selectedMonth = val!),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: DropdownButtonFormField<int>(
-                                value: _selectedYear,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                items: [
-                                  DateTime.now().year - 1,
-                                  DateTime.now().year,
-                                ].map((year) {
-                                  return DropdownMenuItem(
-                                    value: year,
-                                    child: Text(
-                                      '$year',
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (val) =>
-                                    setState(() => _selectedYear = val!),
-                              ),
-                            ),
-                          ],
-                        ),
                         const SizedBox(height: 4),
                         // ใช้ widget กลาง (StartMeterFieldsSection) แทนโค้ด
                         // ที่เคย copy ไว้เองในนี้ — เพื่อให้คำที่ใช้ ("เลข
