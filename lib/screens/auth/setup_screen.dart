@@ -202,7 +202,7 @@ class _SetupScreenState extends State<SetupScreen> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

@@ -145,20 +145,6 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     super.dispose();
   }
 
-  void _showInfoPopup() {
-    showInfoDialog(
-      context,
-      title: 'กรอกเลขจากบิลตรงไหน?',
-      message: 'เปิดใบแจ้งหนี้ค่าไฟ/ค่าน้ำเดือนล่าสุด แล้วมองหาช่อง'
-          '"เลขอ่านครั้งหลัง" หรือ "Last Meter Reading" '
-          'คือเลขที่มิเตอร์อ่านได้ล่าสุดตอนเจ้าหน้าที่มาจดในรอบบิลนั้น '
-          'นำตัวเลขนี้มากรอก (ไม่ใช่ "เลขอ่านครั้งก่อน" ที่อยู่คู่กัน '
-          'เนื่องจากเป็นเลขของรอบก่อนหน้า)\n\n'
-          'ระบบใช้เลขนี้เป็นจุดเริ่มต้นของรอบบิลถัดไป เพื่อคำนวณหน่วยที่ใช้'
-          'เมื่อเทียบกับเลขที่บันทึกในแอปครั้งถัดไป',
-    );
-  }
-
   Future<void> _save() async {
     setState(() => _isSaving = true);
     try {
@@ -275,19 +261,9 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                         style:
                             TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      Row(
-                        children: [
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(Icons.info_outline,
-                                color: Color(0xFF2E7D32)),
-                            onPressed: _showInfoPopup,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
@@ -356,79 +332,93 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                               color: Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(
-                              '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
-                              style: const TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w600),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'แก้ไขค่าของรอบนี้ได้จนกว่าจะถึงวันตัดรอบบิล '
+                                  'ครั้งถัดไป ระบบจะเปิดให้ตั้งค่ารอบใหม่'
+                                  'อัตโนมัติตอนนั้น',
+                                  style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Colors.grey.shade600),
+                                ),
+                              ],
                             ),
                           )
                         else
-                          Row(
-                            children: _monthChoices
-                                .asMap()
-                                .entries
-                                .map((entry) {
-                              final isFirst = entry.key == 0;
-                              final d = entry.value;
-                              final isSelected = d.year == _selectedYear &&
-                                  d.month == _selectedMonth;
-                              return Expanded(
-                                child: Padding(
-                                  padding:
-                                      EdgeInsets.only(right: isFirst ? 8 : 0),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(10),
-                                    onTap: () => setState(() {
-                                      _selectedMonth = d.month;
-                                      _selectedYear = d.year;
-                                    }),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? const Color(0xFF2E7D32)
-                                                .withOpacity(0.1)
-                                            : Colors.grey.shade50,
-                                        borderRadius:
-                                            BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? const Color(0xFF2E7D32)
-                                              : Colors.grey.shade300,
-                                          width: isSelected ? 1.5 : 1,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            isFirst ? 'ล่าสุด' : 'ย้อนอีก 1 รอบ',
-                                            style: TextStyle(
-                                              fontSize: 10.5,
-                                              color: isSelected
-                                                  ? const Color(0xFF2E7D32)
-                                                  : Colors.grey.shade600,
-                                            ),
-                                          ),
-                                          Text(
-                                            '${thaiMonths[d.month - 1]} ${d.year}',
-                                            style: TextStyle(
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.w600,
-                                              color: isSelected
-                                                  ? const Color(0xFF2E7D32)
-                                                  : Colors.black87,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // ระบบรู้อยู่แล้วว่า "ตอนนี้ควรตั้งค่าเดือนไหน"
+                              // จาก billingDay จริง จึงเลือกให้อัตโนมัติเลย
+                              // ไม่ต้องให้ผู้ใช้ตัดสินใจเรื่องที่ระบบมีคำตอบ
+                              // อยู่แล้ว — ทางเลือกย้อนหลัง (เผื่อยังไม่เคย
+                              // ตั้งรอบก่อนหน้าเลย) ซ่อนไว้เป็นลิงก์เล็กๆ แทน
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2E7D32)
+                                      .withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF2E7D32)),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Builder(builder: (context) {
+                                final altMonth = _monthChoices.length > 1
+                                    ? _monthChoices[1]
+                                    : null;
+                                final isShowingLatest =
+                                    _monthChoices.isNotEmpty &&
+                                        _selectedMonth ==
+                                            _monthChoices[0].month &&
+                                        _selectedYear ==
+                                            _monthChoices[0].year;
+                                if (altMonth == null) {
+                                  return const SizedBox.shrink();
+                                }
+                                return GestureDetector(
+                                  onTap: () => setState(() {
+                                    final target = isShowingLatest
+                                        ? altMonth
+                                        : _monthChoices[0];
+                                    _selectedMonth = target.month;
+                                    _selectedYear = target.year;
+                                  }),
+                                  child: Text(
+                                    isShowingLatest
+                                        ? 'ยังไม่เคยตั้งค่ารอบ '
+                                            '${thaiMonths[altMonth.month - 1]} '
+                                            '${altMonth.year} ด้วย? '
+                                            'กดเพื่อตั้งค่ารอบนั้นแทน'
+                                        : 'กลับไปตั้งค่ารอบล่าสุด '
+                                            '(${thaiMonths[_monthChoices[0].month - 1]} '
+                                            '${_monthChoices[0].year}) แทน',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                      decoration: TextDecoration.underline,
                                     ),
                                   ),
-                                ),
-                              );
-                            }).toList(),
+                                );
+                              }),
+                            ],
                           ),
                         const SizedBox(height: 4),
                         // ใช้ widget กลาง (StartMeterFieldsSection) แทนโค้ด

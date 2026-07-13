@@ -267,7 +267,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       debugPrint('Error: $e');
     } finally {
       _isFirstLoad = false;
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -511,7 +511,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       setState(() => _electricityError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
     } finally {
-      setState(() => _isSavingElectricity = false);
+      if (mounted) setState(() => _isSavingElectricity = false);
     }
   }
 
@@ -582,7 +582,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       setState(() => _waterError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
     } finally {
-      setState(() => _isSavingWater = false);
+      if (mounted) setState(() => _isSavingWater = false);
     }
   }
 

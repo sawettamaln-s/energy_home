@@ -1,5 +1,20 @@
 part of 'settings_screen.dart';
 
+// สร้างตัวเลือกเดือนโดยอิงวันตัดรอบบิลจริง (billingDay) แทนเดือนปฏิทิน
+// ตรงๆ — ใช้สูตรเดียวกับที่ dashboard_screen.dart ใช้ตอน compileBill()
+// ย้ายออกมาเป็นฟังก์ชันกลางระดับไฟล์ (เดิมเป็น method ส่วนตัวของ
+// _AddHistoricalBillSheetState อย่างเดียว) เพื่อให้ _HistoricalBillListScreen
+// เอาไปใช้เช็คว่า "ครบ 6 เดือนแล้วหรือยัง" ได้ด้วย โดยไม่ต้องก็อปสูตรซ้ำ
+List<DateTime> _generateHistoricalMonthOptions(int billingDay) {
+  final options = <DateTime>[];
+  var cursor = EnergyForecaster.getCycleStart(DateTime.now(), billingDay);
+  for (int i = 0; i < 6; i++) {
+    options.add(cursor);
+    cursor = EnergyForecaster.getPreviousCycleStart(cursor, billingDay);
+  }
+  return options;
+}
+
 // ==================== เพิ่ม/แก้ไขบันทึกบิลย้อนหลัง ====================
 // ไม่บังคับ • สูงสุด 6 เดือน — ใช้ให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก
 class _AddHistoricalBillSheet extends StatefulWidget {
@@ -47,15 +62,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   // (เช่นวันที่ 3, 15) เดือนที่ให้เลือกในฟอร์มนี้กับเดือนที่ระบบ compile
   // ให้เองอาจไม่ตรงกัน ทำให้กรอกบิลย้อนหลังผิดเดือน/ทับซ้อนกับบิลที่ระบบ
   // จะ compile ให้ทีหลังโดยไม่รู้ตัว
-  List<DateTime> _generateMonthOptions(int billingDay) {
-    final options = <DateTime>[];
-    var cursor = EnergyForecaster.getCycleStart(DateTime.now(), billingDay);
-    for (int i = 0; i < 6; i++) {
-      options.add(cursor);
-      cursor = EnergyForecaster.getPreviousCycleStart(cursor, billingDay);
-    }
-    return options;
-  }
+  List<DateTime> _generateMonthOptions(int billingDay) =>
+      _generateHistoricalMonthOptions(billingDay);
 
   @override
   void initState() {
@@ -72,8 +80,17 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
             (m) => m.year == existing.year && m.month == existing.month)) {
       _monthOptions.add(DateTime(existing.year, existing.month, 1));
     }
+    // เดิมตั้ง _selectedMonth = DateTime(existing.year, existing.month, 1)
+    // ตรงๆ แต่ตัวเลือกใน _monthOptions ใช้วันที่ = billingDay จริง (เช่น
+    // 10, 30) ไม่ใช่วันที่ 1 ทำให้สอง DateTime นี้ไม่มีทางเท่ากันเลย
+    // (DateTime เทียบทุกฟิลด์รวมวันที่) ผลคือ DropdownButtonFormField หา
+    // item ที่ตรงกับ value ไม่เจอทุกครั้งที่กด "แก้ไข" จากเมนู 3 จุด —
+    // ต้องหยิบ DateTime ตัวจริงจาก _monthOptions มาใช้แทนการสร้างขึ้นใหม่เอง
     _selectedMonth = existing != null
-        ? DateTime(existing.year, existing.month, 1)
+        ? _monthOptions.firstWhere(
+            (m) => m.year == existing.year && m.month == existing.month,
+            orElse: () => DateTime(existing.year, existing.month, 1),
+          )
         : _monthOptions.first;
     if (existing != null) {
       _eUsedCtrl.text = existing.electricityUsed == 0
@@ -110,8 +127,19 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
               (m) => m.year == existing.year && m.month == existing.month)) {
         rebuilt.add(DateTime(existing.year, existing.month, 1));
       }
+      // ต้องปรับ _selectedMonth ให้ตรงกับ _monthOptions ชุดใหม่ใน setState
+      // เดียวกันนี้เลย ไม่งั้นจะมี 1 เฟรมที่ DropdownButtonFormField ถือค่า
+      // _selectedMonth เดิม (มาจากชุด options เก่าที่คำนวณจาก billingDay=30)
+      // ซึ่งไม่มีอยู่ใน _monthOptions ชุดใหม่ ทำให้ Flutter throw assertion
+      // ("exactly one item with DropdownButton's value") จนเห็นจอแดงแว้ปนึง
+      // ก่อนที่ _loadTakenMonths() ด้านล่างจะ setState แก้ค่าให้ตรงกันอีกที
+      final matchInRebuilt = rebuilt.firstWhere(
+        (m) => m.year == _selectedMonth.year && m.month == _selectedMonth.month,
+        orElse: () => rebuilt.first,
+      );
       setState(() {
         _monthOptions = rebuilt;
+        _selectedMonth = matchInRebuilt;
         _user = user;
       });
       // ตัวเลือกเปลี่ยนไปแล้ว ต้องคำนวณเดือนที่ยังว่างใหม่จากชุดตัวเลือกใหม่
@@ -736,6 +764,7 @@ class _HistoricalBillListScreenState
     extends State<_HistoricalBillListScreen> {
   List<BillModel> _bills = [];
   bool _isLoading = true;
+  int _billingDay = 30;
 
   @override
   void initState() {
@@ -745,15 +774,30 @@ class _HistoricalBillListScreenState
 
   Future<void> _load() async {
     setState(() => _isLoading = true);
+    final user = await widget.firestoreService.getUser(widget.uid);
     final all = await widget.firestoreService.getBills(widget.uid);
     // เฉพาะบิลที่กรอกย้อนหลังเอง (ไม่ใช่บิลที่ระบบสรุปจาก log อัตโนมัติ)
     final imported = all.where((b) => b.source == 'imported').toList();
     if (mounted) {
       setState(() {
+        _billingDay = user?.billingDay ?? 30;
         _bills = imported;
         _isLoading = false;
       });
     }
+  }
+
+  // หน้านี้มีไว้กรอกบิลย้อนหลัง "ก่อนสมัครใช้แอป" เท่านั้น (ขอบเขตคงที่ 6
+  // เดือนตาม _generateHistoricalMonthOptions) พอกรอกครบทั้ง 6 เดือนแล้ว
+  // ปุ่ม (+) ไม่มีที่ให้เพิ่มต่อแล้วจริงๆ (กดไปก็จะเจอแค่ข้อความ "เดือนนี้มี
+  // บิลบันทึกไว้แล้ว" ทุกเดือน) ซ่อนปุ่มไปเลยดีกว่าปล่อยให้กดแล้วงง — ยังแก้
+  // ไข/ลบรายการเดิมได้ตามปกติผ่านเมนู 3 จุดของแต่ละรายการ
+  bool get _allSixMonthsRecorded {
+    final options = _generateHistoricalMonthOptions(_billingDay);
+    final taken =
+        _bills.map((b) => '${b.year}-${b.month}').toSet();
+    return options
+        .every((m) => taken.contains('${m.year}-${m.month}'));
   }
 
   Future<void> _openSheet({BillModel? existingBill}) async {
@@ -843,6 +887,20 @@ final confirmed = await showConfirmDialog(
                           ],
                         ),
                       ),
+                      if (!_isLoading && _allSixMonthsRecorded)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'ครบ 6 เดือนแล้ว',
+                            style: TextStyle(
+                                color: Colors.white, fontSize: 11.5),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1032,14 +1090,14 @@ final confirmed = await showConfirmDialog(
                                                     icon: Icons.bolt,
                                                     color: Colors.orange.shade700,
                                                     label: 'ไฟ',
-                                                    value: '${formatter.format(bill.electricityCost)} บาท',
+                                                    value: '${formatter.format(bill.electricityUsed)} หน่วย · ${formatter.format(bill.electricityCost)} บาท',
                                                   ),
                                                 if (bill.waterCost > 0)
                                                   ValueChip(
                                                     icon: Icons.water_drop,
                                                     color: Colors.blue,
                                                     label: 'น้ำ',
-                                                    value: '${formatter.format(bill.waterCost)} บาท',
+                                                    value: '${formatter.format(bill.waterUsed)} ลบ.ม. · ${formatter.format(bill.waterCost)} บาท',
                                                   ),
                                               ],
                                             ),
@@ -1056,11 +1114,13 @@ final confirmed = await showConfirmDialog(
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openSheet(),
-        backgroundColor: const Color(0xFF2E7D32),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: (_isLoading || _allSixMonthsRecorded)
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _openSheet(),
+              backgroundColor: const Color(0xFF2E7D32),
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
     );
   }
 }
