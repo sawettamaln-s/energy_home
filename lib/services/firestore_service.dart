@@ -191,7 +191,6 @@ class FirestoreService {
         forecastElectricity: totalElec,
         forecastWater: totalWater,
         forecastTotal: totalElec + totalWater + fixedCost,
-        isComplete: false,
         source: 'compiled',
       );
 

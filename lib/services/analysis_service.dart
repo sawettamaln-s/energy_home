@@ -116,14 +116,40 @@ class AnalysisService {
     return bills.reversed.toList();
   }
 
+  /// หาบิลที่ตรงกับปี/เดือน (ปฏิทิน) ที่ระบุเป๊ะๆ — ใช้แทนการ index list
+  /// ตรงๆ เพราะบันทึกย้อนหลังไม่บังคับให้กรอกครบทุกเดือน (ข้ามเดือนได้)
+  /// ถ้า index ชนกันโดยไม่เช็คเดือนจริง จะเทียบผิดเดือนแบบเงียบๆ ได้
+  BillModel? _findBillForMonth(List<BillModel> bills, int year, int month) {
+    for (final b in bills) {
+      if (b.year == year && b.month == month) return b;
+    }
+    return null;
+  }
+
+  /// คืนปี/เดือนปฏิทินที่ย้อนหลังไป [monthsBack] เดือนจาก year/month ที่ให้มา
+  /// (Dart จัดการ wrap ปีให้เองตอน month ติดลบ/เกิน 12)
+  DateTime _monthsBefore(int year, int month, int monthsBack) {
+    return DateTime(year, month - monthsBack, 1);
+  }
+
   /// เทียบเดือนนี้ vs เดือนก่อนหน้า (Month over Month)
   /// bills ต้องเรียงเก่า->ใหม่ และเดือนล่าสุดต้องอยู่ index สุดท้าย
+  ///
+  /// แก้บั๊ก: เดิมหยิบ bills[length-2] มาเป็น "เดือนก่อนหน้า" ตรงๆ ตาม
+  /// ตำแหน่งในลิสต์ ถ้าบันทึกย้อนหลังข้ามเดือนไว้ (เช่นมีแค่เดือน 5, 7
+  /// แต่เดือน 6 ไม่มีข้อมูล) จะเผลอเอาเดือน 5 มาเทียบกับเดือน 7 แล้วเรียก
+  /// มันว่า "เดือนก่อนหน้า" ทั้งที่ห่างกัน 2 เดือนจริง ตอนนี้เช็คปี/เดือน
+  /// จริงว่าติดกันหรือไม่ก่อน ถ้าไม่มีข้อมูลเดือนก่อนหน้าจริง คืน null
+  /// (ไม่โชว์การ์ด MoM) ดีกว่าโชว์เลขที่ตีความผิดได้
   ComparisonResult? compareMoM(List<BillModel> bills, {
     required double Function(BillModel) selector,
   }) {
-    if (bills.length < 2) return null; // ข้อมูลไม่พอ
+    if (bills.isEmpty) return null; // ข้อมูลไม่พอ
     final current = bills.last;
-    final previous = bills[bills.length - 2];
+    final prevMonth = _monthsBefore(current.year, current.month, 1);
+    final previous =
+        _findBillForMonth(bills, prevMonth.year, prevMonth.month);
+    if (previous == null) return null; // เดือนก่อนหน้าจริงไม่มีข้อมูล
     return ComparisonResult(
       currentValue: selector(current),
       previousValue: selector(previous),
@@ -156,21 +182,34 @@ class AnalysisService {
   /// ให้ภาพที่นิ่งกว่าการเทียบกับเดือนก่อนเดือนเดียว เพราะถ้าเดือนก่อนเป็น
   /// เดือนที่ผิดปกติ (เช่น ไปต่างจังหวัดทั้งเดือน ใช้ไฟน้อยกว่าปกติมาก)
   /// การเทียบ MoM เดือนเดียวจะดูเหมือนเดือนนี้ "พุ่ง" ทั้งที่จริงๆ แค่กลับสู่ปกติ
-  /// months: จำนวนเดือนย้อนหลังที่ใช้คำนวณค่าเฉลี่ย (ดีฟอลต์ 6 เดือน)
+  /// months: จำนวนเดือนปฏิทินย้อนหลังที่ใช้คำนวณค่าเฉลี่ย (ดีฟอลต์ 6 เดือน)
+  ///
+  /// แก้บั๊ก: เดิมตัด "history" ด้วยจำนวนรายการในลิสต์ (sublist ตามความยาว)
+  /// ไม่ได้สนใจว่าย้อนหลังไปกี่เดือนปฏิทินจริง ถ้าบันทึกย้อนหลังข้ามเดือนไว้
+  /// ค่าเฉลี่ยที่บอกว่า "N เดือนก่อนหน้า" อาจจริงๆ ครอบคลุมช่วงเวลากว้างกว่า
+  /// N เดือนปฏิทิน ตอนนี้ไล่ทีละเดือนปฏิทินย้อนหลังจาก [months] เดือน แล้ว
+  /// เฉลี่ยเฉพาะเดือนที่มีข้อมูลจริงในช่วงนั้น (เดือนที่ขาดหายไปแค่ไม่ถูกนับ
+  /// ไม่ทำให้ช่วงเวลาเพี้ยนไปกว้างกว่าที่บอกไว้)
   ComparisonResult? compareToAverage(
     List<BillModel> bills, {
     required double Function(BillModel) selector,
     int months = 6,
   }) {
-    // ต้องมีเดือนปัจจุบัน + อย่างน้อย 2 เดือนก่อนหน้า ไม่งั้นค่าเฉลี่ยไม่มีความหมาย
-    if (bills.length < 3) return null;
-
+    if (bills.isEmpty) return null;
     final current = bills.last;
-    final history = bills.sublist(0, bills.length - 1); // ไม่รวมเดือนปัจจุบัน
-    final recent =
-        history.length > months ? history.sublist(history.length - months) : history;
 
-    final avg = recent.map(selector).reduce((a, b) => a + b) / recent.length;
+    final recentMatches = <BillModel>[];
+    for (int i = 1; i <= months; i++) {
+      final target = _monthsBefore(current.year, current.month, i);
+      final match = _findBillForMonth(bills, target.year, target.month);
+      if (match != null) recentMatches.add(match);
+    }
+
+    // ต้องมีอย่างน้อย 2 เดือนก่อนหน้าจริงในช่วงที่กำหนด ไม่งั้นค่าเฉลี่ยไม่มีความหมาย
+    if (recentMatches.length < 2) return null;
+
+    final avg =
+        recentMatches.map(selector).reduce((a, b) => a + b) / recentMatches.length;
 
     return ComparisonResult(
       currentValue: selector(current),
@@ -373,20 +412,36 @@ class AnalysisService {
     }
 
     // ----- 2. เทรนด์ต่อเนื่อง 3 เดือนล่าสุด -----
-    if (bills.length >= 3) {
-      final last3 = bills.sublist(bills.length - 3).map(selector).toList();
-      final increasing = last3[0] < last3[1] && last3[1] < last3[2];
-      final decreasing = last3[0] > last3[1] && last3[1] > last3[2];
-      if (increasing) {
-        insights.add(AnalysisInsight(
-          '$labelเพิ่มขึ้นต่อเนื่อง 3 เดือนล่าสุด ควรตรวจสอบว่ามีอุปกรณ์ใช้งานเพิ่มขึ้นหรือไม่',
-          InsightLevel.warning,
-        ));
-      } else if (decreasing) {
-        insights.add(AnalysisInsight(
-          '$labelลดลงต่อเนื่อง 3 เดือนล่าสุด แนวโน้มดีขึ้นเรื่อย ๆ',
-          InsightLevel.good,
-        ));
+    // แก้บั๊ก: เดิมหยิบ "3 รายการหลังสุดในลิสต์" มาเช็ค ไม่ได้การันตีว่า
+    // เป็น 3 เดือนปฏิทินติดกันจริง ถ้าบันทึกย้อนหลังข้ามเดือนไว้ (เช่นมี
+    // เดือน 4, 5, 7 แต่เดือน 6 ไม่มี) จะเผลอบอกว่า "เพิ่มขึ้นต่อเนื่อง 3
+    // เดือนล่าสุด" ทั้งที่จริงมีช่องว่างอยู่ตรงกลาง ตอนนี้เช็คก่อนว่าเดือน
+    // ปัจจุบัน, เดือน -1, เดือน -2 มีข้อมูลครบทั้ง 3 เดือนปฏิทินจริงหรือไม่
+    // ถ้าไม่ครบ ข้ามข้อสังเกตนี้ไปเลย (ดีกว่าโชว์ข้อความที่ตีความผิดได้)
+    if (bills.isNotEmpty) {
+      final current = bills.last;
+      final mMinus1 = _monthsBefore(current.year, current.month, 1);
+      final mMinus2 = _monthsBefore(current.year, current.month, 2);
+      final billMinus1 =
+          _findBillForMonth(bills, mMinus1.year, mMinus1.month);
+      final billMinus2 =
+          _findBillForMonth(bills, mMinus2.year, mMinus2.month);
+
+      if (billMinus1 != null && billMinus2 != null) {
+        final last3 = [selector(billMinus2), selector(billMinus1), selector(current)];
+        final increasing = last3[0] < last3[1] && last3[1] < last3[2];
+        final decreasing = last3[0] > last3[1] && last3[1] > last3[2];
+        if (increasing) {
+          insights.add(AnalysisInsight(
+            '$labelเพิ่มขึ้นต่อเนื่อง 3 เดือนล่าสุด ควรตรวจสอบว่ามีอุปกรณ์ใช้งานเพิ่มขึ้นหรือไม่',
+            InsightLevel.warning,
+          ));
+        } else if (decreasing) {
+          insights.add(AnalysisInsight(
+            '$labelลดลงต่อเนื่อง 3 เดือนล่าสุด แนวโน้มดีขึ้นเรื่อย ๆ',
+            InsightLevel.good,
+          ));
+        }
       }
     }
 

@@ -12,7 +12,6 @@ class BillModel {
   final double forecastElectricity; // พยากรณ์ค่าไฟสิ้นเดือน (Moving Average)
   final double forecastWater; // พยากรณ์ค่าน้ำสิ้นเดือน (Moving Average)
   final double forecastTotal; // พยากรณ์ยอดรวมสิ้นเดือน
-  final bool isComplete; // ครบรอบบิลแล้วหรือยัง
   final String source; // 'compiled' = ระบบสรุปจาก log อัตโนมัติ, 'imported' = กรอกย้อนหลังเอง
 
   BillModel({
@@ -29,7 +28,6 @@ class BillModel {
     this.forecastElectricity = 0,
     this.forecastWater = 0,
     this.forecastTotal = 0,
-    this.isComplete = false,
     this.source = 'compiled',
   });
 
@@ -49,7 +47,6 @@ class BillModel {
       forecastElectricity: (map['forecastElectricity'] ?? 0).toDouble(),
       forecastWater: (map['forecastWater'] ?? 0).toDouble(),
       forecastTotal: (map['forecastTotal'] ?? 0).toDouble(),
-      isComplete: map['isComplete'] ?? false,
       source: map['source'] ?? 'compiled',
     );
   }
@@ -70,7 +67,6 @@ class BillModel {
       'forecastElectricity': forecastElectricity,
       'forecastWater': forecastWater,
       'forecastTotal': forecastTotal,
-      'isComplete': isComplete,
       'source': source,
     };
   }

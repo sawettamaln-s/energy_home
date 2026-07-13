@@ -1,11 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/info_dialog.dart';
+import '../../widgets/start_meter_fields.dart';
 import '../main_shell.dart';
 import 'setup_complete_screen.dart';
 
@@ -133,6 +136,29 @@ class _SetupScreenState extends State<SetupScreen> {
       );
 
       await _firestoreService.createUser(userModel);
+
+      // บันทึกลงประวัติมิเตอร์ต้นรอบด้วย (ไม่ใช่แค่เขียนลง user model
+      // เฉยๆ แบบเดิม) — จุดนี้เคยขาดไป ทำให้ถ้าผู้ใช้กรอกค่าตั้งแต่ตอน
+      // สมัคร แล้วย้อนกลับไปเปิดหน้า "ตั้งค่า > บันทึกมิเตอร์ต้นรอบ" อีก
+      // ครั้งในรอบเดียวกัน ระบบจะหาประวัติไม่เจอ (เพราะไม่เคยสร้างไว้)
+      // แล้วเข้าใจผิดว่าเป็นการ "ตั้งค่าใหม่" ทั้งที่จริงควรเป็นการแก้ไข
+      // ค่าที่กรอกไปแล้วตอนสมัคร — กรอกให้ครบตั้งแต่ต้นทาง จะได้ track
+      // ต่อเนื่องกันตลอด ไม่ต้องมาสร้างย้อนหลังทีหลังตอนเปิด Settings ครั้งแรก
+      if (!_startMeterSkipped) {
+        await _firestoreService.saveStartMeterRecord(
+          StartMeterRecordModel(
+            id: const Uuid().v4(),
+            uid: user.uid,
+            electricityValue: userModel.startElectricityValue,
+            waterValue: userModel.startWaterValue,
+            peakValue: userModel.startPeakValue,
+            offPeakValue: userModel.startOffPeakValue,
+            billingMonth: _selectedStartMonth,
+            billingYear: _selectedStartYear,
+            recordedAt: DateTime.now(),
+          ),
+        );
+      }
 
       // แจ้งเตือนต้อนรับ — ย้ายมาไว้ตรงนี้แทน Dashboard.initState()
       // เพราะ _saveSetup() รันแค่ครั้งเดียวจริงๆ ต่อบัญชี (เฉพาะตอนบัญชีใหม่
@@ -794,43 +820,17 @@ class _SetupScreenState extends State<SetupScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            _buildFieldGroupLabel(
-                'หน่วยมิเตอร์ตามใบแจ้งหนี้', Icons.speed_outlined),
-            const SizedBox(height: 12),
-            if (_selectedMeterType == 'tou') ...[
-              // กรอกแยก Peak/Off-Peak สำหรับ TOU
-              _buildMeterField(
-                label: 'หน่วย On-Peak',
-                controller: _peakStartController,
-                hint: 'เช่น 1200',
-                icon: Icons.bolt,
-                color: Colors.orange,
-              ),
-              const SizedBox(height: 14),
-              _buildMeterField(
-                label: 'หน่วย Off-Peak',
-                controller: _offPeakStartController,
-                hint: 'เช่น 3500',
-                icon: Icons.bolt,
-                color: Colors.deepOrange,
-              ),
-            ] else ...[
-              // กรอกแบบปกติ
-              _buildMeterField(
-                label: 'หน่วยไฟฟ้า',
-                controller: _electricityStartController,
-                hint: 'เช่น 14009',
-                icon: Icons.bolt,
-                color: Colors.orange,
-              ),
-            ],
-            const SizedBox(height: 14),
-            _buildMeterField(
-              label: 'หน่วยน้ำประปา',
-              controller: _waterStartController,
-              hint: 'เช่น 148',
-              icon: Icons.water_drop,
-              color: Colors.blue,
+            // ใช้ widget กลางตัวเดียวกับหน้าตั้งค่า > บันทึกมิเตอร์ต้นรอบ
+            // แทนโค้ดที่เคย copy มาเองในนี้ — คำที่ใช้ ("เลขมิเตอร์สะสม")
+            // และตัวอย่างตัวเลขในแต่ละช่องจะตรงกันทุกจุดในแอปแล้ว
+            StartMeterFieldsSection(
+              isTou: _selectedMeterType == 'tou',
+              electricityCtrl: _electricityStartController,
+              peakCtrl: _peakStartController,
+              offPeakCtrl: _offPeakStartController,
+              waterCtrl: _waterStartController,
+              title: 'เลขมิเตอร์สะสมตามใบแจ้งหนี้',
+              subtitle: 'กรอกเลขจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน',
             ),
             if (_startMeterError.isNotEmpty)
               Padding(
@@ -847,12 +847,6 @@ class _SetupScreenState extends State<SetupScreen> {
                   ],
                 ),
               ),
-            const SizedBox(height: 18),
-            _buildInfoBanner(
-              'กรอกหน่วยสะสมทั้งหมดตามมิเตอร์จริง ไม่ใช่หน่วยที่ใช้ในเดือนนั้น\n'
-              'เช่น ถ้ามิเตอร์แสดง 14009 ก็กรอก 14009',
-              green: green,
-            ),
           ], // ปิด else ของ if (_startMeterSkipped)
         ],
       ),
@@ -959,66 +953,6 @@ class _SetupScreenState extends State<SetupScreen> {
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 1.5),
       ),
-    );
-  }
-
-  // ฟิลด์กรอกหน่วยมิเตอร์ — ไอคอนเป็นชิปสีในกรอบ ดูเป็นมือชั้นมือ
-  // กว่า prefixIcon ลอยๆ แบบเดิม และ label คงที่ ไม่ใช้ placeholder ลวง
-  Widget _buildMeterField({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(
-                color: Colors.grey.shade400, fontWeight: FontWeight.normal),
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            prefixIcon: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 17),
-              ),
-            ),
-            suffixText: 'หน่วย',
-            suffixStyle:
-                TextStyle(color: Colors.grey.shade500, fontSize: 13),
-            contentPadding: const EdgeInsets.symmetric(vertical: 4),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: color, width: 1.5),
-            ),
-          ),
-        ),
-      ],
     );
   }
 

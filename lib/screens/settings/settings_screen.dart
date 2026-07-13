@@ -19,6 +19,7 @@ import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/info_dialog.dart';
+import '../../widgets/start_meter_fields.dart';
 import '../../widgets/value_chip.dart';
 import '../auth/auth_gate.dart';
 
@@ -437,6 +438,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildUserCard() {
+    final initials = _getInitials(_user?.name ?? '');
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -451,36 +453,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ชื่อ — กดแก้ไขได้
-          _buildInfoRow(
-            Icons.person,
-            'ชื่อ',
-            _user?.name ?? '-',
-            color: _sectionColor,
-            onEdit: _showEditName,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: _sectionColor.withOpacity(0.12),
+                child: Text(
+                  initials,
+                  style: TextStyle(
+                    color: _sectionColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _user?.name ?? '-',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _user?.email ?? '-',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // แก้ได้เฉพาะชื่อเหมือนเดิม — อีเมลไม่มีปุ่มแก้ไข
+              IconButton(
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: Colors.grey),
+                visualDensity: VisualDensity.compact,
+                onPressed: _showEditName,
+              ),
+            ],
           ),
-          const Divider(height: 16),
-          _buildInfoRow(
-            Icons.email,
-            'อีเมล',
-            _user?.email ?? '-',
-            color: _sectionColor,
-          ),
-          const Divider(height: 16),
-          // รวม "พื้นที่" กับ "ประเภทมิเตอร์" เป็นแถวเดียว — ตามที่ขอ
-          // เพราะสองอย่างนี้เป็นข้อมูลตั้งค่ามิเตอร์เหมือนกัน ไม่จำเป็นต้อง
-          // แยกแถว ใช้จุด (·) คั่นกลาง อ่านง่ายกว่าขึ้นบรรทัดใหม่
-          _buildInfoRow(
-            Icons.electric_meter,
-            'พื้นที่ / ประเภทมิเตอร์',
-            '${_user?.area == 'bangkok' ? 'กรุงเทพและปริมณฑล' : 'ต่างจังหวัด'}'
-                ' · ${_user?.meterType == 'tou' ? 'TOU' : 'ปกติ'}',
-            color: _sectionColor,
+          const Divider(height: 20),
+          Row(
+            children: [
+              Icon(Icons.electric_meter, size: 16, color: Colors.grey.shade500),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${_user?.area == 'bangkok' ? 'กรุงเทพและปริมณฑล' : 'ต่างจังหวัด'}'
+                  ' · ${_user?.meterType == 'tou' ? 'TOU' : 'ปกติ'}',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+// ตัวอักษรย่อสำหรับ avatar — ชื่อเดียวเอา 2 ตัวแรก, ชื่อ+นามสกุลเอาตัวแรก
+// ของแต่ละคำ (เช่น "kidsnoi" → "KI", "สมชาย ใจดี" → "สจ")
+  String _getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length == 1) {
+      return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+    }
+    return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
   Widget _buildSettingsCard() {
@@ -983,8 +1033,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 7,
                     mainAxisSpacing: 8,
                     crossAxisSpacing: 6,
