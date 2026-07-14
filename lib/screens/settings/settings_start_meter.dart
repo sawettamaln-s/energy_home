@@ -1,7 +1,7 @@
 part of 'settings_screen.dart';
 
-// ==================== บันทึกค่ามิเตอร์ต้นรอบ (bottom sheet) ====================
-// เดิมเป็น AlertDialog แยกอยู่คนละหน้ากับ "ประวัติค่ามิเตอร์ต้นรอบ" — ย้ายมา
+// ==================== บันทึกเลขมิเตอร์ต้นรอบ (bottom sheet) ====================
+// เดิมเป็น AlertDialog แยกอยู่คนละหน้ากับ "ประวัติเลขมิเตอร์ต้นรอบ" — ย้ายมา
 // เป็น bottom sheet แบบเดียวกับ _AddHistoricalBillSheet แล้วรวมเข้ากับหน้า
 // ประวัติผ่านปุ่ม FAB "+" แทน ตามที่ขอ (กดดูประวัติ + เพิ่มค่าใหม่ได้ในหน้า
 // เดียวกันเลย ไม่ต้องสลับไปมา 2 หน้าเหมือนก่อน)
@@ -27,6 +27,26 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   final _peakCtrl = TextEditingController();
   final _offPeakCtrl = TextEditingController();
   final _wCtrl = TextEditingController();
+
+  // ----- ส่วนเสริม: ค่าใช้จ่ายของบิลล่าสุด (ไม่บังคับ) -----
+  // ตอนกรอกเลขมิเตอร์ต้นรอบ user มักถือใบแจ้งหนี้ล่าสุดอยู่ในมือพอดี ซึ่งมี
+  // ทั้งเลขมิเตอร์ (กรอกอยู่แล้ว) และยอดที่ต้องจ่ายอยู่ในใบเดียวกัน เปิดช่อง
+  // เสริมให้กรอกยอดนั้นไปด้วยเลยในการกดบันทึกครั้งเดียว จะได้มีข้อมูลจุดแรก
+  // ให้หน้าวิเคราะห์ทันทีโดยไม่ต้องรอให้ครบรอบบิลถัดไปก่อน — ซ่อนไว้เป็น
+  // ลิงก์ขยายเพราะเป็นแค่ของแถม ไม่อยากให้แข่งความสนใจกับช่องที่บังคับกรอก
+  // (เดือน/ปีของบิลนี้ใช้ค่าเดียวกับ _selectedMonth/_selectedYear เลย ตาม
+  // คอนเวนชันเดิมของแอปที่ bill เดือนที่เพิ่งปิด = เดือนเดียวกับที่รอบใหม่
+  // เริ่ม ไม่ต้องเพิ่มช่องเลือกเดือนแยกอีกอัน)
+  final _lastBillECostCtrl = TextEditingController();
+  final _lastBillWCostCtrl = TextEditingController();
+  bool _noBillYet = false;
+  bool _costError = false;
+  List<BillModel> _existingBills = [];
+
+  // มีบิลของเดือน/ปีนี้บันทึกไว้แล้ว (ไม่ว่าจะ compiled หรือ imported) —
+  // ถ้ามีแล้วไม่โชว์ลิงก์เสริมเลย กันไม่ให้เขียนทับบิลจริงที่มีอยู่โดยไม่ตั้งใจ
+  bool get _lastBillAlreadyRecorded => _existingBills
+      .any((b) => b.year == _selectedYear && b.month == _selectedMonth);
 
   // ใช้เป็นค่า default แบบเร็วๆ ก่อนที่ _loadCurrent() จะรู้ billingDay จริง
   // ของ user (ตอนโหลดครั้งแรก _user ยังเป็น null อยู่) — ใช้ billingDay
@@ -72,7 +92,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   // ไม่ได้รับ UserModel มาจากหน้าก่อนหน้าตรงๆ เพื่อให้ widget นี้ใช้งาน
   // ได้เองอิสระ ไม่ผูกกับ state ของหน้าตั้งค่า
   //
-  // แก้บั๊ก: เดิมกด "บันทึกค่ามิเตอร์ต้นรอบ" กี่ครั้งก็ได้ไม่จำกัด ทุกครั้ง
+  // แก้บั๊ก: เดิมกด "บันทึกเลขมิเตอร์ต้นรอบ" กี่ครั้งก็ได้ไม่จำกัด ทุกครั้ง
   // สร้าง record ใหม่ในประวัติเสมอ แม้จะยังอยู่รอบเดิม (ยังไม่ข้ามวันตัด
   // รอบบิลไปอีกรอบ) ทำให้ประวัติมีรายการซ้ำซ้อนของรอบเดียวกันได้ไม่จำกัด
   // ตอนนี้เช็คก่อนว่าค่าที่ตั้งไว้ล่าสุดตรงกับ "รอบที่ควรตั้งตอนนี้" ไหม
@@ -82,6 +102,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   Future<void> _loadCurrent() async {
     final user = await widget.firestoreService.getUser(widget.uid);
     _user = user;
+    _existingBills = await widget.firestoreService.getBills(widget.uid);
     if (user != null && mounted) {
       final expected = _expectedInvoiceMonth(user.billingDay);
       final matchesCurrentCycle = user.startMeterConfigured &&
@@ -130,11 +151,28 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     _peakCtrl.dispose();
     _offPeakCtrl.dispose();
     _wCtrl.dispose();
+    _lastBillECostCtrl.dispose();
+    _lastBillWCostCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
-    setState(() => _isSaving = true);
+    // บังคับกรอกค่าใช้จ่ายบิลล่าสุด เว้นแต่ user ติ๊ก "ยังไม่มีบิลตอนนี้"
+    // ไว้แล้ว (เช่น เพิ่งย้ายเข้าบ้านใหม่ ยังไม่เคยได้รับบิลจริงเลยสักใบ) —
+    // ถ้ามีบิลของรอบนี้บันทึกไว้แล้ว (_lastBillAlreadyRecorded) ไม่ต้องเช็ค
+    // เพราะกล่องนี้จะไม่โชว์ตั้งแต่แรกอยู่แล้ว
+    if (!_lastBillAlreadyRecorded && !_noBillYet) {
+      final eCostCheck = double.tryParse(_lastBillECostCtrl.text) ?? 0;
+      final wCostCheck = double.tryParse(_lastBillWCostCtrl.text) ?? 0;
+      if (eCostCheck <= 0 && wCostCheck <= 0) {
+        setState(() => _costError = true);
+        return;
+      }
+    }
+    setState(() {
+      _costError = false;
+      _isSaving = true;
+    });
     try {
       final eVal = double.tryParse(_eCtrl.text) ?? 0;
       final peakVal = double.tryParse(_peakCtrl.text) ?? 0;
@@ -168,7 +206,31 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
           recordedAt: DateTime.now(),
         ),
       );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        // ถ้ากรอกค่าใช้จ่ายบิลล่าสุดไว้ (บังคับ เว้นแต่ติ๊ก "ยังไม่มีบิล
+        // ตอนนี้") สร้างเป็นบิลย้อนหลัง (source: imported) ให้เลย ใช้เดือน/ปี
+        // เดียวกับที่เลือกไว้ด้านบน — กันไม่ให้เขียนทับบิลที่มีอยู่แล้วโดย
+        // ไม่ตั้งใจด้วย _lastBillAlreadyRecorded (เช็คไปแล้วตอนโชว์ช่องกรอก)
+        final eCost = double.tryParse(_lastBillECostCtrl.text) ?? 0;
+        final wCost = double.tryParse(_lastBillWCostCtrl.text) ?? 0;
+        if (!_noBillYet &&
+            !_lastBillAlreadyRecorded &&
+            (eCost > 0 || wCost > 0)) {
+          await widget.firestoreService.saveBill(
+            BillModel(
+              id: const Uuid().v4(),
+              uid: widget.uid,
+              year: _selectedYear,
+              month: _selectedMonth,
+              electricityCost: eCost,
+              waterCost: wCost,
+              totalCost: eCost + wCost,
+              source: 'imported',
+            ),
+          );
+        }
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -180,15 +242,15 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     }
   }
 
-  // ล้างค่ามิเตอร์ต้นรอบ "จริง" ที่หน้าแรกใช้แสดงผล (user.startElectricityValue
+  // ล้างเลขมิเตอร์ต้นรอบ "จริง" ที่หน้าแรกใช้แสดงผล (user.startElectricityValue
   // ฯลฯ) — คนละอันกับการลบประวัติ (StartMeterRecordModel) ที่แค่ลบ snapshot
   // ไว้ดูย้อนหลังเฉยๆ ไม่เคยมีผลกับค่าจริงเลย ปุ่มนี้ตั้งใจแยกไว้ให้ชัดว่า
   // เป็น action ที่กระทบมากกว่า ต้องมี confirm แยกต่างหาก
   Future<void> _confirmClearStartMeter() async {
     final confirm = await showConfirmDialog(
       context,
-      title: 'ล้างค่ามิเตอร์ต้นรอบ',
-      content: 'ค่ามิเตอร์ต้นรอบทั้งหมดจะถูกล้าง ต้องตั้งค่าใหม่ก่อนถึงจะ'
+      title: 'ล้างเลขมิเตอร์ต้นรอบ',
+      content: 'เลขมิเตอร์ต้นรอบทั้งหมดจะถูกล้าง ต้องตั้งค่าใหม่ก่อนถึงจะ'
           'บันทึกมิเตอร์รายวันต่อได้\n\nประวัติมิเตอร์ที่บันทึกไว้ในรอบนี้'
           'จะยังอยู่ แต่จะคำนวณอ้างอิงกับต้นรอบเดิมไม่ได้แล้ว จนกว่าจะตั้ง'
           'ค่าต้นรอบใหม่อีกครั้ง ต้องการดำเนินการต่อใช่ไหมคะ?',
@@ -245,7 +307,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'บันทึกค่ามิเตอร์ต้นรอบ',
+                        'บันทึกเลขมิเตอร์ต้นรอบ',
                         style:
                             TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
@@ -381,6 +443,140 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           title: 'เลขมิเตอร์สะสมต้นรอบ',
                           subtitle: 'กรอกเลขจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน',
                         ),
+                        // บังคับกรอกค่าใช้จ่ายบิลล่าสุด เพื่อให้หน้าวิเคราะห์
+                        // มีข้อมูลจุดแรกทันทีโดยไม่ต้องรอครบรอบบิลถัดไป —
+                        // แต่ต้องมีทางออกให้กรณี user เพิ่งย้ายเข้าบ้านใหม่
+                        // ยังไม่เคยได้รับบิลจริงเลยสักใบ (มีแต่เลขที่อ่านจาก
+                        // หน้ามิเตอร์เอง) ไม่งั้นจะติดค้าง ตั้งค่าเริ่มต้นให้
+                        // เสร็จไม่ได้เลย จึงมี checkbox "ยังไม่มีบิลตอนนี้"
+                        // เป็นทางออกชัดเจน แทนการปล่อยว่างเฉยๆ โดยไม่ตั้งใจ
+                        if (!_lastBillAlreadyRecorded) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'ค่าใช้จ่ายบิลล่าสุด',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12.5),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'กรอกยอดจากใบแจ้งหนี้ฉบับเดียวกับที่ใช้'
+                                  'กรอกเลขมิเตอร์ด้านบน',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600),
+                                ),
+                                const SizedBox(height: 10),
+                                Opacity(
+                                  opacity: _noBillYet ? 0.4 : 1,
+                                  child: IgnorePointer(
+                                    ignoring: _noBillYet,
+                                    child: Column(
+                                      children: [
+                                        TextField(
+                                          controller: _lastBillECostCtrl,
+                                          keyboardType: const TextInputType
+                                              .numberWithOptions(
+                                              decimal: true),
+                                          decoration: InputDecoration(
+                                            prefixIcon: const Icon(
+                                                Icons.bolt,
+                                                color: Colors.orange,
+                                                size: 20),
+                                            hintText: 'ค่าไฟ เช่น 850',
+                                            isDense: true,
+                                            filled: true,
+                                            fillColor: Colors.white,
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              borderSide: BorderSide(
+                                                  color:
+                                                      Colors.grey.shade300),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextField(
+                                          controller: _lastBillWCostCtrl,
+                                          keyboardType: const TextInputType
+                                              .numberWithOptions(
+                                              decimal: true),
+                                          decoration: InputDecoration(
+                                            prefixIcon: const Icon(
+                                                Icons.water_drop,
+                                                color: Colors.blue,
+                                                size: 20),
+                                            hintText: 'ค่าน้ำ เช่น 148',
+                                            isDense: true,
+                                            filled: true,
+                                            fillColor: Colors.white,
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              borderSide: BorderSide(
+                                                  color:
+                                                      Colors.grey.shade300),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => setState(() {
+                                    _noBillYet = !_noBillYet;
+                                    if (_noBillYet) {
+                                      _lastBillECostCtrl.clear();
+                                      _lastBillWCostCtrl.clear();
+                                    }
+                                  }),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _noBillYet
+                                            ? Icons.check_box
+                                            : Icons.check_box_outline_blank,
+                                        size: 18,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'ยังไม่มีบิลตอนนี้',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (_costError) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'กรอกค่าไฟหรือค่าน้ำอย่างน้อย 1 ช่อง '
+                                    'หรือติ๊ก "ยังไม่มีบิลตอนนี้"',
+                                    style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Colors.red.shade400),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         SizedBox(
                           width: double.infinity,
@@ -411,7 +607,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                               icon: Icon(Icons.delete_forever_outlined,
                                   size: 18, color: Colors.red.shade300),
                               label: Text(
-                                'ล้างค่ามิเตอร์ต้นรอบ',
+                                'ล้างเลขมิเตอร์ต้นรอบ',
                                 style: TextStyle(color: Colors.red.shade300),
                               ),
                             ),
@@ -427,10 +623,10 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   }
 }
 
-// ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
-// อธิบายภาพรวมของหน้า "ค่ามิเตอร์ต้นรอบ" ไว้ที่ AppBar ของหน้านี้เลย —
+// ==================== ประวัติเลขมิเตอร์ต้นรอบ ====================
+// อธิบายภาพรวมของหน้า "เลขมิเตอร์ต้นรอบ" ไว้ที่ AppBar ของหน้านี้เลย —
 // ตามแพทเทิร์นเดียวกับ _showFixedCostInfoPopup / _showHistoricalBillInfoPopup
-// เปิดหน้าตั้งค่ามิเตอร์ต้นรอบจากไฟล์อื่นได้ (เช่น Dashboard ตอนเจอบัญชีที่
+// เปิดหน้าตั้งเลขมิเตอร์ต้นรอบจากไฟล์อื่นได้ (เช่น Dashboard ตอนเจอบัญชีที่
 // ข้ามขั้นตอนนี้มาจาก setup) — เพราะ _StartMeterHistoryScreen ด้านล่างเป็น
 // private ในไฟล์นี้ เข้าถึงจากนอกไฟล์ไม่ได้โดยตรง
 Future<void> openStartMeterSetup(
@@ -455,7 +651,7 @@ void _showStartMeterInfoPopup(BuildContext context) {
   showInfoDialog(
     context,
     title: 'หน้านี้ใช้ทำอะไร?',
-    message: 'ค่ามิเตอร์ต้นรอบคือเลขที่มิเตอร์อ่านได้ตอนเริ่มรอบบิลใหม่ '
+    message: 'เลขมิเตอร์ต้นรอบคือเลขที่มิเตอร์อ่านได้ตอนเริ่มรอบบิลใหม่ '
         'ระบบใช้เลขนี้เป็นจุดตั้งต้นเพื่อคำนวณว่าคุณใช้ไฟ/น้ำไปกี่หน่วย '
         'เมื่อเทียบกับเลขที่บันทึกในแอปครั้งถัดไป\n\n'
         'กดปุ่ม + เพื่อบันทึกค่าของรอบบิลใหม่ทุกครั้งที่ใบแจ้งหนี้มาถึง '
@@ -501,7 +697,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
     }
   }
 
-  // เปิด bottom sheet บันทึกค่ามิเตอร์ต้นรอบ — เดิมเป็นปุ่มแยกอยู่คนละหน้า
+  // เปิด bottom sheet บันทึกเลขมิเตอร์ต้นรอบ — เดิมเป็นปุ่มแยกอยู่คนละหน้า
   // ในหมวด "ตั้งค่าระบบ" ย้ายมารวมกับหน้าประวัติผ่านปุ่ม FAB นี้แทน
   Future<void> _openSheet() async {
     final saved = await showModalBottomSheet<bool>(
@@ -521,7 +717,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
 final confirmed = await showConfirmDialog(
       context,
       title: 'ลบรายการนี้?',
-      content: 'ต้องการลบประวัติการตั้งค่ามิเตอร์ต้นรอบรายการนี้ใช่ไหมคะ',
+      content: 'ต้องการลบประวัติการตั้งเลขมิเตอร์ต้นรอบรายการนี้ใช่ไหมคะ',
       borderRadius: 16,
     );
     if (confirmed == true) {
@@ -538,7 +734,7 @@ final confirmed = await showConfirmDialog(
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('ค่ามิเตอร์ต้นรอบ'),
+        title: const Text('เลขมิเตอร์ต้นรอบ'),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -574,7 +770,7 @@ final confirmed = await showConfirmDialog(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'บันทึกค่ามิเตอร์ต้นรอบทั้งหมด',
+                              'บันทึกเลขมิเตอร์ต้นรอบทั้งหมด',
                               style: TextStyle(color: Colors.white70, fontSize: 12),
                             ),
                             const SizedBox(height: 4),
@@ -620,7 +816,7 @@ final confirmed = await showConfirmDialog(
                                     size: 48, color: Colors.grey.shade300),
                                 const SizedBox(height: 12),
                                 Text(
-                                  'ยังไม่มีประวัติการตั้งค่ามิเตอร์ต้นรอบ',
+                                  'ยังไม่มีประวัติการตั้งเลขมิเตอร์ต้นรอบ',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: Colors.grey.shade600),
                                 ),
