@@ -38,5 +38,11 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^4.0.0
 
+  # ----- สำหรับเทส widget ที่พึ่ง Firebase (AuthGate ฯลฯ) -----
+  # เวอร์ชันต้องคู่กับ firebase_auth ^5.x / cloud_firestore ^5.x ด้านบน
+  # (ดู compatibility table ที่ pub.dev ของแต่ละแพ็กเกจ)
+  firebase_auth_mocks: ^0.14.2
+  fake_cloud_firestore: ^3.1.0
+
 flutter:
   uses-material-design: true

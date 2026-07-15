@@ -12,7 +12,15 @@ import '../models/water_log_model.dart';
 import '../utils/data_refresh_bus.dart';
 
 class FirestoreService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // เดิม _db ผูกกับ FirebaseFirestore.instance ตรงๆ ทำให้เทสอัตโนมัติ
+  // (flutter test) พังทันทีเพราะไม่มี Firebase.initializeApp() ในสภาพแวดล้อม
+  // เทส — เปิดช่องให้ฉีด instance ปลอม (เช่น FakeFirebaseFirestore) เข้ามา
+  // แทนได้ โดยโค้ดที่เรียกใช้งานจริงไม่ต้องแก้อะไรเลย (ไม่ส่ง param ก็ยังคง
+  // ใช้ FirebaseFirestore.instance เหมือนเดิมทุกประการ)
+  FirestoreService({FirebaseFirestore? firestore})
+      : _db = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _db;
 
   // ==================== USER ====================
 

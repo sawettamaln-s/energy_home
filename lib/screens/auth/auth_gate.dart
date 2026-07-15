@@ -18,12 +18,25 @@ import 'setup_screen.dart';
 /// `Navigator.pushAndRemoveUntil` กลับมาที่ AuthGate() ตัวใหม่ (สดๆ มีตัวฟัง
 /// ติดมาด้วยเสมอ) แทนที่จะ push ไปแค่ LoginScreen() เปล่าๆแบบเดิม
 class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
+  // รับ auth/firestoreService แบบ optional เพื่อให้ทดสอบได้ (ฉีด
+  // MockFirebaseAuth + FakeFirebaseFirestore เข้ามาแทน) — ตอนใช้งานจริงไม่ส่ง
+  // param มา ก็ยัง fallback ไปใช้ FirebaseAuth.instance / FirestoreService()
+  // (Firebase จริง) เหมือนเดิมทุกจุดที่เรียก const AuthGate() อยู่แล้ว
+  const AuthGate({super.key, FirebaseAuth? auth, FirestoreService? firestoreService})
+      : _auth = auth,
+        _firestoreService = firestoreService;
+
+  final FirebaseAuth? _auth;
+  final FirestoreService? _firestoreService;
+
+  FirebaseAuth get _authInstance => _auth ?? FirebaseAuth.instance;
+  FirestoreService get _firestoreServiceInstance =>
+      _firestoreService ?? FirestoreService();
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      stream: _authInstance.authStateChanges(),
       builder: (context, snapshot) {
         // กำลังโหลดอยู่
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -43,7 +56,7 @@ class AuthGate extends StatelessWidget {
 
         // Login แล้ว → เช็คว่ามีข้อมูล Setup ไหม
         return FutureBuilder(
-          future: FirestoreService().getUser(snapshot.data!.uid),
+          future: _firestoreServiceInstance.getUser(snapshot.data!.uid),
           builder: (context, userSnapshot) {
             // กำลังโหลดข้อมูล User
             if (userSnapshot.connectionState == ConnectionState.waiting) {
@@ -58,7 +71,7 @@ class AuthGate extends StatelessWidget {
 
             // ไม่มีข้อมูล User → ไปหน้า Setup
             if (userSnapshot.data == null) {
-              return const SetupScreen();
+              return SetupScreen(firestoreService: _firestoreServiceInstance);
             }
 
             // มีข้อมูลแล้ว → เข้าแอปหลัก (MainShell คุมทั้ง 4 แท็บ)

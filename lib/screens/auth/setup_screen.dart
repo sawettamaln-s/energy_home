@@ -14,14 +14,22 @@ import '../main_shell.dart';
 import 'setup_complete_screen.dart';
 
 class SetupScreen extends StatefulWidget {
-  const SetupScreen({super.key});
+  // รับ firestoreService แบบ optional เพื่อให้ AuthGate ส่ง instance ปลอมมา
+  // ตอนเทสได้ (เดิม _SetupScreenState สร้าง FirestoreService() ของจริงเอง
+  // ตรงๆ ใน field initializer ทำให้ crash ตั้งแต่ก่อน initState ด้วยซ้ำ
+  // เวลาเทสโดยไม่มี Firebase.initializeApp())
+  const SetupScreen({super.key, FirestoreService? firestoreService})
+      : _firestoreService = firestoreService;
+
+  final FirestoreService? _firestoreService;
 
   @override
   State<SetupScreen> createState() => _SetupScreenState();
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  final FirestoreService _firestoreService = FirestoreService();
+  late final FirestoreService _firestoreService =
+      widget._firestoreService ?? FirestoreService();
 
   int _currentStep = 0;
   // คงที่ 4 ขั้นตอนเสมอ: พื้นที่+อธิบายสูตรคำนวณ (รวมเป็นขั้นเดียว) /
