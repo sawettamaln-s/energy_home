@@ -259,7 +259,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.grey.withOpacity(0.08),
+                                    color: Colors.grey.withValues(alpha: 0.08),
                                     blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   ),
@@ -276,7 +276,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                           padding: const EdgeInsets.all(10),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFF2E7D32)
-                                                .withOpacity(0.1),
+                                                .withValues(alpha: 0.1),
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                           ),
@@ -431,11 +431,11 @@ Widget _summaryBox({
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-        color: const Color(0xFF2E7D32).withOpacity(0.25),
+        color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.grey.withOpacity(0.08),
+          color: Colors.grey.withValues(alpha: 0.08),
           blurRadius: 6,
           offset: const Offset(0, 2),
         ),
@@ -1009,7 +1009,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2E7D32).withOpacity(0.08),
+        color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

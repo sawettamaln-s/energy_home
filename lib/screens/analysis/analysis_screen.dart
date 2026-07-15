@@ -357,7 +357,7 @@ class _UtilityTab extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _green.withOpacity(0.08),
+        color: _green.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -392,7 +392,7 @@ class _UtilityTab extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
         ],
       ),
       child: Column(
@@ -427,7 +427,7 @@ class _UtilityTab extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _green.withOpacity(0.12),
+                    color: _green.withValues(alpha: 0.12),
                   ),
                   child: const Text('!',
                       style: TextStyle(
@@ -444,7 +444,7 @@ class _UtilityTab extends StatelessWidget {
             child: LinearProgressIndicator(
               value: c.progress,
               minHeight: 6,
-              backgroundColor: _green.withOpacity(0.12),
+              backgroundColor: _green.withValues(alpha: 0.12),
               valueColor: const AlwaysStoppedAnimation(_green),
             ),
           ),
@@ -550,7 +550,7 @@ class _UtilityTab extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
         ],
       ),
       child: Column(
@@ -607,7 +607,7 @@ class _UtilityTab extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 10),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.92),
+                            color: Colors.white.withValues(alpha: 0.92),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -735,7 +735,7 @@ class _UtilityTab extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
         ],
       ),
       child: Column(
@@ -869,7 +869,7 @@ class _UtilityTab extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _green.withOpacity(0.08),
+        color: _green.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -910,7 +910,7 @@ class _UtilityTab extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _green.withOpacity(0.15),
+                    color: _green.withValues(alpha: 0.15),
                   ),
                   child: const Text('!',
                       style: TextStyle(
@@ -958,7 +958,7 @@ class _UtilityTab extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.12),
+                color: Colors.orange.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -984,7 +984,7 @@ class _UtilityTab extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
         ],
       ),
       child: Column(
@@ -1026,13 +1026,13 @@ class _UtilityTab extends StatelessWidget {
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Text('ดูอุปกรณ์ที่ใช้ไฟมากสุด',
+                                    Text('ดูอุปกรณ์ที่ใช้ไฟมากสุด',
                                         style: TextStyle(
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.bold,
                                             color: _green)),
-                                    const SizedBox(width: 2),
-                                    const Icon(Icons.arrow_forward_ios,
+                                    SizedBox(width: 2),
+                                    Icon(Icons.arrow_forward_ios,
                                         size: 10, color: _green),
                                   ],
                                 ),
@@ -1169,7 +1169,7 @@ class _ApplianceTab extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
-              BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+              BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
             ],
           ),
           child: Column(
@@ -1241,7 +1241,7 @@ class _ApplianceTab extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
-                BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+                BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
               ],
             ),
             child: Column(
@@ -1334,7 +1334,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
-                BoxShadow(color: Colors.grey.withOpacity(0.06), blurRadius: 4)
+                BoxShadow(color: Colors.grey.withValues(alpha: 0.06), blurRadius: 4)
               ],
             ),
             child: Row(
@@ -1342,7 +1342,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
                 CircleAvatar(
                   radius: 14,
                   backgroundColor:
-                      widget.colors[i % widget.colors.length].withOpacity(0.15),
+                      widget.colors[i % widget.colors.length].withValues(alpha: 0.15),
                   child: Text('${i + 1}',
                       style: TextStyle(
                           color: widget.colors[i % widget.colors.length],

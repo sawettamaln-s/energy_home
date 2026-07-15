@@ -85,7 +85,7 @@ Widget _rateCard({required Widget child}) {
       borderRadius: BorderRadius.circular(12),
       boxShadow: [
         BoxShadow(
-          color: Colors.grey.withOpacity(0.1),
+          color: Colors.grey.withValues(alpha: 0.1),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
@@ -109,7 +109,7 @@ Widget _rateCardHeader({
       Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: color, size: 20),
@@ -141,7 +141,7 @@ Widget _tierRow({
 }) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    color: isAlt ? color.withOpacity(0.05) : Colors.transparent,
+    color: isAlt ? color.withValues(alpha: 0.05) : Colors.transparent,
     child: Row(
       children: [
         Expanded(
@@ -177,9 +177,9 @@ Widget _currentSettingBanner({
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: color.withOpacity(0.25)),
+      border: Border.all(color: color.withValues(alpha: 0.25)),
     ),
     child: Row(
       children: [

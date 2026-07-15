@@ -190,7 +190,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.08),
+                    color: Colors.red.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(

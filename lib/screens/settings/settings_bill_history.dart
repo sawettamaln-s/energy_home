@@ -322,7 +322,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF2E7D32).withOpacity(0.12),
+                    color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
                   ),
                   child: const Text('!',
                       style: TextStyle(
@@ -369,7 +369,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.08),
+              color: Colors.orange.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -469,7 +469,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                               child: CircularProgressIndicator(strokeWidth: 2)),
                         )
                       : DropdownButtonFormField<DateTime>(
-                          value: _selectedMonth,
+                          initialValue: _selectedMonth,
                           decoration: _fieldDecoration(),
                           items: _monthOptions.map((d) {
                             final taken =
@@ -605,7 +605,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2E7D32).withOpacity(0.08),
+                      color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -697,7 +697,7 @@ Widget _infoWarningBox(String text) {
   return Container(
     padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
-      color: Colors.orange.withOpacity(0.08),
+      color: Colors.orange.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(10),
     ),
     child: Row(
@@ -896,7 +896,7 @@ final confirmed = await showConfirmDialog(
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF2E7D32).withOpacity(0.25),
+                        color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -933,7 +933,7 @@ final confirmed = await showConfirmDialog(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
@@ -998,7 +998,7 @@ final confirmed = await showConfirmDialog(
                                               ? [
                                                   BoxShadow(
                                                     color: accent
-                                                        .withOpacity(0.4),
+                                                        .withValues(alpha: 0.4),
                                                     blurRadius: 6,
                                                   ),
                                                 ]
@@ -1030,12 +1030,12 @@ final confirmed = await showConfirmDialog(
                                           border: isLatest
                                               ? Border.all(
                                                   color:
-                                                      accent.withOpacity(0.3))
+                                                      accent.withValues(alpha: 0.3))
                                               : null,
                                           boxShadow: [
                                             BoxShadow(
                                               color: Colors.grey
-                                                  .withOpacity(0.08),
+                                                  .withValues(alpha: 0.08),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -1065,7 +1065,7 @@ final confirmed = await showConfirmDialog(
                                                         vertical: 3),
                                                     decoration: BoxDecoration(
                                                       color: accent
-                                                          .withOpacity(0.1),
+                                                          .withValues(alpha: 0.1),
                                                       borderRadius:
                                                           BorderRadius
                                                               .circular(20),

@@ -80,9 +80,9 @@ Widget _utilitySummaryBar({
     margin: const EdgeInsets.all(16),
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: color.withOpacity(0.2)),
+      border: Border.all(color: color.withValues(alpha: 0.2)),
     ),
     child: Row(
       children: [
@@ -144,6 +144,7 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
       startDate,
       endDate,
     );
+    if (!mounted) return;
     setState(() => _isLoading = false);
   }
 
@@ -238,7 +239,7 @@ final confirm = await showConfirmDialog(
                             boxShadow: isLatest
                                 ? [
                                     BoxShadow(
-                                      color: accent.withOpacity(0.4),
+                                      color: accent.withValues(alpha: 0.4),
                                       blurRadius: 6,
                                     ),
                                   ]
@@ -266,11 +267,11 @@ final confirm = await showConfirmDialog(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(14),
                             border: isLatest
-                                ? Border.all(color: accent.withOpacity(0.3))
+                                ? Border.all(color: accent.withValues(alpha: 0.3))
                                 : null,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.08),
+                                color: Colors.grey.withValues(alpha: 0.08),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -296,7 +297,7 @@ final confirm = await showConfirmDialog(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: accent.withOpacity(0.1),
+                                        color: accent.withValues(alpha: 0.1),
                                         borderRadius:
                                             BorderRadius.circular(20),
                                       ),
@@ -437,6 +438,7 @@ class _WaterLogTabState extends State<_WaterLogTab> {
       startDate,
       endDate,
     );
+    if (!mounted) return;
     setState(() => _isLoading = false);
   }
 
@@ -531,7 +533,7 @@ final confirm = await showConfirmDialog(
                             boxShadow: isLatest
                                 ? [
                                     BoxShadow(
-                                      color: accent.withOpacity(0.4),
+                                      color: accent.withValues(alpha: 0.4),
                                       blurRadius: 6,
                                     ),
                                   ]
@@ -559,11 +561,11 @@ final confirm = await showConfirmDialog(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(14),
                             border: isLatest
-                                ? Border.all(color: accent.withOpacity(0.3))
+                                ? Border.all(color: accent.withValues(alpha: 0.3))
                                 : null,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.08),
+                                color: Colors.grey.withValues(alpha: 0.08),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -589,7 +591,7 @@ final confirm = await showConfirmDialog(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: accent.withOpacity(0.1),
+                                        color: accent.withValues(alpha: 0.1),
                                         borderRadius:
                                             BorderRadius.circular(20),
                                       ),

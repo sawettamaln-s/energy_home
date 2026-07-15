@@ -83,7 +83,7 @@ void showApplianceEstimateInfoDialog(BuildContext context) {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.08),
+                color: Colors.orange.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(

@@ -252,6 +252,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       setState(() => _generalError = true);
       return;
     }
+    final navigator = Navigator.of(context);
     setState(() {
       _generalError = false;
       _isSaving = true;
@@ -355,7 +356,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
             ),
           );
         }
-        Navigator.pop(context, true);
+        if (!mounted) return;
+        navigator.pop(true);
       }
     } catch (e) {
       if (mounted) {
@@ -543,7 +545,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                 horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               color:
-                                  const Color(0xFF2E7D32).withOpacity(0.08),
+                                  const Color(0xFF2E7D32).withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -772,7 +774,7 @@ final confirmed = await showConfirmDialog(
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF2E7D32).withOpacity(0.25),
+                        color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -807,7 +809,7 @@ final confirmed = await showConfirmDialog(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -873,7 +875,7 @@ final confirmed = await showConfirmDialog(
                                               ? [
                                                   BoxShadow(
                                                     color: const Color(0xFF2E7D32)
-                                                        .withOpacity(0.4),
+                                                        .withValues(alpha: 0.4),
                                                     blurRadius: 6,
                                                   ),
                                                 ]
@@ -903,12 +905,12 @@ final confirmed = await showConfirmDialog(
                                           border: isLatest
                                               ? Border.all(
                                                   color: const Color(0xFF2E7D32)
-                                                      .withOpacity(0.3),
+                                                      .withValues(alpha: 0.3),
                                                 )
                                               : null,
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.grey.withOpacity(0.08),
+                                              color: Colors.grey.withValues(alpha: 0.08),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -934,7 +936,7 @@ final confirmed = await showConfirmDialog(
                                                         horizontal: 8, vertical: 3),
                                                     decoration: BoxDecoration(
                                                       color: const Color(0xFF2E7D32)
-                                                          .withOpacity(0.1),
+                                                          .withValues(alpha: 0.1),
                                                       borderRadius:
                                                           BorderRadius.circular(20),
                                                     ),

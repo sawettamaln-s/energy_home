@@ -157,6 +157,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = true);
     final uid = FirebaseAuth.instance.currentUser!.uid;
     _user = await _firestoreService.getUser(uid);
+    if (!mounted) return;
     setState(() => _isLoading = false);
     if (widget.openFixedCostOnStart && _fixedCostAutoOpened == false) {
       _fixedCostAutoOpened = true;
@@ -418,7 +419,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 15, color: color),
@@ -446,7 +447,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -460,10 +461,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: _sectionColor.withOpacity(0.12),
+                backgroundColor: _sectionColor.withValues(alpha: 0.12),
                 child: Text(
                   initials,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: _sectionColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -540,7 +541,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -608,7 +609,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -623,10 +624,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: _sectionColor.withOpacity(0.1),
+                color: _sectionColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.notifications_active_outlined,
+              child: const Icon(Icons.notifications_active_outlined,
                   color: _sectionColor, size: 20),
             ),
             title: const Text(
@@ -639,7 +640,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             trailing: Switch(
               value: granted,
-              activeColor: _sectionColor,
+              activeThumbColor: _sectionColor,
               onChanged: (val) => _toggleNotification(val),
             ),
           ),
@@ -697,7 +698,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           secondary: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: (enabled ? _sectionColor : Colors.grey).withOpacity(0.1),
+              color: (enabled ? _sectionColor : Colors.grey).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon,
@@ -720,7 +721,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           value: value,
-          activeColor: _sectionColor,
+          activeThumbColor: _sectionColor,
           onChanged: enabled ? (val) => _setNotifPref(type, val) : null,
         ),
         if (!isLast) const Divider(height: 1, indent: 56),
@@ -735,7 +736,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -775,10 +776,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -795,54 +796,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildInfoRow(
-    IconData icon,
-    String label,
-    String value, {
-    Color color = _sectionColor,
-    VoidCallback? onEdit,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 18, color: color),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (onEdit != null)
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.grey),
-            visualDensity: VisualDensity.compact,
-            onPressed: onEdit,
-          ),
-      ],
-    );
-  }
-
   Widget _buildSettingsTile({
     required IconData icon,
     required String title,
@@ -855,7 +808,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: color, size: 20),
@@ -906,7 +859,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               await FirebaseAuth.instance.currentUser
                   ?.updateDisplayName(newName);
               await _loadUser();
-              if (mounted) Navigator.pop(context);
+              if (context.mounted) Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2E7D32),
@@ -1083,7 +1036,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             {'billingDay': selectedDay},
                           );
                           await _loadUser();
-                          if (mounted) Navigator.pop(context);
+                          if (context.mounted) Navigator.pop(context);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF2E7D32),

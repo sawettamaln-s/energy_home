@@ -32,6 +32,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _load() async {
     setState(() => _isLoading = true);
     final items = await NotificationService.instance.getHistory();
+    if (!mounted) return;
     setState(() {
       _items = items;
       _isLoading = false;
@@ -244,7 +245,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.08),
+                color: Colors.grey.withValues(alpha: 0.08),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -256,7 +257,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: style.color.withOpacity(0.12),
+                  color: style.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(style.icon, color: style.color, size: 20),

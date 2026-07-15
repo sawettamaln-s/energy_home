@@ -271,7 +271,7 @@ class StartMeterPairedFields extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.06),
+              color: Colors.blue.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -390,7 +390,7 @@ class StartMeterPairedFields extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: DashboardStyles.accentCard(borderColor, radius: 14).copyWith(
-        color: borderColor.withOpacity(0.045),
+        color: borderColor.withValues(alpha: 0.045),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -400,7 +400,7 @@ class StartMeterPairedFields extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.15),
+                  color: accentColor.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -606,7 +606,7 @@ class StartMeterPairedFields extends StatelessWidget {
             ),
             Switch(
               value: noBillYet,
-              activeColor: const Color(0xFF2E7D32),
+              activeThumbColor: const Color(0xFF2E7D32),
               onChanged: onNoBillYetChanged,
             ),
           ],

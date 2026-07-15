@@ -78,7 +78,7 @@ class FirestoreService {
   // รวมยอด fixed cost ทุกรายการแล้วอัปเดต cache ที่ users/{uid}.fixedCost
   Future<void> _recalcFixedCostTotal(String uid) async {
     final items = await getFixedCostItems(uid);
-    final total = items.fold<double>(0, (sum, item) => sum + item.amount);
+    final total = items.fold<double>(0, (acc, item) => acc + item.amount);
     await updateUser(uid, {'fixedCost': total});
   }
 

@@ -198,7 +198,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                   createdAt: existing?.createdAt ?? DateTime.now(),
                 );
                 await widget.firestoreService.saveFixedCostItem(item);
-                if (mounted) Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
                 await _load();
               },
               style: ElevatedButton.styleFrom(
@@ -252,7 +252,7 @@ final confirmed = await showConfirmDialog(
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF2E7D32).withOpacity(0.25),
+                        color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -343,7 +343,7 @@ final confirmed = await showConfirmDialog(
                                               ? [
                                                   BoxShadow(
                                                     color: accent
-                                                        .withOpacity(0.4),
+                                                        .withValues(alpha: 0.4),
                                                     blurRadius: 6,
                                                   ),
                                                 ]
@@ -374,12 +374,12 @@ final confirmed = await showConfirmDialog(
                                           border: isLatest
                                               ? Border.all(
                                                   color:
-                                                      accent.withOpacity(0.3))
+                                                      accent.withValues(alpha: 0.3))
                                               : null,
                                           boxShadow: [
                                             BoxShadow(
                                               color: Colors.grey
-                                                  .withOpacity(0.1),
+                                                  .withValues(alpha: 0.1),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -392,7 +392,7 @@ final confirmed = await showConfirmDialog(
                                                   const EdgeInsets.all(10),
                                               decoration: BoxDecoration(
                                                 color: accent
-                                                    .withOpacity(0.1),
+                                                    .withValues(alpha: 0.1),
                                                 borderRadius:
                                                     BorderRadius.circular(10),
                                               ),

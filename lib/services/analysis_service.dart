@@ -363,7 +363,7 @@ class AnalysisService {
       );
     }).toList();
 
-    final totalKwh = usages.fold<double>(0, (sum, u) => sum + u.kWh);
+    final totalKwh = usages.fold<double>(0, (acc, u) => acc + u.kWh);
     if (totalKwh > 0) {
       for (final u in usages) {
         u.percentOfTotal = (u.kWh / totalKwh) * 100;
@@ -473,7 +473,7 @@ class AnalysisService {
           (a, b) => selector(a) >= selector(b) ? a : b);
       if (peak != bills.last) {
         insights.add(AnalysisInsight(
-          'เดือนที่ใช้${label}สูงสุดในข้อมูลที่เก็บไว้คือ ${peak.month}/${peak.year} '
+          'เดือนที่ใช้$labelสูงสุดในข้อมูลที่เก็บไว้คือ ${peak.month}/${peak.year} '
           'ที่ ${selector(peak).toStringAsFixed(0)} บาท ลองสังเกตว่าช่วงนั้นมีอะไรต่างจากปกติ',
           InsightLevel.neutral,
           showApplianceCta: trackAppliances,

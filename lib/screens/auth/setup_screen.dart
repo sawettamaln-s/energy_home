@@ -809,12 +809,12 @@ class _SetupScreenState extends State<SetupScreen> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: _startMeterSkipped
-                    ? green.withOpacity(0.08)
+                    ? green.withValues(alpha: 0.08)
                     : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: _startMeterSkipped
-                      ? green.withOpacity(0.4)
+                      ? green.withValues(alpha: 0.4)
                       : Colors.grey.shade200,
                 ),
               ),
@@ -848,7 +848,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(width: 8),
                   Switch(
                     value: _startMeterSkipped,
-                    activeColor: green,
+                    activeThumbColor: green,
                     onChanged: (val) =>
                         setState(() => _startMeterSkipped = val),
                   ),
@@ -873,7 +873,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 Expanded(
                   flex: 2,
                   child: DropdownButtonFormField<int>(
-                    value: _selectedStartMonth,
+                    initialValue: _selectedStartMonth,
                     decoration: _dropdownDecoration(),
                     items: List.generate(12, (i) {
                       return DropdownMenuItem(
@@ -888,7 +888,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonFormField<int>(
-                    value: _selectedStartYear,
+                    initialValue: _selectedStartYear,
                     decoration: _dropdownDecoration(),
                     items: [
                       DateTime.now().year - 1,
@@ -990,7 +990,7 @@ class _SetupScreenState extends State<SetupScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: green.withOpacity(0.1),
+            color: green.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: green),
@@ -1062,9 +1062,9 @@ class _SetupScreenState extends State<SetupScreen> {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: green.withOpacity(0.08),
+        color: green.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: green.withOpacity(0.25)),
+        border: Border.all(color: green.withValues(alpha: 0.25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1095,7 +1095,7 @@ class _SetupScreenState extends State<SetupScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF2E7D32).withOpacity(0.1)
+              ? const Color(0xFF2E7D32).withValues(alpha: 0.1)
               : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(

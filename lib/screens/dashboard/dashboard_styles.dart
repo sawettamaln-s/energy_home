@@ -42,7 +42,7 @@ class DashboardStyles {
         borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -58,7 +58,7 @@ class DashboardStyles {
         border: Border.all(color: borderColor, width: 1.4),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
+            color: Colors.grey.withValues(alpha: 0.05),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),

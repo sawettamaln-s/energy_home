@@ -64,8 +64,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double _forecastTotal = 0;
   double _forecastElectricityCost = 0;
   double _forecastWaterCost = 0;
-  double _forecastElectricityUnits = 0;
-  double _forecastWaterUnits = 0;
 
   // ----- ยอดเดือนก่อน (ใช้เทียบ "พุ่งขึ้น") -----
   double _lastMonthElectricityCost = 0;
@@ -297,13 +295,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final remainingDays =
         EnergyForecaster.getRemainingDays(now, _user?.billingDay ?? 30);
 
-    final dailyElectricity = _electricityLogs
-        .map((l) => l.usedFromLast)
-        .where((v) => v > 0)
-        .toList();
-    final dailyWater =
-        _waterLogs.map((l) => l.usedFromLast).where((v) => v > 0).toList();
-
     // ----- ค่าเฉลี่ย "บาท/วัน" จริง (แก้จุดที่หน่วยไม่ตรงกัน) -----
     // เดิม: เอา dailyUsage (หน่วย/วัน) ไปบวกกับ currentTotal (บาท) ตรง ๆ
     // ผ่าน EnergyForecaster.forecastCurrentMonth ทำให้ยอดพยากรณ์ค่าใช้จ่าย
@@ -327,20 +318,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       currentTotal: _currentWaterCost,
     );
     _forecastTotal = _forecastElectricityCost + _forecastWaterCost;
-
-    // forecaster.dart ไม่มีฟังก์ชันพยากรณ์ "หน่วยการใช้" ให้ตรง ๆ
-    // จึงเรียก movingAverage แบบเดียวกัน แต่ใส่ฐานเป็นหน่วยที่ใช้ไปแล้ว
-    // (แทนที่จะเป็นค่าใช้จ่าย) เพื่อพยากรณ์จำนวนหน่วยสิ้นเดือน
-    _forecastElectricityUnits = EnergyForecaster.movingAverage(
-      dailyUsage: dailyElectricity,
-      remainingDays: remainingDays,
-      currentTotal: _currentElectricityFromStart,
-    );
-    _forecastWaterUnits = EnergyForecaster.movingAverage(
-      dailyUsage: dailyWater,
-      remainingDays: remainingDays,
-      currentTotal: _currentWaterFromStart,
-    );
   }
 
   // =====================================================================
@@ -788,7 +765,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Avatar กลมเล็ก ๆ ให้ header ดูมีมิติ ไม่ใช่แค่ตัวอักษรลอย ๆ
         CircleAvatar(
           radius: 22,
-          backgroundColor: DashboardStyles.primaryGreen.withOpacity(0.12),
+          backgroundColor: DashboardStyles.primaryGreen.withValues(alpha: 0.12),
           child: Text(
             ((_user?.name.isNotEmpty ?? false)
                     ? _user!.name.substring(0, 1)
@@ -812,7 +789,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: DashboardStyles.primaryGreen.withOpacity(0.08),
+                  color: DashboardStyles.primaryGreen.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -898,7 +875,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: DashboardStyles.primaryGreen.withOpacity(0.25),
+            color: DashboardStyles.primaryGreen.withValues(alpha: 0.25),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -910,7 +887,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             children: [
               Icon(Icons.receipt_long_outlined,
-                  color: Colors.white.withOpacity(0.85), size: 16),
+                  color: Colors.white.withValues(alpha: 0.85), size: 16),
               const SizedBox(width: 6),
               const Text('ค่าใช้จ่ายเดือนนี้',
                   style: TextStyle(
@@ -954,7 +931,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -1046,7 +1023,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         border: Border.all(color: Colors.orange.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1060,7 +1037,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(Icons.speed_outlined,
@@ -1133,18 +1110,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
-      decoration: DashboardStyles.accentCard(borderColor.withOpacity(0.4)),
+      decoration: DashboardStyles.accentCard(borderColor.withValues(alpha: 0.4)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: accent.withOpacity(0.5), size: 18),
+              Icon(icon, color: accent.withValues(alpha: 0.5), size: 18),
               const SizedBox(width: 6),
               Text(
                 title,
                 style: TextStyle(
-                  color: accent.withOpacity(0.5),
+                  color: accent.withValues(alpha: 0.5),
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
@@ -1171,7 +1148,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: accent,
-                side: BorderSide(color: accent.withOpacity(0.5)),
+                side: BorderSide(color: accent.withValues(alpha: 0.5)),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -1354,7 +1331,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         border: Border.all(color: DashboardStyles.creamBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -1472,7 +1449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
+                  color: Colors.white.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Row(
@@ -1714,7 +1691,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
         decoration: BoxDecoration(
-          color: selected ? Colors.orange.withOpacity(0.12) : Colors.white,
+          color: selected ? Colors.orange.withValues(alpha: 0.12) : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected ? Colors.orange : Colors.grey.shade300,
