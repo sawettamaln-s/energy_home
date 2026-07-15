@@ -650,6 +650,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // ใช้เลย์เอาต์นี้ตามที่ขอ เพราะแบบซ้อน Column เต็ม
                       // ความกว้างเมื่อก่อนดูใหญ่คับจอไป) ใช้ IntrinsicHeight
                       // ให้การ์ด TOU (2 ฟิลด์) กับการ์ดน้ำ (1 ฟิลด์) สูงเท่ากัน
+                      // เดิมเช็ค startMeterConfigured รวมอันเดียว (ครอบทั้ง
+                      // ไฟ+น้ำ) พอแยก flag เป็นรายยูทิลิตี้แล้ว (ดูที่
+                      // UserModel) เปลี่ยนมาเช็คแยกแต่ละฝั่งแทน — ถ้ายังไม่
+                      // ได้ตั้งเลยสักอย่าง (startMeterConfigured == false)
+                      // ยังคงโชว์การ์ดเต็มความกว้างแบบเดิม แต่ถ้าตั้งไปแล้ว
+                      // อย่างน้อย 1 ฝั่ง ให้ใช้งานฝั่งที่พร้อมได้ก่อนเลย ส่วน
+                      // ฝั่งที่ยังไม่พร้อมโชว์การ์ดล็อกแยกแทนที่จะบล็อกทั้งคู่
                       _user?.startMeterConfigured == false
                           ? _buildStartMeterRequiredCard()
                           : IntrinsicHeight(
@@ -657,48 +664,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Expanded(
-                                    child: _user?.meterType == 'tou'
-                                        ? _buildTOUMeterCard()
-                                        : _buildMeterCard(
+                                    child: (_user?.electricityStartConfigured ??
+                                            true)
+                                        ? (_user?.meterType == 'tou'
+                                            ? _buildTOUMeterCard()
+                                            : _buildMeterCard(
+                                                title: 'ไฟฟ้า',
+                                                icon: Icons.bolt,
+                                                accent: DashboardStyles
+                                                    .electricityAccent,
+                                                borderColor: DashboardStyles
+                                                    .electricityBorder,
+                                                fieldBg: DashboardStyles
+                                                    .electricityFieldBg,
+                                                controller:
+                                                    _electricityController,
+                                                hint: 'เช่น 00000',
+                                                lastValue:
+                                                    _latestElectricityLog
+                                                            ?.meterValue ??
+                                                        _user
+                                                            ?.startElectricityValue,
+                                                startValue: _user
+                                                    ?.startElectricityValue,
+                                                error: _electricityError,
+                                                isSaving: _isSavingElectricity,
+                                                onSave: _saveElectricityLog,
+                                                unit: 'หน่วย',
+                                              ))
+                                        : _buildMeterLockedCard(
                                             title: 'ไฟฟ้า',
                                             icon: Icons.bolt,
                                             accent:
                                                 DashboardStyles.electricityAccent,
                                             borderColor: DashboardStyles
                                                 .electricityBorder,
-                                            fieldBg: DashboardStyles
-                                                .electricityFieldBg,
-                                            controller: _electricityController,
-                                            hint: 'เช่น 00000',
-                                            lastValue: _latestElectricityLog
-                                                    ?.meterValue ??
-                                                _user?.startElectricityValue,
-                                            startValue:
-                                                _user?.startElectricityValue,
-                                            error: _electricityError,
-                                            isSaving: _isSavingElectricity,
-                                            onSave: _saveElectricityLog,
-                                            unit: 'หน่วย',
                                           ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: _buildMeterCard(
-                                      title: 'น้ำ',
-                                      icon: Icons.water_drop,
-                                      accent: DashboardStyles.waterAccent,
-                                      borderColor: DashboardStyles.waterBorder,
-                                      fieldBg: DashboardStyles.waterFieldBg,
-                                      controller: _waterController,
-                                      hint: 'เช่น 00000',
-                                      lastValue: _latestWaterLog?.meterValue ??
-                                          _user?.startWaterValue,
-                                      startValue: _user?.startWaterValue,
-                                      error: _waterError,
-                                      isSaving: _isSavingWater,
-                                      onSave: _saveWaterLog,
-                                      unit: 'ลบ.ม.',
-                                    ),
+                                    child: (_user?.waterStartConfigured ??
+                                            true)
+                                        ? _buildMeterCard(
+                                            title: 'น้ำ',
+                                            icon: Icons.water_drop,
+                                            accent:
+                                                DashboardStyles.waterAccent,
+                                            borderColor:
+                                                DashboardStyles.waterBorder,
+                                            fieldBg:
+                                                DashboardStyles.waterFieldBg,
+                                            controller: _waterController,
+                                            hint: 'เช่น 00000',
+                                            lastValue:
+                                                _latestWaterLog?.meterValue ??
+                                                    _user?.startWaterValue,
+                                            startValue: _user?.startWaterValue,
+                                            error: _waterError,
+                                            isSaving: _isSavingWater,
+                                            onSave: _saveWaterLog,
+                                            unit: 'ลบ.ม.',
+                                          )
+                                        : _buildMeterLockedCard(
+                                            title: 'น้ำ',
+                                            icon: Icons.water_drop,
+                                            accent: DashboardStyles.waterAccent,
+                                            borderColor:
+                                                DashboardStyles.waterBorder,
+                                          ),
                                   ),
                                 ],
                               ),
@@ -995,10 +1028,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // =====================================================================
   // การ์ดเตือนให้ตั้งค่ามิเตอร์ต้นรอบก่อน — แสดงแทนช่องกรอกมิเตอร์ปกติ
-  // เฉพาะบัญชีที่กด "ข้ามไปก่อน" ตอน setup (startMeterConfigured == false)
-  // เพราะถ้าปล่อยให้กรอกเลย ระบบจะเอาเลขมิเตอร์สะสมจริงทั้งก้อน (เช่น
-  // 15,234 หน่วย) ไปคำนวณเป็น "หน่วยที่ใช้เดือนนี้" ทันที ทำให้ค่าไฟ/น้ำ
-  // รอบแรกเพี้ยนมหาศาล และไปกระทบข้อมูลพยากรณ์ในหน้าวิเคราะห์ด้วย
+  // เฉพาะตอนที่ยังไม่ได้ตั้งเลยสักฝั่ง (electricityStartConfigured และ
+  // waterStartConfigured เป็น false ทั้งคู่ = startMeterConfigured false)
+  // ถ้าตั้งไปแล้วอย่างน้อย 1 ฝั่ง จะไม่โชว์การ์ดนี้อีกต่อไป แต่ไปโชว์
+  // _buildMeterLockedCard() แยกเฉพาะฝั่งที่ยังไม่ได้ตั้งแทน (ดูจุดเรียกใช้
+  // ใน build()) เพราะถ้าปล่อยให้กรอกเลย ระบบจะเอาเลขมิเตอร์สะสมจริงทั้งก้อน
+  // (เช่น 15,234 หน่วย) ไปคำนวณเป็น "หน่วยที่ใช้เดือนนี้" ทันที ทำให้ค่าไฟ/
+  // น้ำรอบแรกเพี้ยนมหาศาล และไปกระทบข้อมูลพยากรณ์ในหน้าวิเคราะห์ด้วย
   // =====================================================================
   Widget _buildStartMeterRequiredCard() {
     return Container(
@@ -1080,6 +1116,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // พาร์ทนี้ทำหน้าที่: ให้ผู้ใช้กรอกเลขมิเตอร์วันนี้ พร้อมโชว์ค่าล่าสุด/ต้นรอบ
   // เป็น "ตัวอย่าง" จาง ๆ ไว้เทียบ (แก้สีให้จางลงตามที่ขอ ผ่าน DashboardStyles)
   // =====================================================================
+  // =====================================================================
+  // การ์ดล็อก — โชว์แทนการ์ดกรอกมิเตอร์ปกติ เฉพาะฝั่งที่ยังไม่ได้ตั้งเลข
+  // มิเตอร์ต้นรอบ (electricityStartConfigured / waterStartConfigured เป็น
+  // false) ในขณะที่อีกฝั่งตั้งไปแล้ว — เดิมถ้ายังไม่ครบทั้ง 2 ฝั่งจะบล็อก
+  // ทั้งคู่ด้วย _buildStartMeterRequiredCard() ทั้งที่ฝั่งที่กรอกครบแล้ว
+  // ควรใช้งานได้เลย ไม่ต้องรอรอบอีกฝั่งด้วย (เคสมีบิลแค่ใบเดียวในมือ)
+  // ขนาด/โครงให้ใกล้เคียง _buildMeterCard ให้สูงเท่ากันตอนอยู่ใน Row เดียวกัน
+  // =====================================================================
+  Widget _buildMeterLockedCard({
+    required String title,
+    required IconData icon,
+    required Color accent,
+    required Color borderColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: DashboardStyles.accentCard(borderColor.withOpacity(0.4)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: accent.withOpacity(0.5), size: 18),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  color: accent.withOpacity(0.5),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'ยังไม่ได้ตั้งเลขมิเตอร์ต้นรอบฝั่งนี้',
+            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await openStartMeterSetup(
+                  context,
+                  _user!.uid,
+                  _firestoreService,
+                  _user?.meterType == 'tou',
+                );
+                await _loadData();
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: accent,
+                side: BorderSide(color: accent.withOpacity(0.5)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('ตั้งเลย', style: TextStyle(fontSize: 12.5)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMeterCard({
     required String title,
     required IconData icon,

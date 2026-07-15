@@ -20,7 +20,16 @@ class UserModel {
   // มาตั้งทีหลังที่หน้าตั้งค่า) / false = ตอนสมัครกด "ข้ามไปก่อน" ไว้ ยังไม่
   // เคยกรอกค่าจริง — ใช้แยกเคส "ข้าม" ออกจาก "กรอกเป็น 0 จริง" เพื่อกัน
   // ไม่ให้ Dashboard เอา 0 ไปคำนวณหน่วยที่ใช้แบบผิดๆตอนยังไม่ได้ตั้งค่า
+  //
+  // เดิม flag เดียวครอบทั้งไฟ+น้ำ แต่ตอนนี้อนุญาตให้กรอกแค่ยูทิลิตี้เดียว
+  // ได้แล้ว (มีบิลแค่ใบเดียวในมือ) จึงต้องแยกเป็น 2 flag ย่อยด้านล่างด้วย
+  // — เหลือ startMeterConfigured ไว้เป็น "เคยตั้งอย่างน้อย 1 อย่างไหม"
+  // (= electricityStartConfigured || waterStartConfigured) เพื่อไม่ให้จุด
+  // อื่นที่ยังอ้างอิง flag เดิมอยู่ (เช่น dashboard_screen.dart) พังทันที
+  // รอไปแก้ logic การใช้งานจริงเป็นระดับยูทิลิตี้ทีหลัง
   final bool startMeterConfigured;
+  final bool electricityStartConfigured;
+  final bool waterStartConfigured;
 
   UserModel({
     required this.uid,
@@ -38,6 +47,8 @@ class UserModel {
     this.startBillingMonth = 0,
     this.startBillingYear = 0,
     this.startMeterConfigured = true,
+    this.electricityStartConfigured = true,
+    this.waterStartConfigured = true,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -60,6 +71,14 @@ class UserModel {
       // เพราะบัญชีเก่าทุกบัญชีกรอกค่ามิเตอร์ตั้งต้นไว้แล้วตั้งแต่ตอนนั้น
       // (ฟีเจอร์ "ข้ามได้" เพิ่งมีทีหลัง)
       startMeterConfigured: map['startMeterConfigured'] ?? true,
+      // บัญชีเก่าก่อนมี flag แยกยูทิลิตี้ (ยังไม่มี key นี้ใน map) ให้ fallback
+      // ไปใช้ค่า startMeterConfigured เดิม (ครอบทั้งไฟ+น้ำเหมือนพฤติกรรมเดิม
+      // ก่อนแยก) จนกว่าผู้ใช้จะมาตั้งค่าใหม่ผ่านฟอร์มที่แยกยูทิลิตี้แล้ว
+      electricityStartConfigured: map['electricityStartConfigured'] ??
+          map['startMeterConfigured'] ??
+          true,
+      waterStartConfigured:
+          map['waterStartConfigured'] ?? map['startMeterConfigured'] ?? true,
     );
   }
 
@@ -80,6 +99,8 @@ class UserModel {
       'startBillingMonth': startBillingMonth,
       'startBillingYear': startBillingYear,
       'startMeterConfigured': startMeterConfigured,
+      'electricityStartConfigured': electricityStartConfigured,
+      'waterStartConfigured': waterStartConfigured,
     };
   }
 }

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../models/bill_model.dart';
 import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
@@ -39,6 +40,18 @@ class _SetupScreenState extends State<SetupScreen> {
   final _peakStartController = TextEditingController();
   final _offPeakStartController = TextEditingController();
   final _waterStartController = TextEditingController();
+  // เพิ่มค่าใช้จ่ายให้กรอกคู่กับเลขมิเตอร์ได้ตั้งแต่ตอนสมัครเลย (เดิมมีแค่
+  // ในหน้าตั้งค่า ทำให้คนที่กรอกตอนสมัครไม่มีข้อมูลค่าใช้จ่ายจุดแรกให้หน้า
+  // วิเคราะห์เลย ต้องรอครบรอบบิลถัดไปก่อน) ใช้กติกาจับคู่เดียวกับหน้าตั้งค่า
+  final _electricityCostController = TextEditingController();
+  final _waterCostController = TextEditingController();
+  // ช่องที่ 3 "หน่วยที่ใช้ไปแล้ว" — ตอนเซตอัพครั้งแรกสุดของบัญชี ไม่มี
+  // record ก่อนหน้าเลยแม้แต่ตัวเดียว (บัญชีเพิ่งสร้าง) จึง isFirstEntry
+  // เป็น true เสมอสำหรับยูทิลิตี้ที่กรอก ต่างจากหน้าตั้งค่าที่ต้องเช็คจาก
+  // ประวัติจริง เพราะที่นี่ไม่มีประวัติให้เช็คอยู่แล้วตั้งแต่ต้น
+  final _electricityUsedController = TextEditingController();
+  final _waterUsedController = TextEditingController();
+  bool _startMeterNoBillYet = false;
   int _selectedStartMonth = DateTime.now().month;
   int _selectedStartYear = DateTime.now().year;
   String _startMeterError = '';
@@ -49,11 +62,36 @@ class _SetupScreenState extends State<SetupScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    // ให้การ์ดคู่ไฟ/น้ำใน StartMeterPairedFields รีเฟรช error แบบ live เวลา
+    // พิมพ์ เหมือนกับที่ทำไว้ในหน้าตั้งค่า > บันทึกมิเตอร์ต้นรอบ
+    for (final c in [
+      _electricityStartController,
+      _peakStartController,
+      _offPeakStartController,
+      _waterStartController,
+      _electricityCostController,
+      _waterCostController,
+      _electricityUsedController,
+      _waterUsedController,
+    ]) {
+      c.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _electricityStartController.dispose();
     _waterStartController.dispose();
     _peakStartController.dispose();
     _offPeakStartController.dispose();
+    _electricityCostController.dispose();
+    _waterCostController.dispose();
+    _electricityUsedController.dispose();
+    _waterUsedController.dispose();
     super.dispose();
   }
 
@@ -64,38 +102,37 @@ class _SetupScreenState extends State<SetupScreen> {
       return true;
     }
 
-    if (_waterStartController.text.isEmpty) {
-      setState(() => _startMeterError = 'กรุณากรอกค่ามิเตอร์น้ำ');
-      return false;
-    }
+    // กติกาเดียวกับหน้าตั้งค่า > บันทึกมิเตอร์ต้นรอบ: จับคู่เลขมิเตอร์กับ
+    // ค่าใช้จ่ายของยูทิลิตี้เดียวกัน ต้องกรอกครบทั้งคู่หรือเว้นว่างทั้งคู่
+    // และต้องมีอย่างน้อย 1 คู่ครบ (เผื่อมีบิลแค่ใบเดียวในมือตอนสมัคร)
+    final eVal = double.tryParse(_electricityStartController.text) ?? 0;
+    final peakVal = double.tryParse(_peakStartController.text) ?? 0;
+    final offPeakVal = double.tryParse(_offPeakStartController.text) ?? 0;
+    final wVal = double.tryParse(_waterStartController.text) ?? 0;
+    final eCost = double.tryParse(_electricityCostController.text) ?? 0;
+    final wCost = double.tryParse(_waterCostController.text) ?? 0;
+    final eUsed = double.tryParse(_electricityUsedController.text) ?? 0;
+    final wUsed = double.tryParse(_waterUsedController.text) ?? 0;
 
-    if (_selectedMeterType == 'tou') {
-      if (_peakStartController.text.isEmpty ||
-          _offPeakStartController.text.isEmpty) {
-        setState(() =>
-            _startMeterError = 'กรุณากรอกหน่วย On-Peak และ Off-Peak ให้ครบ');
-        return false;
-      }
-      try {
-        double.parse(_peakStartController.text);
-        double.parse(_offPeakStartController.text);
-        double.parse(_waterStartController.text);
-      } catch (e) {
-        setState(() => _startMeterError = 'กรุณากรอกตัวเลขเท่านั้น');
-        return false;
-      }
-    } else {
-      if (_electricityStartController.text.isEmpty) {
-        setState(() => _startMeterError = 'กรุณากรอกค่ามิเตอร์ไฟฟ้า');
-        return false;
-      }
-      try {
-        double.parse(_electricityStartController.text);
-        double.parse(_waterStartController.text);
-      } catch (e) {
-        setState(() => _startMeterError = 'กรุณากรอกตัวเลขเท่านั้น');
-        return false;
-      }
+    final ok = StartMeterValidation.canSave(
+      isTou: _selectedMeterType == 'tou',
+      eVal: eVal,
+      peakVal: peakVal,
+      offPeakVal: offPeakVal,
+      eCost: eCost,
+      wVal: wVal,
+      wCost: wCost,
+      noBillYet: _startMeterNoBillYet,
+      eIsFirstEntry: true,
+      eUsed: eUsed,
+      wIsFirstEntry: true,
+      wUsed: wUsed,
+    );
+    if (!ok) {
+      setState(() => _startMeterError =
+          'กรอกให้ครบทั้งเลขมิเตอร์และค่าใช้จ่ายของอย่างน้อย 1 ประเภท '
+          '(ไฟฟ้า หรือ น้ำ) หรือเว้นว่างทั้งคู่ถ้ายังไม่มีบิลฝั่งนั้น');
+      return false;
     }
 
     setState(() => _startMeterError = '');
@@ -109,6 +146,39 @@ class _SetupScreenState extends State<SetupScreen> {
 
     try {
       final user = FirebaseAuth.instance.currentUser!;
+
+      final eVal = double.tryParse(_electricityStartController.text) ?? 0;
+      final peakVal = double.tryParse(_peakStartController.text) ?? 0;
+      final offPeakVal = double.tryParse(_offPeakStartController.text) ?? 0;
+      final wVal = double.tryParse(_waterStartController.text) ?? 0;
+      final eCost = double.tryParse(_electricityCostController.text) ?? 0;
+      final wCost = double.tryParse(_waterCostController.text) ?? 0;
+      final eUsed = double.tryParse(_electricityUsedController.text) ?? 0;
+      final wUsed = double.tryParse(_waterUsedController.text) ?? 0;
+
+      // กติกาเดียวกับหน้าตั้งค่า: ครบคู่ (เลขมิเตอร์ + ค่าใช้จ่าย + หน่วยที่
+      // ใช้ เพราะเป็นการตั้งค่าครั้งแรกสุดของบัญชีเสมอ) ของยูทิลิตี้ไหนก็
+      // ตั้งค่าของยูทิลิตี้นั้น ไม่ครบ = ยังไม่ตั้ง (0 ไปก่อน ไปกรอกทีหลัง
+      // ได้ที่หน้าตั้งค่า) — กดข้าม (_startMeterSkipped) ก็จะได้ผลเดียวกัน
+      // เพราะฟิลด์ยังว่างอยู่ ทั้งคู่ complete = false เองอยู่แล้ว
+      final eComplete = !_startMeterSkipped &&
+          StartMeterValidation.electricityComplete(
+              isTou: _selectedMeterType == 'tou',
+              eVal: eVal,
+              peakVal: peakVal,
+              offPeakVal: offPeakVal,
+              eCost: eCost,
+              noBillYet: _startMeterNoBillYet,
+              isFirstEntry: true,
+              eUsed: eUsed);
+      final wComplete = !_startMeterSkipped &&
+          StartMeterValidation.waterComplete(
+              wVal: wVal,
+              wCost: wCost,
+              noBillYet: _startMeterNoBillYet,
+              isFirstEntry: true,
+              wUsed: wUsed);
+
       final userModel = UserModel(
         uid: user.uid,
         name: user.displayName ?? '',
@@ -116,21 +186,13 @@ class _SetupScreenState extends State<SetupScreen> {
         area: _selectedArea,
         meterType: _selectedMeterType,
         billingDay: _selectedBillingDay ?? 30,
-        startElectricityValue:
-            (_startMeterSkipped || _selectedMeterType == 'tou')
-                ? 0
-                : (double.tryParse(_electricityStartController.text) ?? 0),
-        startWaterValue: _startMeterSkipped
-            ? 0
-            : (double.tryParse(_waterStartController.text) ?? 0),
-        startPeakValue: (!_startMeterSkipped && _selectedMeterType == 'tou')
-            ? (double.tryParse(_peakStartController.text) ?? 0)
-            : 0,
-        startOffPeakValue:
-            (!_startMeterSkipped && _selectedMeterType == 'tou')
-                ? (double.tryParse(_offPeakStartController.text) ?? 0)
-                : 0,
-        startMeterConfigured: !_startMeterSkipped,
+        startElectricityValue: eComplete ? eVal : 0,
+        startWaterValue: wComplete ? wVal : 0,
+        startPeakValue: eComplete ? peakVal : 0,
+        startOffPeakValue: eComplete ? offPeakVal : 0,
+        startMeterConfigured: eComplete || wComplete,
+        electricityStartConfigured: eComplete,
+        waterStartConfigured: wComplete,
         startBillingMonth: _selectedStartMonth,
         startBillingYear: _selectedStartYear,
       );
@@ -144,7 +206,7 @@ class _SetupScreenState extends State<SetupScreen> {
       // แล้วเข้าใจผิดว่าเป็นการ "ตั้งค่าใหม่" ทั้งที่จริงควรเป็นการแก้ไข
       // ค่าที่กรอกไปแล้วตอนสมัคร — กรอกให้ครบตั้งแต่ต้นทาง จะได้ track
       // ต่อเนื่องกันตลอด ไม่ต้องมาสร้างย้อนหลังทีหลังตอนเปิด Settings ครั้งแรก
-      if (!_startMeterSkipped) {
+      if (eComplete || wComplete) {
         await _firestoreService.saveStartMeterRecord(
           StartMeterRecordModel(
             id: const Uuid().v4(),
@@ -158,6 +220,30 @@ class _SetupScreenState extends State<SetupScreen> {
             recordedAt: DateTime.now(),
           ),
         );
+
+        // เพิ่มใหม่: ถ้ากรอกค่าใช้จ่ายมาด้วย (เดิมหน้าเซตอัพไม่เก็บค่าใช้จ่าย
+        // เลย ทำให้คนที่กรอกตอนสมัครไม่มีข้อมูลจุดแรกให้หน้าวิเคราะห์เลย
+        // ต้องรอครบรอบบิลถัดไปก่อน) สร้างบิลย้อนหลัง (source: imported) ให้
+        // เหมือนที่หน้าตั้งค่าทำ — เป็นการตั้งค่าครั้งแรกสุดของบัญชี ไม่มี
+        // record ก่อนหน้าให้คำนวณ "หน่วยที่ใช้" แบบ delta ได้ ใช้ค่าที่ผู้ใช้
+        // กรอกเองในช่องที่ 3 (บังคับกรอกมาแล้วตอน validate เพราะ isFirstEntry
+        // เป็น true เสมอในหน้านี้) แทน
+        if (eCost > 0 || wCost > 0) {
+          await _firestoreService.saveBill(
+            BillModel(
+              id: const Uuid().v4(),
+              uid: user.uid,
+              year: _selectedStartYear,
+              month: _selectedStartMonth,
+              electricityCost: eComplete ? eCost : 0,
+              waterCost: wComplete ? wCost : 0,
+              totalCost: (eComplete ? eCost : 0) + (wComplete ? wCost : 0),
+              electricityUsed: eComplete ? eUsed : 0,
+              waterUsed: wComplete ? wUsed : 0,
+              source: 'imported',
+            ),
+          );
+        }
       }
 
       // แจ้งเตือนต้อนรับ — ย้ายมาไว้ตรงนี้แทน Dashboard.initState()
@@ -189,7 +275,7 @@ class _SetupScreenState extends State<SetupScreen> {
         MaterialPageRoute(
           builder: (context) => SetupCompleteScreen(
             billingDayConfigured: _selectedBillingDay != null,
-            startMeterConfigured: !_startMeterSkipped,
+            startMeterConfigured: userModel.startMeterConfigured,
             startElectricityValue: userModel.startElectricityValue,
           ),
         ),
@@ -821,16 +907,31 @@ class _SetupScreenState extends State<SetupScreen> {
             ),
             const SizedBox(height: 24),
             // ใช้ widget กลางตัวเดียวกับหน้าตั้งค่า > บันทึกมิเตอร์ต้นรอบ
-            // แทนโค้ดที่เคย copy มาเองในนี้ — คำที่ใช้ ("เลขมิเตอร์สะสม")
-            // และตัวอย่างตัวเลขในแต่ละช่องจะตรงกันทุกจุดในแอปแล้ว
-            StartMeterFieldsSection(
+            // แทนโค้ดที่เคย copy มาเองในนี้ — จับคู่เลขมิเตอร์กับค่าใช้จ่าย
+            // ของยูทิลิตี้เดียวกันไว้การ์ดเดียวกัน ไม่ต้องแก้ 2 ที่แยกกัน
+            StartMeterPairedFields(
               isTou: _selectedMeterType == 'tou',
               electricityCtrl: _electricityStartController,
               peakCtrl: _peakStartController,
               offPeakCtrl: _offPeakStartController,
+              eCostCtrl: _electricityCostController,
               waterCtrl: _waterStartController,
+              wCostCtrl: _waterCostController,
+              eUsedCtrl: _electricityUsedController,
+              wUsedCtrl: _waterUsedController,
+              eIsFirstEntry: true,
+              wIsFirstEntry: true,
+              noBillYet: _startMeterNoBillYet,
+              onNoBillYetChanged: (v) => setState(() {
+                _startMeterNoBillYet = v;
+                if (v) {
+                  _electricityCostController.clear();
+                  _waterCostController.clear();
+                }
+              }),
               title: 'เลขมิเตอร์สะสมตามใบแจ้งหนี้',
-              subtitle: 'กรอกเลขจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน',
+              subtitle: 'กรอกเลขและค่าใช้จ่ายจากใบแจ้งหนี้เดือนที่เลือกไว้'
+                  'ด้านบน — มีบิลแค่ฝั่งไหนก็กรอกแค่ฝั่งนั้นได้',
             ),
             if (_startMeterError.isNotEmpty)
               Padding(

@@ -28,20 +28,25 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   final _offPeakCtrl = TextEditingController();
   final _wCtrl = TextEditingController();
 
-  // ----- ส่วนเสริม: ค่าใช้จ่ายของบิลล่าสุด (ไม่บังคับ) -----
-  // ตอนกรอกเลขมิเตอร์ต้นรอบ user มักถือใบแจ้งหนี้ล่าสุดอยู่ในมือพอดี ซึ่งมี
-  // ทั้งเลขมิเตอร์ (กรอกอยู่แล้ว) และยอดที่ต้องจ่ายอยู่ในใบเดียวกัน เปิดช่อง
-  // เสริมให้กรอกยอดนั้นไปด้วยเลยในการกดบันทึกครั้งเดียว จะได้มีข้อมูลจุดแรก
-  // ให้หน้าวิเคราะห์ทันทีโดยไม่ต้องรอให้ครบรอบบิลถัดไปก่อน — ซ่อนไว้เป็น
-  // ลิงก์ขยายเพราะเป็นแค่ของแถม ไม่อยากให้แข่งความสนใจกับช่องที่บังคับกรอก
-  // (เดือน/ปีของบิลนี้ใช้ค่าเดียวกับ _selectedMonth/_selectedYear เลย ตาม
-  // คอนเวนชันเดิมของแอปที่ bill เดือนที่เพิ่งปิด = เดือนเดียวกับที่รอบใหม่
-  // เริ่ม ไม่ต้องเพิ่มช่องเลือกเดือนแยกอีกอัน)
-  final _lastBillECostCtrl = TextEditingController();
-  final _lastBillWCostCtrl = TextEditingController();
+  // ----- ค่าใช้จ่ายของบิลล่าสุด (จับคู่กับเลขมิเตอร์ต้นรอบของยูทิลิตี้
+  // เดียวกัน) -----
+  // เดิมเป็นช่องเสริมแยกก้อนล่าง ไม่บังคับ ทำให้งงว่าทำไมต้องกรอก "2 ชุด"
+  // ในฟอร์มเดียว (เลขมิเตอร์ vs ค่าใช้จ่าย) ตอนนี้เปลี่ยนเป็นจับคู่ตาม
+  // ยูทิลิตี้แทน: กรอกเลขมิเตอร์ไฟต้องกรอกค่าไฟด้วย (หรือเว้นว่างทั้งคู่)
+  // เช่นเดียวกับน้ำ — กติกาอยู่ที่ StartMeterValidation (widgets/
+  // start_meter_fields.dart) ใช้ร่วมกับ setup_screen.dart จุดเดียวกัน
+  final _eCostCtrl = TextEditingController();
+  final _wCostCtrl = TextEditingController();
+  // ช่องที่ 3 "หน่วยที่ใช้ไปแล้ว" — โชว์เฉพาะตอนเป็นการตั้งค่าครั้งแรกสุด
+  // ของยูทิลิตี้นั้นๆ (ดู _eIsFirstEntry/_wIsFirstEntry ด้านล่าง)
+  final _eUsedCtrl = TextEditingController();
+  final _wUsedCtrl = TextEditingController();
   bool _noBillYet = false;
-  bool _costError = false;
+  // โชว์ตอนกดบันทึกแล้วไม่มีคู่ไหนกรอกครบเลยสักคู่ (ทั้งคู่ว่างหรือกรอก
+  // ไม่ครบทั้งคู่) ต่างจาก error รายการ์ดที่ widget จัดการเองเวลากรอกครึ่งเดียว
+  bool _generalError = false;
   List<BillModel> _existingBills = [];
+  List<StartMeterRecordModel> _history = [];
 
   // มีบิลของเดือน/ปีนี้บันทึกไว้แล้ว (ไม่ว่าจะ compiled หรือ imported) —
   // ถ้ามีแล้วไม่โชว์ลิงก์เสริมเลย กันไม่ให้เขียนทับบิลจริงที่มีอยู่โดยไม่ตั้งใจ
@@ -85,6 +90,22 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   @override
   void initState() {
     super.initState();
+    // ให้ทุกช่องรีเฟรช error ของการ์ดคู่ (isPartial ใน StartMeterPairedFields)
+    // แบบ live ทันทีที่พิมพ์ ไม่ต้องรอกดบันทึกก่อนถึงจะเห็นว่ากรอกไม่ครบคู่
+    for (final c in [
+      _eCtrl,
+      _peakCtrl,
+      _offPeakCtrl,
+      _wCtrl,
+      _eCostCtrl,
+      _wCostCtrl,
+      _eUsedCtrl,
+      _wUsedCtrl,
+    ]) {
+      c.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
     _loadCurrent();
   }
 
@@ -103,6 +124,10 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     final user = await widget.firestoreService.getUser(widget.uid);
     _user = user;
     _existingBills = await widget.firestoreService.getBills(widget.uid);
+    // โหลดประวัติเสมอ (เดิมโหลดแค่ตอนโหมดแก้ไข) เพราะตอนบันทึกต้องใช้หา
+    // "ค่าสะสมของรอบก่อนหน้า" มาคำนวณหน่วยที่ใช้ไปของรอบที่เพิ่งปิด (delta)
+    // ให้บิลที่สร้างอัตโนมัติ ไม่ใช่โชว์แค่ยอดเงินอย่างเดียวเหมือนเดิม
+    _history = await widget.firestoreService.getStartMeterHistory(widget.uid);
     if (user != null && mounted) {
       final expected = _expectedInvoiceMonth(user.billingDay);
       final matchesCurrentCycle = user.startMeterConfigured &&
@@ -126,9 +151,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
 
         // หา record ล่าสุดในประวัติ (ควรเป็นตัวเดียวกับที่เพิ่งเซ็ตค่านี้)
         // เพื่อเอา id มาใช้แก้ทับตอนบันทึก แทนการสร้างใหม่
-        final history =
-            await widget.firestoreService.getStartMeterHistory(widget.uid);
-        _editingRecordId = history.isNotEmpty ? history.first.id : null;
+        _editingRecordId = _history.isNotEmpty ? _history.first.id : null;
       } else {
         // โหมดตั้งใหม่: ยังไม่เคยตั้ง หรือรอบขยับไปแล้ว (ผ่านวันตัดรอบ
         // บิลมาแล้ว) → ฟอร์มว่าง ตั้ง default เดือน/ปีเป็นรอบที่ควรตั้ง
@@ -141,6 +164,18 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         _selectedYear = expected.year;
         _editingRecordId = null;
       }
+
+      // prefill ค่าใช้จ่าย ถ้าเดือน/ปีนี้มีบิลบันทึกไว้แล้ว (เช่นกลับมาแก้ไข
+      // ค่าที่เพิ่งบันทึกไปในรอบเดียวกัน) กันไม่ให้ต้องพิมพ์ซ้ำของเดิม
+      final existingBill = _existingBills.where(
+          (b) => b.year == _selectedYear && b.month == _selectedMonth);
+      if (existingBill.isNotEmpty) {
+        final b = existingBill.first;
+        _eCostCtrl.text = b.electricityCost == 0 ? '' : b.electricityCost.toString();
+        _wCostCtrl.text = b.waterCost == 0 ? '' : b.waterCost.toString();
+        _eUsedCtrl.text = b.electricityUsed == 0 ? '' : b.electricityUsed.toString();
+        _wUsedCtrl.text = b.waterUsed == 0 ? '' : b.waterUsed.toString();
+      }
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -151,44 +186,117 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     _peakCtrl.dispose();
     _offPeakCtrl.dispose();
     _wCtrl.dispose();
-    _lastBillECostCtrl.dispose();
-    _lastBillWCostCtrl.dispose();
+    _eCostCtrl.dispose();
+    _wCostCtrl.dispose();
+    _eUsedCtrl.dispose();
+    _wUsedCtrl.dispose();
     super.dispose();
   }
 
+  // เป็นการตั้งค่าครั้งแรกสุดของยูทิลิตี้นั้นๆ ไหม (ไม่เคยมี record ก่อนหน้า
+  // ที่มีค่า > 0 มาก่อนเลย) — เช็คแยกรายยูทิลิตี้ ไม่ใช่เช็ครวมทั้งบัญชี
+  // เพราะตั้งแยกยูทิลิตี้ได้อิสระ (เช่น ตั้งไฟมาตั้งแต่เดือน 3 แต่เพิ่งมี
+  // บิลน้ำใบแรกเดือน 6 — ฝั่งน้ำยังนับเป็นครั้งแรกอยู่ ทั้งที่ฝั่งไฟไม่ใช่)
+  // ไม่นับ record ที่กำลังแก้ไขอยู่ (_editingRecordId) กันกรณีแก้ไข record
+  // แรกสุดของตัวเองแล้วเข้าใจผิดว่ามี "record อื่น" อยู่ก่อนหน้า
+  bool get _eIsFirstEntry => !_history.any(
+      (r) => r.id != _editingRecordId && r.electricityValue > 0);
+  bool get _wIsFirstEntry =>
+      !_history.any((r) => r.id != _editingRecordId && r.waterValue > 0);
+
+  // หา record ก่อนหน้าที่ใกล้ที่สุดในประวัติ (ไม่นับตัวที่กำลังแก้ไขอยู่)
+  // เอาไว้คำนวณ "หน่วยที่ใช้ไปในรอบที่เพิ่งปิด" = ค่าสะสมรอบนี้ - ค่าสะสม
+  // รอบก่อนหน้า — ถ้าไม่มี record ก่อนหน้าเลย (ตั้งครั้งแรกสุด) จะคำนวณ
+  // ไม่ได้ ปล่อยเป็น null แล้วให้บิลที่สร้างมีแต่ค่าใช้จ่ายอย่างเดียวไปก่อน
+  StartMeterRecordModel? get _previousRecord {
+    final candidates = _history.where((r) =>
+        r.id != _editingRecordId &&
+        (r.billingYear < _selectedYear ||
+            (r.billingYear == _selectedYear &&
+                r.billingMonth < _selectedMonth)));
+    if (candidates.isEmpty) return null;
+    final list = candidates.toList()
+      ..sort((a, b) => (b.billingYear * 12 + b.billingMonth)
+          .compareTo(a.billingYear * 12 + a.billingMonth));
+    return list.first;
+  }
+
   Future<void> _save() async {
-    // บังคับกรอกค่าใช้จ่ายบิลล่าสุด เว้นแต่ user ติ๊ก "ยังไม่มีบิลตอนนี้"
-    // ไว้แล้ว (เช่น เพิ่งย้ายเข้าบ้านใหม่ ยังไม่เคยได้รับบิลจริงเลยสักใบ) —
-    // ถ้ามีบิลของรอบนี้บันทึกไว้แล้ว (_lastBillAlreadyRecorded) ไม่ต้องเช็ค
-    // เพราะกล่องนี้จะไม่โชว์ตั้งแต่แรกอยู่แล้ว
-    if (!_lastBillAlreadyRecorded && !_noBillYet) {
-      final eCostCheck = double.tryParse(_lastBillECostCtrl.text) ?? 0;
-      final wCostCheck = double.tryParse(_lastBillWCostCtrl.text) ?? 0;
-      if (eCostCheck <= 0 && wCostCheck <= 0) {
-        setState(() => _costError = true);
-        return;
-      }
+    final eVal = double.tryParse(_eCtrl.text) ?? 0;
+    final peakVal = double.tryParse(_peakCtrl.text) ?? 0;
+    final offPeakVal = double.tryParse(_offPeakCtrl.text) ?? 0;
+    final wVal = double.tryParse(_wCtrl.text) ?? 0;
+    final eCost = double.tryParse(_eCostCtrl.text) ?? 0;
+    final wCost = double.tryParse(_wCostCtrl.text) ?? 0;
+    final eUsedInput = double.tryParse(_eUsedCtrl.text) ?? 0;
+    final wUsedInput = double.tryParse(_wUsedCtrl.text) ?? 0;
+
+    // กติกาจับคู่ + อย่างน้อย 1 คู่ต้องครบ + ช่องที่ 3 (ถ้าโชว์) ใช้ตัวเดียว
+    // กับที่ widget ใช้โชว์ error รายการ์ด กันไม่ให้ UI กับตอน save เช็คคน
+    // ละเกณฑ์กัน
+    final ok = StartMeterValidation.canSave(
+      isTou: widget.isTou,
+      eVal: eVal,
+      peakVal: peakVal,
+      offPeakVal: offPeakVal,
+      eCost: eCost,
+      wVal: wVal,
+      wCost: wCost,
+      noBillYet: _noBillYet,
+      eIsFirstEntry: _eIsFirstEntry,
+      eUsed: eUsedInput,
+      wIsFirstEntry: _wIsFirstEntry,
+      wUsed: wUsedInput,
+    );
+    if (!ok) {
+      setState(() => _generalError = true);
+      return;
     }
     setState(() {
-      _costError = false;
+      _generalError = false;
       _isSaving = true;
     });
     try {
-      final eVal = double.tryParse(_eCtrl.text) ?? 0;
-      final peakVal = double.tryParse(_peakCtrl.text) ?? 0;
-      final offPeakVal = double.tryParse(_offPeakCtrl.text) ?? 0;
-      final wVal = double.tryParse(_wCtrl.text) ?? 0;
+      final eComplete = StartMeterValidation.electricityComplete(
+          isTou: widget.isTou,
+          eVal: eVal,
+          peakVal: peakVal,
+          offPeakVal: offPeakVal,
+          eCost: eCost,
+          noBillYet: _noBillYet,
+          isFirstEntry: _eIsFirstEntry,
+          eUsed: eUsedInput);
+      final wComplete = StartMeterValidation.waterComplete(
+          wVal: wVal,
+          wCost: wCost,
+          noBillYet: _noBillYet,
+          isFirstEntry: _wIsFirstEntry,
+          wUsed: wUsedInput);
 
-      await widget.firestoreService.updateUser(widget.uid, {
-        'startElectricityValue': eVal,
-        'startPeakValue': peakVal,
-        'startOffPeakValue': offPeakVal,
-        'startWaterValue': wVal,
+      // อัปเดตเฉพาะยูทิลิตี้ที่กรอกครบคู่จริงๆ เท่านั้น — ถ้าอีกฝั่งเว้นว่าง
+      // ไว้ (เช่น มีแค่บิลไฟ ไม่มีบิลน้ำตอนนี้) ต้องไม่ไปเขียนทับค่าที่เคย
+      // ตั้งไว้ก่อนหน้าของฝั่งนั้นด้วยศูนย์โดยไม่ตั้งใจ
+      final updates = <String, dynamic>{
         'startBillingMonth': _selectedMonth,
         'startBillingYear': _selectedYear,
-        // เคยข้ามมาก่อนหรือไม่ก็ตาม กรอกค่าจริงสำเร็จแล้ว = configured แล้ว
-        'startMeterConfigured': true,
-      });
+      };
+      if (eComplete) {
+        updates['startElectricityValue'] = eVal;
+        updates['startPeakValue'] = peakVal;
+        updates['startOffPeakValue'] = offPeakVal;
+        updates['electricityStartConfigured'] = true;
+      }
+      if (wComplete) {
+        updates['startWaterValue'] = wVal;
+        updates['waterStartConfigured'] = true;
+      }
+      // เคยข้ามมาก่อนหรือไม่ก็ตาม พอมีอย่างน้อย 1 ยูทิลิตี้ครบแล้ว = ถือว่า
+      // configured แล้วในความหมายรวม (จุดอื่นที่ยังอ้างอิง flag รวมอยู่ เช่น
+      // dashboard_screen.dart จะยังทำงานถูกต้องต่อไปได้)
+      updates['startMeterConfigured'] = true;
+
+      await widget.firestoreService.updateUser(widget.uid, updates);
+
       // เก็บ snapshot ไว้ในประวัติ เผื่อย้อนดูทีหลังว่าเคยตั้งค่าอะไรไว้
       // ถ้าอยู่ในโหมดแก้ไข (ยังเป็นรอบเดิม) ใช้ id เดิมเพื่อ "แก้ทับ" record
       // เดิมแทนการสร้างรายการใหม่ซ้ำในประวัติ — ป้องกันไม่ให้กดบันทึกซ้ำ
@@ -206,25 +314,43 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
           recordedAt: DateTime.now(),
         ),
       );
+
       if (mounted) {
-        // ถ้ากรอกค่าใช้จ่ายบิลล่าสุดไว้ (บังคับ เว้นแต่ติ๊ก "ยังไม่มีบิล
-        // ตอนนี้") สร้างเป็นบิลย้อนหลัง (source: imported) ให้เลย ใช้เดือน/ปี
-        // เดียวกับที่เลือกไว้ด้านบน — กันไม่ให้เขียนทับบิลที่มีอยู่แล้วโดย
-        // ไม่ตั้งใจด้วย _lastBillAlreadyRecorded (เช็คไปแล้วตอนโชว์ช่องกรอก)
-        final eCost = double.tryParse(_lastBillECostCtrl.text) ?? 0;
-        final wCost = double.tryParse(_lastBillWCostCtrl.text) ?? 0;
-        if (!_noBillYet &&
-            !_lastBillAlreadyRecorded &&
-            (eCost > 0 || wCost > 0)) {
+        // ถ้ากรอกค่าใช้จ่ายไว้ (คู่ไหนครบก็สร้างของคู่นั้น) สร้างเป็นบิล
+        // ย้อนหลัง (source: imported) ให้เลย ใช้เดือน/ปีเดียวกับที่เลือกไว้
+        // — กันไม่ให้เขียนทับบิลที่มีอยู่แล้วโดยไม่ตั้งใจด้วย
+        // _lastBillAlreadyRecorded (เช็คไปแล้วตอนโชว์ช่องกรอก)
+        //
+        // แก้บั๊กเดิม: ตอนสร้างบิลนี้ไม่เคยใส่ electricityUsed/waterUsed เลย
+        // (มีแต่ cost) พอไปโชว์ในหน้าประวัติบิลเลยเห็นเป็น "0 หน่วย" ทั้งที่
+        // จ่ายจริง — ตอนนี้มี 2 ทาง: (1) ถ้ามี record ก่อนหน้าจริง (ไม่ใช่
+        // ครั้งแรกสุดของยูทิลิตี้นั้น) คำนวณ delta ให้อัตโนมัติ (2) ถ้าเป็น
+        // ครั้งแรกสุด (_eIsFirstEntry/_wIsFirstEntry) ใช้ค่าที่ผู้ใช้กรอกเอง
+        // ในช่องที่ 3 ตรงๆ แทน (ผ่าน validation บังคับกรอกมาแล้วตอน canSave)
+        final prev = _previousRecord;
+        double eUsed = _eIsFirstEntry ? eUsedInput : 0;
+        double wUsed = _wIsFirstEntry ? wUsedInput : 0;
+        if (prev != null) {
+          if (eComplete && prev.electricityValue > 0 && eVal > prev.electricityValue) {
+            eUsed = eVal - prev.electricityValue;
+          }
+          if (wComplete && prev.waterValue > 0 && wVal > prev.waterValue) {
+            wUsed = wVal - prev.waterValue;
+          }
+        }
+
+        if (!_lastBillAlreadyRecorded && (eComplete || wComplete)) {
           await widget.firestoreService.saveBill(
             BillModel(
               id: const Uuid().v4(),
               uid: widget.uid,
               year: _selectedYear,
               month: _selectedMonth,
-              electricityCost: eCost,
-              waterCost: wCost,
-              totalCost: eCost + wCost,
+              electricityCost: eComplete ? eCost : 0,
+              waterCost: wComplete ? wCost : 0,
+              totalCost: (eComplete ? eCost : 0) + (wComplete ? wCost : 0),
+              electricityUsed: eUsed,
+              waterUsed: wUsed,
               source: 'imported',
             ),
           );
@@ -429,152 +555,43 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             ),
                           ),
                         const SizedBox(height: 4),
-                        // ใช้ widget กลาง (StartMeterFieldsSection) แทนโค้ด
-                        // ที่เคย copy ไว้เองในนี้ — เพื่อให้คำที่ใช้ ("เลข
-                        // มิเตอร์สะสม") และ layout ตรงกันทุกจุดที่กรอกเลข
-                        // มิเตอร์ต้นรอบในแอป (หน้านี้ / ฝังในบิลย้อนหลัง /
-                        // ตอนสมัครสมาชิก) ไม่ต้องแก้ 3 ที่แยกกันอีกต่อไป
-                        StartMeterFieldsSection(
+                        // ใช้ widget กลาง (StartMeterPairedFields) แทนโค้ด
+                        // ที่เคย copy ไว้เองในนี้ — จับคู่เลขมิเตอร์กับ
+                        // ค่าใช้จ่ายของยูทิลิตี้เดียวกันไว้การ์ดเดียวกัน ใช้
+                        // ทั้งหน้านี้และตอนสมัครสมาชิก (setup_screen.dart)
+                        // ไม่ต้องแก้ 2 ที่แยกกันอีกต่อไป
+                        StartMeterPairedFields(
                           isTou: widget.isTou,
                           electricityCtrl: _eCtrl,
                           peakCtrl: _peakCtrl,
                           offPeakCtrl: _offPeakCtrl,
+                          eCostCtrl: _eCostCtrl,
                           waterCtrl: _wCtrl,
+                          wCostCtrl: _wCostCtrl,
+                          eUsedCtrl: _eUsedCtrl,
+                          wUsedCtrl: _wUsedCtrl,
+                          eIsFirstEntry: _eIsFirstEntry,
+                          wIsFirstEntry: _wIsFirstEntry,
+                          noBillYet: _noBillYet,
+                          onNoBillYetChanged: (v) => setState(() {
+                            _noBillYet = v;
+                            if (v) {
+                              _eCostCtrl.clear();
+                              _wCostCtrl.clear();
+                            }
+                          }),
                           title: 'เลขมิเตอร์สะสมต้นรอบ',
-                          subtitle: 'กรอกเลขจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน',
+                          subtitle: 'กรอกเลขและค่าใช้จ่ายจากใบแจ้งหนี้เดือนที่'
+                              'เลือกไว้ด้านบน — มีบิลแค่ฝั่งไหนก็กรอกแค่ฝั่ง'
+                              'นั้นได้',
                         ),
-                        // บังคับกรอกค่าใช้จ่ายบิลล่าสุด เพื่อให้หน้าวิเคราะห์
-                        // มีข้อมูลจุดแรกทันทีโดยไม่ต้องรอครบรอบบิลถัดไป —
-                        // แต่ต้องมีทางออกให้กรณี user เพิ่งย้ายเข้าบ้านใหม่
-                        // ยังไม่เคยได้รับบิลจริงเลยสักใบ (มีแต่เลขที่อ่านจาก
-                        // หน้ามิเตอร์เอง) ไม่งั้นจะติดค้าง ตั้งค่าเริ่มต้นให้
-                        // เสร็จไม่ได้เลย จึงมี checkbox "ยังไม่มีบิลตอนนี้"
-                        // เป็นทางออกชัดเจน แทนการปล่อยว่างเฉยๆ โดยไม่ตั้งใจ
-                        if (!_lastBillAlreadyRecorded) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.grey.shade200),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'ค่าใช้จ่ายบิลล่าสุด',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12.5),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'กรอกยอดจากใบแจ้งหนี้ฉบับเดียวกับที่ใช้'
-                                  'กรอกเลขมิเตอร์ด้านบน',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey.shade600),
-                                ),
-                                const SizedBox(height: 10),
-                                Opacity(
-                                  opacity: _noBillYet ? 0.4 : 1,
-                                  child: IgnorePointer(
-                                    ignoring: _noBillYet,
-                                    child: Column(
-                                      children: [
-                                        TextField(
-                                          controller: _lastBillECostCtrl,
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(
-                                              decimal: true),
-                                          decoration: InputDecoration(
-                                            prefixIcon: const Icon(
-                                                Icons.bolt,
-                                                color: Colors.orange,
-                                                size: 20),
-                                            hintText: 'ค่าไฟ เช่น 850',
-                                            isDense: true,
-                                            filled: true,
-                                            fillColor: Colors.white,
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              borderSide: BorderSide(
-                                                  color:
-                                                      Colors.grey.shade300),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TextField(
-                                          controller: _lastBillWCostCtrl,
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(
-                                              decimal: true),
-                                          decoration: InputDecoration(
-                                            prefixIcon: const Icon(
-                                                Icons.water_drop,
-                                                color: Colors.blue,
-                                                size: 20),
-                                            hintText: 'ค่าน้ำ เช่น 148',
-                                            isDense: true,
-                                            filled: true,
-                                            fillColor: Colors.white,
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              borderSide: BorderSide(
-                                                  color:
-                                                      Colors.grey.shade300),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () => setState(() {
-                                    _noBillYet = !_noBillYet;
-                                    if (_noBillYet) {
-                                      _lastBillECostCtrl.clear();
-                                      _lastBillWCostCtrl.clear();
-                                    }
-                                  }),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        _noBillYet
-                                            ? Icons.check_box
-                                            : Icons.check_box_outline_blank,
-                                        size: 18,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'ยังไม่มีบิลตอนนี้',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade600),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (_costError) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'กรอกค่าไฟหรือค่าน้ำอย่างน้อย 1 ช่อง '
-                                    'หรือติ๊ก "ยังไม่มีบิลตอนนี้"',
-                                    style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: Colors.red.shade400),
-                                  ),
-                                ],
-                              ],
-                            ),
+                        if (_generalError) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'กรอกให้ครบอย่างน้อย 1 ประเภท (ไฟฟ้า หรือ น้ำ) '
+                            'ก่อนถึงจะบันทึกได้',
+                            style: TextStyle(
+                                fontSize: 11.5, color: Colors.red.shade600),
                           ),
                         ],
                         const SizedBox(height: 24),
