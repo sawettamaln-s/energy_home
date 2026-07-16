@@ -9,8 +9,9 @@ import 'info_dialog.dart';
 /// กติกาการกรอกเลขมิเตอร์ต้นรอบ + ค่าใช้จ่าย: แยกเป็น "คู่ไฟ" กับ "คู่น้ำ"
 /// แต่ละคู่ต้องกรอกครบทั้งเลขมิเตอร์และค่าใช้จ่าย หรือเว้นว่างทั้งคู่เท่านั้น
 /// (ห้ามกรอกครึ่งเดียว) และต้องมีอย่างน้อย 1 คู่ที่ครบถึงจะบันทึกได้ — เว้น
-/// แต่ติ๊ก "ยังไม่มีบิลตอนนี้" ซึ่งจะยกเว้นข้อบังคับเรื่องค่าใช้จ่ายไป (เหลือ
-/// แค่ต้องมีเลขมิเตอร์อย่างน้อย 1 อูทิลิตี้)
+/// แต่ติ๊ก "ยังไม่มีบิลตอนนี้" ของฝั่งนั้นๆ ซึ่งจะยกเว้นข้อบังคับเรื่อง
+/// ค่าใช้จ่ายไป (เหลือแค่ต้องมีเลขมิเตอร์) — แยก noBillYet เป็นรายยูทิลิตี้
+/// แล้ว (eNoBillYet/wNoBillYet) เพราะมีบิลแค่ฝั่งเดียวได้ตามปกติ
 ///
 /// เพิ่ม isFirstEntry/eUsed/wUsed: ถ้าเป็นการตั้งค่าครั้งแรกสุดของยูทิลิตี้
 /// นั้นๆ (ไม่เคยมี record ก่อนหน้าที่มีค่า > 0 มาก่อนเลย) จะคำนวณ "หน่วยที่
@@ -58,7 +59,7 @@ class StartMeterValidation {
     required double peakVal,
     required double offPeakVal,
     required double eCost,
-    required bool noBillYet,
+    required bool eNoBillYet,
     bool isFirstEntry = false,
     double eUsed = 0,
   }) {
@@ -66,7 +67,7 @@ class StartMeterValidation {
         isTou: isTou, eVal: eVal, peakVal: peakVal, offPeakVal: offPeakVal)) {
       return false;
     }
-    if (!(noBillYet || eCost > 0)) return false;
+    if (!(eNoBillYet || eCost > 0)) return false;
     if (isFirstEntry && eUsed <= 0) return false;
     return true;
   }
@@ -77,7 +78,7 @@ class StartMeterValidation {
     required double peakVal,
     required double offPeakVal,
     required double eCost,
-    required bool noBillYet,
+    required bool eNoBillYet,
     bool isFirstEntry = false,
     double eUsed = 0,
   }) =>
@@ -94,7 +95,7 @@ class StartMeterValidation {
           peakVal: peakVal,
           offPeakVal: offPeakVal,
           eCost: eCost,
-          noBillYet: noBillYet,
+          eNoBillYet: eNoBillYet,
           isFirstEntry: isFirstEntry,
           eUsed: eUsed);
 
@@ -108,12 +109,12 @@ class StartMeterValidation {
   static bool waterComplete({
     required double wVal,
     required double wCost,
-    required bool noBillYet,
+    required bool wNoBillYet,
     bool isFirstEntry = false,
     double wUsed = 0,
   }) {
     if (wVal <= 0) return false;
-    if (!(noBillYet || wCost > 0)) return false;
+    if (!(wNoBillYet || wCost > 0)) return false;
     if (isFirstEntry && wUsed <= 0) return false;
     return true;
   }
@@ -121,7 +122,7 @@ class StartMeterValidation {
   static bool waterPartial({
     required double wVal,
     required double wCost,
-    required bool noBillYet,
+    required bool wNoBillYet,
     bool isFirstEntry = false,
     double wUsed = 0,
   }) =>
@@ -129,7 +130,7 @@ class StartMeterValidation {
       !waterComplete(
           wVal: wVal,
           wCost: wCost,
-          noBillYet: noBillYet,
+          wNoBillYet: wNoBillYet,
           isFirstEntry: isFirstEntry,
           wUsed: wUsed);
 
@@ -143,7 +144,8 @@ class StartMeterValidation {
     required double eCost,
     required double wVal,
     required double wCost,
-    required bool noBillYet,
+    required bool eNoBillYet,
+    required bool wNoBillYet,
     bool eIsFirstEntry = false,
     double eUsed = 0,
     bool wIsFirstEntry = false,
@@ -155,13 +157,13 @@ class StartMeterValidation {
         peakVal: peakVal,
         offPeakVal: offPeakVal,
         eCost: eCost,
-        noBillYet: noBillYet,
+        eNoBillYet: eNoBillYet,
         isFirstEntry: eIsFirstEntry,
         eUsed: eUsed);
     final wComplete = waterComplete(
         wVal: wVal,
         wCost: wCost,
-        noBillYet: noBillYet,
+        wNoBillYet: wNoBillYet,
         isFirstEntry: wIsFirstEntry,
         wUsed: wUsed);
     final ePartial = electricityPartial(
@@ -170,13 +172,13 @@ class StartMeterValidation {
         peakVal: peakVal,
         offPeakVal: offPeakVal,
         eCost: eCost,
-        noBillYet: noBillYet,
+        eNoBillYet: eNoBillYet,
         isFirstEntry: eIsFirstEntry,
         eUsed: eUsed);
     final wPartial = waterPartial(
         wVal: wVal,
         wCost: wCost,
-        noBillYet: noBillYet,
+        wNoBillYet: wNoBillYet,
         isFirstEntry: wIsFirstEntry,
         wUsed: wUsed);
     return (eComplete || wComplete) && !ePartial && !wPartial;
@@ -187,17 +189,19 @@ class StartMeterValidation {
 /// StartMeterPairedFields
 /// ===========================================================
 /// ชุดฟิลด์ "เลขมิเตอร์สะสมต้นรอบ + ค่าใช้จ่ายบิลล่าสุด" ที่ใช้ร่วมกันทั้ง 2
-/// จุดในแอป: หน้าตั้งค่า > บันทึกมิเตอร์ต้นรอบ (settings_start_meter.dart)
-/// และขั้นตอนตั้งค่าเริ่มต้นตอนสมัคร (setup_screen.dart)
+/// จุดในแอป: หน้าตั้งค่า > บันทึกมิเตอร์ต้นรอบ (settings_screen.dart) และ
+/// ขั้นตอนตั้งค่าเริ่มต้นตอนสมัคร (setup_screen.dart)
 ///
-/// ออกแบบใหม่จากเดิม (StartMeterFieldsSection เดิมที่แยกเลขมิเตอร์กับ
-/// ค่าใช้จ่ายเป็นคนละบล็อกกัน) — ตอนนี้รวมเลขมิเตอร์กับค่าใช้จ่ายของ
-/// อูทิลิตี้เดียวกันไว้ในการ์ดเดียวกันเป็น "คู่" ให้เห็นด้วยตาทันทีว่ากรอก
-/// คู่ไหนคู่หนึ่งต้องกรอกให้ครบ ไม่ต้องอ่านข้อความ error ก็เข้าใจ ใช้กรอบสี
-/// เดียวกับการ์ดมิเตอร์วันนี้ในหน้า dashboard (electricityBorder/waterBorder
-/// จาก DashboardStyles) เพื่อให้เห็นภาพเดียวกันทั้งแอปว่า "การ์ดกรอบส้ม =
-/// ไฟ, การ์ดกรอบเขียวอมฟ้า = น้ำ"
-class StartMeterPairedFields extends StatelessWidget {
+/// ปรับใหม่: เดิมโชว์การ์ดไฟฟ้า+น้ำพร้อมกันทั้งคู่ ทำให้หน้ายาวเกินไป
+/// โดยเฉพาะตอนสมัครที่มีทั้ง 2 ยูทิลิตี้ + toggle "ยังไม่มีบิล" รวมกันเป็น
+/// ก้อนเดียว ตอนนี้เปลี่ยนเป็นแท็บเลือก "ไฟฟ้า / น้ำ" แล้วโชว์แค่การ์ดของ
+/// ฝั่งที่เลือกอยู่ — แท็บมีเครื่องหมายถูกกำกับเมื่อฝั่งนั้นกรอกครบแล้ว
+/// (ไม่ต้องสลับไปมาเพื่อเช็คว่ากรอกครบหรือยัง) ส่วน toggle "ยังไม่มีบิล
+/// ตอนนี้" ย้ายเข้าไปอยู่ในการ์ดของแต่ละฝั่งแยกกัน (เดิมเป็นตัวเดียวใช้ร่วม
+/// ทั้งไฟและน้ำ ทำให้ติ๊กแล้วกระทบทั้งคู่พร้อมกันทั้งที่บางทีมีบิลแค่ฝั่ง
+/// เดียว) — state ของแท็บที่เลือกอยู่เก็บไว้ในตัว widget เอง เพราะเป็นแค่
+/// UI state ล้วนๆ ไม่กระทบข้อมูลจริงที่หน้าเรียกใช้ต้องรู้
+class StartMeterPairedFields extends StatefulWidget {
   final bool isTou;
   final TextEditingController electricityCtrl;
   final TextEditingController peakCtrl;
@@ -209,16 +213,17 @@ class StartMeterPairedFields extends StatelessWidget {
   // ช่องที่ 3 "หน่วยที่ใช้ไปแล้ว" — โชว์เฉพาะตอน isFirstEntry ของยูทิลิตี้
   // นั้นๆ เป็น true (ไม่เคยมี record ก่อนหน้าที่มีค่า > 0 มาก่อนเลย จึง
   // คำนวณ delta ไม่ได้จริงๆ) เช็คเป็นรายยูทิลิตี้แยกกัน ไม่ใช่เช็ครวมทั้ง
-  // บัญชี เพราะตั้งแยกยูทิลิตี้ได้อิสระแล้ว (เช่น ตั้งไฟมาตั้งแต่เดือน 3
-  // แต่เพิ่งมีบิลน้ำใบแรกเดือน 6 — ฝั่งน้ำยังนับเป็น isFirstEntry อยู่ ทั้งที่
-  // ฝั่งไฟไม่ใช่แล้ว)
+  // บัญชี เพราะตั้งแยกยูทิลิตี้ได้อิสระแล้ว
   final TextEditingController eUsedCtrl;
   final TextEditingController wUsedCtrl;
   final bool eIsFirstEntry;
   final bool wIsFirstEntry;
 
-  final bool noBillYet;
-  final ValueChanged<bool> onNoBillYetChanged;
+  // แยกเป็นรายยูทิลิตี้แล้ว (เดิมเป็น noBillYet ตัวเดียวใช้ร่วมกันทั้งคู่)
+  final bool eNoBillYet;
+  final ValueChanged<bool> onENoBillYetChanged;
+  final bool wNoBillYet;
+  final ValueChanged<bool> onWNoBillYetChanged;
 
   /// หัวข้อ/คำอธิบายรวมด้านบนสุด — ปรับได้ตามบริบท (หน้าเซตอัพ vs หน้าตั้งค่า)
   final String title;
@@ -237,11 +242,22 @@ class StartMeterPairedFields extends StatelessWidget {
     required this.wUsedCtrl,
     this.eIsFirstEntry = false,
     this.wIsFirstEntry = false,
-    required this.noBillYet,
-    required this.onNoBillYetChanged,
+    required this.eNoBillYet,
+    required this.onENoBillYetChanged,
+    required this.wNoBillYet,
+    required this.onWNoBillYetChanged,
     required this.title,
     required this.subtitle,
   });
+
+  @override
+  State<StartMeterPairedFields> createState() =>
+      _StartMeterPairedFieldsState();
+}
+
+class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
+  // 0 = ไฟฟ้า, 1 = น้ำ
+  int _selectedTab = 0;
 
   double _num(TextEditingController c) => double.tryParse(c.text) ?? 0;
 
@@ -318,9 +334,8 @@ class StartMeterPairedFields extends StatelessWidget {
   }
 
   // ช่องที่ 3 "หน่วยที่ใช้ไปแล้ว" — ต่างจาก _field ปกติตรงมีคำอธิบายกำกับ
-  // ไว้ด้วยเสมอ เพราะเป็นช่องที่โผล่มาแบบไม่คาดคิด (ไม่ได้อยู่ทุกครั้งที่
-  // เปิดฟอร์มนี้) ต้องอธิบายให้ชัดว่าทำไมต้องกรอกเพิ่ม ไม่งั้นจะดูเหมือน
-  // ระบบขอข้อมูลซ้ำซ้อนกับ "เลขมิเตอร์สะสม" ด้านบน
+  // ไว้ด้วยเสมอ เพราะเป็นช่องที่โผล่มาแบบไม่คาดคิด ต้องอธิบายให้ชัดว่าทำไม
+  // ต้องกรอกเพิ่ม ไม่งั้นจะดูเหมือนระบบขอข้อมูลซ้ำซ้อนกับ "เลขมิเตอร์สะสม"
   Widget _usedField({
     required TextEditingController controller,
     required String hint,
@@ -375,6 +390,81 @@ class StartMeterPairedFields extends StatelessWidget {
     );
   }
 
+  // แท็บเลือกไฟฟ้า/น้ำ — ✓ สีเขียวโผล่ข้างชื่อแท็บเมื่อฝั่งนั้นกรอกครบแล้ว
+  // (isPartial ก็จะไม่ขึ้น ✓ ด้วย เพราะยังไม่ถือว่า "ครบ" ตามนิยาม complete)
+  Widget _buildTabs({required bool eComplete, required bool wComplete}) {
+    return Row(
+      children: [
+        Expanded(
+          child: _tabChip(
+            label: 'ไฟฟ้า',
+            icon: Icons.bolt,
+            color: DashboardStyles.electricityBorder,
+            selected: _selectedTab == 0,
+            complete: eComplete,
+            onTap: () => setState(() => _selectedTab = 0),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _tabChip(
+            label: 'น้ำ',
+            icon: Icons.water_drop,
+            color: DashboardStyles.waterBorder,
+            selected: _selectedTab == 1,
+            complete: wComplete,
+            onTap: () => setState(() => _selectedTab = 1),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tabChip({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool selected,
+    required bool complete,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.12) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? color : Colors.grey.shade200,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: selected ? color : Colors.grey.shade500),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                color: selected ? color : Colors.grey.shade700,
+              ),
+            ),
+            if (complete) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.check_circle, size: 14, color: Colors.green),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _utilityCard({
     required BuildContext context,
     required String label,
@@ -384,6 +474,8 @@ class StartMeterPairedFields extends StatelessWidget {
     required TextEditingController costCtrl,
     required String costHint,
     required bool isPartial,
+    required bool noBillYet,
+    required ValueChanged<bool> onNoBillYetChanged,
     Widget? usedField,
   }) {
     return Container(
@@ -444,6 +536,24 @@ class StartMeterPairedFields extends StatelessWidget {
             iconColor: accentColor,
             enabled: !noBillYet,
           ),
+          const SizedBox(height: 10),
+          // toggle "ยังไม่มีบิลตอนนี้" — ย้ายมาไว้ในการ์ดของฝั่งนี้โดยเฉพาะ
+          // แล้ว (เดิมเป็นตัวเดียวรวมทั้งไฟและน้ำ) กดแล้วกระทบแค่ฝั่งนี้
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'ยังไม่มีบิล$labelตอนนี้ (มีแต่เลขมิเตอร์ที่อ่านจากหน้าปัดเอง)',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                ),
+              ),
+              Switch(
+                value: noBillYet,
+                activeThumbColor: const Color(0xFF2E7D32),
+                onChanged: onNoBillYetChanged,
+              ),
+            ],
+          ),
           if (isPartial) ...[
             const SizedBox(height: 8),
             Text(
@@ -459,37 +569,53 @@ class StartMeterPairedFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final eVal = _num(electricityCtrl);
-    final peakVal = _num(peakCtrl);
-    final offPeakVal = _num(offPeakCtrl);
-    final eCost = _num(eCostCtrl);
-    final eUsed = _num(eUsedCtrl);
-    final wVal = _num(waterCtrl);
-    final wCost = _num(wCostCtrl);
-    final wUsed = _num(wUsedCtrl);
+    final eVal = _num(widget.electricityCtrl);
+    final peakVal = _num(widget.peakCtrl);
+    final offPeakVal = _num(widget.offPeakCtrl);
+    final eCost = _num(widget.eCostCtrl);
+    final eUsed = _num(widget.eUsedCtrl);
+    final wVal = _num(widget.waterCtrl);
+    final wCost = _num(widget.wCostCtrl);
+    final wUsed = _num(widget.wUsedCtrl);
 
-    final ePartial = StartMeterValidation.electricityPartial(
-        isTou: isTou,
+    final eComplete = StartMeterValidation.electricityComplete(
+        isTou: widget.isTou,
         eVal: eVal,
         peakVal: peakVal,
         offPeakVal: offPeakVal,
         eCost: eCost,
-        noBillYet: noBillYet,
-        isFirstEntry: eIsFirstEntry,
+        eNoBillYet: widget.eNoBillYet,
+        isFirstEntry: widget.eIsFirstEntry,
+        eUsed: eUsed);
+    final wComplete = StartMeterValidation.waterComplete(
+        wVal: wVal,
+        wCost: wCost,
+        wNoBillYet: widget.wNoBillYet,
+        isFirstEntry: widget.wIsFirstEntry,
+        wUsed: wUsed);
+
+    final ePartial = StartMeterValidation.electricityPartial(
+        isTou: widget.isTou,
+        eVal: eVal,
+        peakVal: peakVal,
+        offPeakVal: offPeakVal,
+        eCost: eCost,
+        eNoBillYet: widget.eNoBillYet,
+        isFirstEntry: widget.eIsFirstEntry,
         eUsed: eUsed);
     final wPartial = StartMeterValidation.waterPartial(
         wVal: wVal,
         wCost: wCost,
-        noBillYet: noBillYet,
-        isFirstEntry: wIsFirstEntry,
+        wNoBillYet: widget.wNoBillYet,
+        isFirstEntry: widget.wIsFirstEntry,
         wUsed: wUsed);
 
-    final electricityMeterFields = isTou
+    final electricityMeterFields = widget.isTou
         ? LayoutBuilder(
             builder: (context, constraints) {
               final narrow = constraints.maxWidth < 340;
               final peakField = _field(
-                controller: peakCtrl,
+                controller: widget.peakCtrl,
                 label: 'เลขมิเตอร์ On-Peak',
                 hint: 'เช่น 8,500',
                 suffixText: 'หน่วย',
@@ -497,7 +623,7 @@ class StartMeterPairedFields extends StatelessWidget {
                 iconColor: DashboardStyles.electricityBorder,
               );
               final offPeakField = _field(
-                controller: offPeakCtrl,
+                controller: widget.offPeakCtrl,
                 label: 'เลขมิเตอร์ Off-Peak',
                 hint: 'เช่น 5,500',
                 suffixText: 'หน่วย',
@@ -522,7 +648,7 @@ class StartMeterPairedFields extends StatelessWidget {
             },
           )
         : _field(
-            controller: electricityCtrl,
+            controller: widget.electricityCtrl,
             label: 'เลขมิเตอร์สะสม',
             hint: 'เช่น 14,009',
             suffixText: 'หน่วย',
@@ -536,7 +662,7 @@ class StartMeterPairedFields extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(title,
+              child: Text(widget.title,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             ),
             IconButton(
@@ -549,68 +675,60 @@ class StartMeterPairedFields extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 2),
-        Text(subtitle, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+        Text(widget.subtitle,
+            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
         const SizedBox(height: 12),
-        _utilityCard(
-          context: context,
-          label: 'ไฟฟ้า',
-          borderColor: DashboardStyles.electricityBorder,
-          accentColor: DashboardStyles.electricityBorder,
-          meterFields: electricityMeterFields,
-          costCtrl: eCostCtrl,
-          costHint: 'เช่น 850',
-          isPartial: ePartial,
-          usedField: eIsFirstEntry
-              ? _usedField(
-                  controller: eUsedCtrl,
-                  hint: 'เช่น 2,655',
-                  suffixText: 'หน่วย',
-                  iconColor: DashboardStyles.electricityBorder,
-                )
-              : null,
-        ),
+        _buildTabs(eComplete: eComplete, wComplete: wComplete),
         const SizedBox(height: 12),
-        _utilityCard(
-          context: context,
-          label: 'น้ำ',
-          borderColor: DashboardStyles.waterBorder,
-          accentColor: DashboardStyles.waterBorder,
-          meterFields: _field(
-            controller: waterCtrl,
-            label: 'เลขมิเตอร์สะสม',
-            hint: 'เช่น 148',
-            suffixText: 'ลบ.ม.',
-            icon: Icons.speed,
-            iconColor: DashboardStyles.waterBorder,
+        if (_selectedTab == 0)
+          _utilityCard(
+            context: context,
+            label: 'ไฟฟ้า',
+            borderColor: DashboardStyles.electricityBorder,
+            accentColor: DashboardStyles.electricityBorder,
+            meterFields: electricityMeterFields,
+            costCtrl: widget.eCostCtrl,
+            costHint: 'เช่น 850',
+            isPartial: ePartial,
+            noBillYet: widget.eNoBillYet,
+            onNoBillYetChanged: widget.onENoBillYetChanged,
+            usedField: widget.eIsFirstEntry
+                ? _usedField(
+                    controller: widget.eUsedCtrl,
+                    hint: 'เช่น 2,655',
+                    suffixText: 'หน่วย',
+                    iconColor: DashboardStyles.electricityBorder,
+                  )
+                : null,
+          )
+        else
+          _utilityCard(
+            context: context,
+            label: 'น้ำ',
+            borderColor: DashboardStyles.waterBorder,
+            accentColor: DashboardStyles.waterBorder,
+            meterFields: _field(
+              controller: widget.waterCtrl,
+              label: 'เลขมิเตอร์สะสม',
+              hint: 'เช่น 148',
+              suffixText: 'ลบ.ม.',
+              icon: Icons.speed,
+              iconColor: DashboardStyles.waterBorder,
+            ),
+            costCtrl: widget.wCostCtrl,
+            costHint: 'เช่น 120',
+            isPartial: wPartial,
+            noBillYet: widget.wNoBillYet,
+            onNoBillYetChanged: widget.onWNoBillYetChanged,
+            usedField: widget.wIsFirstEntry
+                ? _usedField(
+                    controller: widget.wUsedCtrl,
+                    hint: 'เช่น 108',
+                    suffixText: 'ลบ.ม.',
+                    iconColor: DashboardStyles.waterBorder,
+                  )
+                : null,
           ),
-          costCtrl: wCostCtrl,
-          costHint: 'เช่น 120',
-          isPartial: wPartial,
-          usedField: wIsFirstEntry
-              ? _usedField(
-                  controller: wUsedCtrl,
-                  hint: 'เช่น 108',
-                  suffixText: 'ลบ.ม.',
-                  iconColor: DashboardStyles.waterBorder,
-                )
-              : null,
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'ยังไม่มีบิลตอนนี้ (มีแต่เลขมิเตอร์ที่อ่านจากหน้าปัดเอง)',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-              ),
-            ),
-            Switch(
-              value: noBillYet,
-              activeThumbColor: const Color(0xFF2E7D32),
-              onChanged: onNoBillYetChanged,
-            ),
-          ],
-        ),
       ],
     );
   }

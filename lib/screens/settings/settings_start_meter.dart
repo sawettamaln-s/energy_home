@@ -56,7 +56,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   // ของยูทิลิตี้นั้นๆ (ดู _eIsFirstEntry/_wIsFirstEntry ด้านล่าง)
   final _eUsedCtrl = TextEditingController();
   final _wUsedCtrl = TextEditingController();
-  bool _noBillYet = false;
+  bool _electricityNoBillYet = false;
+  bool _waterNoBillYet = false;
   // โชว์ตอนกดบันทึกแล้วไม่มีคู่ไหนกรอกครบเลยสักคู่ (ทั้งคู่ว่างหรือกรอก
   // ไม่ครบทั้งคู่) ต่างจาก error รายการ์ดที่ widget จัดการเองเวลากรอกครึ่งเดียว
   bool _generalError = false;
@@ -239,7 +240,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       eCost: eCost,
       wVal: wVal,
       wCost: wCost,
-      noBillYet: _noBillYet,
+      eNoBillYet: _electricityNoBillYet,
+      wNoBillYet: _waterNoBillYet,
       eIsFirstEntry: _eIsFirstEntry,
       eUsed: eUsedInput,
       wIsFirstEntry: _wIsFirstEntry,
@@ -261,13 +263,13 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
           peakVal: peakVal,
           offPeakVal: offPeakVal,
           eCost: eCost,
-          noBillYet: _noBillYet,
+          eNoBillYet: _electricityNoBillYet,
           isFirstEntry: _eIsFirstEntry,
           eUsed: eUsedInput);
       final wComplete = StartMeterValidation.waterComplete(
           wVal: wVal,
           wCost: wCost,
-          noBillYet: _noBillYet,
+          wNoBillYet: _waterNoBillYet,
           isFirstEntry: _wIsFirstEntry,
           wUsed: wUsedInput);
 
@@ -706,13 +708,15 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           wUsedCtrl: _wUsedCtrl,
                           eIsFirstEntry: _eIsFirstEntry,
                           wIsFirstEntry: _wIsFirstEntry,
-                          noBillYet: _noBillYet,
-                          onNoBillYetChanged: (v) => setState(() {
-                            _noBillYet = v;
-                            if (v) {
-                              _eCostCtrl.clear();
-                              _wCostCtrl.clear();
-                            }
+                          eNoBillYet: _electricityNoBillYet,
+                          onENoBillYetChanged: (v) => setState(() {
+                            _electricityNoBillYet = v;
+                            if (v) _eCostCtrl.clear();
+                          }),
+                          wNoBillYet: _waterNoBillYet,
+                          onWNoBillYetChanged: (v) => setState(() {
+                            _waterNoBillYet = v;
+                            if (v) _wCostCtrl.clear();
                           }),
                           title: 'เลขมิเตอร์สะสมต้นรอบ',
                           subtitle: 'กรอกเลขและค่าใช้จ่ายจากใบแจ้งหนี้เดือนที่'

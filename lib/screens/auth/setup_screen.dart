@@ -59,7 +59,8 @@ class _SetupScreenState extends State<SetupScreen> {
   // ประวัติจริง เพราะที่นี่ไม่มีประวัติให้เช็คอยู่แล้วตั้งแต่ต้น
   final _electricityUsedController = TextEditingController();
   final _waterUsedController = TextEditingController();
-  bool _startMeterNoBillYet = false;
+  bool _electricityNoBillYet = false;
+  bool _waterNoBillYet = false;
   int _selectedStartMonth = DateTime.now().month;
   int _selectedStartYear = DateTime.now().year;
   String _startMeterError = '';
@@ -130,7 +131,8 @@ class _SetupScreenState extends State<SetupScreen> {
       eCost: eCost,
       wVal: wVal,
       wCost: wCost,
-      noBillYet: _startMeterNoBillYet,
+      eNoBillYet: _electricityNoBillYet,
+      wNoBillYet: _waterNoBillYet,
       eIsFirstEntry: true,
       eUsed: eUsed,
       wIsFirstEntry: true,
@@ -176,14 +178,14 @@ class _SetupScreenState extends State<SetupScreen> {
               peakVal: peakVal,
               offPeakVal: offPeakVal,
               eCost: eCost,
-              noBillYet: _startMeterNoBillYet,
+              eNoBillYet: _electricityNoBillYet,
               isFirstEntry: true,
               eUsed: eUsed);
       final wComplete = !_startMeterSkipped &&
           StartMeterValidation.waterComplete(
               wVal: wVal,
               wCost: wCost,
-              noBillYet: _startMeterNoBillYet,
+              wNoBillYet: _waterNoBillYet,
               isFirstEntry: true,
               wUsed: wUsed);
 
@@ -929,13 +931,15 @@ class _SetupScreenState extends State<SetupScreen> {
               wUsedCtrl: _waterUsedController,
               eIsFirstEntry: true,
               wIsFirstEntry: true,
-              noBillYet: _startMeterNoBillYet,
-              onNoBillYetChanged: (v) => setState(() {
-                _startMeterNoBillYet = v;
-                if (v) {
-                  _electricityCostController.clear();
-                  _waterCostController.clear();
-                }
+            eNoBillYet: _electricityNoBillYet,
+              onENoBillYetChanged: (v) => setState(() {
+                _electricityNoBillYet = v;
+                if (v) _electricityCostController.clear();
+              }),
+              wNoBillYet: _waterNoBillYet,
+              onWNoBillYetChanged: (v) => setState(() {
+                _waterNoBillYet = v;
+                if (v) _waterCostController.clear();
               }),
               title: 'เลขมิเตอร์สะสมตามใบแจ้งหนี้',
               subtitle: 'กรอกเลขและค่าใช้จ่ายจากใบแจ้งหนี้เดือนที่เลือกไว้'
