@@ -1064,6 +1064,25 @@ final confirmed = await showConfirmDialog(
         },
         onRowTap: (row) {
           final b = bills[row];
+          // บิลที่มาจากหน้า "เลขมิเตอร์ต้นรอบ" (source == 'startMeter') แก้ไข/
+          // ลบตรงนี้ไม่ได้ (ดู _isStartMeterBill ด้านบน) — เดิม onRowTap ไม่ได้
+          // เช็คจุดนี้เลย ทำให้บิล startMeter ของรอบเก่าที่ปิดไปแล้วยังหลุดเข้า
+          // ไปเปิดฟอร์มบันทึกบิลย้อนหลังได้ (คำนวณ delta ผิด) ตอนนี้ล็อกไว้แทน
+          // แล้วพาไปหน้าที่ถูกต้องผ่าน _goToStartMeterFor
+          if (_isStartMeterBill(b)) {
+            showTableRowActions(
+              context,
+              title: '${thaiMonths[b.month - 1]} ${b.year}',
+              subtitle: 'รวม ${formatter.format(b.totalCost)} บาท',
+              locked: true,
+              lockedMessage: 'บิลนี้มาจากการตั้งเลขมิเตอร์ต้นรอบ '
+                  'แก้ไข/ลบได้ที่หน้า "เลขมิเตอร์ต้นรอบ" เท่านั้น เพื่อไม่ให้'
+                  'เลขมิเตอร์สะสมกับบิลไม่ตรงกัน',
+              lockedActionLabel: 'ไปหน้าเลขมิเตอร์ต้นรอบ',
+              onLockedAction: () => _goToStartMeterFor(b),
+            );
+            return;
+          }
           showTableRowActions(
             context,
             title: '${thaiMonths[b.month - 1]} ${b.year}',

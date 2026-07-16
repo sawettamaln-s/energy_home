@@ -295,6 +295,33 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
 
       await widget.firestoreService.updateUser(widget.uid, updates);
 
+      // แก้บั๊ก: usedFromStart/cost ของ log รายวันแต่ละอัน เป็น snapshot ที่
+      // คำนวณตอนกดบันทึกครั้งนั้นๆ ค้างไว้เฉยๆ ไม่ได้คำนวณสดจาก
+      // startElectricityValue/startWaterValue ปัจจุบันทุกครั้ง — พอมาแก้ไข
+      // เลขต้นรอบของรอบปัจจุบัน (เช่น กรอกผิดแล้วมาแก้ทีหลัง) ตัวเลขสะสมที่
+      // หน้าหลักโชว์ (อ่านจาก log ล่าสุดตรงๆ) จะยังผิดค้างต่อไปจนกว่าจะไปลบ/
+      // แก้ log เองทีละอัน ตอนนี้ถ้าอยู่ในโหมดแก้ไขรอบปัจจุบันและค่าที่กรอก
+      // เปลี่ยนไปจากเดิมจริง ให้ไล่คำนวณ log ทุกอันในรอบนี้ใหม่ทั้งหมด
+      if (_isEditingCurrentCycle) {
+        final oldE = _user?.startElectricityValue ?? 0;
+        final oldPeak = _user?.startPeakValue ?? 0;
+        final oldOffPeak = _user?.startOffPeakValue ?? 0;
+        final oldW = _user?.startWaterValue ?? 0;
+        final electricityChanged = eComplete &&
+            (eVal != oldE || peakVal != oldPeak || offPeakVal != oldOffPeak);
+        final waterChanged = wComplete && wVal != oldW;
+        if (electricityChanged || waterChanged) {
+          await _recalcCurrentCycleLogs(
+            recalcElectricity: electricityChanged,
+            recalcWater: waterChanged,
+            newStartE: eVal,
+            newStartPeak: peakVal,
+            newStartOffPeak: offPeakVal,
+            newStartW: wVal,
+          );
+        }
+      }
+
       // เก็บ snapshot ไว้ในประวัติ เผื่อย้อนดูทีหลังว่าเคยตั้งค่าอะไรไว้
       // ถ้าอยู่ในโหมดแก้ไข (ยังเป็นรอบเดิม) ใช้ id เดิมเพื่อ "แก้ทับ" record
       // เดิมแทนการสร้างรายการใหม่ซ้ำในประวัติ — ป้องกันไม่ให้กดบันทึกซ้ำ
@@ -387,6 +414,92 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     }
   }
 
+  // ไล่คำนวณ usedFromStart + cost ของ log รายวันทุกอันในรอบบิลปัจจุบันใหม่
+  // ตามเลขต้นรอบที่แก้ไข แล้ว resave ทับของเดิม (id เดิม แค่ค่าเปลี่ยน) —
+  // usedFromLast ไม่ต้องแก้ เพราะเป็นผลต่างระหว่างมิเตอร์ 2 ครั้งที่บันทึก
+  // จริง ไม่เกี่ยวกับเลขต้นรอบเลย
+  Future<void> _recalcCurrentCycleLogs({
+    required bool recalcElectricity,
+    required bool recalcWater,
+    required double newStartE,
+    required double newStartPeak,
+    required double newStartOffPeak,
+    required double newStartW,
+  }) async {
+    final user = _user;
+    if (user == null) return;
+    final now = DateTime.now();
+    final startDate = EnergyForecaster.getCycleStart(now, user.billingDay);
+    final endDate = EnergyForecaster.getCycleEnd(now, user.billingDay);
+
+    if (recalcElectricity) {
+      final logs = await widget.firestoreService
+          .getCurrentMonthElectricityLogs(widget.uid, startDate, endDate);
+      for (final log in logs) {
+        double usedFromStart;
+        double cost;
+        if (widget.isTou) {
+          final peakUnits = EnergyCalculator.calculateUsed(
+              log.peakMeterValue ?? 0, newStartPeak);
+          final offPeakUnits = EnergyCalculator.calculateUsed(
+              log.offPeakMeterValue ?? 0, newStartOffPeak);
+          usedFromStart = peakUnits + offPeakUnits;
+          cost = await EnergyCalculator.calculateElectricityByType(
+            units: 0,
+            meterType: 'tou',
+            area: user.area,
+            peakUnits: peakUnits,
+            offPeakUnits: offPeakUnits,
+          );
+        } else {
+          usedFromStart =
+              EnergyCalculator.calculateUsed(log.meterValue, newStartE);
+          cost = await EnergyCalculator.calculateElectricityByType(
+            units: usedFromStart,
+            meterType: 'normal',
+            area: user.area,
+          );
+        }
+        await widget.firestoreService.saveElectricityLog(
+          ElectricityLogModel(
+            id: log.id,
+            uid: log.uid,
+            date: log.date,
+            meterValue: log.meterValue,
+            peakMeterValue: log.peakMeterValue,
+            offPeakMeterValue: log.offPeakMeterValue,
+            usedFromStart: usedFromStart,
+            usedFromLast: log.usedFromLast,
+            cost: cost,
+            isMonthEnd: log.isMonthEnd,
+          ),
+        );
+      }
+    }
+
+    if (recalcWater) {
+      final logs = await widget.firestoreService
+          .getCurrentMonthWaterLogs(widget.uid, startDate, endDate);
+      for (final log in logs) {
+        final usedFromStart =
+            EnergyCalculator.calculateUsed(log.meterValue, newStartW);
+        final cost = EnergyCalculator.calculateWater(usedFromStart, user.area);
+        await widget.firestoreService.saveWaterLog(
+          WaterLogModel(
+            id: log.id,
+            uid: log.uid,
+            date: log.date,
+            meterValue: log.meterValue,
+            usedFromStart: usedFromStart,
+            usedFromLast: log.usedFromLast,
+            cost: cost,
+            isMonthEnd: log.isMonthEnd,
+          ),
+        );
+      }
+    }
+  }
+
   // ล้างเลขมิเตอร์ต้นรอบ "จริง" ที่หน้าแรกใช้แสดงผล (user.startElectricityValue
   // ฯลฯ) — คนละอันกับการลบประวัติ (StartMeterRecordModel) ที่แค่ลบ snapshot
   // ไว้ดูย้อนหลังเฉยๆ ไม่เคยมีผลกับค่าจริงเลย ปุ่มนี้ตั้งใจแยกไว้ให้ชัดว่า
@@ -412,6 +525,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         'startBillingMonth': 0,
         'startBillingYear': 0,
         'startMeterConfigured': false,
+        'electricityStartConfigured': false,
+        'waterStartConfigured': false,
       });
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -789,17 +904,60 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
     if (saved == true) _load();
   }
 
-  Future<void> _confirmDelete(StartMeterRecordModel record) async {
-final confirmed = await showConfirmDialog(
+  // ลบ record หนึ่งแถว — เดิมลบแค่ StartMeterRecordModel (ประวัติ) อย่างเดียว
+  // แต่ค่าที่ user ใช้งานจริง (user.startElectricityValue ฯลฯ) กับบิลที่
+  // auto-create คู่กันไว้ (source: startMeter) ไม่ได้ถูกลบ/รีเซ็ตตามไปด้วย
+  // ทำให้ปุ่ม (+) ไม่กลับมา (ระบบยังคิดว่าตั้งค่าไว้ครบอยู่) แถมบิลที่เหลือ
+  // ค้างอยู่ก็กลายเป็นบิลลูกกำพร้าที่แก้ไข/ลบจากที่ไหนไม่ได้เลย (ล็อกไว้ใน
+  // หน้าบันทึกบิลย้อนหลังเพราะ source=startMeter แต่ record ต้นทางก็ไม่มีแล้ว)
+  //
+  // ตอนนี้แก้ให้ "ลบ" ที่นี่เป็นการลบแบบเป็นทางการจริง:
+  // 1) ลบทั้ง record และบิลคู่กัน (เดือน/ปีเดียวกัน + source=startMeter)
+  //    เสมอ กันบิลลูกกำพร้าไม่ว่าจะลบแถวรอบไหนก็ตาม
+  // 2) ถ้าเป็นแถวของรอบปัจจุบัน (แถวเดียวกับที่กดแก้ไขได้) ให้รีเซ็ตค่า
+  //    ต้นรอบที่ใช้งานจริงของ user กลับเป็นยังไม่ตั้งค่าด้วย — ปุ่ม (+) จะ
+  //    กลับมา และถ้ายังไม่ข้ามวันตัดรอบไปเดือนถัดไป ตั้งใหม่แล้วจะยังเสนอ
+  //    เดือนเดิม (มิถุนา) ให้กรอกอยู่ เพราะ _expectedInvoiceMonth คำนวณจาก
+  //    billingDay จริง ไม่ได้อิงจาก record ที่เพิ่งลบไป
+  Future<void> _confirmDelete(
+    StartMeterRecordModel record, {
+    required bool isCurrentCycleRow,
+  }) async {
+    final confirmed = await showConfirmDialog(
       context,
       title: 'ลบรายการนี้?',
-      content: 'ต้องการลบประวัติการตั้งเลขมิเตอร์ต้นรอบรายการนี้ใช่ไหมคะ',
+      content: isCurrentCycleRow
+          ? 'ลบแล้วเลขมิเตอร์ต้นรอบของรอบปัจจุบันจะถูกรีเซ็ตทั้งหมด ต้องตั้ง'
+              'ค่าใหม่ก่อนถึงจะบันทึกมิเตอร์รายวันต่อได้ และบิลที่สร้างอัตโนมัติ'
+              'ของรอบนี้ (ถ้ามี) จะถูกลบไปด้วย ต้องการดำเนินการต่อใช่ไหมคะ?'
+          : 'ต้องการลบประวัติการตั้งเลขมิเตอร์ต้นรอบรายการนี้ใช่ไหมคะ '
+              '(บิลที่สร้างอัตโนมัติของรอบนี้ ถ้ามี จะถูกลบไปด้วย)',
       borderRadius: 16,
     );
-    if (confirmed == true) {
-      await widget.firestoreService.deleteStartMeterRecord(widget.uid, record.id);
-      _load();
+    if (confirmed != true) return;
+
+    await widget.firestoreService.deleteStartMeterRecord(widget.uid, record.id);
+
+    final pairedBill = _billFor(record.billingMonth, record.billingYear);
+    if (pairedBill != null && pairedBill.source == 'startMeter') {
+      await widget.firestoreService.deleteBill(widget.uid, pairedBill.id);
     }
+
+    if (isCurrentCycleRow) {
+      await widget.firestoreService.updateUser(widget.uid, {
+        'startElectricityValue': 0,
+        'startPeakValue': 0,
+        'startOffPeakValue': 0,
+        'startWaterValue': 0,
+        'startBillingMonth': 0,
+        'startBillingYear': 0,
+        'startMeterConfigured': false,
+        'electricityStartConfigured': false,
+        'waterStartConfigured': false,
+      });
+    }
+
+    _load();
   }
 
   @override
@@ -981,7 +1139,7 @@ final confirmed = await showConfirmDialog(
             // รอบเก่าที่ปิดไปแล้วฟอร์มคำนวณ delta ใหม่ให้ไม่ได้ถูกต้อง จึง
             // เปิดให้ลบได้อย่างเดียวเหมือนเดิม
             onEdit: isCurrentCycleRow ? _openSheet : null,
-            onDelete: () => _confirmDelete(r),
+            onDelete: () => _confirmDelete(r, isCurrentCycleRow: isCurrentCycleRow),
           );
         },
       ),
