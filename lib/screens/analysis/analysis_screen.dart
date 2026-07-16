@@ -142,9 +142,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     bills: _bills,
                     analysisService: _analysisService,
                     selector: (b) => b.electricityCost,
+                    usedSelector: (b) => b.electricityUsed,
                     unitLabel: 'หน่วย',
                     title: 'ค่าไฟฟ้า',
                     label: 'ค่าไฟ',
+                    accentColor: DashboardStyles.electricityBorder,
                     currentCycle: _currentCycle?['electricity'],
                     onViewAppliances: () => _tabController.animateTo(2),
                   ),
@@ -152,9 +154,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     bills: _bills,
                     analysisService: _analysisService,
                     selector: (b) => b.waterCost,
-                    unitLabel: 'หน่วย',
+                    usedSelector: (b) => b.waterUsed,
+                    unitLabel: 'ลบ.ม.',
                     title: 'ค่าน้ำ',
                     label: 'ค่าน้ำ',
+                    accentColor: DashboardStyles.waterBorder,
                     currentCycle: _currentCycle?['water'],
                     onViewAppliances: () => _tabController.animateTo(2),
                     trackAppliances: false,
@@ -177,9 +181,19 @@ class _UtilityTab extends StatelessWidget {
   final List<BillModel> bills;
   final AnalysisService analysisService;
   final double Function(BillModel) selector; // ค่าใช้จ่าย (บาท)
+  // หน่วยที่ใช้จริง (electricityUsed/waterUsed) — เพิ่มใหม่สำหรับกราฟเทรนด์
+  // หน่วยที่ใช้ แยกจาก selector (ค่าใช้จ่าย) เพราะเป็นคนละมิติกัน บิลบาง
+  // เดือนอาจมีค่าใช้จ่ายแต่ไม่มีหน่วย (เช่น บิลที่มาจากการตั้งเลขมิเตอร์
+  // ต้นรอบครั้งแรกสุดของบัญชี ที่คำนวณ delta หน่วยที่ใช้ไม่ได้จริงๆ)
+  final double Function(BillModel) usedSelector;
   final String unitLabel; // หน่วยที่ใช้ เช่น 'หน่วย'
   final String title; // หัวข้อยาว เช่น 'ค่าไฟฟ้า' ใช้ในกราฟเทรนด์
   final String label; // หัวข้อสั้น เช่น 'ค่าไฟ' ใช้ในข้อความ insight
+  // สีประจำยูทิลิตี้ (ส้ม = ไฟฟ้า, ฟ้าอมเขียว = น้ำ) ใช้กับกราฟเทรนด์และ
+  // ปุ่มสลับมุมมอง (ค่าใช้จ่าย/หน่วย) ให้ตรงกับโทนสีที่ dashboard ใช้อยู่
+  // แล้ว (DashboardStyles.electricityBorder/waterBorder) แทนที่จะใช้สีเขียว
+  // เดียวกันหมดทั้ง 2 แท็บเหมือนเดิม แยกไม่ออกว่ากำลังดูแท็บไหนอยู่จากกราฟ
+  final Color accentColor;
   final CurrentCycleForecast? currentCycle;
 
   // เรียกตอนกดปุ่ม "ดูอุปกรณ์" ในการ์ดข้อสังเกต (เดือนที่ใช้สูงสุด) — ให้
@@ -200,9 +214,11 @@ class _UtilityTab extends StatelessWidget {
     required this.bills,
     required this.analysisService,
     required this.selector,
+    required this.usedSelector,
     required this.unitLabel,
     required this.title,
     required this.label,
+    required this.accentColor,
     required this.currentCycle,
     this.onViewAppliances,
     this.trackAppliances = true,
@@ -246,7 +262,14 @@ class _UtilityTab extends StatelessWidget {
           _currentCycleCard(context),
           const SizedBox(height: 16),
         ],
-        _trendChart(),
+        _TrendChartCard(
+          bills: bills,
+          title: title,
+          unitLabel: unitLabel,
+          costSelector: selector,
+          usedSelector: usedSelector,
+          accentColor: accentColor,
+        ),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -357,7 +380,7 @@ class _UtilityTab extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _green.withValues(alpha: 0.08),
+        color: _green.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -392,7 +415,7 @@ class _UtilityTab extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
+          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
         ],
       ),
       child: Column(
@@ -427,7 +450,7 @@ class _UtilityTab extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _green.withValues(alpha: 0.12),
+                    color: _green.withOpacity(0.12),
                   ),
                   child: const Text('!',
                       style: TextStyle(
@@ -444,7 +467,7 @@ class _UtilityTab extends StatelessWidget {
             child: LinearProgressIndicator(
               value: c.progress,
               minHeight: 6,
-              backgroundColor: _green.withValues(alpha: 0.12),
+              backgroundColor: _green.withOpacity(0.12),
               valueColor: const AlwaysStoppedAnimation(_green),
             ),
           ),
@@ -508,218 +531,6 @@ class _UtilityTab extends StatelessWidget {
     );
   }
 
-  // ----- ข้อความ empty state ของกราฟเทรนด์ บอก progress ตามจำนวนบิลจริง -----
-  // เดิมเขียนตายตัวว่า "ข้อมูลยังไม่พอ (ต้องมีอย่างน้อย 2 เดือน)" ผู้ใช้ใหม่
-  // จะไม่รู้ว่าตอนนี้มีกี่เดือนแล้ว ต้องรออีกกี่เดือนถึงจะเริ่มเห็นกราฟ
-  String _trendEmptyMessage() {
-    if (bills.isEmpty) {
-      return 'ยังไม่มีข้อมูลบิลของ$title เลย\nบันทึกบิลเดือนแรกที่หน้าตั้งค่า เพื่อเริ่มเก็บข้อมูล';
-    }
-    final needed = 2 - bills.length;
-    return 'มีข้อมูลแล้ว ${bills.length} เดือน\nบันทึกอีก $needed เดือน จะเริ่มเห็นกราฟแนวโน้มได้';
-  }
-
-  Widget _trendChart() {
-    final values = <double>[];
-    for (int i = 0; i < bills.length; i++) {
-      values.add(selector(bills[i]));
-    }
-    final maxVal =
-        values.isEmpty ? 0.0 : values.reduce((a, b) => a > b ? a : b);
-    final minVal =
-        values.isEmpty ? 0.0 : values.reduce((a, b) => a < b ? a : b);
-    // เผื่อหัวกราฟด้านบน 25% กันแท่งสูงสุดชนขอบพอดี
-    final maxY = maxVal <= 0 ? 8.0 : maxVal * 1.25;
-    final interval = maxY / 4;
-
-    // ไฮไลต์แท่งเดือนสูงสุด/ต่ำสุดด้วยสีต่างจากแท่งปกติ ช่วยให้กวาดตาเจอ
-    // เดือนผิดปกติได้ทันทีโดยไม่ต้องไล่อ่านตัวเลขทีละแท่ง — ใช้ indexOf ตัว
-    // แรกที่เจอถ้ามีหลายเดือนเท่ากันพอดี (เคสหายากในทางปฏิบัติ ไม่ซับซ้อนเกิน
-    // ความจำเป็น) ข้ามการไฮไลต์ถ้าทุกเดือนเท่ากันหมดเป๊ะ (maxVal == minVal)
-    // เพราะแบบนั้นไม่มี "เดือนที่โดดเด่น" ให้ชี้จริงๆ
-    final hasVariation = values.length >= 2 && maxVal != minVal;
-    final peakIndex = hasVariation ? values.indexOf(maxVal) : -1;
-    final lowIndex = hasVariation ? values.indexOf(minVal) : -1;
-    const peakColor = Color(0xFFE53935); // แดง — เดือนใช้สูงสุด
-    const lowColor = Color(0xFF00897B); // เขียวอมฟ้า — เดือนใช้ต่ำสุด
-
-    return Container(
-      height: 240,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('เทรนด์$title (${bills.length} เดือนล่าสุด)',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13)),
-              ),
-              // คำอธิบายสีสั้นๆ กันผู้ใช้เข้าใจผิดว่าสีที่ต่างกันเป็น bug
-              // (โชว์เฉพาะตอนมีการไฮไลต์จริง)
-              if (hasVariation) ...[
-                _trendLegendDot(peakColor, 'สูงสุด'),
-                const SizedBox(width: 10),
-                _trendLegendDot(lowColor, 'ต่ำสุด'),
-              ],
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: values.length < 2
-                ? Stack(
-                    children: [
-                      // กราฟจำลองจางๆ ให้เห็นรูปทรงว่าพอมีข้อมูลแล้วจะเป็นแบบนี้
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: BarChart(
-                            BarChartData(
-                              gridData: const FlGridData(show: false),
-                              titlesData: const FlTitlesData(show: false),
-                              borderData: FlBorderData(show: false),
-                              barTouchData: BarTouchData(enabled: false),
-                              maxY: 8,
-                              barGroups: List.generate(6, (i) {
-                                const demo = [3.0, 5.0, 3.5, 6.0, 4.5, 6.5];
-                                return BarChartGroupData(x: i, barRods: [
-                                  BarChartRodData(
-                                    toY: demo[i],
-                                    color: Colors.grey.shade300,
-                                    width: 18,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ]);
-                              }),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.92),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            _trendEmptyMessage(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : BarChart(
-                    BarChartData(
-                      maxY: maxY,
-                      alignment: BarChartAlignment.spaceAround,
-                      gridData: FlGridData(
-                        show: true,
-                        drawVerticalLine: false,
-                        horizontalInterval: interval == 0 ? 1 : interval,
-                        getDrawingHorizontalLine: (v) =>
-                            FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-                      ),
-                      titlesData: FlTitlesData(
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 34,
-                            interval: interval == 0 ? 1 : interval,
-                            getTitlesWidget: (value, meta) => Text(
-                              value.toInt().toString(),
-                              style: TextStyle(
-                                  fontSize: 9, color: Colors.grey.shade500),
-                            ),
-                          ),
-                        ),
-                        topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 22,
-                            getTitlesWidget: (value, meta) {
-                              final i = value.toInt();
-                              if (i < 0 || i >= bills.length) {
-                                return const SizedBox.shrink();
-                              }
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                    '${bills[i].month}/${bills[i].year % 100}',
-                                    style: const TextStyle(fontSize: 9)),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      borderData: FlBorderData(show: false),
-                      barTouchData: BarTouchData(
-                        touchTooltipData: BarTouchTooltipData(
-                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                            return BarTooltipItem(
-                              rod.toY.toStringAsFixed(1),
-                              const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold),
-                            );
-                          },
-                        ),
-                      ),
-                      barGroups: List.generate(values.length, (i) {
-                        final barColor = i == peakIndex
-                            ? peakColor
-                            : i == lowIndex
-                                ? lowColor
-                                : _green;
-                        return BarChartGroupData(x: i, barRods: [
-                          BarChartRodData(
-                            toY: values[i],
-                            color: barColor,
-                            width: 18,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ]);
-                      }),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _trendLegendDot(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(label,
-            style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600)),
-      ],
-    );
-  }
-
   Widget _comparisonCard(
     BuildContext context,
     String label,
@@ -735,7 +546,7 @@ class _UtilityTab extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
+          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
         ],
       ),
       child: Column(
@@ -869,7 +680,7 @@ class _UtilityTab extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _green.withValues(alpha: 0.08),
+        color: _green.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -910,7 +721,7 @@ class _UtilityTab extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _green.withValues(alpha: 0.15),
+                    color: _green.withOpacity(0.15),
                   ),
                   child: const Text('!',
                       style: TextStyle(
@@ -958,7 +769,7 @@ class _UtilityTab extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.12),
+                color: Colors.orange.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -984,7 +795,7 @@ class _UtilityTab extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
+          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
         ],
       ),
       child: Column(
@@ -1026,13 +837,13 @@ class _UtilityTab extends StatelessWidget {
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text('ดูอุปกรณ์ที่ใช้ไฟมากสุด',
+                                    const Text('ดูอุปกรณ์ที่ใช้ไฟมากสุด',
                                         style: TextStyle(
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.bold,
                                             color: _green)),
-                                    SizedBox(width: 2),
-                                    Icon(Icons.arrow_forward_ios,
+                                    const SizedBox(width: 2),
+                                    const Icon(Icons.arrow_forward_ios,
                                         size: 10, color: _green),
                                   ],
                                 ),
@@ -1069,6 +880,298 @@ class _UtilityTab extends StatelessWidget {
       case InsightLevel.neutral:
         return Colors.grey.shade600;
     }
+  }
+}
+
+// =====================================================================
+// การ์ดกราฟเทรนด์ — สลับมุมมองระหว่าง "ค่าใช้จ่าย" กับ "หน่วยที่ใช้" ได้ใน
+// การ์ดเดียว ด้วยปุ่มเลือกแบบ radio มุมขวาบน (ตามดีไซน์ที่ขอมา คล้ายแอป
+// การไฟฟ้า/ประปา) แทนที่จะแยกเป็น 2 กราฟเรียงต่อกันแบบเดิม — ต้องเป็น
+// StatefulWidget แยกออกมาจาก _UtilityTab (ซึ่งเป็น StatelessWidget) เพราะ
+// ต้องจำสถานะว่าผู้ใช้เลือกดูมุมมองไหนอยู่ระหว่างที่ widget อื่นๆ ใน
+// หน้าเดียวกัน rebuild (เช่น ตอนเลื่อนหน้าจอ)
+class _TrendChartCard extends StatefulWidget {
+  final List<BillModel> bills;
+  final String title; // 'ค่าไฟฟ้า' / 'ค่าน้ำ' ใช้ตั้งชื่อกราฟฝั่งค่าใช้จ่าย
+  final String unitLabel; // 'หน่วย' / 'ลบ.ม.' ใช้เป็น label ปุ่มฝั่งหน่วย
+  final double Function(BillModel) costSelector;
+  final double Function(BillModel) usedSelector;
+  final Color accentColor;
+
+  const _TrendChartCard({
+    required this.bills,
+    required this.title,
+    required this.unitLabel,
+    required this.costSelector,
+    required this.usedSelector,
+    required this.accentColor,
+  });
+
+  @override
+  State<_TrendChartCard> createState() => _TrendChartCardState();
+}
+
+class _TrendChartCardState extends State<_TrendChartCard> {
+  // true = โชว์กราฟค่าใช้จ่าย (บาท), false = โชว์กราฟหน่วยที่ใช้ — เริ่มที่
+  // ค่าใช้จ่ายเป็นค่าเริ่มต้นเสมอ เพราะเป็นข้อมูลที่มีครบทุกเดือนแน่นอนกว่า
+  // (หน่วยอาจเป็น 0 ในเดือนแรกสุดที่ไม่มี record ก่อนหน้าให้คำนวณ delta)
+  bool _showCost = true;
+
+  String _emptyMessage(String subject) {
+    if (widget.bills.isEmpty) {
+      return 'ยังไม่มีข้อมูลบิลของ$subject เลย\nบันทึกบิลเดือนแรกที่หน้าตั้งค่า เพื่อเริ่มเก็บข้อมูล';
+    }
+    final needed = 2 - widget.bills.length;
+    return 'มีข้อมูลแล้ว ${widget.bills.length} เดือน\nบันทึกอีก $needed เดือน จะเริ่มเห็นกราฟแนวโน้มได้';
+  }
+
+  Widget _radioOption(String label, bool selected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              size: 15,
+              color: selected ? widget.accentColor : Colors.grey.shade400,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                color: selected ? widget.accentColor : Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bills = widget.bills;
+    final values = bills
+        .map(_showCost ? widget.costSelector : widget.usedSelector)
+        .toList();
+
+    final maxVal =
+        values.isEmpty ? 0.0 : values.reduce((a, b) => a > b ? a : b);
+    final minVal =
+        values.isEmpty ? 0.0 : values.reduce((a, b) => a < b ? a : b);
+    final maxY = maxVal <= 0 ? 8.0 : maxVal * 1.25;
+    final interval = maxY / 4;
+
+    // ไฮไลต์แท่งเดือนสูงสุด/ต่ำสุดด้วยสีต่างจากแท่งปกติ ช่วยให้กวาดตาเจอ
+    // เดือนผิดปกติได้ทันทีโดยไม่ต้องไล่อ่านตัวเลขทีละแท่ง
+    final hasVariation = values.length >= 2 && maxVal != minVal;
+    final peakIndex = hasVariation ? values.indexOf(maxVal) : -1;
+    final lowIndex = hasVariation ? values.indexOf(minVal) : -1;
+    const peakColor = Color(0xFFE53935); // แดง — เดือนใช้สูงสุด
+    const lowColor = Color(0xFF00897B); // เขียวอมฟ้า — เดือนใช้ต่ำสุด
+
+    final chartTitle = _showCost
+        ? 'เทรนด์${widget.title} (${bills.length} เดือนล่าสุด)'
+        : 'เทรนด์${widget.unitLabel}ที่ใช้${widget.title} '
+            '(${bills.length} เดือนล่าสุด)';
+    final emptyMessage = _showCost
+        ? _emptyMessage(widget.title)
+        : _emptyMessage('${widget.unitLabel}ที่ใช้${widget.title}');
+    final tooltipSuffix = _showCost ? '' : ' ${widget.unitLabel}';
+
+    return Container(
+      height: 260,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('ประวัติการใช้${widget.title}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+              _radioOption('ค่าใช้จ่าย', _showCost,
+                  () => setState(() => _showCost = true)),
+              const SizedBox(width: 10),
+              _radioOption(widget.unitLabel, !_showCost,
+                  () => setState(() => _showCost = false)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(chartTitle,
+                    style: TextStyle(
+                        fontSize: 10.5, color: Colors.grey.shade500)),
+              ),
+              if (hasVariation) ...[
+                _legendDot(peakColor, 'สูงสุด'),
+                const SizedBox(width: 10),
+                _legendDot(lowColor, 'ต่ำสุด'),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: values.length < 2
+                ? Stack(
+                    children: [
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: BarChart(
+                            BarChartData(
+                              gridData: const FlGridData(show: false),
+                              titlesData: const FlTitlesData(show: false),
+                              borderData: FlBorderData(show: false),
+                              barTouchData: BarTouchData(enabled: false),
+                              maxY: 8,
+                              barGroups: List.generate(6, (i) {
+                                const demo = [3.0, 5.0, 3.5, 6.0, 4.5, 6.5];
+                                return BarChartGroupData(x: i, barRods: [
+                                  BarChartRodData(
+                                    toY: demo[i],
+                                    color: Colors.grey.shade300,
+                                    width: 18,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ]);
+                              }),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.92),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            emptyMessage,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : BarChart(
+                    BarChartData(
+                      maxY: maxY,
+                      alignment: BarChartAlignment.spaceAround,
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: interval == 0 ? 1 : interval,
+                        getDrawingHorizontalLine: (v) =>
+                            FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                      ),
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 34,
+                            interval: interval == 0 ? 1 : interval,
+                            getTitlesWidget: (value, meta) => Text(
+                              value.toInt().toString(),
+                              style: TextStyle(
+                                  fontSize: 9, color: Colors.grey.shade500),
+                            ),
+                          ),
+                        ),
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 22,
+                            getTitlesWidget: (value, meta) {
+                              final i = value.toInt();
+                              if (i < 0 || i >= bills.length) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                    '${bills[i].month}/${bills[i].year % 100}',
+                                    style: const TextStyle(fontSize: 9)),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      barTouchData: BarTouchData(
+                        touchTooltipData: BarTouchTooltipData(
+                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            return BarTooltipItem(
+                              '${rod.toY.toStringAsFixed(1)}$tooltipSuffix',
+                              const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold),
+                            );
+                          },
+                        ),
+                      ),
+                      barGroups: List.generate(values.length, (i) {
+                        final barColor = i == peakIndex
+                            ? peakColor
+                            : i == lowIndex
+                                ? lowColor
+                                : widget.accentColor;
+                        return BarChartGroupData(x: i, barRods: [
+                          BarChartRodData(
+                            toY: values[i],
+                            color: barColor,
+                            width: 18,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ]);
+                      }),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _legendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label,
+            style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600)),
+      ],
+    );
   }
 }
 
@@ -1169,7 +1272,7 @@ class _ApplianceTab extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
-              BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
+              BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
             ],
           ),
           child: Column(
@@ -1241,7 +1344,7 @@ class _ApplianceTab extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
-                BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
+                BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 6)
               ],
             ),
             child: Column(
@@ -1334,7 +1437,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
-                BoxShadow(color: Colors.grey.withValues(alpha: 0.06), blurRadius: 4)
+                BoxShadow(color: Colors.grey.withOpacity(0.06), blurRadius: 4)
               ],
             ),
             child: Row(
@@ -1342,7 +1445,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
                 CircleAvatar(
                   radius: 14,
                   backgroundColor:
-                      widget.colors[i % widget.colors.length].withValues(alpha: 0.15),
+                      widget.colors[i % widget.colors.length].withOpacity(0.15),
                   child: Text('${i + 1}',
                       style: TextStyle(
                           color: widget.colors[i % widget.colors.length],

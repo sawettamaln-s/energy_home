@@ -539,20 +539,27 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
           const SizedBox(height: 10),
           // toggle "ยังไม่มีบิลตอนนี้" — ย้ายมาไว้ในการ์ดของฝั่งนี้โดยเฉพาะ
           // แล้ว (เดิมเป็นตัวเดียวรวมทั้งไฟและน้ำ) กดแล้วกระทบแค่ฝั่งนี้
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'ยังไม่มีบิล$labelตอนนี้ (มีแต่เลขมิเตอร์ที่อ่านจากหน้าปัดเอง)',
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+          // ใช้ checkbox วงกลมแทนสวิตช์วงรี ให้เข้าชุดกับการ์ด "ข้าม
+          // ขั้นตอนนี้" ในหน้าเซตอัพ — ทำทั้งแถวกดได้ ไม่ต้องเล็งตัวสวิตช์
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => onNoBillYetChanged(!noBillYet),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'ยังไม่มีบิล$labelตอนนี้ (มีแต่เลขมิเตอร์ที่อ่านจากหน้าปัดเอง)',
+                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                  ),
                 ),
-              ),
-              Switch(
-                value: noBillYet,
-                activeThumbColor: const Color(0xFF2E7D32),
-                onChanged: onNoBillYetChanged,
-              ),
-            ],
+                const SizedBox(width: 8),
+                Icon(
+                  noBillYet ? Icons.check_circle : Icons.circle_outlined,
+                  color: noBillYet ? const Color(0xFF2E7D32) : Colors.grey.shade400,
+                  size: 22,
+                ),
+              ],
+            ),
           ),
           if (isPartial) ...[
             const SizedBox(height: 8),

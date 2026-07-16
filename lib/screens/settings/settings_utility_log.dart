@@ -198,7 +198,7 @@ final confirm = await showConfirmDialog(
               accent: accent,
               columns: const [
                 ExcelTableColumn('วันที่', align: TextAlign.left, flex: 3),
-                ExcelTableColumn('ใช้ไป', flex: 2),
+                ExcelTableColumn('หน่วยที่ใช้', flex: 2),
                 ExcelTableColumn('ค่าไฟ', flex: 2),
               ],
               rowCount: _logs.length,
@@ -333,7 +333,7 @@ final confirm = await showConfirmDialog(
               accent: accent,
               columns: const [
                 ExcelTableColumn('วันที่', align: TextAlign.left, flex: 3),
-                ExcelTableColumn('ใช้ไป', flex: 2),
+                ExcelTableColumn('หน่วยที่ใช้', flex: 2),
                 ExcelTableColumn('ค่าน้ำ', flex: 2),
               ],
               rowCount: _logs.length,

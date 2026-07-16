@@ -7,6 +7,7 @@ import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/forecaster.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/info_dialog.dart';
 import '../../widgets/start_meter_fields.dart';
@@ -61,8 +62,13 @@ class _SetupScreenState extends State<SetupScreen> {
   final _waterUsedController = TextEditingController();
   bool _electricityNoBillYet = false;
   bool _waterNoBillYet = false;
+  // ค่าเริ่มต้นแบบเดาไปก่อน (เดือนปฏิทินปัจจุบัน) — จะถูกคำนวณใหม่ให้ตรง
+  // กับวันตัดรอบบิลจริงทันทีที่ผู้ใช้เลือกวันตัดรอบเสร็จใน step 3 (ดู
+  // _openBillingDayPicker) ยกเว้นถ้าผู้ใช้มาแก้ dropdown นี้เองแล้วใน step 4
+  // (_startMonthTouched = true) จะไม่เขียนทับค่าที่แก้เองอีก
   int _selectedStartMonth = DateTime.now().month;
   int _selectedStartYear = DateTime.now().year;
+  bool _startMonthTouched = false;
   String _startMeterError = '';
   // ผู้ใช้กดข้ามขั้นตอนนี้ไปก่อน (ยังไม่มีใบแจ้งหนี้ตอนสมัคร) ไปกรอกทีหลัง
   // ได้ที่หน้าตั้งค่า ตอนข้ามจะไม่บังคับกรอกและตั้งค่าตั้งต้นเป็น 0 ไปก่อน
@@ -703,8 +709,20 @@ class _SetupScreenState extends State<SetupScreen> {
                         onPressed: tempSelected == null
                             ? null
                             : () {
-                                setState(
-                                    () => _selectedBillingDay = tempSelected);
+                                setState(() {
+                                  _selectedBillingDay = tempSelected;
+                                  // อัปเดตเดือน/ปีต้นรอบให้ตรงกับวันตัดรอบ
+                                  // จริงที่เพิ่งเลือก — เฉพาะตอนผู้ใช้ยังไม่
+                                  // เคยแก้ dropdown เดือน/ปีเองใน step 4
+                                  // (ไม่งั้นจะไปเขียนทับค่าที่แก้เองไว้)
+                                  if (!_startMonthTouched) {
+                                    final expected = EnergyForecaster
+                                        .getCycleStart(
+                                            DateTime.now(), tempSelected!);
+                                    _selectedStartMonth = expected.month;
+                                    _selectedStartYear = expected.year;
+                                  }
+                                });
                                 Navigator.pop(context);
                               },
                         style: ElevatedButton.styleFrom(
@@ -856,11 +874,12 @@ class _SetupScreenState extends State<SetupScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Switch(
-                    value: _startMeterSkipped,
-                    activeThumbColor: green,
-                    onChanged: (val) =>
-                        setState(() => _startMeterSkipped = val),
+                  Icon(
+                    _startMeterSkipped
+                        ? Icons.check_circle
+                        : Icons.circle_outlined,
+                    color: _startMeterSkipped ? green : Colors.grey.shade400,
+                    size: 26,
                   ),
                 ],
               ),
@@ -891,8 +910,10 @@ class _SetupScreenState extends State<SetupScreen> {
                         child: Text(thaiMonths[i]),
                       );
                     }),
-                    onChanged: (val) =>
-                        setState(() => _selectedStartMonth = val!),
+                    onChanged: (val) => setState(() {
+                      _selectedStartMonth = val!;
+                      _startMonthTouched = true;
+                    }),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -909,8 +930,10 @@ class _SetupScreenState extends State<SetupScreen> {
                         child: Text('$year'),
                       );
                     }).toList(),
-                    onChanged: (val) =>
-                        setState(() => _selectedStartYear = val!),
+                    onChanged: (val) => setState(() {
+                      _selectedStartYear = val!;
+                      _startMonthTouched = true;
+                    }),
                   ),
                 ),
               ],
