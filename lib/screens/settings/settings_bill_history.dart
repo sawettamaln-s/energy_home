@@ -779,6 +779,7 @@ class _HistoricalBillListScreenState
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() => setState(() {}));
     _load();
   }
 
@@ -792,13 +793,17 @@ class _HistoricalBillListScreenState
     setState(() => _isLoading = true);
     final user = await widget.firestoreService.getUser(widget.uid);
     final all = await widget.firestoreService.getBills(widget.uid);
-    // เฉพาะบิลที่กรอกย้อนหลังเอง (ไม่ใช่บิลที่ระบบสรุปจาก log อัตโนมัติ)
-    final imported = all.where((b) => b.source == 'imported').toList();
+    // โชว์ทั้งบิลที่กรอกเองในหน้านี้ (imported) และบิลที่ auto-create มาจาก
+    // หน้า "เลขมิเตอร์ต้นรอบ" (startMeter) — ตัวหลังยังต้องโชว์ในลิสต์
+    // เหมือนเดิม แค่แก้ไข/ลบตรงนี้ไม่ได้ (ดู _isStartMeterBill + onRowTap)
+    final relevant = all
+        .where((b) => b.source == 'imported' || b.source == 'startMeter')
+        .toList();
     if (mounted) {
       setState(() {
         _user = user;
         _billingDay = user?.billingDay ?? 30;
-        _bills = imported;
+        _bills = relevant;
         _isLoading = false;
       });
     }
@@ -811,6 +816,29 @@ class _HistoricalBillListScreenState
   bool _isCurrentCycleBill(BillModel bill) {
     final m = _generateHistoricalMonthOptions(_billingDay).first;
     return bill.year == m.year && bill.month == m.month;
+  }
+
+  // บิลที่มาจากหน้า "เลขมิเตอร์ต้นรอบ" (ไม่ใช่กรอกเองในหน้านี้) — แก้ไข/ลบ
+  // ตรงนี้ไม่ได้ เพราะจะทำให้ BillModel กับ StartMeterRecordModel (เลข
+  // มิเตอร์สะสม) ไม่ตรงกัน ต้องไปจัดการที่หน้าเลขมิเตอร์ต้นรอบแทนเท่านั้น
+  bool _isStartMeterBill(BillModel bill) => bill.source == 'startMeter';
+
+  // พาไปหน้า/ฟอร์มที่ถูกต้องสำหรับแก้ไขบิลที่มาจากเลขมิเตอร์ต้นรอบ — ถ้า
+  // เป็นรอบปัจจุบัน (ยังไม่ปิดรอบ) เปิดฟอร์มแก้ไขตรงๆ ได้เลย ถ้าเป็นรอบเก่า
+  // ที่ปิดไปแล้ว ฟอร์มนั้นแก้ไขรอบเก่าไม่ได้ (คำนวณ delta ใหม่ไม่ถูกต้อง)
+  // พาไปหน้าประวัติเลขมิเตอร์ต้นรอบแทน ให้จัดการที่นั่น (ดู/ลบได้)
+  Future<void> _goToStartMeterFor(BillModel bill) async {
+    if (_isCurrentCycleBill(bill)) {
+      await _openStartMeterSheet();
+    } else {
+      await openStartMeterSetup(
+        context,
+        widget.uid,
+        widget.firestoreService,
+        _user?.meterType == 'tou',
+      );
+      _load();
+    }
   }
 
   // หน้านี้มีไว้กรอกบิลย้อนหลัง "ก่อนสมัครใช้แอป" เท่านั้น เหลือขอบเขตแค่ 5
@@ -907,71 +935,55 @@ final confirmed = await showConfirmDialog(
               child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : Column(
               children: [
-                // การ์ดสรุปด้านบน — สไตล์เดียวกับหน้าประวัติค่ามิเตอร์ต้นรอบ
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.receipt_long,
-                          color: Colors.white, size: 26),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'บันทึกบิลย้อนหลังทั้งหมด',
-                              style:
-                                  TextStyle(color: Colors.white70, fontSize: 12),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${_bills.length} เดือน',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!_isLoading && _allSixMonthsRecorded)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(20),
+                // การ์ดสรุปด้านบน — แยกแสดงตามแท็บที่เลือก (ไฟฟ้า/ประปา)
+                // สไตล์เดียวกับแถบสรุปในหน้าประวัติมิเตอร์ไฟฟ้า/ประปา
+                Builder(builder: (context) {
+                  final isWater = _tabController.index == 1;
+                  final accent = isWater ? Colors.blue : Colors.orange;
+                  final icon = isWater ? Icons.water_drop : Icons.bolt;
+                  final tabBills = isWater ? waterBills : electricBills;
+                  return Container(
+                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: accent.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(icon, color: accent, size: 22),
+                        const SizedBox(width: 10),
+                        Text(
+                          '${tabBills.length} เดือน',
+                          style: TextStyle(
+                            color: accent,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
-                          child: const Text(
+                        ),
+                        const Spacer(),
+                        if (!_isLoading && _allSixMonthsRecorded)
+                          Text(
                             'ครบ 6 เดือนแล้ว',
                             style: TextStyle(
-                                color: Colors.white, fontSize: 11.5),
+                              color: accent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
+                      ],
+                    ),
+                  );
+                }),
 
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
                     children: [
                       _buildTable(
-                        bills: electricBills,
+                        bills: _bills,
                         latestId: latestId,
                         accent: Colors.orange,
                         unitLabel: 'หน่วยที่ใช้',
@@ -981,7 +993,7 @@ final confirmed = await showConfirmDialog(
                         costOf: (b) => b.electricityCost,
                       ),
                       _buildTable(
-                        bills: waterBills,
+                        bills: _bills,
                         latestId: latestId,
                         accent: Colors.blue,
                         unitLabel: 'ลบ.ม.ที่ใช้',
@@ -1038,14 +1050,16 @@ final confirmed = await showConfirmDialog(
         isLatest: (row) => bills[row].id == latestId,
         cellText: (row, col) {
           final b = bills[row];
+          final missing = costOf(b) <= 0;
           switch (col) {
             case 0:
-              return '${thaiMonths[b.month - 1]} ${b.year}';
+              return '${thaiMonths[b.month - 1]} ${b.year}'
+                  '${missing ? ' (ยังไม่กรอก)' : ''}';
             case 1:
               final used = usedOf(b);
               return used > 0 ? formatter.format(used) : '-';
             default:
-              return formatter.format(costOf(b));
+              return missing ? '-' : formatter.format(costOf(b));
           }
         },
         onRowTap: (row) {

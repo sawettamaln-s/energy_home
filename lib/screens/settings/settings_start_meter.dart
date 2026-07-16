@@ -1,5 +1,20 @@
 part of 'settings_screen.dart';
 
+// ใบแจ้งหนี้ล่าสุดที่ "ควร" ใช้เป็นต้นรอบตอนนี้ คำนวณจากวันตัดรอบบิลจริง
+// ของ user (billingDay) ไม่ใช่แค่เดือนปฏิทินก่อนหน้าเฉยๆ — ใช้สูตรเดียวกับที่
+// dashboard_screen.dart ใช้ตอน compileBill() เป๊ะๆ: bill.month ของรอบที่
+// เพิ่งปิดไป = getCycleStart(now, billingDay).month (เพราะ "จุดเริ่มต้นของ
+// รอบที่กำลังเปิดอยู่ตอนนี้" ก็คือ "จุดสิ้นสุดของรอบก่อนหน้าที่เพิ่งปิดไป"
+// นั่นเอง เป็นจุดเดียวกัน) — ต้องใช้สูตรนี้ตรงๆ ไม่ใช่ getPreviousCycleStart
+// ต่ออีกที (เคยพลาดใส่ getPreviousCycleStart เพิ่มไปอีกชั้นซึ่งจะได้เดือน
+// เก่ากว่าที่ควรไป 1 รอบเต็มๆ) — ย้ายออกมาเป็นฟังก์ชันกลางระดับไฟล์ เพราะ
+// ทั้ง _AddStartMeterSheetState และ _StartMeterHistoryScreenState ต้องใช้
+// เช็คว่า "รอบตอนนี้ตั้งค่าครบแล้วหรือยัง" เหมือนกัน
+DateTime _expectedInvoiceMonth(int billingDay) {
+  final now = DateTime.now();
+  return EnergyForecaster.getCycleStart(now, billingDay);
+}
+
 // ==================== บันทึกเลขมิเตอร์ต้นรอบ (bottom sheet) ====================
 // เดิมเป็น AlertDialog แยกอยู่คนละหน้ากับ "ประวัติเลขมิเตอร์ต้นรอบ" — ย้ายมา
 // เป็น bottom sheet แบบเดียวกับ _AddHistoricalBillSheet แล้วรวมเข้ากับหน้า
@@ -48,29 +63,11 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   List<BillModel> _existingBills = [];
   List<StartMeterRecordModel> _history = [];
 
-  // มีบิลของเดือน/ปีนี้บันทึกไว้แล้ว (ไม่ว่าจะ compiled หรือ imported) —
-  // ถ้ามีแล้วไม่โชว์ลิงก์เสริมเลย กันไม่ให้เขียนทับบิลจริงที่มีอยู่โดยไม่ตั้งใจ
-  bool get _lastBillAlreadyRecorded => _existingBills
-      .any((b) => b.year == _selectedYear && b.month == _selectedMonth);
-
   // ใช้เป็นค่า default แบบเร็วๆ ก่อนที่ _loadCurrent() จะรู้ billingDay จริง
   // ของ user (ตอนโหลดครั้งแรก _user ยังเป็น null อยู่) — ใช้ billingDay
   // สมมติ 30 เป็นค่าเริ่มต้นชั่วคราวเหมือนจุดอื่นในแอปที่ fallback แบบนี้
   static DateTime get _defaultInvoiceMonth {
     return _expectedInvoiceMonth(30);
-  }
-
-  // ใบแจ้งหนี้ล่าสุดที่ "ควร" ใช้เป็นต้นรอบตอนนี้ คำนวณจากวันตัดรอบบิลจริง
-  // ของ user (billingDay) ไม่ใช่แค่เดือนปฏิทินก่อนหน้าเฉยๆ เหมือนเดิม —
-  // ใช้สูตรเดียวกับที่ dashboard_screen.dart ใช้ตอน compileBill() เป๊ะๆ:
-  // bill.month ของรอบที่เพิ่งปิดไป = getCycleStart(now, billingDay).month
-  // (เพราะ "จุดเริ่มต้นของรอบที่กำลังเปิดอยู่ตอนนี้" ก็คือ "จุดสิ้นสุดของ
-  // รอบก่อนหน้าที่เพิ่งปิดไป" นั่นเอง เป็นจุดเดียวกัน) — ต้องใช้สูตรนี้ตรงๆ
-  // ไม่ใช่ getPreviousCycleStart ต่ออีกที (เคยพลาดใส่ getPreviousCycleStart
-  // เพิ่มไปอีกชั้นซึ่งจะได้เดือนเก่ากว่าที่ควรไป 1 รอบเต็มๆ)
-  static DateTime _expectedInvoiceMonth(int billingDay) {
-    final now = DateTime.now();
-    return EnergyForecaster.getCycleStart(now, billingDay);
   }
 
   int _selectedMonth = _defaultInvoiceMonth.month;
@@ -317,10 +314,13 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       );
 
       if (mounted) {
-        // ถ้ากรอกค่าใช้จ่ายไว้ (คู่ไหนครบก็สร้างของคู่นั้น) สร้างเป็นบิล
-        // ย้อนหลัง (source: imported) ให้เลย ใช้เดือน/ปีเดียวกับที่เลือกไว้
-        // — กันไม่ให้เขียนทับบิลที่มีอยู่แล้วโดยไม่ตั้งใจด้วย
-        // _lastBillAlreadyRecorded (เช็คไปแล้วตอนโชว์ช่องกรอก)
+        // ถ้ากรอกค่าใช้จ่ายไว้ (คู่ไหนครบก็อัปเดต/สร้างของคู่นั้น) บันทึกเป็น
+        // บิลของรอบที่เพิ่งปิด ใช้เดือน/ปีเดียวกับที่เลือกไว้ — ถ้าเดือนนี้มี
+        // บิลอยู่แล้ว (เช่นเคยกรอกค่าใช้จ่ายไปตอนตั้งค่าครั้งก่อน) ใช้ id เดิม
+        // เพื่อ "อัปเดตทับ" แทนการสร้างใหม่ซ้ำ — เดิมจุดนี้เช็ค
+        // _lastBillAlreadyRecorded แล้วข้าม save ไปทั้งก้อนถ้ามีบิลอยู่แล้ว
+        // ทำให้แก้ค่าใช้จ่ายซ้ำจากหน้านี้ไม่มีผลอะไรเลย (หายเงียบ ไม่มี error
+        // แจ้ง) แก้แล้วให้ update บิลเดิมได้จริงแทน
         //
         // แก้บั๊กเดิม: ตอนสร้างบิลนี้ไม่เคยใส่ electricityUsed/waterUsed เลย
         // (มีแต่ cost) พอไปโชว์ในหน้าประวัติบิลเลยเห็นเป็น "0 หน่วย" ทั้งที่
@@ -340,19 +340,36 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
           }
         }
 
-        if (!_lastBillAlreadyRecorded && (eComplete || wComplete)) {
+        final existingMatches = _existingBills.where(
+            (b) => b.year == _selectedYear && b.month == _selectedMonth);
+        final existingBillForMonth =
+            existingMatches.isNotEmpty ? existingMatches.first : null;
+
+        if (eComplete || wComplete) {
+          final newECost = eComplete ? eCost : (existingBillForMonth?.electricityCost ?? 0);
+          final newWCost = wComplete ? wCost : (existingBillForMonth?.waterCost ?? 0);
           await widget.firestoreService.saveBill(
             BillModel(
-              id: const Uuid().v4(),
+              id: existingBillForMonth?.id ?? const Uuid().v4(),
               uid: widget.uid,
               year: _selectedYear,
               month: _selectedMonth,
-              electricityCost: eComplete ? eCost : 0,
-              waterCost: wComplete ? wCost : 0,
-              totalCost: (eComplete ? eCost : 0) + (wComplete ? wCost : 0),
-              electricityUsed: eUsed,
-              waterUsed: wUsed,
-              source: 'imported',
+              electricityCost: newECost,
+              waterCost: newWCost,
+              totalCost: newECost + newWCost,
+              electricityUsed:
+                  eComplete ? eUsed : (existingBillForMonth?.electricityUsed ?? 0),
+              waterUsed:
+                  wComplete ? wUsed : (existingBillForMonth?.waterUsed ?? 0),
+              fixedCost: existingBillForMonth?.fixedCost ?? 0,
+              forecastElectricity: existingBillForMonth?.forecastElectricity ?? 0,
+              forecastWater: existingBillForMonth?.forecastWater ?? 0,
+              forecastTotal: existingBillForMonth?.forecastTotal ?? 0,
+              // 'startMeter' = บิลที่สร้าง/อัปเดตจากหน้าเลขมิเตอร์ต้นรอบ
+              // (ต่างจาก 'imported' ที่กรอกเองในหน้าบันทึกบิลย้อนหลัง) —
+              // แยกไว้เพื่อให้หน้าบันทึกบิลย้อนหลังรู้ว่ารายการไหนต้องล็อก
+              // ไม่ให้แก้ไข/ลบตรงนั้น ต้องมาแก้ที่หน้านี้แทน
+              source: 'startMeter',
             ),
           );
         }
@@ -700,9 +717,10 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
   List<StartMeterRecordModel> _records = [];
   // ใช้หาค่าไฟ/ค่าน้ำของแต่ละรอบมาโชว์ในตาราง (คอลัมน์ "ค่าไฟ"/"ค่าน้ำ") —
   // ค่าใช้จ่ายไม่ได้เก็บอยู่ใน StartMeterRecordModel เอง แต่ถูกบันทึกแยก
-  // เป็น BillModel (source: imported) ตอนกดบันทึกพร้อมกัน จับคู่กันด้วย
+  // เป็น BillModel (source: startMeter) ตอนกดบันทึกพร้อมกัน จับคู่กันด้วย
   // เดือน/ปีเดียวกัน
   List<BillModel> _bills = [];
+  UserModel? _user;
   bool _isLoading = true;
   late TabController _tabController;
 
@@ -710,6 +728,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() => setState(() {}));
     _load();
   }
 
@@ -721,15 +740,30 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
 
   Future<void> _load() async {
     setState(() => _isLoading = true);
+    final user = await widget.firestoreService.getUser(widget.uid);
     final records = await widget.firestoreService.getStartMeterHistory(widget.uid);
     final bills = await widget.firestoreService.getBills(widget.uid);
     if (mounted) {
       setState(() {
+        _user = user;
         _records = records;
         _bills = bills;
         _isLoading = false;
       });
     }
+  }
+
+  // ตั้งค่าของรอบปัจจุบันไว้ครบแล้วไหม (ยังไม่ข้ามวันตัดรอบบิลไปอีกรอบ) —
+  // สูตรเดียวกับที่ _AddStartMeterSheetState ใช้เช็คว่าเข้าโหมดแก้ไขหรือ
+  // ตั้งใหม่ ใช้ที่นี่เพื่อรู้ว่าควรซ่อนปุ่ม (+) ไหม (ตั้งไว้ครบแล้ว ไม่มี
+  // อะไรให้เพิ่มจนกว่าจะถึงวันตัดรอบรอบถัดไป)
+  bool get _currentCycleConfigured {
+    final user = _user;
+    if (user == null) return false;
+    final expected = _expectedInvoiceMonth(user.billingDay);
+    return user.startMeterConfigured &&
+        user.startBillingMonth == expected.month &&
+        user.startBillingYear == expected.year;
   }
 
   BillModel? _billFor(int month, int year) {
@@ -774,9 +808,8 @@ final confirmed = await showConfirmDialog(
     // ไฮไลต์แถวว่าเป็นรอบปัจจุบัน เพราะประวัตินี้เรียงใหม่สุดก่อนเสมอ
     final latestId = _records.isNotEmpty ? _records.first.id : null;
 
-    final electricRecords =
-        _records.where((r) => r.electricityValue > 0 || r.peakValue > 0 || r.offPeakValue > 0).toList();
-    final waterRecords = _records.where((r) => r.waterValue > 0).toList();
+    final electricRecords = _records;
+    final waterRecords = _records;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -803,62 +836,48 @@ final confirmed = await showConfirmDialog(
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
           : Column(
               children: [
-                // การ์ดสรุปด้านบน — บอกว่ามีกี่รอบ แล้วรอบล่าสุดคือเดือนไหน
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.history, color: Colors.white, size: 26),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'บันทึกเลขมิเตอร์ต้นรอบทั้งหมด',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${_records.length} รอบบิล',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_records.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'ล่าสุด ${thaiMonths[_records.first.billingMonth - 1]}',
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 11.5),
+                // การ์ดสรุปด้านบน — แยกแสดงตามแท็บที่เลือก (ไฟฟ้า/ประปา)
+                // สไตล์เดียวกับแถบสรุปในหน้าประวัติมิเตอร์ไฟฟ้า/ประปา
+                Builder(builder: (context) {
+                  final isWater = _tabController.index == 1;
+                  final accent = isWater ? Colors.blue : Colors.orange;
+                  final icon = isWater ? Icons.water_drop : Icons.bolt;
+                  final tabRecords = isWater ? waterRecords : electricRecords;
+                  return Container(
+                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: accent.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(icon, color: accent, size: 22),
+                        const SizedBox(width: 10),
+                        Text(
+                          '${tabRecords.length} รอบบิล',
+                          style: TextStyle(
+                            color: accent,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
                         ),
-                    ],
-                  ),
-                ),
+                        const Spacer(),
+                        if (tabRecords.isNotEmpty)
+                          Text(
+                            'ล่าสุด ${thaiMonths[tabRecords.first.billingMonth - 1]}',
+                            style: TextStyle(
+                              color: accent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
 
                 Expanded(
                   child: TabBarView(
@@ -889,11 +908,13 @@ final confirmed = await showConfirmDialog(
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openSheet,
-        backgroundColor: const Color(0xFF2E7D32),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: (_isLoading || _currentCycleConfigured)
+          ? null
+          : FloatingActionButton(
+              onPressed: _openSheet,
+              backgroundColor: const Color(0xFF2E7D32),
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
     );
   }
 
@@ -931,11 +952,13 @@ final confirmed = await showConfirmDialog(
         isLatest: (row) => records[row].id == latestId,
         cellText: (row, col) {
           final r = records[row];
+          final missing = valueOf(r) <= 0;
           switch (col) {
             case 0:
-              return '${thaiMonths[r.billingMonth - 1]} ${r.billingYear}';
+              return '${thaiMonths[r.billingMonth - 1]} ${r.billingYear}'
+                  '${missing ? ' (ยังไม่ได้กรอกข้อมูล)' : ''}';
             case 1:
-              return formatter.format(valueOf(r));
+              return missing ? '-' : formatter.format(valueOf(r));
             default:
               final bill = _billFor(r.billingMonth, r.billingYear);
               final cost = costOf(bill);
@@ -944,6 +967,8 @@ final confirmed = await showConfirmDialog(
         },
         onRowTap: (row) {
           final r = records[row];
+          final isCurrentCycleRow =
+              _currentCycleConfigured && r.id == latestId;
           showTableRowActions(
             context,
             title: 'ต้นรอบ ${thaiMonths[r.billingMonth - 1]} ${r.billingYear}',
@@ -952,6 +977,10 @@ final confirmed = await showConfirmDialog(
                     'Off-Peak ${formatter.format(r.offPeakValue)} · '
                     'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}'
                 : 'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}',
+            // แก้ไข/ล้างค่าได้เฉพาะรอบปัจจุบัน (ที่ยังไม่ข้ามวันตัดรอบไป) —
+            // รอบเก่าที่ปิดไปแล้วฟอร์มคำนวณ delta ใหม่ให้ไม่ได้ถูกต้อง จึง
+            // เปิดให้ลบได้อย่างเดียวเหมือนเดิม
+            onEdit: isCurrentCycleRow ? _openSheet : null,
             onDelete: () => _confirmDelete(r),
           );
         },

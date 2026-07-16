@@ -248,7 +248,7 @@ class _SetupScreenState extends State<SetupScreen> {
               totalCost: (eComplete ? eCost : 0) + (wComplete ? wCost : 0),
               electricityUsed: eComplete ? eUsed : 0,
               waterUsed: wComplete ? wUsed : 0,
-              source: 'imported',
+              source: 'startMeter',
             ),
           );
         }

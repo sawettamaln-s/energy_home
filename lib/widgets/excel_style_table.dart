@@ -95,9 +95,9 @@ class ExcelStyleTable extends StatelessWidget {
     return InkWell(
       onTap: onRowTap == null ? null : () => onRowTap!(row),
       child: Container(
-        color: bg,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
+          color: bg,
           border: Border(top: BorderSide(color: Colors.grey.shade200)),
         ),
         child: Row(
@@ -175,6 +175,8 @@ Future<void> showTableRowActions(
   String lockedMessage = 'รายการนี้อยู่ในรอบบิลที่ปิดไปแล้ว ถูกใช้คำนวณ'
       'เรียบร้อยแล้ว จึงแก้ไข/ลบไม่ได้ เพื่อไม่ให้ตัวเลขเก่ากับ'
       'ประวัติไม่ตรงกัน',
+  String? lockedActionLabel,
+  VoidCallback? onLockedAction,
   VoidCallback? onEdit,
   VoidCallback? onDelete,
 }) async {
@@ -189,6 +191,14 @@ Future<void> showTableRowActions(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('เข้าใจแล้ว'),
           ),
+          if (onLockedAction != null)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                onLockedAction();
+              },
+              child: Text(lockedActionLabel ?? 'ไปที่หน้านั้น'),
+            ),
         ],
       ),
     );
