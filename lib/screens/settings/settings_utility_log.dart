@@ -165,16 +165,6 @@ final confirm = await showConfirmDialog(
     }
   }
 
-  void _showLockedNotice() {
-    showInfoDialog(
-      context,
-      title: 'แก้ไขไม่ได้แล้ว',
-      message: 'รายการนี้อยู่ในรอบบิลที่ปิดไปแล้ว ถูกใช้คำนวณบิลเดือนนั้น'
-          'เรียบร้อยแล้ว จึงแก้ไข/ลบไม่ได้ เพื่อไม่ให้ตัวเลขบิลเก่ากับ'
-          'ประวัติไม่ตรงกัน',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat('#,##0.00');
@@ -183,216 +173,67 @@ final confirm = await showConfirmDialog(
           child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
     }
     if (_logs.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.bolt, size: 48, color: Colors.grey.shade300),
-              const SizedBox(height: 12),
-              Text('ยังไม่มีประวัติการบันทึก',
-                  style: TextStyle(color: Colors.grey.shade600)),
-            ],
-          ),
-        ),
+      return excelTableEmptyState(
+        icon: Icons.bolt,
+        message: 'ยังไม่มีประวัติการบันทึก',
       );
     }
 
     final totalCost = _logs.fold<double>(0, (sum, l) => sum + l.cost);
+    const accent = Colors.orange;
 
     return Column(
       children: [
         _utilitySummaryBar(
-          color: Colors.orange,
+          color: accent,
           icon: Icons.bolt,
           count: _logs.length,
           totalCost: totalCost,
           formatter: formatter,
         ),
         Expanded(
-          child: ListView.builder(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            itemCount: _logs.length,
-            itemBuilder: (context, index) {
-              final log = _logs[index];
-              final isLatest = index == 0;
-              final isLast = index == _logs.length - 1;
-              const accent = Colors.orange;
-
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // เส้น timeline + จุดด้านซ้าย
-                    Column(
-                      children: [
-                        Container(
-                          width: 14,
-                          height: 14,
-                          margin: const EdgeInsets.only(top: 4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isLatest ? accent : Colors.grey.shade300,
-                            border:
-                                Border.all(color: Colors.white, width: 2),
-                            boxShadow: isLatest
-                                ? [
-                                    BoxShadow(
-                                      color: accent.withValues(alpha: 0.4),
-                                      blurRadius: 6,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                        ),
-                        if (!isLast)
-                          Expanded(
-                            child: Container(
-                              width: 2,
-                              color: Colors.grey.shade200,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 12),
-
-                    // การ์ดข้อมูลของรายการนั้น
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: isLatest
-                                ? Border.all(color: accent.withValues(alpha: 0.3))
-                                : null,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withValues(alpha: 0.08),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      DateFormat('dd/MM/yyyy')
-                                          .format(log.date),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14.5,
-                                      ),
-                                    ),
-                                  ),
-                                  if (isLatest)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: accent.withValues(alpha: 0.1),
-                                        borderRadius:
-                                            BorderRadius.circular(20),
-                                      ),
-                                      child: const Text(
-                                        'ล่าสุด',
-                                        style: TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: accent,
-                                        ),
-                                      ),
-                                    ),
-                                  IconButton(
-                                    visualDensity: VisualDensity.compact,
-                                    icon: _isEditable(log)
-                                        ? Icon(Icons.delete_outline,
-                                            size: 19,
-                                            color: Colors.red.shade300)
-                                        : Icon(Icons.lock_outline,
-                                            size: 18,
-                                            color: Colors.grey.shade400),
-                                    onPressed: _isEditable(log)
-                                        ? () => _confirmDelete(log)
-                                        : _showLockedNotice,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'บันทึกเมื่อ ${DateFormat('HH:mm น.').format(log.date)}',
-                                style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: Colors.grey.shade500),
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: log.peakMeterValue != null
-                                    ? [
-                                        ValueChip(
-                                          icon: Icons.bolt,
-                                          color: Colors.orange.shade700,
-                                          label: 'On-Peak',
-                                          value: '${log.peakMeterValue!.toStringAsFixed(0)} หน่วย',
-                                        ),
-                                        ValueChip(
-                                          icon: Icons.bolt_outlined,
-                                          color: Colors.blueGrey,
-                                          label: 'Off-Peak',
-                                          value: '${log.offPeakMeterValue!.toStringAsFixed(0)} หน่วย',
-                                        ),
-                                        ValueChip(
-                                          icon: Icons.trending_up_rounded,
-                                          color: accent,
-                                          label: 'ใช้ไปรวม',
-                                          value: '${log.usedFromStart.toStringAsFixed(0)} หน่วย',
-                                        ),
-                                        ValueChip(
-                                          icon: Icons.payments_outlined,
-                                          color: accent,
-                                          label: 'ค่าไฟ',
-                                          value: '${formatter.format(log.cost)} บาท',
-                                        ),
-                                      ]
-                                    : [
-                                        ValueChip(
-                                          icon: Icons.speed_outlined,
-                                          color: accent,
-                                          label: 'มิเตอร์',
-                                          value: log.meterValue.toStringAsFixed(0),
-                                        ),
-                                        ValueChip(
-                                          icon: Icons.trending_up_rounded,
-                                          color: accent,
-                                          label: 'ใช้ไป',
-                                          value: '${log.usedFromStart.toStringAsFixed(0)} หน่วย',
-                                        ),
-                                        ValueChip(
-                                          icon: Icons.payments_outlined,
-                                          color: accent,
-                                          label: 'ค่าไฟ',
-                                          value: '${formatter.format(log.cost)} บาท',
-                                        ),
-                                      ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+            child: ExcelStyleTable(
+              accent: accent,
+              columns: const [
+                ExcelTableColumn('วันที่', align: TextAlign.left, flex: 3),
+                ExcelTableColumn('ใช้ไป', flex: 2),
+                ExcelTableColumn('ค่าไฟ', flex: 2),
+              ],
+              rowCount: _logs.length,
+              isLatest: (row) => row == 0,
+              isLocked: (row) => !_isEditable(_logs[row]),
+              cellText: (row, col) {
+                final log = _logs[row];
+                switch (col) {
+                  case 0:
+                    return DateFormat('dd/MM/yy').format(log.date);
+                  case 1:
+                    return log.usedFromStart.toStringAsFixed(0);
+                  default:
+                    return formatter.format(log.cost);
+                }
+              },
+              onRowTap: (row) {
+                final log = _logs[row];
+                final isTou = log.peakMeterValue != null;
+                showTableRowActions(
+                  context,
+                  title: DateFormat('dd/MM/yyyy').format(log.date),
+                  subtitle: isTou
+                      ? 'On-Peak ${log.peakMeterValue!.toStringAsFixed(0)} · '
+                          'Off-Peak ${log.offPeakMeterValue!.toStringAsFixed(0)} · '
+                          'ใช้ไป ${log.usedFromStart.toStringAsFixed(0)} หน่วย · '
+                          '${formatter.format(log.cost)} บาท'
+                      : 'มิเตอร์ ${log.meterValue.toStringAsFixed(0)} · '
+                          'ใช้ไป ${log.usedFromStart.toStringAsFixed(0)} หน่วย · '
+                          '${formatter.format(log.cost)} บาท',
+                  locked: !_isEditable(log),
+                  onDelete: () => _confirmDelete(log),
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -459,16 +300,6 @@ final confirm = await showConfirmDialog(
     }
   }
 
-  void _showLockedNotice() {
-    showInfoDialog(
-      context,
-      title: 'แก้ไขไม่ได้แล้ว',
-      message: 'รายการนี้อยู่ในรอบบิลที่ปิดไปแล้ว ถูกใช้คำนวณบิลเดือนนั้น'
-          'เรียบร้อยแล้ว จึงแก้ไข/ลบไม่ได้ เพื่อไม่ให้ตัวเลขบิลเก่ากับ'
-          'ประวัติไม่ตรงกัน',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat('#,##0.00');
@@ -477,189 +308,61 @@ final confirm = await showConfirmDialog(
           child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
     }
     if (_logs.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.water_drop, size: 48, color: Colors.grey.shade300),
-              const SizedBox(height: 12),
-              Text('ยังไม่มีประวัติการบันทึก',
-                  style: TextStyle(color: Colors.grey.shade600)),
-            ],
-          ),
-        ),
+      return excelTableEmptyState(
+        icon: Icons.water_drop,
+        message: 'ยังไม่มีประวัติการบันทึก',
       );
     }
 
     final totalCost = _logs.fold<double>(0, (sum, l) => sum + l.cost);
+    const accent = Colors.blue;
 
     return Column(
       children: [
         _utilitySummaryBar(
-          color: Colors.blue,
+          color: accent,
           icon: Icons.water_drop,
           count: _logs.length,
           totalCost: totalCost,
           formatter: formatter,
         ),
         Expanded(
-          child: ListView.builder(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            itemCount: _logs.length,
-            itemBuilder: (context, index) {
-              final log = _logs[index];
-              final isLatest = index == 0;
-              final isLast = index == _logs.length - 1;
-              const accent = Colors.blue;
-
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // เส้น timeline + จุดด้านซ้าย
-                    Column(
-                      children: [
-                        Container(
-                          width: 14,
-                          height: 14,
-                          margin: const EdgeInsets.only(top: 4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isLatest ? accent : Colors.grey.shade300,
-                            border:
-                                Border.all(color: Colors.white, width: 2),
-                            boxShadow: isLatest
-                                ? [
-                                    BoxShadow(
-                                      color: accent.withValues(alpha: 0.4),
-                                      blurRadius: 6,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                        ),
-                        if (!isLast)
-                          Expanded(
-                            child: Container(
-                              width: 2,
-                              color: Colors.grey.shade200,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 12),
-
-                    // การ์ดข้อมูลของรายการนั้น
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: isLatest
-                                ? Border.all(color: accent.withValues(alpha: 0.3))
-                                : null,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withValues(alpha: 0.08),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      DateFormat('dd/MM/yyyy')
-                                          .format(log.date),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14.5,
-                                      ),
-                                    ),
-                                  ),
-                                  if (isLatest)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: accent.withValues(alpha: 0.1),
-                                        borderRadius:
-                                            BorderRadius.circular(20),
-                                      ),
-                                      child: const Text(
-                                        'ล่าสุด',
-                                        style: TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: accent,
-                                        ),
-                                      ),
-                                    ),
-                                  IconButton(
-                                    visualDensity: VisualDensity.compact,
-                                    icon: _isEditable(log)
-                                        ? Icon(Icons.delete_outline,
-                                            size: 19,
-                                            color: Colors.red.shade300)
-                                        : Icon(Icons.lock_outline,
-                                            size: 18,
-                                            color: Colors.grey.shade400),
-                                    onPressed: _isEditable(log)
-                                        ? () => _confirmDelete(log)
-                                        : _showLockedNotice,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'บันทึกเมื่อ ${DateFormat('HH:mm น.').format(log.date)}',
-                                style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: Colors.grey.shade500),
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  ValueChip(
-                                    icon: Icons.speed_outlined,
-                                    color: accent,
-                                    label: 'มิเตอร์',
-                                    value: log.meterValue.toStringAsFixed(0),
-                                  ),
-                                  ValueChip(
-                                    icon: Icons.trending_up_rounded,
-                                    color: accent,
-                                    label: 'ใช้ไป',
-                                    value: '${log.usedFromStart.toStringAsFixed(0)} ลบ.ม.',
-                                  ),
-                                  ValueChip(
-                                    icon: Icons.payments_outlined,
-                                    color: accent,
-                                    label: 'ค่าน้ำ',
-                                    value: '${formatter.format(log.cost)} บาท',
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+            child: ExcelStyleTable(
+              accent: accent,
+              columns: const [
+                ExcelTableColumn('วันที่', align: TextAlign.left, flex: 3),
+                ExcelTableColumn('ใช้ไป', flex: 2),
+                ExcelTableColumn('ค่าน้ำ', flex: 2),
+              ],
+              rowCount: _logs.length,
+              isLatest: (row) => row == 0,
+              isLocked: (row) => !_isEditable(_logs[row]),
+              cellText: (row, col) {
+                final log = _logs[row];
+                switch (col) {
+                  case 0:
+                    return DateFormat('dd/MM/yy').format(log.date);
+                  case 1:
+                    return log.usedFromStart.toStringAsFixed(0);
+                  default:
+                    return formatter.format(log.cost);
+                }
+              },
+              onRowTap: (row) {
+                final log = _logs[row];
+                showTableRowActions(
+                  context,
+                  title: DateFormat('dd/MM/yyyy').format(log.date),
+                  subtitle: 'มิเตอร์ ${log.meterValue.toStringAsFixed(0)} · '
+                      'ใช้ไป ${log.usedFromStart.toStringAsFixed(0)} ลบ.ม. · '
+                      '${formatter.format(log.cost)} บาท',
+                  locked: !_isEditable(log),
+                  onDelete: () => _confirmDelete(log),
+                );
+              },
+            ),
           ),
         ),
       ],

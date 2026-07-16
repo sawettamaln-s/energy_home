@@ -695,25 +695,48 @@ class _StartMeterHistoryScreen extends StatefulWidget {
       _StartMeterHistoryScreenState();
 }
 
-class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
+class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
+    with SingleTickerProviderStateMixin {
   List<StartMeterRecordModel> _records = [];
+  // ใช้หาค่าไฟ/ค่าน้ำของแต่ละรอบมาโชว์ในตาราง (คอลัมน์ "ค่าไฟ"/"ค่าน้ำ") —
+  // ค่าใช้จ่ายไม่ได้เก็บอยู่ใน StartMeterRecordModel เอง แต่ถูกบันทึกแยก
+  // เป็น BillModel (source: imported) ตอนกดบันทึกพร้อมกัน จับคู่กันด้วย
+  // เดือน/ปีเดียวกัน
+  List<BillModel> _bills = [];
   bool _isLoading = true;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
     setState(() => _isLoading = true);
     final records = await widget.firestoreService.getStartMeterHistory(widget.uid);
+    final bills = await widget.firestoreService.getBills(widget.uid);
     if (mounted) {
       setState(() {
         _records = records;
+        _bills = bills;
         _isLoading = false;
       });
     }
+  }
+
+  BillModel? _billFor(int month, int year) {
+    for (final b in _bills) {
+      if (b.month == month && b.year == year) return b;
+    }
+    return null;
   }
 
   // เปิด bottom sheet บันทึกเลขมิเตอร์ต้นรอบ — เดิมเป็นปุ่มแยกอยู่คนละหน้า
@@ -747,8 +770,13 @@ final confirmed = await showConfirmDialog(
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,##0.00');
-    final dateFormatter = DateFormat('dd/MM/yyyy, HH:mm');
+    // ใช้รอบล่าสุด (index 0 ของ _records ทั้งหมดก่อนกรองแยกไฟ/น้ำ) มา
+    // ไฮไลต์แถวว่าเป็นรอบปัจจุบัน เพราะประวัตินี้เรียงใหม่สุดก่อนเสมอ
+    final latestId = _records.isNotEmpty ? _records.first.id : null;
+
+    final electricRecords =
+        _records.where((r) => r.electricityValue > 0 || r.peakValue > 0 || r.offPeakValue > 0).toList();
+    final waterRecords = _records.where((r) => r.waterValue > 0).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -760,6 +788,16 @@ final confirmed = await showConfirmDialog(
             onPressed: () => _showStartMeterInfoPopup(context),
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: const Color(0xFF2E7D32),
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: const Color(0xFF2E7D32),
+          tabs: const [
+            Tab(icon: Icon(Icons.bolt), text: 'ไฟฟ้า'),
+            Tab(icon: Icon(Icons.water_drop), text: 'ประปา'),
+          ],
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
@@ -822,200 +860,32 @@ final confirmed = await showConfirmDialog(
                   ),
                 ),
 
-                // Timeline ของแต่ละรอบ
                 Expanded(
-                  child: _records.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.speed_outlined,
-                                    size: 48, color: Colors.grey.shade300),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'ยังไม่มีประวัติการตั้งเลขมิเตอร์ต้นรอบ',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                          itemCount: _records.length,
-                          itemBuilder: (context, index) {
-                            final r = _records[index];
-                            final isLatest = index == 0;
-                            final isLast = index == _records.length - 1;
-
-                            return IntrinsicHeight(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // เส้น timeline + จุดด้านซ้าย
-                                  Column(
-                                    children: [
-                                      Container(
-                                        width: 14,
-                                        height: 14,
-                                        margin: const EdgeInsets.only(top: 4),
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: isLatest
-                                              ? const Color(0xFF2E7D32)
-                                              : Colors.grey.shade300,
-                                          border: Border.all(
-                                            color: Colors.white,
-                                            width: 2,
-                                          ),
-                                          boxShadow: isLatest
-                                              ? [
-                                                  BoxShadow(
-                                                    color: const Color(0xFF2E7D32)
-                                                        .withValues(alpha: 0.4),
-                                                    blurRadius: 6,
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                      ),
-                                      if (!isLast)
-                                        Expanded(
-                                          child: Container(
-                                            width: 2,
-                                            color: Colors.grey.shade200,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  // การ์ดข้อมูลของรอบนั้น
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(bottom: 16),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(14),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(14),
-                                          border: isLatest
-                                              ? Border.all(
-                                                  color: const Color(0xFF2E7D32)
-                                                      .withValues(alpha: 0.3),
-                                                )
-                                              : null,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.grey.withValues(alpha: 0.08),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    'ต้นรอบ ${thaiMonths[r.billingMonth - 1]} ${r.billingYear}',
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 14.5,
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (isLatest)
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                        horizontal: 8, vertical: 3),
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(0xFF2E7D32)
-                                                          .withValues(alpha: 0.1),
-                                                      borderRadius:
-                                                          BorderRadius.circular(20),
-                                                    ),
-                                                    child: const Text(
-                                                      'ปัจจุบัน',
-                                                      style: TextStyle(
-                                                        fontSize: 10.5,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Color(0xFF2E7D32),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                IconButton(
-                                                  visualDensity: VisualDensity.compact,
-                                                  icon: Icon(Icons.delete_outline,
-                                                      size: 19, color: Colors.red.shade300),
-                                                  onPressed: () => _confirmDelete(r),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}',
-                                              style: TextStyle(
-                                                  fontSize: 11.5,
-                                                  color: Colors.grey.shade500),
-                                            ),
-                                            const SizedBox(height: 10),
-
-                                            // ค่ามิเตอร์ — โชว์ peak/off-peak แทนค่าไฟปกติถ้าเป็น TOU
-                                            Wrap(
-                                              spacing: 8,
-                                              runSpacing: 8,
-                                              children: widget.isTou
-                                                  ? [
-                                                      ValueChip(
-                                                        icon: Icons.bolt,
-                                                        color: Colors.orange.shade700,
-                                                        label: 'On-Peak',
-                                                        value: '${formatter.format(r.peakValue)} หน่วย',
-                                                      ),
-                                                      ValueChip(
-                                                        icon: Icons.bolt_outlined,
-                                                        color: Colors.blueGrey,
-                                                        label: 'Off-Peak',
-                                                        value: '${formatter.format(r.offPeakValue)} หน่วย',
-                                                      ),
-                                                      ValueChip(
-                                                        icon: Icons.water_drop,
-                                                        color: Colors.blue,
-                                                        label: 'น้ำ',
-                                                        value: '${formatter.format(r.waterValue)} ลบ.ม.',
-                                                      ),
-                                                    ]
-                                                  : [
-                                                      ValueChip(
-                                                        icon: Icons.bolt,
-                                                        color: const Color(0xFF2E7D32),
-                                                        label: 'ไฟ',
-                                                        value: '${formatter.format(r.electricityValue)} หน่วย',
-                                                      ),
-                                                      ValueChip(
-                                                        icon: Icons.water_drop,
-                                                        color: Colors.blue,
-                                                        label: 'น้ำ',
-                                                        value: '${formatter.format(r.waterValue)} ลบ.ม.',
-                                                      ),
-                                                    ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildTable(
+                        records: electricRecords,
+                        latestId: latestId,
+                        accent: Colors.orange,
+                        unitLabel: 'หน่วยสะสม',
+                        costLabel: 'ค่าไฟ',
+                        emptyIcon: Icons.bolt,
+                        valueOf: (r) => r.electricityValue,
+                        costOf: (bill) => bill?.electricityCost,
+                      ),
+                      _buildTable(
+                        records: waterRecords,
+                        latestId: latestId,
+                        accent: Colors.blue,
+                        unitLabel: 'ลบ.ม.สะสม',
+                        costLabel: 'ค่าน้ำ',
+                        emptyIcon: Icons.water_drop,
+                        valueOf: (r) => r.waterValue,
+                        costOf: (bill) => bill?.waterCost,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1023,6 +893,68 @@ final confirmed = await showConfirmDialog(
         onPressed: _openSheet,
         backgroundColor: const Color(0xFF2E7D32),
         child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
+  // ใช้ร่วมกันทั้งแท็บไฟฟ้า/ประปา ต่างกันแค่สี, label คอลัมน์ และฟิลด์ที่ดึง
+  Widget _buildTable({
+    required List<StartMeterRecordModel> records,
+    required String? latestId,
+    required Color accent,
+    required String unitLabel,
+    required String costLabel,
+    required IconData emptyIcon,
+    required double Function(StartMeterRecordModel) valueOf,
+    required double? Function(BillModel?) costOf,
+  }) {
+    final formatter = NumberFormat('#,##0.00');
+    final dateFormatter = DateFormat('dd/MM/yyyy, HH:mm');
+
+    if (records.isEmpty) {
+      return excelTableEmptyState(
+        icon: emptyIcon,
+        message: 'ยังไม่มีประวัติการตั้งเลขมิเตอร์ต้นรอบ',
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: ExcelStyleTable(
+        accent: accent,
+        columns: [
+          const ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
+          ExcelTableColumn(unitLabel, flex: 2),
+          ExcelTableColumn(costLabel, flex: 2),
+        ],
+        rowCount: records.length,
+        isLatest: (row) => records[row].id == latestId,
+        cellText: (row, col) {
+          final r = records[row];
+          switch (col) {
+            case 0:
+              return '${thaiMonths[r.billingMonth - 1]} ${r.billingYear}';
+            case 1:
+              return formatter.format(valueOf(r));
+            default:
+              final bill = _billFor(r.billingMonth, r.billingYear);
+              final cost = costOf(bill);
+              return cost == null || cost == 0 ? '-' : formatter.format(cost);
+          }
+        },
+        onRowTap: (row) {
+          final r = records[row];
+          showTableRowActions(
+            context,
+            title: 'ต้นรอบ ${thaiMonths[r.billingMonth - 1]} ${r.billingYear}',
+            subtitle: widget.isTou
+                ? 'On-Peak ${formatter.format(r.peakValue)} · '
+                    'Off-Peak ${formatter.format(r.offPeakValue)} · '
+                    'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}'
+                : 'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}',
+            onDelete: () => _confirmDelete(r),
+          );
+        },
       ),
     );
   }

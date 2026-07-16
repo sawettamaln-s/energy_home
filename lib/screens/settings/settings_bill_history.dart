@@ -768,16 +768,24 @@ class _HistoricalBillListScreen extends StatefulWidget {
 }
 
 class _HistoricalBillListScreenState
-    extends State<_HistoricalBillListScreen> {
+    extends State<_HistoricalBillListScreen> with SingleTickerProviderStateMixin {
   List<BillModel> _bills = [];
   bool _isLoading = true;
   int _billingDay = 30;
   UserModel? _user;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -810,7 +818,7 @@ class _HistoricalBillListScreenState
   // เป็นรอบเดียวกับเลขมิเตอร์ต้นรอบ ดู _generateMonthOptions) พอกรอกครบทั้ง 5
   // เดือนแล้ว ปุ่ม (+) ไม่มีที่ให้เพิ่มต่อแล้วจริงๆ (กดไปก็จะเจอแค่ข้อความ
   // "เดือนนี้มีบิลบันทึกไว้แล้ว" ทุกเดือน) ซ่อนปุ่มไปเลยดีกว่าปล่อยให้กดแล้วงง
-  // — ยังแก้ไข/ลบรายการเดิมได้ตามปกติผ่านเมนู 3 จุดของแต่ละรายการ
+  // — ยังแก้ไข/ลบรายการเดิมได้ตามปกติผ่านการแตะแถวในตาราง
   bool get _allSixMonthsRecorded {
     final options = _generateHistoricalMonthOptions(_billingDay).skip(1);
     final taken =
@@ -869,7 +877,10 @@ final confirmed = await showConfirmDialog(
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,##0.00');
+    final latestId = _bills.isNotEmpty ? _bills.first.id : null;
+    final electricBills = _bills.where((b) => b.electricityCost > 0).toList();
+    final waterBills = _bills.where((b) => b.waterCost > 0).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
@@ -880,6 +891,16 @@ final confirmed = await showConfirmDialog(
             onPressed: () => _showHistoricalBillInfoPopup(context),
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: const Color(0xFF2E7D32),
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: const Color(0xFF2E7D32),
+          tabs: const [
+            Tab(icon: Icon(Icons.bolt), text: 'ไฟฟ้า'),
+            Tab(icon: Icon(Icons.water_drop), text: 'ประปา'),
+          ],
+        ),
       ),
       body: _isLoading
           ? const Center(
@@ -887,7 +908,6 @@ final confirmed = await showConfirmDialog(
           : Column(
               children: [
                 // การ์ดสรุปด้านบน — สไตล์เดียวกับหน้าประวัติค่ามิเตอร์ต้นรอบ
-                // เดิมหน้านี้ไม่มีการ์ดสรุป ดูจืดกว่าหน้าอื่นในแอป
                 Container(
                   margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   padding: const EdgeInsets.all(16),
@@ -946,220 +966,32 @@ final confirmed = await showConfirmDialog(
                   ),
                 ),
 
-                // รายการบิลแต่ละเดือน
                 Expanded(
-                  child: _bills.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.receipt_long_outlined,
-                                    size: 48, color: Colors.grey.shade300),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'ยังไม่มีบิลย้อนหลัง\nกดปุ่ม + เพื่อเพิ่มบิลของเดือนก่อนๆ',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                          itemCount: _bills.length,
-                          itemBuilder: (context, index) {
-                            final bill = _bills[index];
-                            final isLatest = index == 0;
-                            final isLast = index == _bills.length - 1;
-                            const accent = Color(0xFF2E7D32);
-
-                            return IntrinsicHeight(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // เส้น timeline + จุดด้านซ้าย
-                                  Column(
-                                    children: [
-                                      Container(
-                                        width: 14,
-                                        height: 14,
-                                        margin: const EdgeInsets.only(top: 4),
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: isLatest
-                                              ? accent
-                                              : Colors.grey.shade300,
-                                          border: Border.all(
-                                              color: Colors.white, width: 2),
-                                          boxShadow: isLatest
-                                              ? [
-                                                  BoxShadow(
-                                                    color: accent
-                                                        .withValues(alpha: 0.4),
-                                                    blurRadius: 6,
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                      ),
-                                      if (!isLast)
-                                        Expanded(
-                                          child: Container(
-                                            width: 2,
-                                            color: Colors.grey.shade200,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  // การ์ดข้อมูลของบิลเดือนนั้น
-                                  Expanded(
-                                    child: Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 16),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(14),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                          border: isLatest
-                                              ? Border.all(
-                                                  color:
-                                                      accent.withValues(alpha: 0.3))
-                                              : null,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.grey
-                                                  .withValues(alpha: 0.08),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    '${thaiMonths[bill.month - 1]} ${bill.year}',
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 14.5,
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (isLatest)
-                                                  Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 3),
-                                                    decoration: BoxDecoration(
-                                                      color: accent
-                                                          .withValues(alpha: 0.1),
-                                                      borderRadius:
-                                                          BorderRadius
-                                                              .circular(20),
-                                                    ),
-                                                    child: const Text(
-                                                      'ล่าสุด',
-                                                      style: TextStyle(
-                                                        fontSize: 10.5,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: accent,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                PopupMenuButton<String>(
-                                                  icon: Icon(Icons.more_vert,
-                                                      size: 18,
-                                                      color: Colors
-                                                          .grey.shade500),
-                                                  onSelected: (value) {
-                                                    if (value == 'edit') {
-                                                      _openSheet(
-                                                          existingBill: bill);
-                                                    } else if (value ==
-                                                        'delete') {
-                                                      _confirmDelete(bill);
-                                                    }
-                                                  },
-                                                  itemBuilder: (context) => [
-                                                    const PopupMenuItem(
-                                                      value: 'edit',
-                                                      child: Text('แก้ไข'),
-                                                    ),
-                                                    const PopupMenuItem(
-                                                      value: 'delete',
-                                                      child: Text('ลบ',
-                                                          style: TextStyle(
-                                                              color: Colors
-                                                                  .red)),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              'รวม ${formatter.format(bill.totalCost)} บาท',
-                                              style: const TextStyle(
-                                                fontSize: 11.5,
-                                                fontWeight: FontWeight.w600,
-                                                color: accent,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 10),
-                                            // แสดงเฉพาะรายการที่มีค่า (บางเดือน
-                                            // อาจกรอกแค่ค่าไฟ หรือแค่ค่าน้ำ)
-                                            Wrap(
-                                              spacing: 8,
-                                              runSpacing: 8,
-                                              children: [
-                                                if (bill.electricityCost > 0)
-                                                  ValueChip(
-                                                    icon: Icons.bolt,
-                                                    color: Colors.orange.shade700,
-                                                    label: 'ไฟ',
-                                                    // used = 0 ทั้งที่มี cost เกิดได้ตอนบิลนี้มาจากการตั้งเลข
-                                                    // มิเตอร์ต้นรอบครั้งแรกสุดของบัญชี (ไม่มี record ก่อนหน้าให้
-                                                    // คำนวณ delta หน่วยที่ใช้ได้จริง) โชว์แค่ยอดเงินไปก่อน แทน
-                                                    // ที่จะโชว์ "0.00 หน่วย" ซึ่งดูเหมือนระบบพัง
-                                                    value: bill.electricityUsed > 0
-                                                        ? '${formatter.format(bill.electricityUsed)} หน่วย · ${formatter.format(bill.electricityCost)} บาท'
-                                                        : '${formatter.format(bill.electricityCost)} บาท',
-                                                  ),
-                                                if (bill.waterCost > 0)
-                                                  ValueChip(
-                                                    icon: Icons.water_drop,
-                                                    color: Colors.blue,
-                                                    label: 'น้ำ',
-                                                    value: bill.waterUsed > 0
-                                                        ? '${formatter.format(bill.waterUsed)} ลบ.ม. · ${formatter.format(bill.waterCost)} บาท'
-                                                        : '${formatter.format(bill.waterCost)} บาท',
-                                                  ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildTable(
+                        bills: electricBills,
+                        latestId: latestId,
+                        accent: Colors.orange,
+                        unitLabel: 'หน่วยที่ใช้',
+                        costLabel: 'ค่าไฟ',
+                        emptyIcon: Icons.bolt,
+                        usedOf: (b) => b.electricityUsed,
+                        costOf: (b) => b.electricityCost,
+                      ),
+                      _buildTable(
+                        bills: waterBills,
+                        latestId: latestId,
+                        accent: Colors.blue,
+                        unitLabel: 'ลบ.ม.ที่ใช้',
+                        costLabel: 'ค่าน้ำ',
+                        emptyIcon: Icons.water_drop,
+                        usedOf: (b) => b.waterUsed,
+                        costOf: (b) => b.waterCost,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1170,6 +1002,63 @@ final confirmed = await showConfirmDialog(
               backgroundColor: const Color(0xFF2E7D32),
               child: const Icon(Icons.add, color: Colors.white),
             ),
+    );
+  }
+
+  // ใช้ร่วมกันทั้งแท็บไฟฟ้า/ประปา ต่างกันแค่สี, label คอลัมน์ และฟิลด์ที่ดึง
+  Widget _buildTable({
+    required List<BillModel> bills,
+    required String? latestId,
+    required Color accent,
+    required String unitLabel,
+    required String costLabel,
+    required IconData emptyIcon,
+    required double Function(BillModel) usedOf,
+    required double Function(BillModel) costOf,
+  }) {
+    final formatter = NumberFormat('#,##0.00');
+
+    if (bills.isEmpty) {
+      return excelTableEmptyState(
+        icon: emptyIcon,
+        message: 'ยังไม่มีบิลย้อนหลัง\nกดปุ่ม + เพื่อเพิ่มบิลของเดือนก่อนๆ',
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: ExcelStyleTable(
+        accent: accent,
+        columns: [
+          const ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
+          ExcelTableColumn(unitLabel, flex: 2),
+          ExcelTableColumn(costLabel, flex: 2),
+        ],
+        rowCount: bills.length,
+        isLatest: (row) => bills[row].id == latestId,
+        cellText: (row, col) {
+          final b = bills[row];
+          switch (col) {
+            case 0:
+              return '${thaiMonths[b.month - 1]} ${b.year}';
+            case 1:
+              final used = usedOf(b);
+              return used > 0 ? formatter.format(used) : '-';
+            default:
+              return formatter.format(costOf(b));
+          }
+        },
+        onRowTap: (row) {
+          final b = bills[row];
+          showTableRowActions(
+            context,
+            title: '${thaiMonths[b.month - 1]} ${b.year}',
+            subtitle: 'รวม ${formatter.format(b.totalCost)} บาท',
+            onEdit: () => _openSheet(existingBill: b),
+            onDelete: () => _confirmDelete(b),
+          );
+        },
+      ),
     );
   }
 }
