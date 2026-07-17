@@ -1,16 +1,6 @@
 part of 'settings_screen.dart';
 
 // ==================== บันทึกย้อนหลัง: ไฟฟ้า / ประปา ====================
-// เดิมแยกเป็น 2 หน้า (ไฟฟ้า, น้ำ) คนละปุ่มในหน้าตั้งค่า รวมเป็นหน้าเดียวที่มี
-// TabBar ด้านบนแทน — ใช้ลายเดียวกับ TabBar "ไฟฟ้า/น้ำ/อุปกรณ์" ในหน้า
-// วิเคราะห์ (analysis_screen.dart) เพื่อให้ทั้งแอปดู consistent กัน
-//
-// แถบสรุปด้านบน (_utilitySummaryBar) ตอนนี้ผูกกับ "รอบบิลปัจจุบัน" เท่านั้น
-// (log ที่ date >= cycleStart) พอบันทึกเลขมิเตอร์ต้นรอบขึ้นรอบใหม่ ตัวเลขจะ
-// รีเซ็ตเป็น 0 รายการ/0 บาทให้เองตามธรรมชาติ โดยไม่ต้องลบข้อมูลเก่าทิ้ง —
-// ประวัติของรอบก่อนๆ ถูกจัดกลุ่มเป็นการ์ดแยกตามเดือน/ปีของรอบบิล (ดู
-// _MonthGroupCard) พับเก็บได้ทีละการ์ด รองรับกรณีมีประวัติสะสมหลายเดือน/ปี
-// โดยไม่ทำให้หน้ายาวเกินไป
 class _UtilityHistoryScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
@@ -74,9 +64,7 @@ class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
   }
 }
 
-// แถบสรุปด้านบนของแต่ละแท็บ — โชว์จำนวนรายการ + ยอดรวมค่าใช้จ่าย "เฉพาะรอบ
-// บิลปัจจุบัน" เท่านั้น (ไม่ใช่ทั้งหมดที่ดึงมา) ใช้ร่วมกันได้ทั้งแท็บไฟฟ้า
-// และน้ำ แค่เปลี่ยนสี/ไอคอน/label
+// แถบสรุปด้านบนของแต่ละแท็บ — โชว์จำนวนรายการ + ยอดรวมค่าใช้จ่าย "เฉพาะรอบบิลที่กำลังสะสมยอด"
 Widget _utilitySummaryBar({
   required Color color,
   required IconData icon,
@@ -112,21 +100,18 @@ Widget _utilitySummaryBar({
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Text(
-          'นับเฉพาะรอบบิลปัจจุบัน — พอขึ้นเลขมิเตอร์ต้นรอบใหม่ ตัวเลขนี้จะ'
-          'เริ่มนับใหม่ ส่วนประวัติเดือนก่อนๆ ยังดูได้ด้านล่าง',
+          'ยอดประมาณการของรอบบิลถัดไป — ระบบจะสะสมหน่วยไปจนกว่าจะถึงวันตัดรอบบิลของคุณ',
           style: TextStyle(
-              color: color.withValues(alpha: 0.85), fontSize: 11, height: 1.3),
+              color: color.withValues(alpha: 0.85), fontSize: 11, height: 1.4),
         ),
       ],
     ),
   );
 }
 
-// การ์ดพับ/กางได้ของประวัติแต่ละเดือน (1 การ์ด = 1 รอบบิล) ใช้ร่วมกันได้ทั้ง
-// แท็บไฟฟ้าและน้ำ — ค่าเริ่มต้นรอบปัจจุบันกางไว้ ส่วนรอบเก่าพับเก็บ ให้หน้า
-// ไม่ยาวเกินไปแม้ประวัติจะสะสมมาหลายเดือน/หลายปีในอนาคต
+// การ์ดพับ/กางได้ของประวัติแต่ละเดือน (1 การ์ด = 1 รอบบิล)
 class _MonthGroupCard extends StatefulWidget {
   final String monthLabel;
   final bool isCurrent;
@@ -233,7 +218,7 @@ class _MonthGroupCardState extends State<_MonthGroupCard> {
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: const Text(
-                                    'รอบปัจจุบัน',
+                                    'กำลังสะสมยอด',
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: Colors.white,
@@ -246,8 +231,9 @@ class _MonthGroupCardState extends State<_MonthGroupCard> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${widget.count} รายการ · '
-                            '${widget.formatter.format(widget.totalCost)} บาท',
+                            widget.isCurrent
+                                ? '${widget.count} รายการที่บันทึกแล้ว' // รอบปัจจุบันโชว์แค่จำนวนรายการพอ ไม่ต้องโชว์บาทซ้ำ
+                                : '${widget.count} รายการ · สรุปยอดรวม ${widget.formatter.format(widget.totalCost)} บาท', // รอบเก่าโชว์ยอดเงินจริง
                             style: TextStyle(
                                 fontSize: 12, color: Colors.grey.shade600),
                           ),
@@ -283,9 +269,8 @@ class _MonthGroupCardState extends State<_MonthGroupCard> {
   }
 }
 
-// จัดกลุ่ม log ตามรอบบิลที่ log แต่ละตัวสังกัดอยู่ (ใช้ logic เดียวกับ
-// EnergyForecaster.getCycleStart) แล้ว sort คีย์จากใหม่ไปเก่า — ใช้ร่วมกันได้
-// ทั้ง ElectricityLogModel และ WaterLogModel เพราะรับแค่ตัว getวันที่เข้ามา
+// จัดกลุ่ม log ตามรอบบิลจริง โดยปรับขยับคีย์ขึ้นเป็นของเดือนใบแจ้งหนี้รอบถัดไปอัตโนมัติ
+// เพื่อให้ได้โครงสร้างกลุ่มชื่อรอบบิลที่ถูกต้องแม่นยำ
 List<MapEntry<DateTime, List<T>>> _groupLogsByCycle<T>(
   List<T> logs,
   DateTime Function(T) dateOf,
@@ -293,16 +278,29 @@ List<MapEntry<DateTime, List<T>>> _groupLogsByCycle<T>(
 ) {
   final grouped = <DateTime, List<T>>{};
   for (final log in logs) {
-    final key = EnergyForecaster.getCycleStart(dateOf(log), billingDay);
-    grouped.putIfAbsent(key, () => []).add(log);
+    final logDate = dateOf(log);
+    final baseCycleStart = EnergyForecaster.getCycleStart(logDate, billingDay);
+
+    // Logic ปัดเดือนประวัติให้สอดคล้องกัน: ถ้าวันที่ของ Log ชิ้นนั้นเลยวันตัดรอบบิลมาแล้ว
+    // ให้ปัดกลุ่ม Key ของก้อนนี้ขึ้นหน้าเป็นเดือนของใบแจ้งหนี้ถัดไปล่วงหน้าทันที
+    DateTime billingCycleKey;
+    if (logDate.day >= billingDay) {
+      billingCycleKey =
+          DateTime(baseCycleStart.year, baseCycleStart.month + 1, billingDay);
+    } else {
+      billingCycleKey =
+          DateTime(baseCycleStart.year, baseCycleStart.month, billingDay);
+    }
+
+    grouped.putIfAbsent(billingCycleKey, () => []).add(log);
   }
   final entries = grouped.entries.toList()
     ..sort((a, b) => b.key.compareTo(a.key));
   return entries;
 }
 
-String _cycleMonthLabel(DateTime cycleStart) {
-  return '${thaiMonths[cycleStart.month - 1]} ${cycleStart.year + 543}';
+String _cycleMonthLabel(DateTime cycleMonth) {
+  return '${thaiMonths[cycleMonth.month - 1]} ${cycleMonth.year + 543}';
 }
 
 // ==================== แท็บประวัติไฟฟ้า ====================
@@ -323,10 +321,8 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   List<ElectricityLogModel> _logs = [];
   bool _isLoading = true;
   int _billingDay = 30;
-  // จุดเริ่มต้นของรอบบิลปัจจุบัน — log ที่เก่ากว่านี้ถือว่าอยู่ในรอบที่ปิด
-  // ไปแล้ว ห้ามแก้ไข/ลบ เพราะถูกใช้คำนวณบิลที่ปิดไปแล้วแล้ว แก้ย้อนหลังจะ
-  // ทำให้ตัวเลขบิลเก่ากับ log ไม่ตรงกัน
   DateTime? _cycleStart;
+  DateTime? _billingCycleKey;
 
   @override
   void initState() {
@@ -342,6 +338,16 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
     final user = await widget.firestoreService.getUser(widget.uid);
     _billingDay = user?.billingDay ?? 30;
     _cycleStart = EnergyForecaster.getCycleStart(now, _billingDay);
+
+    // ตั้งค่าคีย์ระบุกลุ่มของรอบปัจจุบันที่ผ่าน Logic ปัดรอบบิลเรียบร้อยแล้ว
+    if (now.day >= _billingDay) {
+      _billingCycleKey =
+          DateTime(_cycleStart!.year, _cycleStart!.month + 1, _billingDay);
+    } else {
+      _billingCycleKey =
+          DateTime(_cycleStart!.year, _cycleStart!.month, _billingDay);
+    }
+
     _logs = await widget.firestoreService.getCurrentMonthElectricityLogs(
       widget.uid,
       startDate,
@@ -357,7 +363,7 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   }
 
   Future<void> _confirmDelete(ElectricityLogModel log) async {
-final confirm = await showConfirmDialog(
+    final confirm = await showConfirmDialog(
       context,
       title: 'ลบข้อมูล',
       content: 'ต้องการลบข้อมูลนี้ใช่ไหมคะ?',
@@ -406,7 +412,7 @@ final confirm = await showConfirmDialog(
             itemBuilder: (context, groupIndex) {
               final group = groups[groupIndex];
               final groupLogs = group.value;
-              final isCurrent = group.key == _cycleStart;
+              final isCurrent = group.key == _billingCycleKey;
               final groupCost =
                   groupLogs.fold<double>(0, (sum, l) => sum + l.cost);
 
@@ -486,6 +492,7 @@ class _WaterLogTabState extends State<_WaterLogTab> {
   bool _isLoading = true;
   int _billingDay = 30;
   DateTime? _cycleStart;
+  DateTime? _billingCycleKey;
 
   @override
   void initState() {
@@ -501,6 +508,16 @@ class _WaterLogTabState extends State<_WaterLogTab> {
     final user = await widget.firestoreService.getUser(widget.uid);
     _billingDay = user?.billingDay ?? 30;
     _cycleStart = EnergyForecaster.getCycleStart(now, _billingDay);
+
+    // ตั้งค่าคีย์ระบุกลุ่มของรอบปัจจุบันที่ผ่าน Logic ปัดรอบบิลเรียบร้อยแล้ว
+    if (now.day >= _billingDay) {
+      _billingCycleKey =
+          DateTime(_cycleStart!.year, _cycleStart!.month + 1, _billingDay);
+    } else {
+      _billingCycleKey =
+          DateTime(_cycleStart!.year, _cycleStart!.month, _billingDay);
+    }
+
     _logs = await widget.firestoreService.getCurrentMonthWaterLogs(
       widget.uid,
       startDate,
@@ -516,7 +533,7 @@ class _WaterLogTabState extends State<_WaterLogTab> {
   }
 
   Future<void> _confirmDelete(WaterLogModel log) async {
-final confirm = await showConfirmDialog(
+    final confirm = await showConfirmDialog(
       context,
       title: 'ลบข้อมูล',
       content: 'ต้องการลบข้อมูลนี้ใช่ไหมคะ?',
@@ -565,7 +582,7 @@ final confirm = await showConfirmDialog(
             itemBuilder: (context, groupIndex) {
               final group = groups[groupIndex];
               final groupLogs = group.value;
-              final isCurrent = group.key == _cycleStart;
+              final isCurrent = group.key == _billingCycleKey;
               final groupCost =
                   groupLogs.fold<double>(0, (sum, l) => sum + l.cost);
 
@@ -603,7 +620,8 @@ final confirm = await showConfirmDialog(
                     showTableRowActions(
                       context,
                       title: DateFormat('dd/MM/yyyy').format(log.date),
-                      subtitle: 'มิเตอร์ ${log.meterValue.toStringAsFixed(0)} · '
+                      subtitle:
+                          'มิเตอร์ ${log.meterValue.toStringAsFixed(0)} · '
                           'ใช้ไป ${log.usedFromStart.toStringAsFixed(0)} ลบ.ม. · '
                           '${formatter.format(log.cost)} บาท',
                       locked: !_isEditable(log),
