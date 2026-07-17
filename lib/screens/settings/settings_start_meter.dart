@@ -586,6 +586,57 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ลิงก์เล็กๆ ชวนตั้งวันตัดรอบบิลไปพร้อมกันเลย — โชว์
+                        // เฉพาะบัญชีที่ยังไม่เคยเลือกวันเอง (billingDayConfigured
+                        // false) เพราะจังหวะนี้ผู้ใช้กำลังตั้งค่าเริ่มต้นของ
+                        // รอบบิลอยู่แล้วพอดี ถือโอกาสชวนตั้งอีกอย่างที่มักลืม
+                        // ไปด้วยเลย ไม่ผูกกับ flow เดิม กดแล้วแค่เปิดหน้า
+                        // ตั้งค่าพร้อม quickAction เดียวกับที่จุดอื่นใช้อยู่
+                        if (_user?.billingDayConfigured == false)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SettingsScreen(
+                                        quickAction:
+                                            SettingsQuickAction.billingDay),
+                                  ),
+                                );
+                                if (mounted) await _loadCurrent();
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.event_repeat,
+                                        size: 17,
+                                        color: Colors.grey.shade700),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        'ยังไม่ได้ตั้งวันตัดรอบบิล ตั้งไปพร้อมกันไหม',
+                                        style: TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    Icon(Icons.arrow_forward_ios,
+                                        size: 12, color: Colors.grey.shade500),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         // เดิมมีกล่องแบนเนอร์สีเต็มความกว้างแยกต่างหากบอก
                         // โหมดแก้ไข/ตั้งใหม่ แต่พอมาดูของจริงแล้วมันซ้ำกับ
                         // สิ่งที่ส่วนเลือกเดือนด้านล่างสื่อสารอยู่แล้ว (โหมด

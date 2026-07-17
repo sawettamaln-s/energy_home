@@ -1065,7 +1065,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: () async {
                           await _firestoreService.updateUser(
                             _user!.uid,
-                            {'billingDay': selectedDay},
+                            {
+                              'billingDay': selectedDay,
+                              // ผู้ใช้กดเลือกวันเองจริงแล้วตรงนี้ (ไม่ว่าจะ
+                              // เป็นครั้งแรกหรือมาแก้ทีหลัง) ใช้ปิดตัวเตือน
+                              // "ยังไม่ได้ตั้งวันตัดรอบบิล" บนหน้าหลัก
+                              'billingDayConfigured': true,
+                            },
                           );
                           await _loadUser();
                           if (context.mounted) Navigator.pop(context);

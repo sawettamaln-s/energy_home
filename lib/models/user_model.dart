@@ -31,6 +31,14 @@ class UserModel {
   final bool electricityStartConfigured;
   final bool waterStartConfigured;
 
+  // true = ผู้ใช้เคยกดเลือกวันตัดรอบบิลเองจริงๆ แล้ว (ไม่ว่าจะตอนสมัครหรือ
+  // มาตั้งทีหลังที่หน้าตั้งค่า) / false = ยังไม่เคยเลือกเอง กำลังใช้ค่า
+  // default (billingDay = 30) อยู่เฉยๆ — เดิมไม่มี flag นี้เลย ทำให้หน้าหลัก
+  // ไม่มีทางรู้ว่าค่า 30 ที่เห็นเป็น "ผู้ใช้ตั้งใจเลือกวันที่ 30 จริง" หรือ
+  // "ยังไม่ได้ตั้งเลย" ก็เลยไม่มีตัวเตือนให้ไปตั้งค่าได้ — ใช้แพทเทิร์นเดียว
+  // กับ startMeterConfigured ด้านบน
+  final bool billingDayConfigured;
+
   UserModel({
     required this.uid,
     required this.name,
@@ -49,6 +57,7 @@ class UserModel {
     this.startMeterConfigured = true,
     this.electricityStartConfigured = true,
     this.waterStartConfigured = true,
+    this.billingDayConfigured = true,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -79,6 +88,10 @@ class UserModel {
           true,
       waterStartConfigured:
           map['waterStartConfigured'] ?? map['startMeterConfigured'] ?? true,
+      // บัญชีเก่าก่อนมี field นี้ (map ไม่มี key) ให้ default เป็น true เสมอ
+      // เพราะตอนนั้นเซตอัพยังบังคับให้เลือกวันตัดรอบบิลอยู่ (ฟีเจอร์ "ข้าม
+      // ได้" เพิ่งมาตัดขั้นนี้ออกทีหลัง) จึงถือว่าบัญชีเก่าทุกบัญชีเลือกไปแล้ว
+      billingDayConfigured: map['billingDayConfigured'] ?? true,
     );
   }
 
@@ -101,6 +114,7 @@ class UserModel {
       'startMeterConfigured': startMeterConfigured,
       'electricityStartConfigured': electricityStartConfigured,
       'waterStartConfigured': waterStartConfigured,
+      'billingDayConfigured': billingDayConfigured,
     };
   }
 }

@@ -71,6 +71,11 @@ class _SetupScreenState extends State<SetupScreen> {
         startMeterConfigured: false,
         electricityStartConfigured: false,
         waterStartConfigured: false,
+        // ขั้นเลือกวันตัดรอบบิลถูกตัดออกจากเซตอัพแล้ว (ดูคอมเมนต์ด้านบน)
+        // _selectedBillingDay เลยเป็น null เสมอในตอนนี้ ทำให้ค่านี้เป็น false
+        // เสมอด้วย — คงเงื่อนไขไว้แบบนี้ (ไม่ hardcode false ตรงๆ) เผื่อมีการ
+        // เอาขั้นเลือกวันตัดรอบบิลกลับมาใส่ในเซตอัพอีกทีในอนาคต
+        billingDayConfigured: _selectedBillingDay != null,
         startBillingMonth: _selectedStartMonth,
         startBillingYear: _selectedStartYear,
       );

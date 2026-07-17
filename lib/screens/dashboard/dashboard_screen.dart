@@ -606,6 +606,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // -------------------------------------------------
                       _buildHeader(daysElapsed, remainingDays),
 
+                      // -------------------------------------------------
+                      // (2) ตัวเตือนวันตัดรอบบิล — เดิมไม่มีตัวเตือนเรื่องนี้
+                      // บนหน้าหลักเลย ต่างจากมิเตอร์ต้นรอบที่มีการ์ดล็อกใหญ่
+                      // คอยเตือนอยู่แล้ว ทำให้คนที่ยังไม่ได้ตั้งวันตัดรอบบิล
+                      // เอง (ใช้ default 30 ไปเรื่อยๆ) มีโอกาสลืมไปตั้งได้ง่าย
+                      // ใช้ billingDayConfigured (UserModel) เป็นตัวเช็ค —
+                      // false เฉพาะบัญชีที่ยังไม่เคยกดเลือกวันเองจริงๆ เท่านั้น
+                      // (ไม่ใช่ทุกบัญชีที่ billingDay == 30 เพราะบางคนก็เลือก
+                      // วันที่ 30 เองจริงๆ เหมือนกัน)
+                      if (_user?.billingDayConfigured == false) ...[
+                        const SizedBox(height: 14),
+                        _buildBillingDayReminderBanner(),
+                      ],
+
                       const SizedBox(height: 18),
 
                       // -------------------------------------------------
@@ -1004,6 +1018,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // =====================================================================
+  // แบนเนอร์เล็กเตือนให้ตั้งวันตัดรอบบิล — ต่างจาก
+  // _buildStartMeterRequiredCard() ตรงที่ไม่บล็อกการใช้งานอะไรเลย (ระบบยัง
+  // ใช้ default 30 คำนวณให้ได้อยู่) จึงออกแบบให้เด่นน้อยกว่า เป็นแถบบางๆ
+  // กดแล้วพาไปหน้าตั้งค่า พร้อมเปิด dialog เลือกวันตัดรอบบิลให้เลย
+  // (ใช้ SettingsQuickAction.billingDay ตัวเดียวกับที่หน้าอื่นเรียกใช้อยู่
+  // แล้ว ไม่ต้องเพิ่ม flow ใหม่)
+  // =====================================================================
+  Widget _buildBillingDayReminderBanner() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                const SettingsScreen(quickAction: SettingsQuickAction.billingDay),
+          ),
+        );
+        await _loadData();
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: DashboardStyles.primaryGreen.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: DashboardStyles.primaryGreen.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.event_repeat,
+                color: DashboardStyles.primaryGreen, size: 19),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'ยังไม่ได้ตั้งวันตัดรอบบิล แตะเพื่อตั้งค่า',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios,
+                size: 13, color: Colors.grey.shade500),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =====================================================================
   // การ์ดเตือนให้ตั้งค่ามิเตอร์ต้นรอบก่อน — แสดงแทนช่องกรอกมิเตอร์ปกติ
   // เฉพาะตอนที่ยังไม่ได้ตั้งเลยสักฝั่ง (electricityStartConfigured และ
   // waterStartConfigured เป็น false ทั้งคู่ = startMeterConfigured false)
@@ -1053,9 +1116,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          // เดิมเขียนว่า "ตอนสมัครคุณข้ามขั้นตอนนี้ไว้" ซึ่งไม่จริงเสมอไป
+          // (เช่นกดเข้าใช้งานจากเช็คลิสต์หลังเซตอัพ ไม่ได้ข้ามอะไร) เปลี่ยน
+          // มาโฟกัสที่ "ผลลัพธ์ที่ยังทำไม่ได้" แทนสาเหตุที่มาไม่ตรงเคสเสมอไป
           const Text(
-            'ตอนสมัครคุณข้ามขั้นตอนนี้ไว้ ต้องตั้งค่ามิเตอร์ต้นรอบก่อน '
-            'ระบบถึงจะคำนวณหน่วยที่ใช้และค่าไฟ/ค่าน้ำได้ถูกต้อง',
+            'ระบบยังคำนวณค่าไฟ/ค่าน้ำให้ไม่ได้ เพราะยังไม่มีเลขมิเตอร์ตั้งต้น',
             style: TextStyle(fontSize: 12.5, color: Colors.grey, height: 1.5),
           ),
           const SizedBox(height: 14),
