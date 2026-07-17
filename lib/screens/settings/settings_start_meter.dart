@@ -56,6 +56,11 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   // ของยูทิลิตี้นั้นๆ (ดู _eIsFirstEntry/_wIsFirstEntry ด้านล่าง)
   final _eUsedCtrl = TextEditingController();
   final _wUsedCtrl = TextEditingController();
+  // TOU เท่านั้น: คู่ On-Peak/Off-Peak ของ "หน่วยที่ใช้ไปแล้ว" (ครั้งแรกสุด)
+  // แทน _eUsedCtrl ตัวเดียว — ผลรวมของสองช่องนี้คือค่าที่เอาไปใช้จริง
+  // (ดู StartMeterPairedFields/_usedFieldTou)
+  final _eUsedPeakCtrl = TextEditingController();
+  final _eUsedOffPeakCtrl = TextEditingController();
   bool _electricityNoBillYet = false;
   bool _waterNoBillYet = false;
   // โชว์ตอนกดบันทึกแล้วไม่มีคู่ไหนกรอกครบเลยสักคู่ (ทั้งคู่ว่างหรือกรอก
@@ -99,6 +104,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       _wCostCtrl,
       _eUsedCtrl,
       _wUsedCtrl,
+      _eUsedPeakCtrl,
+      _eUsedOffPeakCtrl,
     ]) {
       c.addListener(() {
         if (mounted) setState(() {});
@@ -188,6 +195,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     _wCostCtrl.dispose();
     _eUsedCtrl.dispose();
     _wUsedCtrl.dispose();
+    _eUsedPeakCtrl.dispose();
+    _eUsedOffPeakCtrl.dispose();
     super.dispose();
   }
 
@@ -226,7 +235,12 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     final wVal = double.tryParse(_wCtrl.text) ?? 0;
     final eCost = double.tryParse(_eCostCtrl.text) ?? 0;
     final wCost = double.tryParse(_wCostCtrl.text) ?? 0;
-    final eUsedInput = double.tryParse(_eUsedCtrl.text) ?? 0;
+    // TOU: หน่วยที่ใช้ไปแล้ว (ครั้งแรกสุด) มาจากผลรวม On-Peak/Off-Peak ที่
+    // กรอกแยก แทนช่องเดียวแบบเดิม (สอดคล้องกับที่ widget ใช้ auto-sum แล้ว)
+    final eUsedInput = widget.isTou
+        ? (double.tryParse(_eUsedPeakCtrl.text) ?? 0) +
+            (double.tryParse(_eUsedOffPeakCtrl.text) ?? 0)
+        : double.tryParse(_eUsedCtrl.text) ?? 0;
     final wUsedInput = double.tryParse(_wUsedCtrl.text) ?? 0;
 
     // กติกาจับคู่ + อย่างน้อย 1 คู่ต้องครบ + ช่องที่ 3 (ถ้าโชว์) ใช้ตัวเดียว
@@ -757,6 +771,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           wCostCtrl: _wCostCtrl,
                           eUsedCtrl: _eUsedCtrl,
                           wUsedCtrl: _wUsedCtrl,
+                          eUsedPeakCtrl: _eUsedPeakCtrl,
+                          eUsedOffPeakCtrl: _eUsedOffPeakCtrl,
                           eIsFirstEntry: _eIsFirstEntry,
                           wIsFirstEntry: _wIsFirstEntry,
                           eNoBillYet: _electricityNoBillYet,
@@ -1105,6 +1121,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                         emptyIcon: Icons.bolt,
                         valueOf: (r) => r.electricityValue,
                         costOf: (bill) => bill?.electricityCost,
+                        isTouTable: widget.isTou,
                       ),
                       _buildTable(
                         records: waterRecords,
@@ -1141,6 +1158,11 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
     required IconData emptyIcon,
     required double Function(StartMeterRecordModel) valueOf,
     required double? Function(BillModel?) costOf,
+    // มิเตอร์ TOU ไม่เคยเซ็ต electricityValue เลย (ใช้ peakValue/offPeakValue
+    // แทน) เลยต้องแยกตารางเป็น On-Peak/Off-Peak คนละคอลัมน์ ไม่งั้นคอลัมน์
+    // "หน่วยสะสม" เดิมจะอ่าน valueOf แล้วเจอ 0 โชว์ "-" ตลอดทุกแถว (บั๊กที่
+    // เจอ) ใช้เฉพาะตารางไฟฟ้าเท่านั้น ตารางน้ำไม่มี TOU จึงไม่ต้องแตะ
+    bool isTouTable = false,
   }) {
     final formatter = NumberFormat('#,##0.00');
     final dateFormatter = DateFormat('dd/MM/yyyy, HH:mm');
@@ -1152,19 +1174,48 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
       );
     }
 
+    final columns = isTouTable
+        ? const [
+            ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
+            ExcelTableColumn('On-Peak', flex: 2),
+            ExcelTableColumn('Off-Peak', flex: 2),
+            ExcelTableColumn('ค่าไฟ', flex: 2),
+          ]
+        : [
+            const ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
+            ExcelTableColumn(unitLabel, flex: 2),
+            ExcelTableColumn(costLabel, flex: 2),
+          ];
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: ExcelStyleTable(
         accent: accent,
-        columns: [
-          const ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
-          ExcelTableColumn(unitLabel, flex: 2),
-          ExcelTableColumn(costLabel, flex: 2),
-        ],
+        columns: columns,
         rowCount: records.length,
         isLatest: (row) => records[row].id == latestId,
         cellText: (row, col) {
           final r = records[row];
+          if (isTouTable) {
+            final missing = r.peakValue <= 0 && r.offPeakValue <= 0;
+            switch (col) {
+              case 0:
+                return '${thaiMonths[r.billingMonth - 1]} ${r.billingYear}'
+                    '${missing ? ' (ยังไม่ได้กรอกข้อมูล)' : ''}';
+              case 1:
+                return r.peakValue <= 0 ? '-' : formatter.format(r.peakValue);
+              case 2:
+                return r.offPeakValue <= 0
+                    ? '-'
+                    : formatter.format(r.offPeakValue);
+              default:
+                final bill = _billFor(r.billingMonth, r.billingYear);
+                final cost = costOf(bill);
+                return cost == null || cost == 0
+                    ? '-'
+                    : formatter.format(cost);
+            }
+          }
           final missing = valueOf(r) <= 0;
           switch (col) {
             case 0:

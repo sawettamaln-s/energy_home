@@ -323,6 +323,15 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   int _billingDay = 30;
   DateTime? _cycleStart;
   DateTime? _billingCycleKey;
+  // ใช้ตัดสินว่าตารางควรโชว์คอลัมน์ On-Peak/Off-Peak แยกไหม (เดิมข้อมูลนี้
+  // โชว์ได้แค่ตอนแตะแถวดู detail เฉยๆ ทั้งที่เป็นตัวเลขที่ TOU ใช้ตัดสินใจ
+  // บ่อย เลยยกขึ้นมาเป็นคอลัมน์ในตารางหลักด้วย)
+  bool _isTou = false;
+  // เลขมิเตอร์ต้นรอบ (peak/offpeak) ของแต่ละรอบบิล — ใช้คำนวณ "ที่ใช้ไป"
+  // แยกตามประเภทจาก log.peakMeterValue/offPeakMeterValue ที่เป็นเลขสะสม
+  // ล้วนๆ (ไม่ใช้ user.startPeakValue ตัวเดียวเพราะรอบเก่าที่ปิดไปแล้วมี
+  // ต้นรอบคนละค่ากับรอบปัจจุบัน — ต้องอิงประวัติจริงของรอบนั้นๆ)
+  List<StartMeterRecordModel> _startHistory = [];
 
   @override
   void initState() {
@@ -337,6 +346,10 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
     final endDate = DateTime(now.year + 1, now.month, 1);
     final user = await widget.firestoreService.getUser(widget.uid);
     _billingDay = user?.billingDay ?? 30;
+    _isTou = user?.meterType == 'tou';
+    if (_isTou) {
+      _startHistory = await widget.firestoreService.getStartMeterHistory(widget.uid);
+    }
     _cycleStart = EnergyForecaster.getCycleStart(now, _billingDay);
 
     // ตั้งค่าคีย์ระบุกลุ่มของรอบปัจจุบันที่ผ่าน Logic ปัดรอบบิลเรียบร้อยแล้ว
@@ -360,6 +373,18 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   bool _isEditable(ElectricityLogModel log) {
     if (_cycleStart == null) return false;
     return !log.date.isBefore(_cycleStart!);
+  }
+
+  // หาเลขต้นรอบ (peak/offpeak) ของรอบบิลที่ cycleKey นี้ตรงกับ — ใช้ month/
+  // year เดียวกับที่ StartMeterRecordModel เก็บไว้ (r.billingMonth/Year)
+  // คืน null ถ้าไม่เจอ record ของรอบนั้นเลย (เช่น log เก่าก่อนเคยตั้ง TOU)
+  (double peak, double offPeak)? _startValuesFor(DateTime cycleKey) {
+    final match = _startHistory.where((r) =>
+        r.billingMonth == cycleKey.month && r.billingYear == cycleKey.year);
+    if (match.isEmpty) return null;
+    final r = match.first;
+    if (r.peakValue <= 0 && r.offPeakValue <= 0) return null;
+    return (r.peakValue, r.offPeakValue);
   }
 
   Future<void> _confirmDelete(ElectricityLogModel log) async {
@@ -426,16 +451,51 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
                 initiallyExpanded: groupIndex == 0,
                 table: ExcelStyleTable(
                   accent: accent,
-                  columns: const [
-                    ExcelTableColumn('วันที่', align: TextAlign.left, flex: 3),
-                    ExcelTableColumn('หน่วยที่ใช้', flex: 2),
-                    ExcelTableColumn('ค่าไฟ', flex: 2),
-                  ],
+                  // TOU: เพิ่มคอลัมน์ On-Peak/Off-Peak "ที่ใช้ไป" (ไม่ใช่เลข
+                  // มิเตอร์สะสม) เข้าไปในตารางหลักเลย เดิมมีแต่เลขสะสมโชว์
+                  // ตอนแตะแถวดู detail เท่านั้น ไม่มีตัวเลข "ใช้ไปเท่าไหร่"
+                  // แยกประเภทให้ดูตรงๆ
+                  columns: _isTou
+                      ? const [
+                          ExcelTableColumn('วันที่',
+                              align: TextAlign.left, flex: 3),
+                          ExcelTableColumn('On-Peak', flex: 2),
+                          ExcelTableColumn('Off-Peak', flex: 2),
+                          ExcelTableColumn('รวม', flex: 2),
+                          ExcelTableColumn('ค่าไฟ', flex: 2),
+                        ]
+                      : const [
+                          ExcelTableColumn('วันที่',
+                              align: TextAlign.left, flex: 3),
+                          ExcelTableColumn('หน่วยที่ใช้', flex: 2),
+                          ExcelTableColumn('ค่าไฟ', flex: 2),
+                        ],
                   rowCount: groupLogs.length,
                   isLatest: (row) => groupIndex == 0 && row == 0,
                   isLocked: (row) => !_isEditable(groupLogs[row]),
                   cellText: (row, col) {
                     final log = groupLogs[row];
+                    if (_isTou) {
+                      final start = _startValuesFor(group.key);
+                      switch (col) {
+                        case 0:
+                          return DateFormat('dd/MM/yy').format(log.date);
+                        case 1:
+                          if (start == null) return '-';
+                          final peakUsed =
+                              (log.peakMeterValue ?? 0) - start.$1;
+                          return peakUsed.toStringAsFixed(0);
+                        case 2:
+                          if (start == null) return '-';
+                          final offPeakUsed =
+                              (log.offPeakMeterValue ?? 0) - start.$2;
+                          return offPeakUsed.toStringAsFixed(0);
+                        case 3:
+                          return log.usedFromStart.toStringAsFixed(0);
+                        default:
+                          return formatter.format(log.cost);
+                      }
+                    }
                     switch (col) {
                       case 0:
                         return DateFormat('dd/MM/yy').format(log.date);

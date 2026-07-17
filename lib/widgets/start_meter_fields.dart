@@ -216,6 +216,11 @@ class StartMeterPairedFields extends StatefulWidget {
   // บัญชี เพราะตั้งแยกยูทิลิตี้ได้อิสระแล้ว
   final TextEditingController eUsedCtrl;
   final TextEditingController wUsedCtrl;
+  // เฉพาะ TOU: แยกช่อง "หน่วยที่ใช้ไปแล้ว" เป็น On-Peak/Off-Peak คู่กัน
+  // เหมือนช่องเลขมิเตอร์ด้านบน แล้วรวมให้อัตโนมัติแทน eUsedCtrl ตัวเดียว
+  // (ไม่ required เพราะตารางน้ำ/มิเตอร์ปกติไม่ใช้)
+  final TextEditingController? eUsedPeakCtrl;
+  final TextEditingController? eUsedOffPeakCtrl;
   final bool eIsFirstEntry;
   final bool wIsFirstEntry;
 
@@ -240,6 +245,8 @@ class StartMeterPairedFields extends StatefulWidget {
     required this.wCostCtrl,
     required this.eUsedCtrl,
     required this.wUsedCtrl,
+    this.eUsedPeakCtrl,
+    this.eUsedOffPeakCtrl,
     this.eIsFirstEntry = false,
     this.wIsFirstEntry = false,
     required this.eNoBillYet,
@@ -358,6 +365,76 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
           'ตั้งค่าครั้งแรก ระบบยังไม่มีเลขของรอบก่อนหน้าให้เทียบหาหน่วยที่ใช้'
           'ให้อัตโนมัติ — กรอกจากใบแจ้งหนี้ใบเดียวกับเลขมิเตอร์สะสมด้านบน'
           '(ช่อง "หน่วยที่ใช้" หรือ "จำนวนหน่วย")',
+          style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+
+  // เวอร์ชัน TOU ของ _usedField — แยก On-Peak/Off-Peak เป็นคนละช่อง (สอดคล้อง
+  // กับเลขมิเตอร์ด้านบนที่แยกอยู่แล้ว) แล้วโชว์ผลรวมให้ดูสดๆ ไม่ต้องให้
+  // ผู้ใช้บวกเลขเอง — ผลรวมนี้คือค่าที่ถูกใช้เป็น eUsed จริงตอน validate/save
+  // (ดู eUsed ใน build() ด้านล่าง)
+  Widget _usedFieldTou({
+    required TextEditingController peakCtrl,
+    required TextEditingController offPeakCtrl,
+    required Color iconColor,
+  }) {
+    final sum = _num(peakCtrl) + _num(offPeakCtrl);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('หน่วยที่ใช้ไปแล้วในรอบนี้ (ครั้งแรกเท่านั้น)',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+        const SizedBox(height: 6),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 340;
+            final peakField = _field(
+              controller: peakCtrl,
+              label: 'On-Peak',
+              hint: 'เช่น 1,655',
+              suffixText: 'หน่วย',
+              icon: Icons.bolt,
+              iconColor: iconColor,
+            );
+            final offPeakField = _field(
+              controller: offPeakCtrl,
+              label: 'Off-Peak',
+              hint: 'เช่น 1,000',
+              suffixText: 'หน่วย',
+              icon: Icons.bolt_outlined,
+              iconColor: iconColor,
+            );
+            if (narrow) {
+              return Column(children: [
+                peakField,
+                const SizedBox(height: 10),
+                offPeakField,
+              ]);
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: peakField),
+                const SizedBox(width: 10),
+                Expanded(child: offPeakField),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'On-Peak + Off-Peak = รวม ${sum.toStringAsFixed(0)} หน่วย '
+          '(คำนวณให้อัตโนมัติ)',
+          style: TextStyle(
+              fontSize: 11.5, fontWeight: FontWeight.w600, color: iconColor),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'ตั้งค่าครั้งแรก ระบบยังไม่มีเลขของรอบก่อนหน้าให้เทียบหาหน่วยที่ใช้'
+          'ให้อัตโนมัติ — กรอกจากใบแจ้งหนี้ใบเดียวกับเลขมิเตอร์สะสมด้านบน '
+          '(ช่อง "หน่วยที่ใช้" แยก On-Peak/Off-Peak)',
           style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
         ),
       ],
@@ -580,7 +657,17 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
     final peakVal = _num(widget.peakCtrl);
     final offPeakVal = _num(widget.offPeakCtrl);
     final eCost = _num(widget.eCostCtrl);
-    final eUsed = _num(widget.eUsedCtrl);
+    // TOU: eUsed มาจากผลรวม On-Peak/Off-Peak ที่กรอกแยก (auto-sum) แทนช่อง
+    // เดียวแบบเดิม — ไม่งั้น validate/save จะยังอิง eUsedCtrl ตัวเดียวซึ่ง
+    // ไม่มีช่องให้กรอกแล้วในโหมด TOU (ดู usedField ด้านล่าง)
+    final eUsedPeakInput =
+        widget.eUsedPeakCtrl == null ? 0.0 : _num(widget.eUsedPeakCtrl!);
+    final eUsedOffPeakInput = widget.eUsedOffPeakCtrl == null
+        ? 0.0
+        : _num(widget.eUsedOffPeakCtrl!);
+    final eUsed = widget.isTou
+        ? eUsedPeakInput + eUsedOffPeakInput
+        : _num(widget.eUsedCtrl);
     final wVal = _num(widget.waterCtrl);
     final wCost = _num(widget.wCostCtrl);
     final wUsed = _num(widget.wUsedCtrl);
@@ -700,12 +787,19 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             noBillYet: widget.eNoBillYet,
             onNoBillYetChanged: widget.onENoBillYetChanged,
             usedField: widget.eIsFirstEntry
-                ? _usedField(
-                    controller: widget.eUsedCtrl,
-                    hint: 'เช่น 2,655',
-                    suffixText: 'หน่วย',
-                    iconColor: DashboardStyles.electricityBorder,
-                  )
+                ? (widget.isTou && widget.eUsedPeakCtrl != null &&
+                        widget.eUsedOffPeakCtrl != null
+                    ? _usedFieldTou(
+                        peakCtrl: widget.eUsedPeakCtrl!,
+                        offPeakCtrl: widget.eUsedOffPeakCtrl!,
+                        iconColor: DashboardStyles.electricityBorder,
+                      )
+                    : _usedField(
+                        controller: widget.eUsedCtrl,
+                        hint: 'เช่น 2,655',
+                        suffixText: 'หน่วย',
+                        iconColor: DashboardStyles.electricityBorder,
+                      ))
                 : null,
           )
         else
