@@ -1,17 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 
-import '../../models/bill_model.dart';
-import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
-import '../../utils/forecaster.dart';
-import '../../utils/thai_date_utils.dart';
 import '../../widgets/info_dialog.dart';
-import '../../widgets/start_meter_fields.dart';
-import '../main_shell.dart';
 import 'setup_complete_screen.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -33,168 +26,37 @@ class _SetupScreenState extends State<SetupScreen> {
       widget._firestoreService ?? FirestoreService();
 
   int _currentStep = 0;
-  // คงที่ 4 ขั้นตอนเสมอ: พื้นที่+อธิบายสูตรคำนวณ (รวมเป็นขั้นเดียว) /
-  // ประเภทมิเตอร์ / วันตัดรอบบิล / บิลตั้งต้น
-  // (เดิมพื้นที่กับอธิบายสูตรคำนวณแยกกัน 2 ขั้น ตอนนี้รวมเป็นขั้นเดียวแบบ
-  // ส่วนที่ 1 / ส่วนที่ 2 ในหน้าเดียว)
-  static const int _totalSteps = 4;
+  // คงที่ 2 ขั้นตอนเสมอ: พื้นที่+อธิบายสูตรคำนวณ (รวมเป็นขั้นเดียว) /
+  // ประเภทมิเตอร์ (เดิมพื้นที่กับอธิบายสูตรคำนวณแยกกัน 2 ขั้น ตอนนี้รวมเป็น
+  // ขั้นเดียวแบบส่วนที่ 1 / ส่วนที่ 2 ในหน้าเดียว)
+  //
+  // ตัดขั้น "วันตัดรอบบิล" กับ "ค่ามิเตอร์ตามใบแจ้งหนี้" ออกจากเซตอัพแล้ว
+  // (ย้ายไปกรอกที่หน้าตั้งค่าแทน) เพราะสองขั้นนั้นเป็น optional อยู่แล้วใน
+  // ทางปฏิบัติ (ข้ามได้เสมอ) แถมพอเลือกวันตัดรอบบิลไปแล้วแต่เดือนของใบแจ้ง
+  // หนี้ยังต้องมาเดา/แก้เองอีกที ก็ยังรู้สึกไม่ match กับรอบจริงอยู่ดี — ให้
+  // ผู้ใช้ทุกคนเข้าหน้าหลักได้เร็วขึ้น แล้วมีการ์ด/แจ้งเตือนจูงไปตั้งค่า
+  // ทีหลังแทน ตัวแปรสองชุดนี้จึงเหลือไว้เป็นค่าเริ่มต้น (billingDay = null
+  // → fallback 30, start meter = ยังไม่ตั้ง) เหมือน path "ข้ามทุกอย่าง" เดิม
+  static const int _totalSteps = 2;
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
-  // null = ยังไม่ได้เลือกวันตัดรอบบิล (ผู้ใช้กดข้ามไปก่อนได้ ไปตั้งทีหลังที่
-  // หน้าตั้งค่าได้) ตอนบันทึกจริงถ้ายังเป็น null จะ fallback เป็นวันที่ 30
-  // ตาม default ของ UserModel
-  int? _selectedBillingDay;
-
-  final _electricityStartController = TextEditingController();
-  final _peakStartController = TextEditingController();
-  final _offPeakStartController = TextEditingController();
-  final _waterStartController = TextEditingController();
-  // เพิ่มค่าใช้จ่ายให้กรอกคู่กับเลขมิเตอร์ได้ตั้งแต่ตอนสมัครเลย (เดิมมีแค่
-  // ในหน้าตั้งค่า ทำให้คนที่กรอกตอนสมัครไม่มีข้อมูลค่าใช้จ่ายจุดแรกให้หน้า
-  // วิเคราะห์เลย ต้องรอครบรอบบิลถัดไปก่อน) ใช้กติกาจับคู่เดียวกับหน้าตั้งค่า
-  final _electricityCostController = TextEditingController();
-  final _waterCostController = TextEditingController();
-  // ช่องที่ 3 "หน่วยที่ใช้ไปแล้ว" — ตอนเซตอัพครั้งแรกสุดของบัญชี ไม่มี
-  // record ก่อนหน้าเลยแม้แต่ตัวเดียว (บัญชีเพิ่งสร้าง) จึง isFirstEntry
-  // เป็น true เสมอสำหรับยูทิลิตี้ที่กรอก ต่างจากหน้าตั้งค่าที่ต้องเช็คจาก
-  // ประวัติจริง เพราะที่นี่ไม่มีประวัติให้เช็คอยู่แล้วตั้งแต่ต้น
-  final _electricityUsedController = TextEditingController();
-  final _waterUsedController = TextEditingController();
-  bool _electricityNoBillYet = false;
-  bool _waterNoBillYet = false;
-  // ค่าเริ่มต้นแบบเดาไปก่อน (เดือนปฏิทินปัจจุบัน) — จะถูกคำนวณใหม่ให้ตรง
-  // กับวันตัดรอบบิลจริงทันทีที่ผู้ใช้เลือกวันตัดรอบเสร็จใน step 3 (ดู
-  // _openBillingDayPicker) ยกเว้นถ้าผู้ใช้มาแก้ dropdown นี้เองแล้วใน step 4
-  // (_startMonthTouched = true) จะไม่เขียนทับค่าที่แก้เองอีก
-  int _selectedStartMonth = DateTime.now().month;
-  int _selectedStartYear = DateTime.now().year;
-  bool _startMonthTouched = false;
-  String _startMeterError = '';
-  // ผู้ใช้กดข้ามขั้นตอนนี้ไปก่อน (ยังไม่มีใบแจ้งหนี้ตอนสมัคร) ไปกรอกทีหลัง
-  // ได้ที่หน้าตั้งค่า ตอนข้ามจะไม่บังคับกรอกและตั้งค่าตั้งต้นเป็น 0 ไปก่อน
-  bool _startMeterSkipped = false;
+  final int? _selectedBillingDay = null;
+  final int _selectedStartMonth = DateTime.now().month;
+  final int _selectedStartYear = DateTime.now().year;
 
   bool _isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // ให้การ์ดคู่ไฟ/น้ำใน StartMeterPairedFields รีเฟรช error แบบ live เวลา
-    // พิมพ์ เหมือนกับที่ทำไว้ในหน้าตั้งค่า > บันทึกมิเตอร์ต้นรอบ
-    for (final c in [
-      _electricityStartController,
-      _peakStartController,
-      _offPeakStartController,
-      _waterStartController,
-      _electricityCostController,
-      _waterCostController,
-      _electricityUsedController,
-      _waterUsedController,
-    ]) {
-      c.addListener(() {
-        if (mounted) setState(() {});
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _electricityStartController.dispose();
-    _waterStartController.dispose();
-    _peakStartController.dispose();
-    _offPeakStartController.dispose();
-    _electricityCostController.dispose();
-    _waterCostController.dispose();
-    _electricityUsedController.dispose();
-    _waterUsedController.dispose();
-    super.dispose();
-  }
-
-  bool _validateStartMeter() {
-    // กดข้ามไปก่อนแล้ว ไม่ต้องเช็คอะไรเลย ปล่อยผ่านได้ทันที
-    if (_startMeterSkipped) {
-      setState(() => _startMeterError = '');
-      return true;
-    }
-
-    // กติกาเดียวกับหน้าตั้งค่า > บันทึกมิเตอร์ต้นรอบ: จับคู่เลขมิเตอร์กับ
-    // ค่าใช้จ่ายของยูทิลิตี้เดียวกัน ต้องกรอกครบทั้งคู่หรือเว้นว่างทั้งคู่
-    // และต้องมีอย่างน้อย 1 คู่ครบ (เผื่อมีบิลแค่ใบเดียวในมือตอนสมัคร)
-    final eVal = double.tryParse(_electricityStartController.text) ?? 0;
-    final peakVal = double.tryParse(_peakStartController.text) ?? 0;
-    final offPeakVal = double.tryParse(_offPeakStartController.text) ?? 0;
-    final wVal = double.tryParse(_waterStartController.text) ?? 0;
-    final eCost = double.tryParse(_electricityCostController.text) ?? 0;
-    final wCost = double.tryParse(_waterCostController.text) ?? 0;
-    final eUsed = double.tryParse(_electricityUsedController.text) ?? 0;
-    final wUsed = double.tryParse(_waterUsedController.text) ?? 0;
-
-    final ok = StartMeterValidation.canSave(
-      isTou: _selectedMeterType == 'tou',
-      eVal: eVal,
-      peakVal: peakVal,
-      offPeakVal: offPeakVal,
-      eCost: eCost,
-      wVal: wVal,
-      wCost: wCost,
-      eNoBillYet: _electricityNoBillYet,
-      wNoBillYet: _waterNoBillYet,
-      eIsFirstEntry: true,
-      eUsed: eUsed,
-      wIsFirstEntry: true,
-      wUsed: wUsed,
-    );
-    if (!ok) {
-      setState(() => _startMeterError =
-          'กรอกให้ครบทั้งเลขมิเตอร์และค่าใช้จ่ายของอย่างน้อย 1 ประเภท '
-          '(ไฟฟ้า หรือ น้ำ) หรือเว้นว่างทั้งคู่ถ้ายังไม่มีบิลฝั่งนั้น');
-      return false;
-    }
-
-    setState(() => _startMeterError = '');
-    return true;
-  }
-
   Future<void> _saveSetup() async {
-    if (!_validateStartMeter()) return;
-
     setState(() => _isLoading = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser!;
 
-      final eVal = double.tryParse(_electricityStartController.text) ?? 0;
-      final peakVal = double.tryParse(_peakStartController.text) ?? 0;
-      final offPeakVal = double.tryParse(_offPeakStartController.text) ?? 0;
-      final wVal = double.tryParse(_waterStartController.text) ?? 0;
-      final eCost = double.tryParse(_electricityCostController.text) ?? 0;
-      final wCost = double.tryParse(_waterCostController.text) ?? 0;
-      final eUsed = double.tryParse(_electricityUsedController.text) ?? 0;
-      final wUsed = double.tryParse(_waterUsedController.text) ?? 0;
-
-      // กติกาเดียวกับหน้าตั้งค่า: ครบคู่ (เลขมิเตอร์ + ค่าใช้จ่าย + หน่วยที่
-      // ใช้ เพราะเป็นการตั้งค่าครั้งแรกสุดของบัญชีเสมอ) ของยูทิลิตี้ไหนก็
-      // ตั้งค่าของยูทิลิตี้นั้น ไม่ครบ = ยังไม่ตั้ง (0 ไปก่อน ไปกรอกทีหลัง
-      // ได้ที่หน้าตั้งค่า) — กดข้าม (_startMeterSkipped) ก็จะได้ผลเดียวกัน
-      // เพราะฟิลด์ยังว่างอยู่ ทั้งคู่ complete = false เองอยู่แล้ว
-      final eComplete = !_startMeterSkipped &&
-          StartMeterValidation.electricityComplete(
-              isTou: _selectedMeterType == 'tou',
-              eVal: eVal,
-              peakVal: peakVal,
-              offPeakVal: offPeakVal,
-              eCost: eCost,
-              eNoBillYet: _electricityNoBillYet,
-              isFirstEntry: true,
-              eUsed: eUsed);
-      final wComplete = !_startMeterSkipped &&
-          StartMeterValidation.waterComplete(
-              wVal: wVal,
-              wCost: wCost,
-              wNoBillYet: _waterNoBillYet,
-              isFirstEntry: true,
-              wUsed: wUsed);
-
+      // ตัดขั้นวันตัดรอบบิล/ค่ามิเตอร์ตามใบแจ้งหนี้ออกจากเซตอัพแล้ว —
+      // ทุกบัญชีใหม่จึงเริ่มแบบ "ยังไม่ตั้ง" เหมือน path เดิมตอนกดข้ามทั้งคู่
+      // เสมอ (billingDay fallback 30, start meter ว่าง) ไปกรอกจริงที่หน้า
+      // ตั้งค่าแทน ไม่มีการสร้าง StartMeterRecordModel/BillModel ย้อนหลัง
+      // ในขั้นตอนนี้อีกต่อไป
       final userModel = UserModel(
         uid: user.uid,
         name: user.displayName ?? '',
@@ -202,65 +64,18 @@ class _SetupScreenState extends State<SetupScreen> {
         area: _selectedArea,
         meterType: _selectedMeterType,
         billingDay: _selectedBillingDay ?? 30,
-        startElectricityValue: eComplete ? eVal : 0,
-        startWaterValue: wComplete ? wVal : 0,
-        startPeakValue: eComplete ? peakVal : 0,
-        startOffPeakValue: eComplete ? offPeakVal : 0,
-        startMeterConfigured: eComplete || wComplete,
-        electricityStartConfigured: eComplete,
-        waterStartConfigured: wComplete,
+        startElectricityValue: 0,
+        startWaterValue: 0,
+        startPeakValue: 0,
+        startOffPeakValue: 0,
+        startMeterConfigured: false,
+        electricityStartConfigured: false,
+        waterStartConfigured: false,
         startBillingMonth: _selectedStartMonth,
         startBillingYear: _selectedStartYear,
       );
 
       await _firestoreService.createUser(userModel);
-
-      // บันทึกลงประวัติมิเตอร์ต้นรอบด้วย (ไม่ใช่แค่เขียนลง user model
-      // เฉยๆ แบบเดิม) — จุดนี้เคยขาดไป ทำให้ถ้าผู้ใช้กรอกค่าตั้งแต่ตอน
-      // สมัคร แล้วย้อนกลับไปเปิดหน้า "ตั้งค่า > บันทึกมิเตอร์ต้นรอบ" อีก
-      // ครั้งในรอบเดียวกัน ระบบจะหาประวัติไม่เจอ (เพราะไม่เคยสร้างไว้)
-      // แล้วเข้าใจผิดว่าเป็นการ "ตั้งค่าใหม่" ทั้งที่จริงควรเป็นการแก้ไข
-      // ค่าที่กรอกไปแล้วตอนสมัคร — กรอกให้ครบตั้งแต่ต้นทาง จะได้ track
-      // ต่อเนื่องกันตลอด ไม่ต้องมาสร้างย้อนหลังทีหลังตอนเปิด Settings ครั้งแรก
-      if (eComplete || wComplete) {
-        await _firestoreService.saveStartMeterRecord(
-          StartMeterRecordModel(
-            id: const Uuid().v4(),
-            uid: user.uid,
-            electricityValue: userModel.startElectricityValue,
-            waterValue: userModel.startWaterValue,
-            peakValue: userModel.startPeakValue,
-            offPeakValue: userModel.startOffPeakValue,
-            billingMonth: _selectedStartMonth,
-            billingYear: _selectedStartYear,
-            recordedAt: DateTime.now(),
-          ),
-        );
-
-        // เพิ่มใหม่: ถ้ากรอกค่าใช้จ่ายมาด้วย (เดิมหน้าเซตอัพไม่เก็บค่าใช้จ่าย
-        // เลย ทำให้คนที่กรอกตอนสมัครไม่มีข้อมูลจุดแรกให้หน้าวิเคราะห์เลย
-        // ต้องรอครบรอบบิลถัดไปก่อน) สร้างบิลย้อนหลัง (source: imported) ให้
-        // เหมือนที่หน้าตั้งค่าทำ — เป็นการตั้งค่าครั้งแรกสุดของบัญชี ไม่มี
-        // record ก่อนหน้าให้คำนวณ "หน่วยที่ใช้" แบบ delta ได้ ใช้ค่าที่ผู้ใช้
-        // กรอกเองในช่องที่ 3 (บังคับกรอกมาแล้วตอน validate เพราะ isFirstEntry
-        // เป็น true เสมอในหน้านี้) แทน
-        if (eCost > 0 || wCost > 0) {
-          await _firestoreService.saveBill(
-            BillModel(
-              id: const Uuid().v4(),
-              uid: user.uid,
-              year: _selectedStartYear,
-              month: _selectedStartMonth,
-              electricityCost: eComplete ? eCost : 0,
-              waterCost: wComplete ? wCost : 0,
-              totalCost: (eComplete ? eCost : 0) + (wComplete ? wCost : 0),
-              electricityUsed: eComplete ? eUsed : 0,
-              waterUsed: wComplete ? wUsed : 0,
-              source: 'startMeter',
-            ),
-          );
-        }
-      }
 
       // แจ้งเตือนต้อนรับ — ย้ายมาไว้ตรงนี้แทน Dashboard.initState()
       // เพราะ _saveSetup() รันแค่ครั้งเดียวจริงๆ ต่อบัญชี (เฉพาะตอนบัญชีใหม่
@@ -271,22 +86,9 @@ class _SetupScreenState extends State<SetupScreen> {
 
       if (!mounted) return;
 
-      // ถ้ากรอกครบทุกอย่างไม่มีการข้าม ไม่ต้องแวะหน้าสรุป เข้า Dashboard ได้เลย
-      // แต่ถ้าข้ามวันตัดรอบบิลหรือบิลตั้งต้นไปข้อใดข้อหนึ่ง ให้แวะหน้าสรุป
-      // ก่อน เพื่อเตือนว่ายังมีอะไรค้างอยู่บ้าง
-      final skippedSomething =
-          _selectedBillingDay == null || _startMeterSkipped;
-
-      if (!skippedSomething) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-              builder: (context) =>
-                  const MainShell(justCompletedSetup: true)),
-          (route) => false,
-        );
-        return;
-      }
-
+      // เซตอัพจบแค่ 2 ขั้นตอนนี้เสมอ วันตัดรอบบิล/ค่ามิเตอร์ยังไม่ตั้งทุก
+      // บัญชี → แวะหน้าสรุปเพื่อจูงไปตั้งค่าต่อเสมอ (เหมือน path เดิมตอน
+      // กดข้ามทั้งคู่)
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => SetupCompleteScreen(
@@ -365,9 +167,7 @@ class _SetupScreenState extends State<SetupScreen> {
                           ? null
                           : () async {
                               if (_currentStep == _totalSteps - 1) {
-                                if (_validateStartMeter()) {
-                                  await _saveSetup();
-                                }
+                                await _saveSetup();
                               } else {
                                 setState(() => _currentStep++);
                               }
@@ -405,10 +205,6 @@ class _SetupScreenState extends State<SetupScreen> {
         return _buildAreaAndRateExplanationStep();
       case 1:
         return _buildMeterTypeStep();
-      case 2:
-        return _buildBillingDayStep();
-      case 3:
-        return _buildStartMeterStep();
       default:
         return const SizedBox();
     }
@@ -500,514 +296,13 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  Widget _buildBillingDayStep() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStepHeader(
-            icon: Icons.calendar_month_rounded,
-            title: 'วันตัดรอบบิล',
-            subtitle: 'ดูได้จากใบแจ้งหนี้ค่าไฟหรือค่าน้ำของคุณ',
-            helpTitle: 'วันตัดรอบบิลคืออะไร?',
-            helpMessage: 'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
-                'มาถึงบ้าน ระบบจะใช้วันนี้แจ้งเตือนเมื่อใกล้ถึงรอบชำระเงิน '
-                'และเตือนให้บันทึกเลขมิเตอร์ต้นรอบ เพื่อตั้งเป็นค่าเริ่มต้น'
-                'ของรอบบิลเดือนถัดไปโดยอัตโนมัติ',
-          ),
-          const SizedBox(height: 28),
-
-          // ฟิลด์กดเปิดปฏิทินเลือกวัน — แทนกริด 31 ช่องเต็มหน้าจอที่กินพื้นที่
-          // เกินไปบนมือถือ คงรูปแบบฟิลด์ให้เหมือน DropdownButtonFormField เดิม
-          // (กรอบ, padding, มุมโค้ง) เพื่อความสอดคล้องกับฟิลด์อื่นในวิซาร์ดนี้
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: _openBillingDayPicker,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.calendar_month_rounded,
-                      color: _selectedBillingDay != null
-                          ? const Color(0xFF2E7D32)
-                          : Colors.grey.shade400,
-                      size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _selectedBillingDay != null
-                          ? 'วันที่ $_selectedBillingDay ของทุกเดือน'
-                          : 'แตะเพื่อเลือกวันตัดรอบบิล',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: _selectedBillingDay != null
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                        color: _selectedBillingDay != null
-                            ? Colors.black87
-                            : Colors.grey.shade500,
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.chevron_right_rounded,
-                      color: Colors.grey.shade400),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // ข้ามไปก่อนได้ — เผื่อตอนสมัครยังไม่มีใบแจ้งหนี้ติดตัวอยู่
-          // มาตั้งค่าทีหลังได้ที่เมนูตั้งค่า > วันตัดรอบบิล
-          if (_selectedBillingDay != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => setState(() => _selectedBillingDay = null),
-                icon: Icon(Icons.skip_next_rounded,
-                    size: 18, color: Colors.grey.shade600),
-                label: Text(
-                  'ยังไม่รู้วันตัดรอบบิล ข้ามไปก่อน',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                ),
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline,
-                      color: Colors.grey.shade600, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'ข้ามขั้นตอนนี้ไปก่อนได้ ระบบจะใช้วันที่ 30 เป็น'
-                      'ค่าเริ่มต้นไปก่อน แล้วมาตั้งวันที่ถูกต้องได้'
-                      'ภายหลังที่หน้าตั้งค่า',
-                      style: TextStyle(
-                          color: Colors.grey.shade600, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // dialog ปฏิทินเลือกวันตัดรอบบิล — เปิดจากฟิลด์ด้านบน (ดีไซน์เดียวกับ
-  // หน้าตั้งค่า แต่ทำงานกับตัวแปร temp ในนี้ก่อน ค่อยยืนยันลง state จริง
-  // ตอนกด "ยืนยัน" กันเผลอกดวันแล้วเปลี่ยนใจ ปิด dialog ทิ้งได้แบบไม่บันทึก)
-  void _openBillingDayPicker() {
-    int? tempSelected = _selectedBillingDay;
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'เลือกวันตัดรอบบิล',
-                        style:
-                            TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-                      ),
-                    ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.info_outline,
-                          color: Color(0xFF2E7D32), size: 20),
-                      onPressed: () => _showInfoPopup(
-                        'วันตัดรอบบิลคืออะไร?',
-                        'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
-                            'มาถึงบ้าน ระบบจะใช้วันนี้แจ้งเตือนเมื่อใกล้ถึง'
-                            'รอบชำระเงิน และเตือนให้บันทึกเลขมิเตอร์ต้นรอบ '
-                            'เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือนถัดไปโดยอัตโนมัติ',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'แตะที่วันบนใบแจ้งหนี้ล่าสุดของคุณ',
-                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 16),
-
-                // ปฏิทินเลือกวัน 1-31 แบบกริด 7 คอลัมน์ — mainAxisExtent คงที่
-                // เพื่อให้ช่องที่มีป้าย "ยอดนิยม" กับช่องปกติสูงเท่ากัน
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 6,
-                    mainAxisExtent: 46,
-                  ),
-                  // +1 ช่องแรกเป็นช่องว่าง เพื่อให้เลข 1 เริ่มเยื้องคอลัมน์ที่ 2
-                  // ตามแพทเทิร์นเลย์เอาต์ปฏิทินที่อ้างอิงมา
-                  itemCount: 32,
-                  itemBuilder: (context, i) {
-                    if (i == 0) return const SizedBox.shrink();
-                    final day = i;
-                    return _buildBillingDayCell(
-                      day: day,
-                      isSelected: day == tempSelected,
-                      isPopular: _popularBillingDays.contains(day),
-                      onTap: () => setDialogState(() => tempSelected = day),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: Text(
-                    tempSelected != null
-                        ? 'วันที่เลือก: ทุกวันที่ $tempSelected ของเดือน'
-                        : 'ยังไม่ได้เลือกวัน',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: tempSelected != null
-                          ? const Color(0xFF2E7D32)
-                          : Colors.grey.shade500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('ยกเลิก'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: tempSelected == null
-                            ? null
-                            : () {
-                                setState(() {
-                                  _selectedBillingDay = tempSelected;
-                                  // อัปเดตเดือน/ปีต้นรอบให้ตรงกับวันตัดรอบ
-                                  // จริงที่เพิ่งเลือก — เฉพาะตอนผู้ใช้ยังไม่
-                                  // เคยแก้ dropdown เดือน/ปีเองใน step 4
-                                  // (ไม่งั้นจะไปเขียนทับค่าที่แก้เองไว้)
-                                  if (!_startMonthTouched) {
-                                    final expected = EnergyForecaster
-                                        .getCycleStart(
-                                            DateTime.now(), tempSelected!);
-                                    _selectedStartMonth = expected.month;
-                                    _selectedStartYear = expected.year;
-                                  }
-                                });
-                                Navigator.pop(context);
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text('ยืนยัน'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // วันที่ "ยอดนิยม" ที่ให้ป้ายกำกับในปฏิทินเลือกวันตัดรอบบิล — เป็นชุดคงที่
-  // สำหรับความสวยงามของ UI เท่านั้น (ดีไซน์เดียวกับหน้าตั้งค่า)
-  static const Set<int> _popularBillingDays = {1, 15, 20, 25, 30};
-
-  // ช่องวันที่หนึ่งช่องในปฏิทินเลือกวันตัดรอบบิล (ดีไซน์เดียวกับหน้าตั้งค่า)
-  Widget _buildBillingDayCell({
-    required int day,
-    required bool isSelected,
-    required bool isPopular,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2E7D32) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color:
-                isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$day',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.black87,
-              ),
-            ),
-            if (isPopular)
-              Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: Text(
-                  'ยอดนิยม',
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? Colors.white : Colors.green.shade700,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // popup อธิบายข้อมูล — ใช้ widget กลาง showInfoDialog (เดิมมีโค้ดซ้ำในนี้)
   void _showInfoPopup(String title, String message) {
     showInfoDialog(context, title: title, message: message);
   }
 
-
-  Widget _buildStartMeterStep() {
-    const green = Color(0xFF2E7D32);
-
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStepHeader(
-            icon: Icons.receipt_long_outlined,
-            title: 'ค่ามิเตอร์ตามใบแจ้งหนี้',
-            subtitle: 'กรอกค่ามิเตอร์จากใบแจ้งหนี้ล่าสุด เพื่อใช้เป็น'
-                'หน่วยตั้งต้นในการคำนวณค่าไฟ-น้ำของคุณ',
-            helpTitle: 'ทำไมต้องกรอกค่ามิเตอร์ตั้งต้น?',
-            helpMessage: 'ระบบใช้ค่านี้เทียบกับค่ามิเตอร์ที่บันทึกครั้ง'
-                'ถัดไป เพื่อคำนวณหน่วยไฟ/น้ำที่ใช้ในรอบบิลนี้ '
-                'หากข้ามขั้นตอนนี้ ระบบจะยังคำนวณหน่วยที่ใช้ให้ไม่ได้'
-                'จนกว่าจะกรอกค่านี้ภายหลังที่หน้าตั้งค่า',
-          ),
-          const SizedBox(height: 20),
-
-          // การ์ดสวิตช์ "ข้ามไปก่อน" — มีข้อความบอกความหมายตรงๆ ในตัว
-          // ไม่ใช่แค่ไอคอนสวิตช์ลอยๆ ที่ต้องกด tooltip ดู (ซึ่งบนมือถือ
-          // โดยเฉพาะ iOS ไม่มีทาง long-press เจอ tooltip อยู่แล้ว)
-          InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () =>
-                setState(() => _startMeterSkipped = !_startMeterSkipped),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: _startMeterSkipped
-                    ? green.withValues(alpha: 0.08)
-                    : Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: _startMeterSkipped
-                      ? green.withValues(alpha: 0.4)
-                      : Colors.grey.shade200,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'ยังไม่มีใบแจ้งหนี้ตอนนี้?',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: _startMeterSkipped
-                                ? green
-                                : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _startMeterSkipped
-                              ? 'ข้ามไปก่อน — ไปกรอกทีหลังได้ที่หน้าตั้งค่า'
-                              : 'ข้ามขั้นตอนนี้ไปก่อนได้ กรอกทีหลังได้ที่หน้าตั้งค่า',
-                          style: const TextStyle(
-                              color: Colors.grey, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    _startMeterSkipped
-                        ? Icons.check_circle
-                        : Icons.circle_outlined,
-                    color: _startMeterSkipped ? green : Colors.grey.shade400,
-                    size: 26,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          if (_startMeterSkipped)
-            _buildInfoBanner(
-              'ไม่บังคับ กรอกภายหลังได้ที่หน้าตั้งค่า > '
-              'ค่ามิเตอร์ตั้งต้น ระหว่างนี้ระบบจะยังคำนวณหน่วยที่ใช้'
-              'ให้ไม่ได้จนกว่าจะกรอกค่าเริ่มต้น',
-              green: green,
-            )
-          else ...[
-            _buildFieldGroupLabel('ใบแจ้งหนี้เดือน', Icons.event_outlined),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<int>(
-                    initialValue: _selectedStartMonth,
-                    decoration: _dropdownDecoration(),
-                    items: List.generate(12, (i) {
-                      return DropdownMenuItem(
-                        value: i + 1,
-                        child: Text(thaiMonths[i]),
-                      );
-                    }),
-                    onChanged: (val) => setState(() {
-                      _selectedStartMonth = val!;
-                      _startMonthTouched = true;
-                    }),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonFormField<int>(
-                    initialValue: _selectedStartYear,
-                    decoration: _dropdownDecoration(),
-                    items: [
-                      DateTime.now().year - 1,
-                      DateTime.now().year,
-                    ].map((year) {
-                      return DropdownMenuItem(
-                        value: year,
-                        child: Text('$year'),
-                      );
-                    }).toList(),
-                    onChanged: (val) => setState(() {
-                      _selectedStartYear = val!;
-                      _startMonthTouched = true;
-                    }),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            // ใช้ widget กลางตัวเดียวกับหน้าตั้งค่า > บันทึกมิเตอร์ต้นรอบ
-            // แทนโค้ดที่เคย copy มาเองในนี้ — จับคู่เลขมิเตอร์กับค่าใช้จ่าย
-            // ของยูทิลิตี้เดียวกันไว้การ์ดเดียวกัน ไม่ต้องแก้ 2 ที่แยกกัน
-            StartMeterPairedFields(
-              isTou: _selectedMeterType == 'tou',
-              electricityCtrl: _electricityStartController,
-              peakCtrl: _peakStartController,
-              offPeakCtrl: _offPeakStartController,
-              eCostCtrl: _electricityCostController,
-              waterCtrl: _waterStartController,
-              wCostCtrl: _waterCostController,
-              eUsedCtrl: _electricityUsedController,
-              wUsedCtrl: _waterUsedController,
-              eIsFirstEntry: true,
-              wIsFirstEntry: true,
-            eNoBillYet: _electricityNoBillYet,
-              onENoBillYetChanged: (v) => setState(() {
-                _electricityNoBillYet = v;
-                if (v) _electricityCostController.clear();
-              }),
-              wNoBillYet: _waterNoBillYet,
-              onWNoBillYetChanged: (v) => setState(() {
-                _waterNoBillYet = v;
-                if (v) _waterCostController.clear();
-              }),
-              title: 'เลขมิเตอร์สะสมตามใบแจ้งหนี้',
-              subtitle: 'กรอกเลขและค่าใช้จ่ายจากใบแจ้งหนี้เดือนที่เลือกไว้'
-                  'ด้านบน — มีบิลแค่ฝั่งไหนก็กรอกแค่ฝั่งนั้นได้',
-            ),
-            if (_startMeterError.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline,
-                        color: Colors.red, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      _startMeterError,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-          ], // ปิด else ของ if (_startMeterSkipped)
-        ],
-      ),
-    );
-  }
-
-  // ป้ายชื่อหัวข้อกลุ่มฟิลด์ — ใช้ร่วมกันทุกกลุ่ม ให้ดูเป็นโครงเดียวกัน
-  Widget _buildFieldGroupLabel(String text, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: Colors.grey.shade600),
-        const SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: Colors.grey.shade700,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // หัวข้อของแต่ละ step — ใช้โครงเดียวกันทั้ง 4 หน้า: ไอคอนกล่องสีเขียว +
+  // หัวข้อของแต่ละ step — ใช้โครงเดียวกันทั้ง 2 หน้า: ไอคอนกล่องสีเขียว +
   // หัวข้อ + คำอธิบายสั้น 1 บรรทัด + ปุ่ม "?" (ถ้ามีอะไรอธิบายเพิ่ม เปิด
   // popup เดียวกับที่ใช้ในหน้าตั้งค่า) แทนที่จะโชว์คำอธิบายยาวเต็มหน้าแบบ
   // เดิมที่แต่ละ step ทำคนละสไตล์กัน
@@ -1068,52 +363,6 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  InputDecoration _dropdownDecoration() {
-    return InputDecoration(
-      filled: true,
-      fillColor: Colors.grey.shade50,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 1.5),
-      ),
-    );
-  }
-
-  // กล่องข้อความแจ้งเตือน/คำอธิบาย สีเขียวอ่อน ใช้ร่วมกันทุกจุดในหน้านี้
-  Widget _buildInfoBanner(String text, {required Color green}) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: green.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: green.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, color: green, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(color: green, fontSize: 12.5, height: 1.4),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
