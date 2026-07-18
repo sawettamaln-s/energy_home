@@ -206,8 +206,16 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   // บิลน้ำใบแรกเดือน 6 — ฝั่งน้ำยังนับเป็นครั้งแรกอยู่ ทั้งที่ฝั่งไฟไม่ใช่)
   // ไม่นับ record ที่กำลังแก้ไขอยู่ (_editingRecordId) กันกรณีแก้ไข record
   // แรกสุดของตัวเองแล้วเข้าใจผิดว่ามี "record อื่น" อยู่ก่อนหน้า
-  bool get _eIsFirstEntry => !_history.any(
-      (r) => r.id != _editingRecordId && r.electricityValue > 0);
+  // มิเตอร์ TOU ไม่เคยเซ็ต electricityValue เลย (ใช้ peakValue/offPeakValue
+  // แทน) เช็คแบบเดิม (r.electricityValue > 0) เลยเจอ record ก่อนหน้าไม่ได้
+  // สักตัว ทำให้ TOU ถูกตีความว่าเป็น "ครั้งแรกสุด" ทุกครั้งไม่ว่าจะเคย
+  // ตั้งมากี่รอบแล้วก็ตาม ผลคือฟอร์มโชว์ช่อง "หน่วยที่ใช้ไปแล้ว" ทุกรอบ (ควร
+  // โชว์แค่รอบแรกจริงๆ) และตอนบันทึกก็ไม่เคยคำนวณ delta จากรอบก่อนหน้าให้เลย
+  bool get _eIsFirstEntry => !_history.any((r) =>
+      r.id != _editingRecordId &&
+      (widget.isTou
+          ? (r.peakValue > 0 || r.offPeakValue > 0)
+          : r.electricityValue > 0));
   bool get _wIsFirstEntry =>
       !_history.any((r) => r.id != _editingRecordId && r.waterValue > 0);
 
@@ -229,19 +237,18 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   }
 
   Future<void> _save() async {
-    final eVal = double.tryParse(_eCtrl.text) ?? 0;
-    final peakVal = double.tryParse(_peakCtrl.text) ?? 0;
-    final offPeakVal = double.tryParse(_offPeakCtrl.text) ?? 0;
-    final wVal = double.tryParse(_wCtrl.text) ?? 0;
-    final eCost = double.tryParse(_eCostCtrl.text) ?? 0;
-    final wCost = double.tryParse(_wCostCtrl.text) ?? 0;
+    final eVal = parseNumInput(_eCtrl.text);
+    final peakVal = parseNumInput(_peakCtrl.text);
+    final offPeakVal = parseNumInput(_offPeakCtrl.text);
+    final wVal = parseNumInput(_wCtrl.text);
+    final eCost = parseNumInput(_eCostCtrl.text);
+    final wCost = parseNumInput(_wCostCtrl.text);
     // TOU: หน่วยที่ใช้ไปแล้ว (ครั้งแรกสุด) มาจากผลรวม On-Peak/Off-Peak ที่
     // กรอกแยก แทนช่องเดียวแบบเดิม (สอดคล้องกับที่ widget ใช้ auto-sum แล้ว)
     final eUsedInput = widget.isTou
-        ? (double.tryParse(_eUsedPeakCtrl.text) ?? 0) +
-            (double.tryParse(_eUsedOffPeakCtrl.text) ?? 0)
-        : double.tryParse(_eUsedCtrl.text) ?? 0;
-    final wUsedInput = double.tryParse(_wUsedCtrl.text) ?? 0;
+        ? parseNumInput(_eUsedPeakCtrl.text) + parseNumInput(_eUsedOffPeakCtrl.text)
+        : parseNumInput(_eUsedCtrl.text);
+    final wUsedInput = parseNumInput(_wUsedCtrl.text);
 
     // กติกาจับคู่ + อย่างน้อย 1 คู่ต้องครบ + ช่องที่ 3 (ถ้าโชว์) ใช้ตัวเดียว
     // กับที่ widget ใช้โชว์ error รายการ์ด กันไม่ให้ UI กับตอน save เช็คคน
@@ -372,15 +379,38 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         // ครั้งแรกสุด (_eIsFirstEntry/_wIsFirstEntry) ใช้ค่าที่ผู้ใช้กรอกเอง
         // ในช่องที่ 3 ตรงๆ แทน (ผ่าน validation บังคับกรอกมาแล้วตอน canSave)
         final prev = _previousRecord;
-        double eUsed = _eIsFirstEntry ? eUsedInput : 0;
         double wUsed = _wIsFirstEntry ? wUsedInput : 0;
+        // TOU: หน่วยที่ใช้คำนวณจากคู่ On-Peak/Off-Peak เสมอ (electricityValue
+        // ไม่เคยถูกเซ็ตสำหรับ TOU เลย ใช้คำนวณ eUsed แบบเดิมไม่ได้) ผลรวม
+        // ของสองค่านี้คือ eUsed รวมที่เอาไปเก็บในบิลด้วย (ดู bill_model.dart)
+        double eUsed = widget.isTou ? 0 : (_eIsFirstEntry ? eUsedInput : 0);
+        double ePeakUsed = widget.isTou && _eIsFirstEntry
+            ? parseNumInput(_eUsedPeakCtrl.text)
+            : 0;
+        double eOffPeakUsed = widget.isTou && _eIsFirstEntry
+            ? parseNumInput(_eUsedOffPeakCtrl.text)
+            : 0;
         if (prev != null) {
-          if (eComplete && prev.electricityValue > 0 && eVal > prev.electricityValue) {
+          if (widget.isTou) {
+            if (eComplete && prev.peakValue > 0 && peakVal > prev.peakValue) {
+              ePeakUsed = peakVal - prev.peakValue;
+            }
+            if (eComplete &&
+                prev.offPeakValue > 0 &&
+                offPeakVal > prev.offPeakValue) {
+              eOffPeakUsed = offPeakVal - prev.offPeakValue;
+            }
+          } else if (eComplete &&
+              prev.electricityValue > 0 &&
+              eVal > prev.electricityValue) {
             eUsed = eVal - prev.electricityValue;
           }
           if (wComplete && prev.waterValue > 0 && wVal > prev.waterValue) {
             wUsed = wVal - prev.waterValue;
           }
+        }
+        if (widget.isTou) {
+          eUsed = ePeakUsed + eOffPeakUsed;
         }
 
         final existingMatches = _existingBills.where(
@@ -402,6 +432,12 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
               totalCost: newECost + newWCost,
               electricityUsed:
                   eComplete ? eUsed : (existingBillForMonth?.electricityUsed ?? 0),
+              electricityPeakUsed: eComplete
+                  ? ePeakUsed
+                  : (existingBillForMonth?.electricityPeakUsed ?? 0),
+              electricityOffPeakUsed: eComplete
+                  ? eOffPeakUsed
+                  : (existingBillForMonth?.electricityOffPeakUsed ?? 0),
               waterUsed:
                   wComplete ? wUsed : (existingBillForMonth?.waterUsed ?? 0),
               fixedCost: existingBillForMonth?.fixedCost ?? 0,
@@ -583,7 +619,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'บันทึกเลขมิเตอร์ต้นรอบ',
+                        'บันทึกมิเตอร์ต้นรอบ',
                         style:
                             TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
@@ -975,57 +1011,121 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
     if (saved == true) _load();
   }
 
-  // ลบ record หนึ่งแถว — เดิมลบแค่ StartMeterRecordModel (ประวัติ) อย่างเดียว
-  // แต่ค่าที่ user ใช้งานจริง (user.startElectricityValue ฯลฯ) กับบิลที่
-  // auto-create คู่กันไว้ (source: startMeter) ไม่ได้ถูกลบ/รีเซ็ตตามไปด้วย
-  // ทำให้ปุ่ม (+) ไม่กลับมา (ระบบยังคิดว่าตั้งค่าไว้ครบอยู่) แถมบิลที่เหลือ
-  // ค้างอยู่ก็กลายเป็นบิลลูกกำพร้าที่แก้ไข/ลบจากที่ไหนไม่ได้เลย (ล็อกไว้ใน
-  // หน้าบันทึกบิลย้อนหลังเพราะ source=startMeter แต่ record ต้นทางก็ไม่มีแล้ว)
+  // ลบ record หนึ่งแถว
   //
-  // ตอนนี้แก้ให้ "ลบ" ที่นี่เป็นการลบแบบเป็นทางการจริง:
-  // 1) ลบทั้ง record และบิลคู่กัน (เดือน/ปีเดียวกัน + source=startMeter)
-  //    เสมอ กันบิลลูกกำพร้าไม่ว่าจะลบแถวรอบไหนก็ตาม
-  // 2) ถ้าเป็นแถวของรอบปัจจุบัน (แถวเดียวกับที่กดแก้ไขได้) ให้รีเซ็ตค่า
-  //    ต้นรอบที่ใช้งานจริงของ user กลับเป็นยังไม่ตั้งค่าด้วย — ปุ่ม (+) จะ
-  //    กลับมา และถ้ายังไม่ข้ามวันตัดรอบไปเดือนถัดไป ตั้งใหม่แล้วจะยังเสนอ
-  //    เดือนเดิม (มิถุนา) ให้กรอกอยู่ เพราะ _expectedInvoiceMonth คำนวณจาก
-  //    billingDay จริง ไม่ได้อิงจาก record ที่เพิ่งลบไป
+  // แก้บั๊ก: เดิม record หนึ่งแถวเก็บทั้งไฟและน้ำของเดือนนั้นรวมกันไว้ในก้อน
+  // เดียว (electricityValue/peakValue/offPeakValue + waterValue) และบิลคู่กัน
+  // ก็เก็บทั้ง electricityCost/waterCost รวมกันด้วยเช่นกัน แต่แท็บไฟฟ้ากับ
+  // แท็บประปาต่างก็ render จาก _records ก้อนเดียวกัน พอกดลบจากแท็บไหนก็ตาม
+  // (isElectricity บอกว่าเป็นแท็บไหน) เดิมโค้ดลบทั้ง record และบิลทั้งแถวไป
+  // เลยไม่สนใจว่าอีกยูทิลิตี้ยังมีข้อมูลอยู่ไหม ทำให้ลบไฟแล้วน้ำหายไปด้วย
+  //
+  // ตอนนี้แก้เป็น: เช็คก่อนว่าอีกยูทิลิตี้ (ฝั่งที่ไม่ได้กดลบ) ของรอบนี้ยังมี
+  // ข้อมูลอยู่ไหม
+  //   - มี → เซฟทับ record/bill เดิมด้วย field ของฝั่งที่ลบเป็น 0 อย่างเดียว
+  //     เก็บฝั่งที่เหลือไว้ครบ (ไม่ลบทั้งแถว)
+  //   - ไม่มี (อีกฝั่งว่างอยู่ก่อนแล้ว) → ลบทั้ง record/bill ได้เลยเหมือนเดิม
+  // และตอนรีเซ็ตค่า user (เฉพาะรอบปัจจุบัน) ก็รีเซ็ตเฉพาะฝั่งที่ลบเท่านั้น
+  // ไม่แตะฝั่งที่เหลือ — startMeterConfigured (flag รวม) จะเป็น false ก็
+  // ต่อเมื่อไม่มียูทิลิตี้ไหนตั้งค่าไว้เหลือแล้วเท่านั้น กันปุ่ม (+) โผล่มา
+  // ทั้งที่อีกยูทิลิตี้ยังตั้งค่าไว้ครบอยู่
   Future<void> _confirmDelete(
     StartMeterRecordModel record, {
     required bool isCurrentCycleRow,
+    required bool isElectricity,
   }) async {
+    final utilityLabel = isElectricity ? 'ไฟฟ้า' : 'น้ำ';
+    final otherUtilityHasData = isElectricity
+        ? record.waterValue > 0
+        : (widget.isTou
+            ? (record.peakValue > 0 || record.offPeakValue > 0)
+            : record.electricityValue > 0);
+
     final confirmed = await showConfirmDialog(
       context,
-      title: 'ลบรายการนี้?',
+      title: 'ลบข้อมูล$utilityLabelรายการนี้?',
       content: isCurrentCycleRow
-          ? 'ลบแล้วเลขมิเตอร์ต้นรอบของรอบปัจจุบันจะถูกรีเซ็ตทั้งหมด ต้องตั้ง'
-              'ค่าใหม่ก่อนถึงจะบันทึกมิเตอร์รายวันต่อได้ และบิลที่สร้างอัตโนมัติ'
-              'ของรอบนี้ (ถ้ามี) จะถูกลบไปด้วย ต้องการดำเนินการต่อใช่ไหมคะ?'
-          : 'ต้องการลบประวัติการตั้งเลขมิเตอร์ต้นรอบรายการนี้ใช่ไหมคะ '
-              '(บิลที่สร้างอัตโนมัติของรอบนี้ ถ้ามี จะถูกลบไปด้วย)',
+          ? 'ลบแล้วเลขมิเตอร์ต้นรอบ$utilityLabelของรอบปัจจุบันจะถูกรีเซ็ต '
+              'ต้องตั้งค่าใหม่ก่อนถึงจะบันทึกมิเตอร์รายวันต่อได้ และบิลที่'
+              'สร้างอัตโนมัติของรอบนี้ (ถ้ามี) จะถูกลบไปด้วย ต้องการดำเนินการ'
+              'ต่อใช่ไหมคะ?'
+          : 'ต้องการลบประวัติการตั้งเลขมิเตอร์ต้นรอบ$utilityLabelรายการนี้'
+              'ใช่ไหมคะ (บิลที่สร้างอัตโนมัติของรอบนี้ ถ้ามี จะถูกลบไปด้วย)',
       borderRadius: 16,
     );
     if (confirmed != true) return;
 
-    await widget.firestoreService.deleteStartMeterRecord(widget.uid, record.id);
-
     final pairedBill = _billFor(record.billingMonth, record.billingYear);
-    if (pairedBill != null && pairedBill.source == 'startMeter') {
-      await widget.firestoreService.deleteBill(widget.uid, pairedBill.id);
+
+    if (otherUtilityHasData) {
+      // อีกยูทิลิตี้ยังมีข้อมูลอยู่ — เก็บไว้ ล้างเฉพาะฝั่งที่กดลบ
+      await widget.firestoreService.saveStartMeterRecord(
+        StartMeterRecordModel(
+          id: record.id,
+          uid: record.uid,
+          electricityValue: isElectricity ? 0 : record.electricityValue,
+          waterValue: isElectricity ? record.waterValue : 0,
+          peakValue: isElectricity ? 0 : record.peakValue,
+          offPeakValue: isElectricity ? 0 : record.offPeakValue,
+          billingMonth: record.billingMonth,
+          billingYear: record.billingYear,
+          recordedAt: record.recordedAt,
+        ),
+      );
+      if (pairedBill != null && pairedBill.source == 'startMeter') {
+        final remainingCost =
+            isElectricity ? pairedBill.waterCost : pairedBill.electricityCost;
+        await widget.firestoreService.saveBill(
+          BillModel(
+            id: pairedBill.id,
+            uid: pairedBill.uid,
+            year: pairedBill.year,
+            month: pairedBill.month,
+            electricityCost: isElectricity ? 0 : pairedBill.electricityCost,
+            waterCost: isElectricity ? pairedBill.waterCost : 0,
+            totalCost: remainingCost,
+            electricityUsed: isElectricity ? 0 : pairedBill.electricityUsed,
+            electricityPeakUsed:
+                isElectricity ? 0 : pairedBill.electricityPeakUsed,
+            electricityOffPeakUsed:
+                isElectricity ? 0 : pairedBill.electricityOffPeakUsed,
+            waterUsed: isElectricity ? pairedBill.waterUsed : 0,
+            fixedCost: pairedBill.fixedCost,
+            forecastElectricity: pairedBill.forecastElectricity,
+            forecastWater: pairedBill.forecastWater,
+            forecastTotal: pairedBill.forecastTotal,
+            source: pairedBill.source,
+          ),
+        );
+      }
+    } else {
+      // อีกยูทิลิตี้ไม่มีข้อมูลอยู่แล้ว — ลบทั้งแถว/บิลได้เลยเหมือนเดิม
+      await widget.firestoreService.deleteStartMeterRecord(widget.uid, record.id);
+      if (pairedBill != null && pairedBill.source == 'startMeter') {
+        await widget.firestoreService.deleteBill(widget.uid, pairedBill.id);
+      }
     }
 
     if (isCurrentCycleRow) {
-      await widget.firestoreService.updateUser(widget.uid, {
-        'startElectricityValue': 0,
-        'startPeakValue': 0,
-        'startOffPeakValue': 0,
-        'startWaterValue': 0,
-        'startBillingMonth': 0,
-        'startBillingYear': 0,
-        'startMeterConfigured': false,
-        'electricityStartConfigured': false,
-        'waterStartConfigured': false,
-      });
+      final updates = <String, dynamic>{};
+      if (isElectricity) {
+        updates['startElectricityValue'] = 0;
+        updates['startPeakValue'] = 0;
+        updates['startOffPeakValue'] = 0;
+        updates['electricityStartConfigured'] = false;
+      } else {
+        updates['startWaterValue'] = 0;
+        updates['waterStartConfigured'] = false;
+      }
+      final otherStillConfigured = isElectricity
+          ? (_user?.waterStartConfigured ?? false)
+          : (_user?.electricityStartConfigured ?? false);
+      if (!otherStillConfigured) {
+        updates['startMeterConfigured'] = false;
+        updates['startBillingMonth'] = 0;
+        updates['startBillingYear'] = 0;
+      }
+      await widget.firestoreService.updateUser(widget.uid, updates);
     }
 
     _load();
@@ -1043,7 +1143,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('เลขมิเตอร์ต้นรอบ'),
+        title: const Text('บันทึกมิเตอร์ต้นรอบ'),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -1122,6 +1222,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                         valueOf: (r) => r.electricityValue,
                         costOf: (bill) => bill?.electricityCost,
                         isTouTable: widget.isTou,
+                        isElectricity: true,
                       ),
                       _buildTable(
                         records: waterRecords,
@@ -1132,6 +1233,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                         emptyIcon: Icons.water_drop,
                         valueOf: (r) => r.waterValue,
                         costOf: (bill) => bill?.waterCost,
+                        isElectricity: false,
                       ),
                     ],
                   ),
@@ -1163,6 +1265,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
     // "หน่วยสะสม" เดิมจะอ่าน valueOf แล้วเจอ 0 โชว์ "-" ตลอดทุกแถว (บั๊กที่
     // เจอ) ใช้เฉพาะตารางไฟฟ้าเท่านั้น ตารางน้ำไม่มี TOU จึงไม่ต้องแตะ
     bool isTouTable = false,
+    required bool isElectricity,
   }) {
     final formatter = NumberFormat('#,##0.00');
     final dateFormatter = DateFormat('dd/MM/yyyy, HH:mm');
@@ -1245,7 +1348,11 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
             // รอบเก่าที่ปิดไปแล้วฟอร์มคำนวณ delta ใหม่ให้ไม่ได้ถูกต้อง จึง
             // เปิดให้ลบได้อย่างเดียวเหมือนเดิม
             onEdit: isCurrentCycleRow ? _openSheet : null,
-            onDelete: () => _confirmDelete(r, isCurrentCycleRow: isCurrentCycleRow),
+            onDelete: () => _confirmDelete(
+              r,
+              isCurrentCycleRow: isCurrentCycleRow,
+              isElectricity: isElectricity,
+            ),
           );
         },
       ),

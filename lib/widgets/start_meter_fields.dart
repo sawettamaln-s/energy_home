@@ -3,6 +3,18 @@ import 'package:flutter/material.dart';
 import '../screens/dashboard/dashboard_styles.dart';
 import 'info_dialog.dart';
 
+// แปลงข้อความในช่องกรอกตัวเลขเป็น double — ตัด comma (ตัวคั่นหลักพัน) และช่อง
+// ว่างหัวท้ายออกก่อน parse เสมอ เพราะ hint ในฟอร์มโชว์ตัวอย่างเลขแบบมี comma
+// (เช่น "8,500") ผู้ใช้เลยมักพิมพ์ตามด้วย comma จริงๆ ในช่องกรอก แต่ช่องกรอก
+// ไม่มี inputFormatter ห้าม comma ไว้ (พิมพ์ได้ตามปกติ โดยเฉพาะบน Chrome/
+// web ที่ไม่มี native numeric keyboard บังคับ) เดิมใช้ double.tryParse(text)
+// ตรงๆ ทุกจุด พอเจอ comma ปนมาจะ parse ไม่ผ่านเงียบๆ กลายเป็น 0 โดยไม่มี
+// error ใดๆ ทำให้ validation ขึ้น "กรอกไม่ครบ" ทั้งที่กรอกครบทุกช่องแล้ว —
+// ใช้ฟังก์ชันนี้แทน double.tryParse ตรงๆ ทุกจุดที่อ่านค่าจากช่องกรอกพวกนี้
+// (ทั้งใน widget นี้เองและหน้าที่เรียกใช้ตอนกด "บันทึก")
+double parseNumInput(String text) =>
+    double.tryParse(text.replaceAll(',', '').trim()) ?? 0;
+
 /// ===========================================================
 /// StartMeterValidation
 /// ===========================================================
@@ -266,7 +278,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
   // 0 = ไฟฟ้า, 1 = น้ำ
   int _selectedTab = 0;
 
-  double _num(TextEditingController c) => double.tryParse(c.text) ?? 0;
+  double _num(TextEditingController c) => parseNumInput(c.text);
 
   void _showWhatIsThisPopup(BuildContext context) {
     showInfoDialog(
@@ -806,7 +818,7 @@ class TouPairedUnitsField extends StatelessWidget {
     this.helperText,
   });
 
-  double _num(TextEditingController c) => double.tryParse(c.text) ?? 0;
+  double _num(TextEditingController c) => parseNumInput(c.text);
 
   InputDecoration _decoration(String hint, IconData icon) => InputDecoration(
         hintText: hint,

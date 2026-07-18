@@ -585,17 +585,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           _buildSettingsTile(
             icon: Icons.attach_money,
-            title: 'Fixed Cost',
-            subtitle:
-                '${NumberFormat('#,##0.00').format(_user?.fixedCost ?? 0)} บาท / เดือน',
+            title: 'รายจ่ายประจำ',
+            subtitle: 'ค่าใช้จ่ายที่คงที่ทุกเดือน',
             color: _sectionColor,
             onTap: () => _showEditFixedCost(),
           ),
           const Divider(height: 1, indent: 56),
           _buildSettingsTile(
             icon: Icons.calendar_today,
-            title: 'วันตัดรอบบิล',
-            subtitle: 'วันที่ ${_user?.billingDay ?? 30} ของทุกเดือน',
+            title: 'กำหนดวันบันทึกบิล',
+            subtitle: 'รอบแจ้งเตือนเริ่มต้น ทุกวันที่ ${_user?.billingDay ?? 30} ของเดือน',
             color: _sectionColor,
             onTap: () => _showEditBillingDay(),
           ),
@@ -604,8 +603,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // เป็นหน้าเดียวแล้ว (มีปุ่ม + ในหน้านั้นสำหรับเพิ่มค่าใหม่)
           _buildSettingsTile(
             icon: Icons.history,
-            title: 'เลขมิเตอร์ต้นรอบ',
-            subtitle: 'บันทึกเลขใหม่ และดูประวัติที่เคยตั้งไว้ทั้งหมด',
+            title: 'บันทึกมิเตอร์ต้นรอบ',
+            subtitle: 'ระบุเลขมิเตอร์เริ่มต้นเพื่อใช้คำนวณ',
             color: _sectionColor,
             onTap: () => _showStartMeterHistory(),
           ),
@@ -615,7 +614,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSettingsTile(
             icon: Icons.receipt_long,
             title: 'บันทึกบิลย้อนหลัง',
-            subtitle: 'เพิ่ม แก้ไข หรือลบบิลที่กรอกย้อนหลัง',
+            subtitle: 'เพิ่ม แก้ไข หรือลบบิลในอดีต',
             color: _sectionColor,
             onTap: () => _showHistoricalBillList(),
           ),
@@ -780,8 +779,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           _buildSettingsTile(
             icon: Icons.bolt,
-            title: 'ประวัติมิเตอร์ไฟฟ้า / ประปา',
-            subtitle: 'ดูและลบประวัติการบันทึก แยกแท็บไฟฟ้า-น้ำ',
+            title: 'ประวัติการบันทึกมิเตอร์',
+            subtitle: 'ดูและจัดการประวัติการบันทึก ไฟฟ้า-น้ำ',
             color: _sectionColor,
             onTap: () => _showUtilityHistory(),
           ),
@@ -986,7 +985,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     const Expanded(
                       child: Text(
-                        'เลือกวันตัดรอบบิล',
+                        'กำหนดวันบันทึกบิล',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 17,
@@ -998,11 +997,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: const Icon(Icons.info_outline,
                           color: Color(0xFF2E7D32), size: 20),
                       onPressed: () => _showInfoPopup(
-                        'วันตัดรอบบิลคืออะไร?',
-                        'เลือกวันตัดรอบบิลตามวันที่ใบแจ้งหนี้ค่าไฟหรือค่าน้ำ'
-                            'มาถึงบ้าน ระบบจะใช้วันนี้แจ้งเตือนเมื่อใกล้ถึง'
-                            'รอบชำระเงิน และเตือนให้บันทึกเลขมิเตอร์ต้นรอบ '
-                            'เพื่อตั้งเป็นค่าเริ่มต้นของรอบบิลเดือนถัดไปโดยอัตโนมัติ',
+                        'วันบันทึกบิล คืออะไร?',
+                        'วันที่บิลค่าไฟหรือค่าน้ำมาส่งที่บ้านของคุณ โดยระบบจะใช้เพื่อ:'
+                            'แจ้งเตือน ให้คุณเข้ามาบันทึกยอดเงินและเลขมิเตอร์'
                       ),
                     ),
                   ],

@@ -39,7 +39,7 @@ String _labelForFixedCostCategory(String key) {
 void _showFixedCostInfoPopup(BuildContext context) {
   showInfoDialog(
     context,
-    title: 'Fixed Cost คืออะไร?',
+    title: 'รายจ่ายประจำ คืออะไร?',
     message: 'ค่าใช้จ่ายประจำที่ไม่ใช่ค่าไฟหรือค่าน้ำ แต่จ่ายเป็นจำนวนคงที่ทุกเดือน '
         'เช่น ค่าแก๊สหุงต้ม ค่าอินเทอร์เน็ต ค่าส่วนกลางหมู่บ้าน/คอนโด '
         'เพื่อให้ "ยอดค่าใช้จ่ายเดือนนี้" สะท้อนภาพรวมที่แท้จริง '
@@ -217,7 +217,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
 final confirmed = await showConfirmDialog(
       context,
       title: 'ลบรายการนี้?',
-      content: 'ต้องการลบ "${item.name}" ออกจาก Fixed Cost ใช่ไหมคะ',
+      content: 'ต้องการลบ "${item.name}" ออกจาก Fixed Cost ใช่ไหม',
     );
     if (confirmed == true) {
       await widget.firestoreService.deleteFixedCostItem(widget.uid, item.id);
@@ -231,7 +231,7 @@ final confirmed = await showConfirmDialog(
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('Fixed Cost รายเดือน'),
+        title: const Text('รายจ่ายประจำ'),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),

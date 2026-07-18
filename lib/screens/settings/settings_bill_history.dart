@@ -259,17 +259,16 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     );
   }
 
-  double get _eCost => double.tryParse(_eCostCtrl.text) ?? 0;
-  double get _wCost => double.tryParse(_wCostCtrl.text) ?? 0;
+  double get _eCost => parseNumInput(_eCostCtrl.text);
+  double get _wCost => parseNumInput(_wCostCtrl.text);
   bool get _isTou => _user?.meterType == 'tou';
   // TOU: หน่วยที่ใช้ (ไฟ) มาจากผลรวม On-Peak/Off-Peak ที่กรอกแยก (auto-sum)
   // แทนช่องเดียวแบบเดิม — ยังคงเก็บลง BillModel.electricityUsed ตัวเดียว
   // เหมือนเดิม (โมเดลไม่มีฟิลด์แยก peak/offpeak) เพราะจุดใช้งานอื่นๆ ทั้ง
   // หน้าวิเคราะห์และหน้าแดชบอร์ดอ้างอิงยอดรวมนี้อยู่แล้ว
   double get _eUsed => _isTou
-      ? (double.tryParse(_ePeakUsedCtrl.text) ?? 0) +
-          (double.tryParse(_eOffPeakUsedCtrl.text) ?? 0)
-      : double.tryParse(_eUsedCtrl.text) ?? 0;
+      ? parseNumInput(_ePeakUsedCtrl.text) + parseNumInput(_eOffPeakUsedCtrl.text)
+      : parseNumInput(_eUsedCtrl.text);
   // ผลรวมค่าไฟ+ค่าน้ำเท่านั้น (ไม่รวม fixedCost) — ใช้เช็คว่ากรอกข้อมูล
   // บิลมาหรือยัง (validation) และโชว์ยอดไฟ+น้ำแยกในพรีวิว
   double get _total => _eCost + _wCost;
@@ -315,10 +314,10 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
         month: _selectedMonth.month,
         electricityUsed: _eUsed,
         electricityPeakUsed:
-            _isTou ? (double.tryParse(_ePeakUsedCtrl.text) ?? 0) : 0,
+            _isTou ? parseNumInput(_ePeakUsedCtrl.text) : 0,
         electricityOffPeakUsed:
-            _isTou ? (double.tryParse(_eOffPeakUsedCtrl.text) ?? 0) : 0,
-        waterUsed: double.tryParse(_wUsedCtrl.text) ?? 0,
+            _isTou ? parseNumInput(_eOffPeakUsedCtrl.text) : 0,
+        waterUsed: parseNumInput(_wUsedCtrl.text),
         electricityCost: _eCost,
         waterCost: _wCost,
         fixedCost: _fixedCost,
