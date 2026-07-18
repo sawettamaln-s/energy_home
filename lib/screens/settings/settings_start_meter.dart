@@ -822,9 +822,9 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             if (v) _wCostCtrl.clear();
                           }),
                           title: 'เลขมิเตอร์สะสมต้นรอบ',
-                          subtitle: 'กรอกเลขและค่าใช้จ่ายจากใบแจ้งหนี้เดือนที่'
-                              'เลือกไว้ด้านบน — มีบิลแค่ฝั่งไหนก็กรอกแค่ฝั่ง'
-                              'นั้นได้',
+                          subtitle:
+                              'กรอกจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน '
+                              'มีบิลฝั่งไหนก็กรอกแค่ฝั่งนั้นได้',
                         ),
                         if (_generalError) ...[
                           const SizedBox(height: 8),
