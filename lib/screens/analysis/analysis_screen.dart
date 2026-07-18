@@ -35,6 +35,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   List<ApplianceModel> _appliances = [];
   Map<String, CurrentCycleForecast>? _currentCycle;
   bool _isLoading = true;
+  // ใช้ตัดสินว่าแท็บไฟฟ้าควรโชว์กราฟแท่งซ้อน On-Peak/Off-Peak หรือแท่งเดียว
+  // ปกติ — เฉพาะแท็บไฟฟ้าเท่านั้น แท็บน้ำไม่มี TOU จึงไม่ต้องส่งไปเลย
+  bool _isTou = false;
 
   // เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
   // (เดิมไม่เก็บไว้เลย ทำให้ setState ถูกเรียกหลัง widget dispose ไปแล้ว
@@ -75,8 +78,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       final uid = FirebaseAuth.instance.currentUser!.uid;
 
       // ต้องดึง user มาก่อน เพื่อเอา billingDay ไปคำนวณขอบเขตรอบบิลปัจจุบัน
+      // และเอา meterType ไปตัดสินว่าแท็บไฟฟ้าควรโชว์กราฟแยก On-Peak/Off-Peak
+      // ไหม (ดู _isTou ด้านบน)
       final user = await _firestoreService.getUser(uid);
       final billingDay = user?.billingDay ?? 30;
+      final isTou = user?.meterType == 'tou';
 
       final bills = await _analysisService.fetchBills(uid);
 
@@ -95,6 +101,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       setState(() {
         _bills = bills;
         _currentCycle = currentCycle;
+        _isTou = isTou;
         _isLoading = false;
       });
     } catch (e) {
@@ -149,6 +156,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     accentColor: DashboardStyles.electricityBorder,
                     currentCycle: _currentCycle?['electricity'],
                     onViewAppliances: () => _tabController.animateTo(2),
+                    isTou: _isTou,
+                    peakUsedSelector: (b) => b.electricityPeakUsed,
+                    offPeakUsedSelector: (b) => b.electricityOffPeakUsed,
                   ),
                   _UtilityTab(
                     bills: _bills,
@@ -195,6 +205,12 @@ class _UtilityTab extends StatelessWidget {
   // เดียวกันหมดทั้ง 2 แท็บเหมือนเดิม แยกไม่ออกว่ากำลังดูแท็บไหนอยู่จากกราฟ
   final Color accentColor;
   final CurrentCycleForecast? currentCycle;
+  // TOU เท่านั้น (แท็บไฟฟ้า) — ใช้ให้กราฟเทรนด์ฝั่ง "หน่วยที่ใช้" โชว์เป็น
+  // แท่งซ้อน On-Peak/Off-Peak แทนแท่งทึบสีเดียว แท็บน้ำไม่ส่งมาเลย (default
+  // false/null) จึงยังเป็นแท่งเดียวเหมือนเดิมทุกอย่าง
+  final bool isTou;
+  final double Function(BillModel)? peakUsedSelector;
+  final double Function(BillModel)? offPeakUsedSelector;
 
   // เรียกตอนกดปุ่ม "ดูอุปกรณ์" ในการ์ดข้อสังเกต (เดือนที่ใช้สูงสุด) — ให้
   // AnalysisScreen สลับ TabController ไปแท็บอุปกรณ์ (index 2) แทนที่จะบอก
@@ -222,6 +238,9 @@ class _UtilityTab extends StatelessWidget {
     required this.currentCycle,
     this.onViewAppliances,
     this.trackAppliances = true,
+    this.isTou = false,
+    this.peakUsedSelector,
+    this.offPeakUsedSelector,
   });
 
   @override
@@ -269,6 +288,9 @@ class _UtilityTab extends StatelessWidget {
           costSelector: selector,
           usedSelector: usedSelector,
           accentColor: accentColor,
+          isTou: isTou,
+          peakUsedSelector: peakUsedSelector,
+          offPeakUsedSelector: offPeakUsedSelector,
         ),
         const SizedBox(height: 16),
         Row(
@@ -897,6 +919,10 @@ class _TrendChartCard extends StatefulWidget {
   final double Function(BillModel) costSelector;
   final double Function(BillModel) usedSelector;
   final Color accentColor;
+  // TOU เท่านั้น — ดู _UtilityTab ด้านบนสำหรับที่มา
+  final bool isTou;
+  final double Function(BillModel)? peakUsedSelector;
+  final double Function(BillModel)? offPeakUsedSelector;
 
   const _TrendChartCard({
     required this.bills,
@@ -905,6 +931,9 @@ class _TrendChartCard extends StatefulWidget {
     required this.costSelector,
     required this.usedSelector,
     required this.accentColor,
+    this.isTou = false,
+    this.peakUsedSelector,
+    this.offPeakUsedSelector,
   });
 
   @override
@@ -976,6 +1005,18 @@ class _TrendChartCardState extends State<_TrendChartCard> {
     const peakColor = Color(0xFFE53935); // แดง — เดือนใช้สูงสุด
     const lowColor = Color(0xFF00897B); // เขียวอมฟ้า — เดือนใช้ต่ำสุด
 
+    // TOU + กำลังดูมุมมอง "หน่วยที่ใช้" (ไม่ใช่ค่าใช้จ่าย) → แท่งซ้อน
+    // On-Peak/Off-Peak แทนแท่งทึบสีเดียว ฝั่งค่าใช้จ่ายไม่แยก เพราะ
+    // electricityCost เก็บเป็นยอดเดียว ไม่มีราคาแยกตามช่วงเวลาให้ซ้อน
+    final showStacked = !_showCost &&
+        widget.isTou &&
+        widget.peakUsedSelector != null &&
+        widget.offPeakUsedSelector != null;
+    // Off-Peak ใช้เฉดอ่อนกว่าของสีเดียวกับ On-Peak (ไม่ใช้สีใหม่แยกต่างหาก)
+    // ให้ยังอยู่ในโทน "ไฟฟ้า" เดียวกันทั้งกราฟ แค่ต่างความเข้ม
+    final touPeakColor = widget.accentColor;
+    final touOffPeakColor = widget.accentColor.withValues(alpha: 0.38);
+
     final chartTitle = _showCost
         ? 'เทรนด์${widget.title} (${bills.length} เดือนล่าสุด)'
         : 'เทรนด์${widget.unitLabel}ที่ใช้${widget.title} '
@@ -1020,7 +1061,11 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                     style: TextStyle(
                         fontSize: 10.5, color: Colors.grey.shade500)),
               ),
-              if (hasVariation) ...[
+              if (showStacked) ...[
+                _legendDot(touPeakColor, 'On-Peak'),
+                const SizedBox(width: 10),
+                _legendDot(touOffPeakColor, 'Off-Peak'),
+              ] else if (hasVariation) ...[
                 _legendDot(peakColor, 'สูงสุด'),
                 const SizedBox(width: 10),
                 _legendDot(lowColor, 'ต่ำสุด'),
@@ -1125,6 +1170,25 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                       barTouchData: BarTouchData(
                         touchTooltipData: BarTouchTooltipData(
                           getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            if (showStacked) {
+                              final peak =
+                                  widget.peakUsedSelector!(bills[groupIndex]);
+                              final offPeak = widget
+                                  .offPeakUsedSelector!(bills[groupIndex]);
+                              final hasSplit = peak > 0 || offPeak > 0;
+                              final text = hasSplit
+                                  ? 'รวม ${rod.toY.toStringAsFixed(1)}$tooltipSuffix\n'
+                                      'On-Peak ${peak.toStringAsFixed(1)} · '
+                                      'Off-Peak ${offPeak.toStringAsFixed(1)}'
+                                  : '${rod.toY.toStringAsFixed(1)}$tooltipSuffix';
+                              return BarTooltipItem(
+                                text,
+                                const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold),
+                              );
+                            }
                             return BarTooltipItem(
                               '${rod.toY.toStringAsFixed(1)}$tooltipSuffix',
                               const TextStyle(
@@ -1136,6 +1200,38 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                         ),
                       ),
                       barGroups: List.generate(values.length, (i) {
+                        if (showStacked) {
+                          final peak = widget.peakUsedSelector!(bills[i]);
+                          final offPeak =
+                              widget.offPeakUsedSelector!(bills[i]);
+                          final hasSplit = peak > 0 || offPeak > 0;
+                          if (hasSplit) {
+                            return BarChartGroupData(x: i, barRods: [
+                              BarChartRodData(
+                                toY: peak + offPeak,
+                                rodStackItems: [
+                                  BarChartRodStackItem(0, peak, touPeakColor),
+                                  BarChartRodStackItem(peak, peak + offPeak,
+                                      touOffPeakColor),
+                                ],
+                                width: 18,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ]);
+                          }
+                          // บิลเก่าก่อนมีฟิลด์แยก peak/offpeak (หรือมิเตอร์
+                          // เพิ่งสลับมาเป็น TOU) — ไม่มีข้อมูลให้ซ้อน แต่ยัง
+                          // มียอดรวม โชว์เป็นแท่งทึบสีเทาแทนการปล่อยให้เดือน
+                          // นั้นหายไปจากกราฟเงียบๆ
+                          return BarChartGroupData(x: i, barRods: [
+                            BarChartRodData(
+                              toY: values[i],
+                              color: Colors.grey.shade400,
+                              width: 18,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ]);
+                        }
                         final barColor = i == peakIndex
                             ? peakColor
                             : i == lowIndex

@@ -4,6 +4,12 @@ class BillModel {
   final int year;
   final int month;
   final double electricityUsed; // หน่วยไฟฟ้าที่ใช้รวมทั้งเดือน
+  // TOU เท่านั้น: แยกหน่วยที่ใช้เป็น On-Peak/Off-Peak (ผลรวมของสองค่านี้ควร
+  // เท่ากับ electricityUsed ด้านบนเสมอ) — เก็บแยกไว้ด้วยเพื่อให้หน้าประวัติ
+  // บิลย้อนหลังโชว์ค่าที่กรอกจริงแยกประเภทได้ ไม่ใช่แค่ยอดรวมเดียว บิลเก่า
+  // ก่อนมีฟิลด์นี้ (หรือมิเตอร์ปกติ) จะเป็น 0 ทั้งคู่ตามค่า default
+  final double electricityPeakUsed;
+  final double electricityOffPeakUsed;
   final double waterUsed; // หน่วยน้ำที่ใช้รวมทั้งเดือน
   final double electricityCost; // ค่าไฟรวมทั้งเดือน
   final double waterCost; // ค่าน้ำรวมทั้งเดือน
@@ -20,6 +26,8 @@ class BillModel {
     required this.year,
     required this.month,
     this.electricityUsed = 0,
+    this.electricityPeakUsed = 0,
+    this.electricityOffPeakUsed = 0,
     this.waterUsed = 0,
     this.electricityCost = 0,
     this.waterCost = 0,
@@ -39,6 +47,8 @@ class BillModel {
       year: map['year'] ?? 0,
       month: map['month'] ?? 0,
       electricityUsed: (map['electricityUsed'] ?? 0).toDouble(),
+      electricityPeakUsed: (map['electricityPeakUsed'] ?? 0).toDouble(),
+      electricityOffPeakUsed: (map['electricityOffPeakUsed'] ?? 0).toDouble(),
       waterUsed: (map['waterUsed'] ?? 0).toDouble(),
       electricityCost: (map['electricityCost'] ?? 0).toDouble(),
       waterCost: (map['waterCost'] ?? 0).toDouble(),
@@ -59,6 +69,8 @@ class BillModel {
       'year': year,
       'month': month,
       'electricityUsed': electricityUsed,
+      'electricityPeakUsed': electricityPeakUsed,
+      'electricityOffPeakUsed': electricityOffPeakUsed,
       'waterUsed': waterUsed,
       'electricityCost': electricityCost,
       'waterCost': waterCost,

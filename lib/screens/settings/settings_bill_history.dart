@@ -44,6 +44,11 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   final _eCostCtrl = TextEditingController();
   final _wUsedCtrl = TextEditingController();
   final _wCostCtrl = TextEditingController();
+  // TOU เท่านั้น: คู่ On-Peak/Off-Peak ของ "หน่วยที่ใช้เดือนนี้ (ไฟ)" แทน
+  // _eUsedCtrl ตัวเดียว — เดิมฟอร์มนี้ให้ผู้ใช้บวกเลข 2 ยอดจากบิลเองก่อน
+  // กรอก (ดู _showUsageInfoPopup) ตอนนี้แยกช่องแล้วรวมให้อัตโนมัติแทน
+  final _ePeakUsedCtrl = TextEditingController();
+  final _eOffPeakUsedCtrl = TextEditingController();
 
   // ----- ส่วนเสริม: ชวนตั้งค่ามิเตอร์ต้นรอบต่อ (เปิดฟอร์มจริงแยกต่างหาก) -----
   // โหลด user มาเองอิสระ (ตามแพทเทิร์นเดียวกับ _AddStartMeterSheet) เพื่อรู้
@@ -108,17 +113,31 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
       _eUsedCtrl.text = existing.electricityUsed == 0
           ? ''
           : existing.electricityUsed.toStringAsFixed(2);
-      _eCostCtrl.text =
-          existing.electricityCost == 0 ? '' : existing.electricityCost.toStringAsFixed(2);
-      _wUsedCtrl.text =
-          existing.waterUsed == 0 ? '' : existing.waterUsed.toStringAsFixed(2);
+      _ePeakUsedCtrl.text = existing.electricityPeakUsed == 0
+          ? ''
+          : existing.electricityPeakUsed.toStringAsFixed(2);
+      _eOffPeakUsedCtrl.text = existing.electricityOffPeakUsed == 0
+          ? ''
+          : existing.electricityOffPeakUsed.toStringAsFixed(2);
+      _eCostCtrl.text = existing.electricityCost == 0
+          ? ''
+          : existing.electricityCost.toStringAsFixed(2);
       _wCostCtrl.text =
           existing.waterCost == 0 ? '' : existing.waterCost.toStringAsFixed(2);
+      _wUsedCtrl.text =
+          existing.waterUsed == 0 ? '' : existing.waterUsed.toStringAsFixed(2);
     }
     _loadTakenMonths();
     _loadUser();
 
-    for (final c in [_eUsedCtrl, _eCostCtrl, _wUsedCtrl, _wCostCtrl]) {
+    for (final c in [
+      _eUsedCtrl,
+      _eCostCtrl,
+      _wUsedCtrl,
+      _wCostCtrl,
+      _ePeakUsedCtrl,
+      _eOffPeakUsedCtrl,
+    ]) {
       c.addListener(() => setState(() {}));
     }
   }
@@ -167,6 +186,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     _eCostCtrl.dispose();
     _wUsedCtrl.dispose();
     _wCostCtrl.dispose();
+    _ePeakUsedCtrl.dispose();
+    _eOffPeakUsedCtrl.dispose();
     super.dispose();
   }
 
@@ -212,7 +233,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     final hasUnsavedInput = _eUsedCtrl.text.isNotEmpty ||
         _eCostCtrl.text.isNotEmpty ||
         _wUsedCtrl.text.isNotEmpty ||
-        _wCostCtrl.text.isNotEmpty;
+        _wCostCtrl.text.isNotEmpty ||
+        _ePeakUsedCtrl.text.isNotEmpty ||
+        _eOffPeakUsedCtrl.text.isNotEmpty;
     if (hasUnsavedInput) {
       final confirm = await showConfirmDialog(
         context,
@@ -238,6 +261,15 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
 
   double get _eCost => double.tryParse(_eCostCtrl.text) ?? 0;
   double get _wCost => double.tryParse(_wCostCtrl.text) ?? 0;
+  bool get _isTou => _user?.meterType == 'tou';
+  // TOU: หน่วยที่ใช้ (ไฟ) มาจากผลรวม On-Peak/Off-Peak ที่กรอกแยก (auto-sum)
+  // แทนช่องเดียวแบบเดิม — ยังคงเก็บลง BillModel.electricityUsed ตัวเดียว
+  // เหมือนเดิม (โมเดลไม่มีฟิลด์แยก peak/offpeak) เพราะจุดใช้งานอื่นๆ ทั้ง
+  // หน้าวิเคราะห์และหน้าแดชบอร์ดอ้างอิงยอดรวมนี้อยู่แล้ว
+  double get _eUsed => _isTou
+      ? (double.tryParse(_ePeakUsedCtrl.text) ?? 0) +
+          (double.tryParse(_eOffPeakUsedCtrl.text) ?? 0)
+      : double.tryParse(_eUsedCtrl.text) ?? 0;
   // ผลรวมค่าไฟ+ค่าน้ำเท่านั้น (ไม่รวม fixedCost) — ใช้เช็คว่ากรอกข้อมูล
   // บิลมาหรือยัง (validation) และโชว์ยอดไฟ+น้ำแยกในพรีวิว
   double get _total => _eCost + _wCost;
@@ -281,7 +313,11 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
         uid: widget.uid,
         year: _selectedMonth.year,
         month: _selectedMonth.month,
-        electricityUsed: double.tryParse(_eUsedCtrl.text) ?? 0,
+        electricityUsed: _eUsed,
+        electricityPeakUsed:
+            _isTou ? (double.tryParse(_ePeakUsedCtrl.text) ?? 0) : 0,
+        electricityOffPeakUsed:
+            _isTou ? (double.tryParse(_eOffPeakUsedCtrl.text) ?? 0) : 0,
         waterUsed: double.tryParse(_wUsedCtrl.text) ?? 0,
         electricityCost: _eCost,
         waterCost: _wCost,
@@ -354,17 +390,6 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
             'หรือ "$unitLabel" นำตัวเลขดังกล่าวมากรอกในช่องนี้',
             style: const TextStyle(fontSize: 13.5, height: 1.6),
           ),
-          if (utilityLabel == 'หน่วยที่ใช้เดือนนี้ (ไฟ)') ...[
-            const SizedBox(height: 10),
-            Text(
-              'กรณีมิเตอร์แบบ TOU: บิลจะแยกแสดง On-Peak และ Off-Peak '
-              'คนละบรรทัด ให้นำสองยอดมารวมกันแล้วกรอกเป็นยอดเดียว '
-              '(ช่องนี้ไม่แยก Peak/Off-Peak เนื่องจากค่าไฟกรอกตรงจากยอดบิล '
-              'โดยไม่นำไปคำนวณราคาต่อหน่วยซ้ำ ตัวเลขหน่วยใช้เพื่อดู'
-              'แนวโน้มการใช้ไฟในหน้าวิเคราะห์เท่านั้น)',
-              style: TextStyle(fontSize: 12.5, height: 1.6, color: Colors.grey.shade700),
-            ),
-          ],
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(10),
@@ -491,43 +516,82 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                               setState(() => _selectedMonth = val!),
                         ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _label('หน่วยที่ใช้เดือนนี้ (ไฟ)',
-                                onInfoTap: () => _showUsageInfoPopup(
-                                    'หน่วยที่ใช้เดือนนี้ (ไฟ)', 'kWh')),
-                            TextField(
-                              controller: _eUsedCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(
+                  if (_isTou) ...[
+                    TouPairedUnitsField(
+                      title: 'หน่วยที่ใช้เดือนนี้ (ไฟ)',
+                      peakCtrl: _ePeakUsedCtrl,
+                      offPeakCtrl: _eOffPeakUsedCtrl,
+                      iconColor: DashboardStyles.electricityBorder,
+                      // โน้ตนี้จะเห็นเฉพาะบิลเก่าที่บันทึกไว้ก่อนมีฟิลด์
+                      // แยก peak/offpeak เท่านั้น (มียอดรวมแต่แยกไม่ได้) —
+                      // ถ้าบิลนี้เคยกรอกแบบแยกไว้แล้ว ช่องจะ prefill ค่าเดิม
+                      // ให้จากฟิลด์ electricityPeakUsed/OffPeakUsed ตรงๆ
+                      // ไม่ต้องมีโน้ตนี้
+                      helperText: (widget.existingBill != null &&
+                              widget.existingBill!.electricityUsed > 0 &&
+                              widget.existingBill!.electricityPeakUsed == 0 &&
+                              widget.existingBill!.electricityOffPeakUsed == 0)
+                          ? 'ค่าเดิมที่เคยบันทึกไว้ '
+                              '${widget.existingBill!.electricityUsed.toStringAsFixed(0)} '
+                              'หน่วย (ยังไม่แยก On-Peak/Off-Peak) — กรอกใหม่'
+                              'แยกคู่ด้านบนเพื่อแทนที่ค่านี้'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _label('ค่าไฟ'),
+                        TextField(
+                          controller: _eCostCtrl,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(
                                   decimal: true),
-                              decoration: _fieldDecoration(
-                                  hint: 'เช่น 250', suffixText: 'หน่วย'),
-                            ),
-                          ],
+                          decoration:
+                              _fieldDecoration(hint: '0', suffixText: 'บาท'),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _label('ค่าไฟ'),
-                            TextField(
-                              controller: _eCostCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(
-                                  decimal: true),
-                              decoration:
-                                  _fieldDecoration(hint: '0', suffixText: 'บาท'),
-                            ),
-                          ],
+                      ],
+                    ),
+                  ] else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('หน่วยที่ใช้เดือนนี้ (ไฟ)',
+                                  onInfoTap: () => _showUsageInfoPopup(
+                                      'หน่วยที่ใช้เดือนนี้ (ไฟ)', 'kWh')),
+                              TextField(
+                                controller: _eUsedCtrl,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                decoration: _fieldDecoration(
+                                    hint: 'เช่น 250', suffixText: 'หน่วย'),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('ค่าไฟ'),
+                              TextField(
+                                controller: _eCostCtrl,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                decoration: _fieldDecoration(
+                                    hint: '0', suffixText: 'บาท'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -775,6 +839,8 @@ class _HistoricalBillListScreenState
   UserModel? _user;
   late TabController _tabController;
 
+  bool get _isTou => _user?.meterType == 'tou';
+
   @override
   void initState() {
     super.initState();
@@ -991,6 +1057,7 @@ final confirmed = await showConfirmDialog(
                         emptyIcon: Icons.bolt,
                         usedOf: (b) => b.electricityUsed,
                         costOf: (b) => b.electricityCost,
+                        isTouTable: _isTou,
                       ),
                       _buildTable(
                         bills: _bills,
@@ -1027,6 +1094,9 @@ final confirmed = await showConfirmDialog(
     required IconData emptyIcon,
     required double Function(BillModel) usedOf,
     required double Function(BillModel) costOf,
+    // TOU: โชว์ On-Peak/Off-Peak ที่กรอกไว้แยกกันแทนคอลัมน์ "หน่วยที่ใช้"
+    // เดียว (ใช้เฉพาะแท็บไฟฟ้า แท็บน้ำไม่ส่ง param นี้เข้ามาเลย)
+    bool isTouTable = false,
   }) {
     final formatter = NumberFormat('#,##0.00');
 
@@ -1037,20 +1107,54 @@ final confirmed = await showConfirmDialog(
       );
     }
 
+    final columns = isTouTable
+        ? const [
+            ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
+            ExcelTableColumn('On-Peak', flex: 2),
+            ExcelTableColumn('Off-Peak', flex: 2),
+            ExcelTableColumn('รวม', flex: 2),
+            ExcelTableColumn('ค่าไฟ', flex: 2),
+          ]
+        : [
+            const ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
+            ExcelTableColumn(unitLabel, flex: 2),
+            ExcelTableColumn(costLabel, flex: 2),
+          ];
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: ExcelStyleTable(
         accent: accent,
-        columns: [
-          const ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
-          ExcelTableColumn(unitLabel, flex: 2),
-          ExcelTableColumn(costLabel, flex: 2),
-        ],
+        columns: columns,
         rowCount: bills.length,
         isLatest: (row) => bills[row].id == latestId,
         cellText: (row, col) {
           final b = bills[row];
           final missing = costOf(b) <= 0;
+          if (isTouTable) {
+            switch (col) {
+              case 0:
+                return '${thaiMonths[b.month - 1]} ${b.year}'
+                    '${missing ? ' (ยังไม่กรอก)' : ''}';
+              case 1:
+                return b.electricityPeakUsed > 0
+                    ? formatter.format(b.electricityPeakUsed)
+                    : '-';
+              case 2:
+                return b.electricityOffPeakUsed > 0
+                    ? formatter.format(b.electricityOffPeakUsed)
+                    : '-';
+              case 3:
+                // หน่วยที่ใช้ (รวม) = On-Peak + Off-Peak เสมอ (มาจาก
+                // electricityUsed ตรงๆ ซึ่งเป็นค่าเดียวกับที่หน้าวิเคราะห์
+                // ใช้เปรียบเทียบอยู่แล้ว ไม่ใช่ค่าคำนวณใหม่แยกต่างหาก)
+                return b.electricityUsed > 0
+                    ? formatter.format(b.electricityUsed)
+                    : '-';
+              default:
+                return missing ? '-' : formatter.format(costOf(b));
+            }
+          }
           switch (col) {
             case 0:
               return '${thaiMonths[b.month - 1]} ${b.year}'

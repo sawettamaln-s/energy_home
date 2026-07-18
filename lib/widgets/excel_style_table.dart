@@ -70,13 +70,24 @@ class ExcelStyleTable extends StatelessWidget {
           for (final c in columns)
             Expanded(
               flex: c.flex,
-              child: Text(
-                c.label,
-                textAlign: c.align,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.bold,
-                  color: accent,
+              child: Padding(
+                // ช่องว่างกันหัวข้อชนกัน — ข้อความไทยส่วนใหญ่ไม่มีจุดตัดคำ
+                // (ไม่มีเว้นวรรค) ทำให้ Text ขึ้นบรรทัดใหม่เองไม่ได้เวลาคอลัมน์
+                // แคบ แล้วล้นทับคอลัมน์ข้างๆ (เคยเจอปัญหานี้กับหัวข้อ
+                // "หน่วยที่ใช้(รวม)" ชนกับ "Off-Peak" มาแล้ว) เพิ่ม padding +
+                // maxLines/ellipsis กันไว้เป็น safety net ระดับ widget กลาง
+                // เผื่อหัวข้อยาวๆ ในอนาคตจะได้ไม่ล้นซ้ำอีก
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  c.label,
+                  textAlign: c.align,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: accent,
+                  ),
                 ),
               ),
             ),

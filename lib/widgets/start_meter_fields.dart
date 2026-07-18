@@ -371,76 +371,6 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
     );
   }
 
-  // เวอร์ชัน TOU ของ _usedField — แยก On-Peak/Off-Peak เป็นคนละช่อง (สอดคล้อง
-  // กับเลขมิเตอร์ด้านบนที่แยกอยู่แล้ว) แล้วโชว์ผลรวมให้ดูสดๆ ไม่ต้องให้
-  // ผู้ใช้บวกเลขเอง — ผลรวมนี้คือค่าที่ถูกใช้เป็น eUsed จริงตอน validate/save
-  // (ดู eUsed ใน build() ด้านล่าง)
-  Widget _usedFieldTou({
-    required TextEditingController peakCtrl,
-    required TextEditingController offPeakCtrl,
-    required Color iconColor,
-  }) {
-    final sum = _num(peakCtrl) + _num(offPeakCtrl);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('หน่วยที่ใช้ไปแล้วในรอบนี้ (ครั้งแรกเท่านั้น)',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
-        const SizedBox(height: 6),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final narrow = constraints.maxWidth < 340;
-            final peakField = _field(
-              controller: peakCtrl,
-              label: 'On-Peak',
-              hint: 'เช่น 1,655',
-              suffixText: 'หน่วย',
-              icon: Icons.bolt,
-              iconColor: iconColor,
-            );
-            final offPeakField = _field(
-              controller: offPeakCtrl,
-              label: 'Off-Peak',
-              hint: 'เช่น 1,000',
-              suffixText: 'หน่วย',
-              icon: Icons.bolt_outlined,
-              iconColor: iconColor,
-            );
-            if (narrow) {
-              return Column(children: [
-                peakField,
-                const SizedBox(height: 10),
-                offPeakField,
-              ]);
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: peakField),
-                const SizedBox(width: 10),
-                Expanded(child: offPeakField),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'On-Peak + Off-Peak = รวม ${sum.toStringAsFixed(0)} หน่วย '
-          '(คำนวณให้อัตโนมัติ)',
-          style: TextStyle(
-              fontSize: 11.5, fontWeight: FontWeight.w600, color: iconColor),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'ตั้งค่าครั้งแรก ระบบยังไม่มีเลขของรอบก่อนหน้าให้เทียบหาหน่วยที่ใช้'
-          'ให้อัตโนมัติ — กรอกจากใบแจ้งหนี้ใบเดียวกับเลขมิเตอร์สะสมด้านบน '
-          '(ช่อง "หน่วยที่ใช้" แยก On-Peak/Off-Peak)',
-          style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
-        ),
-      ],
-    );
-  }
-
   Widget _field({
     required TextEditingController controller,
     required String label,
@@ -789,10 +719,16 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             usedField: widget.eIsFirstEntry
                 ? (widget.isTou && widget.eUsedPeakCtrl != null &&
                         widget.eUsedOffPeakCtrl != null
-                    ? _usedFieldTou(
+                    ? TouPairedUnitsField(
+                        title: 'หน่วยที่ใช้ไปแล้วในรอบนี้ (ครั้งแรกเท่านั้น)',
                         peakCtrl: widget.eUsedPeakCtrl!,
                         offPeakCtrl: widget.eUsedOffPeakCtrl!,
                         iconColor: DashboardStyles.electricityBorder,
+                        helperText:
+                            'ตั้งค่าครั้งแรก ระบบยังไม่มีเลขของรอบก่อนหน้า'
+                            'ให้เทียบหาหน่วยที่ใช้ให้อัตโนมัติ — กรอกจากใบ'
+                            'แจ้งหนี้ใบเดียวกับเลขมิเตอร์สะสมด้านบน (ช่อง '
+                            '"หน่วยที่ใช้" แยก On-Peak/Off-Peak)',
                       )
                     : _usedField(
                         controller: widget.eUsedCtrl,
@@ -830,6 +766,123 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                   )
                 : null,
           ),
+      ],
+    );
+  }
+}
+
+/// ===========================================================
+/// TouPairedUnitsField
+/// ===========================================================
+/// ช่องกรอก "หน่วย" คู่ On-Peak/Off-Peak มาตรฐานของทั้งระบบ พร้อมรวมยอด
+/// ให้อัตโนมัติ (ไม่ต้องให้ผู้ใช้บวกเลขเอง) — ใช้ร่วมกันทุกจุดในแอปที่ต้อง
+/// กรอก "หน่วยที่ใช้" แยกตามช่วงเวลาแบบ TOU: ช่องหน่วยที่ใช้ไปแล้วครั้งแรก
+/// สุดในหน้าเลขมิเตอร์ต้นรอบ (ดู StartMeterPairedFields ด้านบน) และช่อง
+/// หน่วยที่ใช้ในหน้าบันทึกบิลย้อนหลัง (settings_bill_history.dart) — รวม
+/// ไว้ที่เดียวกันเพื่อให้หน้าตา/พฤติกรรมเหมือนกันทั้งแอป ไม่ต้องคัดลอกโค้ด
+/// ซ้ำ 2 ที่แล้วมีโอกาสดริฟท์ไปคนละแบบทีหลัง
+///
+/// ต้องอยู่ใต้ parent widget ที่ addListener ให้ทั้ง peakCtrl/offPeakCtrl
+/// แล้ว setState เอง (ตามแพทเทิร์นเดียวกับฟิลด์อื่นๆ ในไฟล์นี้) ตัว widget
+/// นี้เองไม่ได้ผูก listener ให้ตัวเอง เพราะเป็น StatelessWidget ล้วนๆ
+/// ตั้งใจให้เบาและคำนวณผลรวมสดจาก controller ตอน build ทุกครั้งพอ
+class TouPairedUnitsField extends StatelessWidget {
+  final TextEditingController peakCtrl;
+  final TextEditingController offPeakCtrl;
+  final Color iconColor;
+  final String title;
+  final String peakHint;
+  final String offPeakHint;
+  final String? helperText;
+
+  const TouPairedUnitsField({
+    super.key,
+    required this.peakCtrl,
+    required this.offPeakCtrl,
+    required this.iconColor,
+    this.title = 'หน่วยที่ใช้ (On-Peak / Off-Peak)',
+    this.peakHint = 'เช่น 1,655',
+    this.offPeakHint = 'เช่น 1,000',
+    this.helperText,
+  });
+
+  double _num(TextEditingController c) => double.tryParse(c.text) ?? 0;
+
+  InputDecoration _decoration(String hint, IconData icon) => InputDecoration(
+        hintText: hint,
+        suffixText: 'หน่วย',
+        prefixIcon: Icon(icon, color: iconColor, size: 20),
+        isDense: true,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+      );
+
+  Widget _pairField(
+      TextEditingController c, String label, String hint, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: c,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: _decoration(hint, icon),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sum = _num(peakCtrl) + _num(offPeakCtrl);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+        const SizedBox(height: 6),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 340;
+            final peakField =
+                _pairField(peakCtrl, 'On-Peak', peakHint, Icons.bolt);
+            final offPeakField = _pairField(
+                offPeakCtrl, 'Off-Peak', offPeakHint, Icons.bolt_outlined);
+            if (narrow) {
+              return Column(children: [
+                peakField,
+                const SizedBox(height: 10),
+                offPeakField,
+              ]);
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: peakField),
+                const SizedBox(width: 10),
+                Expanded(child: offPeakField),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'On-Peak + Off-Peak = รวม ${sum.toStringAsFixed(0)} หน่วย '
+          '(คำนวณให้อัตโนมัติ)',
+          style: TextStyle(
+              fontSize: 11.5, fontWeight: FontWeight.w600, color: iconColor),
+        ),
+        if (helperText != null) ...[
+          const SizedBox(height: 4),
+          Text(helperText!,
+              style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
+        ],
       ],
     );
   }
