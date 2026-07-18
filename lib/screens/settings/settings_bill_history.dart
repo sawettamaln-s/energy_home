@@ -36,6 +36,9 @@ class _AddHistoricalBillSheet extends StatefulWidget {
 class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   late List<DateTime> _monthOptions;
   late DateTime _selectedMonth;
+  // แบ่งสัดส่วนไฟฟ้า/น้ำให้ชัดเจนแบบหน้า "บันทึกมิเตอร์ต้นรอบ" — 0 = ไฟฟ้า,
+  // 1 = น้ำ (ดู StartMeterPairedFields ใน widgets/start_meter_fields.dart)
+  int _selectedTab = 0;
   Set<String> _takenMonths = {}; // เก็บ 'year-month' ของเดือนที่มีบิลแล้ว
   bool _isLoadingTaken = true;
   bool _isSaving = false;
@@ -371,6 +374,147 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
         ),
       );
 
+  // แท็บเลือกไฟฟ้า/น้ำ — สไตล์เดียวกับ _tabChip ใน StartMeterPairedFields
+  // (widgets/start_meter_fields.dart) ✓ สีเขียวโผล่ข้างชื่อแท็บเมื่อฝั่งนั้น
+  // กรอกค่าใช้จ่ายมาแล้ว (ใช้ cost > 0 เป็นตัวบ่งชี้ "มีข้อมูล" เพราะฟอร์มนี้
+  // ไม่บังคับกรอกครบทั้งคู่เหมือนหน้ามิเตอร์ต้นรอบ)
+  Widget _buildUtilityTabs() {
+    final eHasData = _eCost > 0;
+    final wHasData = _wCost > 0;
+    return Row(
+      children: [
+        Expanded(
+          child: _tabChip(
+            label: 'ไฟฟ้า',
+            icon: Icons.bolt,
+            color: DashboardStyles.electricityBorder,
+            selected: _selectedTab == 0,
+            hasData: eHasData,
+            onTap: () => setState(() => _selectedTab = 0),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _tabChip(
+            label: 'น้ำ',
+            icon: Icons.water_drop,
+            color: DashboardStyles.waterBorder,
+            selected: _selectedTab == 1,
+            hasData: wHasData,
+            onTap: () => setState(() => _selectedTab = 1),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tabChip({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool selected,
+    required bool hasData,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.12) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? color : Colors.grey.shade200,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: selected ? color : Colors.grey.shade500),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                color: selected ? color : Colors.grey.shade700,
+              ),
+            ),
+            if (hasData) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.check_circle, size: 14, color: Colors.green),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // การ์ดสีตามยูทิลิตี้ — สไตล์เดียวกับ _utilityCard ใน StartMeterPairedFields
+  // ให้หน้า "บันทึกบิลย้อนหลัง" กับ "บันทึกมิเตอร์ต้นรอบ" ดูสอดคล้องกันทั้งแอป
+  Widget _utilityCard({
+    required String label,
+    required Color accentColor,
+    required IconData icon,
+    required Widget child,
+    VoidCallback? onInfoTap,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: DashboardStyles.accentCard(accentColor, radius: 14).copyWith(
+        color: accentColor.withValues(alpha: 0.045),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 15, color: accentColor),
+              ),
+              const SizedBox(width: 8),
+              Text(label,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14)),
+              // ปุ่ม info ย้ายมารวมไว้ตรงนี้จุดเดียว (ส่วนร่วมของการ์ด) —
+              // เดิมติดอยู่กับ label ของช่อง "หน่วยที่ใช้" เท่านั้น ทำให้
+              // ตอนเป็นมิเตอร์ TOU (ฝั่งไฟฟ้าใช้ TouPairedUnitsField แทน)
+              // ปุ่ม info ไม่โผล่เลยฝั่งไฟฟ้า เห็นแต่ฝั่งน้ำ ดูไม่สมมาตรกัน
+              if (onInfoTap != null) ...[
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: onInfoTap,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: accentColor.withValues(alpha: 0.12),
+                    ),
+                    child: Icon(Icons.info_outline,
+                        size: 12, color: accentColor),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
   // อธิบายว่าช่อง "หน่วยที่ใช้" ต้องกรอกอะไร — ปัญหาที่เจอบ่อยคือคนกรอก
   // "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มาใส่แทนที่จะเป็นยอดหน่วยที่ใช้
   // จริงของเดือนนั้น ซึ่งฟอร์มนี้ไม่ได้เอาเลขมิเตอร์ของ 2 เดือนมาลบกันให้
@@ -422,11 +566,25 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     );
   }
 
-  InputDecoration _fieldDecoration({String? hint, String? suffixText}) {
+  InputDecoration _fieldDecoration({
+    String? hint,
+    String? suffixText,
+    IconData? icon,
+    Color? iconColor,
+  }) {
     return InputDecoration(
       hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade400),
       suffixText: suffixText,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      prefixIcon:
+          icon == null ? null : Icon(icon, color: iconColor, size: 20),
+      isDense: true,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
     );
   }
 
@@ -494,7 +652,12 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                         )
                       : DropdownButtonFormField<DateTime>(
                           initialValue: _selectedMonth,
-                          decoration: _fieldDecoration(),
+                          icon: Icon(Icons.expand_more,
+                              color: DashboardStyles.primaryGreen),
+                          decoration: _fieldDecoration(
+                            icon: Icons.calendar_month,
+                            iconColor: DashboardStyles.primaryGreen,
+                          ),
                           items: _monthOptions.map((d) {
                             final taken =
                                 _takenMonths.contains('${d.year}-${d.month}');
@@ -515,120 +678,185 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                               setState(() => _selectedMonth = val!),
                         ),
                   const SizedBox(height: 16),
-                  if (_isTou) ...[
-                    TouPairedUnitsField(
-                      title: 'หน่วยที่ใช้เดือนนี้ (ไฟ)',
-                      peakCtrl: _ePeakUsedCtrl,
-                      offPeakCtrl: _eOffPeakUsedCtrl,
-                      iconColor: DashboardStyles.electricityBorder,
-                      // โน้ตนี้จะเห็นเฉพาะบิลเก่าที่บันทึกไว้ก่อนมีฟิลด์
-                      // แยก peak/offpeak เท่านั้น (มียอดรวมแต่แยกไม่ได้) —
-                      // ถ้าบิลนี้เคยกรอกแบบแยกไว้แล้ว ช่องจะ prefill ค่าเดิม
-                      // ให้จากฟิลด์ electricityPeakUsed/OffPeakUsed ตรงๆ
-                      // ไม่ต้องมีโน้ตนี้
-                      helperText: (widget.existingBill != null &&
-                              widget.existingBill!.electricityUsed > 0 &&
-                              widget.existingBill!.electricityPeakUsed == 0 &&
-                              widget.existingBill!.electricityOffPeakUsed == 0)
-                          ? 'ค่าเดิมที่เคยบันทึกไว้ '
-                              '${widget.existingBill!.electricityUsed.toStringAsFixed(0)} '
-                              'หน่วย (ยังไม่แยก On-Peak/Off-Peak) — กรอกใหม่'
-                              'แยกคู่ด้านบนเพื่อแทนที่ค่านี้'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _label('ค่าไฟ'),
-                        TextField(
-                          controller: _eCostCtrl,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(
-                                  decimal: true),
-                          decoration:
-                              _fieldDecoration(hint: '0', suffixText: 'บาท'),
-                        ),
-                      ],
-                    ),
-                  ] else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
+                  _buildUtilityTabs(),
+                  const SizedBox(height: 12),
+                  if (_selectedTab == 0)
+                    _utilityCard(
+                      label: 'ไฟฟ้า',
+                      accentColor: DashboardStyles.electricityBorder,
+                      icon: Icons.bolt,
+                      // info ย้ายมาไว้ที่หัวการ์ดจุดเดียว ใช้ได้ทั้ง TOU และ
+                      // ไม่ใช่ TOU (เดิมติดอยู่กับ label ช่อง "หน่วยที่ใช้"
+                      // ซึ่งหายไปตอนเป็น TOU เพราะสลับไปใช้ TouPairedUnitsField)
+                      onInfoTap: () => _showUsageInfoPopup(
+                          'หน่วยที่ใช้เดือนนี้ (ไฟ)', 'kWh'),
+                      child: _isTou
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TouPairedUnitsField(
+                                  title: 'หน่วยที่ใช้เดือนนี้ (ไฟ)',
+                                  peakCtrl: _ePeakUsedCtrl,
+                                  offPeakCtrl: _eOffPeakUsedCtrl,
+                                  iconColor: DashboardStyles.electricityBorder,
+                                  // โน้ตนี้จะเห็นเฉพาะบิลเก่าที่บันทึกไว้ก่อน
+                                  // มีฟิลด์แยก peak/offpeak เท่านั้น (มียอดรวม
+                                  // แต่แยกไม่ได้) — ถ้าบิลนี้เคยกรอกแบบแยกไว้
+                                  // แล้ว ช่องจะ prefill ค่าเดิมให้จากฟิลด์
+                                  // electricityPeakUsed/OffPeakUsed ตรงๆ
+                                  // ไม่ต้องมีโน้ตนี้
+                                  helperText: (widget.existingBill != null &&
+                                          widget.existingBill!.electricityUsed >
+                                              0 &&
+                                          widget.existingBill!
+                                                  .electricityPeakUsed ==
+                                              0 &&
+                                          widget.existingBill!
+                                                  .electricityOffPeakUsed ==
+                                              0)
+                                      ? 'ค่าเดิมที่เคยบันทึกไว้ '
+                                          '${widget.existingBill!.electricityUsed.toStringAsFixed(0)} '
+                                          'หน่วย (ยังไม่แยก On-Peak/Off-Peak) '
+                                          '— กรอกใหม่แยกคู่ด้านบนเพื่อแทนที่ค่านี้'
+                                      : null,
+                                ),
+                                const SizedBox(height: 12),
+                                _label('ค่าไฟ'),
+                                TextField(
+                                  controller: _eCostCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
+                                  decoration: _fieldDecoration(
+                                    hint: '0',
+                                    suffixText: 'บาท',
+                                    icon: Icons.receipt_long,
+                                    iconColor: DashboardStyles.electricityBorder,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                final narrow = constraints.maxWidth < 340;
+                                final usedField = Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _label('หน่วยที่ใช้เดือนนี้ (ไฟ)'),
+                                    TextField(
+                                      controller: _eUsedCtrl,
+                                      keyboardType: const TextInputType
+                                          .numberWithOptions(decimal: true),
+                                      decoration: _fieldDecoration(
+                                        hint: 'เช่น 250',
+                                        suffixText: 'หน่วย',
+                                        icon: Icons.bar_chart,
+                                        iconColor:
+                                            DashboardStyles.electricityBorder,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                                final costField = Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _label('ค่าไฟ'),
+                                    TextField(
+                                      controller: _eCostCtrl,
+                                      keyboardType: const TextInputType
+                                          .numberWithOptions(decimal: true),
+                                      decoration: _fieldDecoration(
+                                        hint: '0',
+                                        suffixText: 'บาท',
+                                        icon: Icons.receipt_long,
+                                        iconColor:
+                                            DashboardStyles.electricityBorder,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                                if (narrow) {
+                                  return Column(children: [
+                                    usedField,
+                                    const SizedBox(height: 10),
+                                    costField,
+                                  ]);
+                                }
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: usedField),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: costField),
+                                  ],
+                                );
+                              },
+                            ),
+                    )
+                  else
+                    _utilityCard(
+                      label: 'น้ำ',
+                      accentColor: DashboardStyles.waterBorder,
+                      icon: Icons.water_drop,
+                      onInfoTap: () => _showUsageInfoPopup(
+                          'หน่วยที่ใช้เดือนนี้ (น้ำ)', 'ลบ.ม.'),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final narrow = constraints.maxWidth < 340;
+                          final usedField = Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _label('หน่วยที่ใช้เดือนนี้ (ไฟ)',
-                                  onInfoTap: () => _showUsageInfoPopup(
-                                      'หน่วยที่ใช้เดือนนี้ (ไฟ)', 'kWh')),
+                              _label('หน่วยที่ใช้เดือนนี้ (น้ำ)'),
                               TextField(
-                                controller: _eUsedCtrl,
+                                controller: _wUsedCtrl,
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
                                         decimal: true),
                                 decoration: _fieldDecoration(
-                                    hint: 'เช่น 250', suffixText: 'หน่วย'),
+                                  hint: 'เช่น 15',
+                                  suffixText: 'หน่วย',
+                                  icon: Icons.bar_chart,
+                                  iconColor: DashboardStyles.waterBorder,
+                                ),
                               ),
                             ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
+                          );
+                          final costField = Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _label('ค่าไฟ'),
+                              _label('ค่าน้ำ'),
                               TextField(
-                                controller: _eCostCtrl,
+                                controller: _wCostCtrl,
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
                                         decimal: true),
                                 decoration: _fieldDecoration(
-                                    hint: '0', suffixText: 'บาท'),
+                                  hint: '0',
+                                  suffixText: 'บาท',
+                                  icon: Icons.receipt_long,
+                                  iconColor: DashboardStyles.waterBorder,
+                                ),
                               ),
                             ],
-                          ),
-                        ),
-                      ],
+                          );
+                          if (narrow) {
+                            return Column(children: [
+                              usedField,
+                              const SizedBox(height: 10),
+                              costField,
+                            ]);
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: usedField),
+                              const SizedBox(width: 10),
+                              Expanded(child: costField),
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _label('หน่วยที่ใช้เดือนนี้ (น้ำ)',
-                                onInfoTap: () => _showUsageInfoPopup(
-                                    'หน่วยที่ใช้เดือนนี้ (น้ำ)', 'ลบ.ม.')),
-                            TextField(
-                              controller: _wUsedCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(
-                                  decimal: true),
-                              decoration: _fieldDecoration(
-                                  hint: 'เช่น 15', suffixText: 'หน่วย'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _label('ค่าน้ำ'),
-                            TextField(
-                              controller: _wCostCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(
-                                  decimal: true),
-                              decoration:
-                                  _fieldDecoration(hint: '0', suffixText: 'บาท'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 14),
                   // ลิงก์ไปหน้าเลขมิเตอร์ต้นรอบเสมอ — เดือนของรอบปัจจุบัน
                   // (${_currentCycleMonth}) ตัดออกจาก dropdown ด้านบนไปแล้ว
