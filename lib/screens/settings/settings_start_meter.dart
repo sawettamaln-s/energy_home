@@ -1337,11 +1337,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
           showTableRowActions(
             context,
             title: 'ต้นรอบ ${thaiMonths[r.billingMonth - 1]} ${r.billingYear}',
-            subtitle: widget.isTou
-                ? 'On-Peak ${formatter.format(r.peakValue)} · '
-                    'Off-Peak ${formatter.format(r.offPeakValue)} · '
-                    'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}'
-                : 'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}',
+            subtitle: 'บันทึกเมื่อ ${dateFormatter.format(r.recordedAt)}',
             // แก้ไข/ล้างค่าได้เฉพาะรอบปัจจุบัน (ที่ยังไม่ข้ามวันตัดรอบไป) —
             // รอบเก่าที่ปิดไปแล้วฟอร์มคำนวณ delta ใหม่ให้ไม่ได้ถูกต้อง จึง
             // เปิดให้ลบได้อย่างเดียวเหมือนเดิม

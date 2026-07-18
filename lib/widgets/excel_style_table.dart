@@ -237,10 +237,11 @@ Future<void> showTableRowActions(
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   title,
+                  textAlign: TextAlign.center,
                   style:
                       const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
@@ -248,6 +249,7 @@ Future<void> showTableRowActions(
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
+                    textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
                   ),
                 ],

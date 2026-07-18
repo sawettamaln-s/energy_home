@@ -36,7 +36,7 @@ class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('ประวัติมิเตอร์ไฟฟ้า / ประปา'),
+        title: const Text('ประวัติมการบันทึกมิเตอร์'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -102,7 +102,7 @@ Widget _utilitySummaryBar({
         ),
         const SizedBox(height: 6),
         Text(
-          'ยอดประมาณการของรอบบิลถัดไป — ระบบจะสะสมหน่วยไปจนกว่าจะถึงวันตัดรอบบิลของคุณ',
+          'ระบบจะสะสมหน่วยไปจนกว่าจะถึงวันตัดรอบบิลของคุณ',
           style: TextStyle(
               color: color.withValues(alpha: 0.85), fontSize: 11, height: 1.4),
         ),
@@ -507,18 +507,11 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
                   },
                   onRowTap: (row) {
                     final log = groupLogs[row];
-                    final isTou = log.peakMeterValue != null;
                     showTableRowActions(
                       context,
                       title: DateFormat('dd/MM/yyyy').format(log.date),
-                      subtitle: isTou
-                          ? 'On-Peak ${log.peakMeterValue!.toStringAsFixed(0)} · '
-                              'Off-Peak ${log.offPeakMeterValue!.toStringAsFixed(0)} · '
-                              'ใช้ไป ${log.usedFromStart.toStringAsFixed(0)} หน่วย · '
-                              '${formatter.format(log.cost)} บาท'
-                          : 'มิเตอร์ ${log.meterValue.toStringAsFixed(0)} · '
-                              'ใช้ไป ${log.usedFromStart.toStringAsFixed(0)} หน่วย · '
-                              '${formatter.format(log.cost)} บาท',
+                      subtitle:
+                          'บันทึกเมื่อ ${DateFormat('dd/MM/yyyy, HH:mm').format(log.date)}',
                       locked: !_isEditable(log),
                       onDelete: () => _confirmDelete(log),
                     );
@@ -681,9 +674,7 @@ class _WaterLogTabState extends State<_WaterLogTab> {
                       context,
                       title: DateFormat('dd/MM/yyyy').format(log.date),
                       subtitle:
-                          'มิเตอร์ ${log.meterValue.toStringAsFixed(0)} · '
-                          'ใช้ไป ${log.usedFromStart.toStringAsFixed(0)} ลบ.ม. · '
-                          '${formatter.format(log.cost)} บาท',
+                          'บันทึกเมื่อ ${DateFormat('dd/MM/yyyy, HH:mm').format(log.date)}',
                       locked: !_isEditable(log),
                       onDelete: () => _confirmDelete(log),
                     );

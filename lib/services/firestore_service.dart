@@ -9,6 +9,7 @@ import '../models/fixed_cost_item_model.dart';
 import '../models/start_meter_record_model.dart';
 import '../models/user_model.dart';
 import '../models/water_log_model.dart';
+import '../utils/calculator.dart';
 import '../utils/data_refresh_bus.dart';
 
 class FirestoreService {
@@ -184,6 +185,25 @@ class FirestoreService {
       double usedElec = eLogs.isNotEmpty ? eLogs.first.usedFromStart : 0;
       double usedWater = wLogs.isNotEmpty ? wLogs.first.usedFromStart : 0;
 
+      // แก้บั๊ก: มิเตอร์ TOU เดิมไม่เคยเซ็ต electricityPeakUsed/
+      // electricityOffPeakUsed ตอน auto-compile บิลตอนปิดรอบเลย (มีแต่
+      // usedElec ยอดรวม) ทำให้หน้าวิเคราะห์ (analysis_screen.dart ใช้
+      // peakUsedSelector/offPeakUsedSelector วาดกราฟแยก On-Peak/Off-Peak)
+      // เห็นบิลที่ compile อัตโนมัติ (ซึ่งเป็นบิลส่วนใหญ่ที่เกิดขึ้นจริงในแอป)
+      // เป็น 0 ทั้งคู่เสมอ ทั้งที่ log รายวันมี peakMeterValue/offPeakMeterValue
+      // เก็บไว้อยู่แล้ว — คำนวณ delta จากค่ามิเตอร์ต้นรอบ (user.startPeakValue/
+      // startOffPeakValue) แบบเดียวกับที่ _recalcCurrentCycleLogs ใน
+      // settings_start_meter.dart ทำอยู่แล้ว เพื่อให้บิล 'compiled' ได้ค่า
+      // แยกที่ถูกต้องเหมือนบิล 'imported'/'startMeter'
+      double peakUsedElec = 0;
+      double offPeakUsedElec = 0;
+      if (user.meterType == 'tou' && eLogs.isNotEmpty) {
+        peakUsedElec = EnergyCalculator.calculateUsed(
+            eLogs.first.peakMeterValue ?? 0, user.startPeakValue);
+        offPeakUsedElec = EnergyCalculator.calculateUsed(
+            eLogs.first.offPeakMeterValue ?? 0, user.startOffPeakValue);
+      }
+
       // สร้าง Bill
       final bill = BillModel(
         id: const Uuid().v4(),
@@ -191,6 +211,8 @@ class FirestoreService {
         year: year,
         month: month,
         electricityUsed: usedElec,
+        electricityPeakUsed: peakUsedElec,
+        electricityOffPeakUsed: offPeakUsedElec,
         waterUsed: usedWater,
         electricityCost: totalElec,
         waterCost: totalWater,
