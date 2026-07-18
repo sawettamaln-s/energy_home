@@ -180,6 +180,14 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         _wCostCtrl.text = b.waterCost == 0 ? '' : b.waterCost.toString();
         _eUsedCtrl.text = b.electricityUsed == 0 ? '' : b.electricityUsed.toString();
         _wUsedCtrl.text = b.waterUsed == 0 ? '' : b.waterUsed.toString();
+        // เดิมลืม prefill คู่ TOU ตรงนี้ — ทำให้ตอนกลับมาแก้ไขค่าที่เพิ่ง
+        // บันทึกไปในรอบเดียวกัน ช่อง On/Off ของ "หน่วยที่ใช้ไปแล้ว" ว่างเปล่า
+        // ทั้งที่เลขมิเตอร์สะสมกับยอดเงินยัง prefill ให้ถูกต้องอยู่แล้ว
+        _eUsedPeakCtrl.text =
+            b.electricityPeakUsed == 0 ? '' : b.electricityPeakUsed.toString();
+        _eUsedOffPeakCtrl.text = b.electricityOffPeakUsed == 0
+            ? ''
+            : b.electricityOffPeakUsed.toString();
       }
     }
     if (mounted) setState(() => _isLoading = false);
@@ -821,10 +829,12 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             _waterNoBillYet = v;
                             if (v) _wCostCtrl.clear();
                           }),
-                          title: 'เลขมิเตอร์สะสมต้นรอบ',
-                          subtitle:
-                              'กรอกจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน '
-                              'มีบิลฝั่งไหนก็กรอกแค่ฝั่งนั้นได้',
+                          // ไม่ส่ง title — sheet นี้มีหัว "บันทึกมิเตอร์ต้นรอบ"
+                          // อยู่แล้ว (ดู AppBar/title ด้านบนของ sheet) ใส่ซ้ำ
+                          // อีกชั้นแค่ทำให้ดูซ้ำซ้อนโดยไม่จำเป็น
+                          subtitle: 'กรอกเลขและค่าใช้จ่ายจากใบแจ้งหนี้เดือนที่'
+                              'เลือกไว้ด้านบน — มีบิลแค่ฝั่งไหนก็กรอกแค่ฝั่ง'
+                              'นั้นได้',
                         ),
                         if (_generalError) ...[
                           const SizedBox(height: 8),
@@ -1217,10 +1227,8 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                         latestId: latestId,
                         accent: Colors.orange,
                         unitLabel: 'หน่วยสะสม',
-                        costLabel: 'ค่าไฟ',
                         emptyIcon: Icons.bolt,
                         valueOf: (r) => r.electricityValue,
-                        costOf: (bill) => bill?.electricityCost,
                         isTouTable: widget.isTou,
                         isElectricity: true,
                       ),
@@ -1229,10 +1237,8 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                         latestId: latestId,
                         accent: Colors.blue,
                         unitLabel: 'ลบ.ม.สะสม',
-                        costLabel: 'ค่าน้ำ',
                         emptyIcon: Icons.water_drop,
                         valueOf: (r) => r.waterValue,
-                        costOf: (bill) => bill?.waterCost,
                         isElectricity: false,
                       ),
                     ],
@@ -1251,15 +1257,18 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
   }
 
   // ใช้ร่วมกันทั้งแท็บไฟฟ้า/ประปา ต่างกันแค่สี, label คอลัมน์ และฟิลด์ที่ดึง
+  //
+  // เดิมมีคอลัมน์ค่าไฟ/ค่าน้ำ (costOf/costLabel) ตัดออกแล้ว — หน้านี้คือ
+  // "เลขมิเตอร์สะสม" ไม่ใช่ค่าใช้จ่าย เอาค่าใช้จ่ายมาโชว์คู่กับหน่วยสะสมแล้ว
+  // ดูไม่สอดคล้องกัน (หน่วยสะสม ≠ หน่วยที่ใช้ ซึ่งเป็นตัวคูณค่าไฟจริง) ค่า
+  // ใช้จ่ายไปโชว์ที่หน้า "บันทึกบิลย้อนหลัง" คู่กับหน่วยที่ใช้แทน ถูกที่กว่า
   Widget _buildTable({
     required List<StartMeterRecordModel> records,
     required String? latestId,
     required Color accent,
     required String unitLabel,
-    required String costLabel,
     required IconData emptyIcon,
     required double Function(StartMeterRecordModel) valueOf,
-    required double? Function(BillModel?) costOf,
     // มิเตอร์ TOU ไม่เคยเซ็ต electricityValue เลย (ใช้ peakValue/offPeakValue
     // แทน) เลยต้องแยกตารางเป็น On-Peak/Off-Peak คนละคอลัมน์ ไม่งั้นคอลัมน์
     // "หน่วยสะสม" เดิมจะอ่าน valueOf แล้วเจอ 0 โชว์ "-" ตลอดทุกแถว (บั๊กที่
@@ -1282,12 +1291,11 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
             ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
             ExcelTableColumn('On-Peak', flex: 2),
             ExcelTableColumn('Off-Peak', flex: 2),
-            ExcelTableColumn('ค่าไฟ', flex: 2),
+            ExcelTableColumn('หน่วยสะสม', flex: 2),
           ]
         : [
             const ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
             ExcelTableColumn(unitLabel, flex: 2),
-            ExcelTableColumn(costLabel, flex: 2),
           ];
 
     return SingleChildScrollView(
@@ -1312,11 +1320,8 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                     ? '-'
                     : formatter.format(r.offPeakValue);
               default:
-                final bill = _billFor(r.billingMonth, r.billingYear);
-                final cost = costOf(bill);
-                return cost == null || cost == 0
-                    ? '-'
-                    : formatter.format(cost);
+                final total = r.peakValue + r.offPeakValue;
+                return total <= 0 ? '-' : formatter.format(total);
             }
           }
           final missing = valueOf(r) <= 0;
@@ -1324,12 +1329,8 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
             case 0:
               return '${thaiMonths[r.billingMonth - 1]} ${r.billingYear}'
                   '${missing ? ' (ยังไม่ได้กรอกข้อมูล)' : ''}';
-            case 1:
-              return missing ? '-' : formatter.format(valueOf(r));
             default:
-              final bill = _billFor(r.billingMonth, r.billingYear);
-              final cost = costOf(bill);
-              return cost == null || cost == 0 ? '-' : formatter.format(cost);
+              return missing ? '-' : formatter.format(valueOf(r));
           }
         },
         onRowTap: (row) {

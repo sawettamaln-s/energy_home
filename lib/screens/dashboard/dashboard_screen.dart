@@ -668,7 +668,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                     .electricityFieldBg,
                                                 controller:
                                                     _electricityController,
-                                                hint: 'เช่น 00000',
+                                                hint: 'เช่น 01234',
                                                 lastValue:
                                                     _latestElectricityLog
                                                             ?.meterValue ??
@@ -704,7 +704,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             fieldBg:
                                                 DashboardStyles.waterFieldBg,
                                             controller: _waterController,
-                                            hint: 'เช่น 00000',
+                                            hint: 'เช่น 01234',
                                             lastValue:
                                                 _latestWaterLog?.meterValue ??
                                                     _user?.startWaterValue,
@@ -1290,10 +1290,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // ล่าสุด/ต้นรอบ กลับไปแยกคนละบรรทัดแบบเดิม (บรรทัดเดียวทำให้
           // ล้นช่องแคบเวลาวางการ์ดคู่กันแบบ Row)
           if (lastValue != null)
-            Text('ล่าสุด: ${formatter.format(lastValue)} $unit',
+            Text('หน่วยสะสม : ${formatter.format(lastValue)} $unit',
                 style: DashboardStyles.lastValueStyle),
           if (startValue != null)
-            Text('ต้นรอบ: ${formatter.format(startValue)} $unit',
+            Text('หน่วยต้นรอบ : ${formatter.format(startValue)} $unit',
                 style: DashboardStyles.lastValueStyle),
           const SizedBox(height: 8),
           TextField(
@@ -1381,7 +1381,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(width: 10),
             const Expanded(
               child: Text(
-                'Fixed Cost ประจำเดือน',
+                'Fixed Cost รายจ่ายประจำ',
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -1655,10 +1655,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // เพราะผูกกับ controller เดิม)
           if (isPeakTab) ...[
             if (lastPeak != null)
-              Text('ล่าสุด: ${formatter.format(lastPeak)} หน่วย',
+              Text('หน่วยสะสม : ${formatter.format(lastPeak)} หน่วย',
                   style: DashboardStyles.lastValueStyle),
             if (startPeak != null)
-              Text('ต้นรอบ: ${formatter.format(startPeak)} หน่วย',
+              Text('หน่วยต้นรอบ : ${formatter.format(startPeak)} หน่วย',
                   style: DashboardStyles.lastValueStyle),
             const SizedBox(height: 6),
             TextField(
@@ -1670,7 +1670,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: DashboardStyles.textDark,
               ),
               decoration: _meterFieldDecoration(
-                hint: 'เช่น 100',
+                hint: 'เช่น 012345',
                 unit: 'หน่วย',
                 accent: Colors.orange,
                 fieldBg: DashboardStyles.electricityFieldBg,
@@ -1678,10 +1678,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ] else ...[
             if (lastOffPeak != null)
-              Text('ล่าสุด: ${formatter.format(lastOffPeak)} หน่วย',
+              Text('หน่วยสะสม: ${formatter.format(lastOffPeak)} หน่วย',
                   style: DashboardStyles.lastValueStyle),
             if (startOffPeak != null)
-              Text('ต้นรอบ: ${formatter.format(startOffPeak)} หน่วย',
+              Text('หน่วยต้นรอบ: ${formatter.format(startOffPeak)} หน่วย',
                   style: DashboardStyles.lastValueStyle),
             const SizedBox(height: 6),
             TextField(
@@ -1693,7 +1693,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: DashboardStyles.textDark,
               ),
               decoration: _meterFieldDecoration(
-                hint: 'เช่น 200',
+                hint: 'เช่น 012345',
                 unit: 'หน่วย',
                 accent: Colors.deepOrange,
                 fieldBg: DashboardStyles.electricityFieldBg,

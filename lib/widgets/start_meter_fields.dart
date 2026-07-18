@@ -243,7 +243,10 @@ class StartMeterPairedFields extends StatefulWidget {
   final ValueChanged<bool> onWNoBillYetChanged;
 
   /// หัวข้อ/คำอธิบายรวมด้านบนสุด — ปรับได้ตามบริบท (หน้าเซตอัพ vs หน้าตั้งค่า)
-  final String title;
+  /// title เป็น null ได้ถ้าหน้าที่เรียกมี header ของตัวเองอยู่แล้วที่สื่อ
+  /// ความหมายซ้ำกัน (เช่น sheet title "บันทึกมิเตอร์ต้นรอบ") — ปุ่ม info
+  /// ยังคงอยู่เสมอไม่ว่าจะมี title หรือไม่
+  final String? title;
   final String subtitle;
 
   const StartMeterPairedFields({
@@ -265,7 +268,7 @@ class StartMeterPairedFields extends StatefulWidget {
     required this.onENoBillYetChanged,
     required this.wNoBillYet,
     required this.onWNoBillYetChanged,
-    required this.title,
+    this.title,
     required this.subtitle,
   });
 
@@ -340,6 +343,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
   }) {
     return InputDecoration(
       hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade400),
       suffixText: suffixText,
       prefixIcon: Icon(icon, color: iconColor, size: 20),
       isDense: true,
@@ -352,37 +356,31 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
     );
   }
 
-  // ช่องที่ 3 "หน่วยที่ใช้ไปแล้ว" — เดิมมีย่อหน้าอธิบายยาวกำกับทุกครั้ง ตอนนี้
-  // ตัดออกเพราะเลขลำดับ "2." (จาก _sectionHeader ใน _utilityCard) พอสื่อ
-  // ความหมายแล้วว่าเป็นขั้นตอนต่อจากเลขมิเตอร์ปัจจุบันด้านบน
+  // ช่องที่ 3 "หน่วยที่ใช้ไปแล้ว" — ต่างจาก _field ปกติตรงมีคำอธิบายกำกับ
+  // ไว้ด้วยเสมอ เพราะเป็นช่องที่โผล่มาแบบไม่คาดคิด ต้องอธิบายให้ชัดว่าทำไม
+  // ต้องกรอกเพิ่ม ไม่งั้นจะดูเหมือนระบบขอข้อมูลซ้ำซ้อนกับ "เลขมิเตอร์สะสม"
   Widget _usedField({
     required TextEditingController controller,
     required String hint,
     required String suffixText,
     required Color iconColor,
   }) {
-    return _field(
-      controller: controller,
-      label: 'จำนวนหน่วยที่ใช้',
-      hint: hint,
-      suffixText: suffixText,
-      icon: Icons.bar_chart,
-      iconColor: iconColor,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _field(
+          controller: controller,
+          label: 'หน่วยที่ใช้ไปแล้วในรอบนี้ (ครั้งแรกเท่านั้น)',
+          hint: hint,
+          suffixText: suffixText,
+          icon: Icons.bar_chart,
+          iconColor: iconColor,
+        ),
+        const SizedBox(height: 4),
+        
+      ],
     );
   }
-
-  // หัวข้อลำดับสั้นๆ ("1. เลขมิเตอร์ปัจจุบัน" / "2. จำนวนหน่วยที่ใช้ในบิลนี้")
-  // ใช้แยกกลุ่มฟิลด์ในการ์ดให้อ่านง่ายขึ้นแทนย่อหน้าอธิบายยาว — โชว์เฉพาะ
-  // ตอนมีมากกว่า 1 กลุ่มในการ์ดเดียวกัน (ครั้งแรกที่ต้องกรอกทั้งเลขมิเตอร์
-  // และหน่วยที่ใช้) ไม่งั้นไม่ต้องมีเลขกำกับให้รก
-  Widget _sectionHeader(String text, Color color) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          text,
-          style: TextStyle(
-              fontSize: 11.5, fontWeight: FontWeight.w700, color: color),
-        ),
-      );
 
   Widget _field({
     required TextEditingController controller,
@@ -541,17 +539,15 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             ],
           ),
           const SizedBox(height: 12),
-          if (usedField != null) _sectionHeader('1. เลขมิเตอร์ปัจจุบัน (สะสม)', accentColor),
           meterFields,
           if (usedField != null) ...[
-            const SizedBox(height: 14),
-            _sectionHeader('2. จำนวนหน่วยที่ใช้ในบิลนี้', accentColor),
+            const SizedBox(height: 10),
             usedField,
           ],
           const SizedBox(height: 10),
           _field(
             controller: costCtrl,
-            label: 'ยอดเงินรวมในบิล',
+            label: 'ค่าใช้จ่าย',
             hint: costHint,
             suffixText: 'บาท',
             icon: Icons.receipt_long,
@@ -560,51 +556,27 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
           ),
           const SizedBox(height: 10),
           // toggle "ยังไม่มีบิลตอนนี้" — ย้ายมาไว้ในการ์ดของฝั่งนี้โดยเฉพาะ
-          // แล้ว (เดิมเป็นตัวเดียวรวมทั้งไฟและน้ำ) กดแล้วกระทบแค่ฝั่งนี้ ห่อ
-          // เป็นกล่องพื้นหลังของตัวเองแทนแถวข้อความลอยๆ ให้ดูเป็นตัวควบคุม
-          // ชัดเจน และเปลี่ยนสีกล่องตามสถานะติ๊ก (เขียวอ่อนเมื่อติ๊กแล้ว)
+          // แล้ว (เดิมเป็นตัวเดียวรวมทั้งไฟและน้ำ) กดแล้วกระทบแค่ฝั่งนี้
+          // ใช้ checkbox วงกลมแทนสวิตช์วงรี ให้เข้าชุดกับการ์ด "ข้าม
+          // ขั้นตอนนี้" ในหน้าเซตอัพ — ทำทั้งแถวกดได้ ไม่ต้องเล็งตัวสวิตช์
           InkWell(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
             onTap: () => onNoBillYetChanged(!noBillYet),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-              decoration: BoxDecoration(
-                color: noBillYet
-                    ? const Color(0xFF2E7D32).withValues(alpha: 0.08)
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: noBillYet
-                      ? const Color(0xFF2E7D32).withValues(alpha: 0.4)
-                      : Colors.grey.shade300,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'ยังไม่มีบิล$labelตอนนี้ (มีแต่เลขมิเตอร์ที่อ่านจากหน้าปัดเอง)',
+                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                  ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    noBillYet ? Icons.check_circle : Icons.circle_outlined,
-                    color: noBillYet
-                        ? const Color(0xFF2E7D32)
-                        : Colors.grey.shade400,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'ยังไม่มีบิล$labelตอนนี้ (มีแต่เลขมิเตอร์)',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: noBillYet ? FontWeight.w600 : FontWeight.normal,
-                        color: noBillYet
-                            ? const Color(0xFF2E7D32)
-                            : Colors.grey.shade700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                const SizedBox(width: 8),
+                Icon(
+                  noBillYet ? Icons.check_circle : Icons.circle_outlined,
+                  color: noBillYet ? const Color(0xFF2E7D32) : Colors.grey.shade400,
+                  size: 22,
+                ),
+              ],
             ),
           ),
           if (isPartial) ...[
@@ -680,7 +652,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
               final peakField = _field(
                 controller: widget.peakCtrl,
                 label: 'เลขมิเตอร์ On-Peak',
-                hint: 'เช่น 012345',
+                hint: 'เช่น 0123456',
                 suffixText: 'หน่วย',
                 icon: Icons.bolt,
                 iconColor: DashboardStyles.electricityBorder,
@@ -688,7 +660,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
               final offPeakField = _field(
                 controller: widget.offPeakCtrl,
                 label: 'เลขมิเตอร์ Off-Peak',
-                hint: 'เช่น 012345',
+                hint: 'เช่น 0123456',
                 suffixText: 'หน่วย',
                 icon: Icons.bolt_outlined,
                 iconColor: DashboardStyles.electricityBorder,
@@ -725,8 +697,11 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
         Row(
           children: [
             Expanded(
-              child: Text(widget.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              child: widget.title == null
+                  ? const SizedBox.shrink()
+                  : Text(widget.title!,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14)),
             ),
             IconButton(
               visualDensity: VisualDensity.compact,
@@ -751,7 +726,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             accentColor: DashboardStyles.electricityBorder,
             meterFields: electricityMeterFields,
             costCtrl: widget.eCostCtrl,
-            costHint: '0.00',
+            costHint: 'เช่น 0.00',
             isPartial: ePartial,
             noBillYet: widget.eNoBillYet,
             onNoBillYetChanged: widget.onENoBillYetChanged,
@@ -759,10 +734,15 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                 ? (widget.isTou && widget.eUsedPeakCtrl != null &&
                         widget.eUsedOffPeakCtrl != null
                     ? TouPairedUnitsField(
-                        title: '',
+                        title: 'หน่วยที่ใช้ไปแล้วในรอบนี้ (ครั้งแรกเท่านั้น)',
                         peakCtrl: widget.eUsedPeakCtrl!,
                         offPeakCtrl: widget.eUsedOffPeakCtrl!,
                         iconColor: DashboardStyles.electricityBorder,
+                        helperText:
+                            'ตั้งค่าครั้งแรก ระบบยังไม่มีเลขของรอบก่อนหน้า'
+                            'ให้เทียบหาหน่วยที่ใช้ให้อัตโนมัติ — กรอกจากใบ'
+                            'แจ้งหนี้ใบเดียวกับเลขมิเตอร์สะสมด้านบน (ช่อง '
+                            '"หน่วยที่ใช้" แยก On-Peak/Off-Peak)',
                       )
                     : _usedField(
                         controller: widget.eUsedCtrl,
@@ -781,13 +761,13 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             meterFields: _field(
               controller: widget.waterCtrl,
               label: 'เลขมิเตอร์สะสม',
-              hint: 'เช่น 0123',
+              hint: 'เช่น 01234',
               suffixText: 'ลบ.ม.',
               icon: Icons.speed,
               iconColor: DashboardStyles.waterBorder,
             ),
             costCtrl: widget.wCostCtrl,
-            costHint: '0.00',
+            costHint: 'เช่น 0.00',
             isPartial: wPartial,
             noBillYet: widget.wNoBillYet,
             onNoBillYetChanged: widget.onWNoBillYetChanged,
@@ -835,8 +815,8 @@ class TouPairedUnitsField extends StatelessWidget {
     required this.offPeakCtrl,
     required this.iconColor,
     this.title = 'หน่วยที่ใช้ (On-Peak / Off-Peak)',
-    this.peakHint = 'เช่น 0123',
-    this.offPeakHint = 'เช่น 0123',
+    this.peakHint = 'เช่น 01234',
+    this.offPeakHint = 'เช่น 01234',
     this.helperText,
   });
 
@@ -844,6 +824,7 @@ class TouPairedUnitsField extends StatelessWidget {
 
   InputDecoration _decoration(String hint, IconData icon) => InputDecoration(
         hintText: hint,
+        hintStyle: TextStyle(color: Colors.grey.shade400),
         suffixText: 'หน่วย',
         prefixIcon: Icon(icon, color: iconColor, size: 20),
         isDense: true,
@@ -878,11 +859,9 @@ class TouPairedUnitsField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (title.isNotEmpty) ...[
-          Text(title,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
-          const SizedBox(height: 6),
-        ],
+        Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+        const SizedBox(height: 6),
         LayoutBuilder(
           builder: (context, constraints) {
             final narrow = constraints.maxWidth < 340;
@@ -909,7 +888,7 @@ class TouPairedUnitsField extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'รวมหน่วยที่ใช้: ${sum.toStringAsFixed(0)} หน่วย',
+          'รวมหน่วยที่ใช้ :  ${sum.toStringAsFixed(0)} หน่วย ',
           style: TextStyle(
               fontSize: 11.5, fontWeight: FontWeight.w600, color: iconColor),
         ),
