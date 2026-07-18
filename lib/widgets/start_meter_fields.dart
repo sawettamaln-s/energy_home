@@ -292,17 +292,15 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '"เลขมิเตอร์สะสม" เปิดใบแจ้งหนี้ แล้วมองหาช่อง "เลขอ่านครั้งหลัง" '
-            'หรือ "Last Meter Reading" — คือตัวเลขที่มิเตอร์อ่านได้ล่าสุด '
-            'ตอนเจ้าหน้าที่มาจดในรอบบิลนั้น (ไม่ใช่ "เลขอ่านครั้งก่อน" '
-            'ที่อยู่คู่กัน เพราะเป็นเลขของรอบก่อนหน้า)',
+            'เลขมิเตอร์สะสม: ดูจากช่อง "เลขอ่านครั้งหลัง" หรือ "Last Meter '
+            'Reading" ในใบแจ้งหนี้ (ไม่ใช่ "เลขอ่านครั้งก่อน" ซึ่งเป็นเลข'
+            'ของรอบก่อนหน้า)',
             style: TextStyle(fontSize: 13.5, height: 1.6),
           ),
           const SizedBox(height: 10),
           const Text(
-            '"ค่าใช้จ่าย" คือยอดที่ต้องจ่ายของบิลใบเดียวกัน — กรอกเป็นคู่กับ'
-            'เลขมิเตอร์ด้านบนเสมอ ถ้ายังไม่มีบิลของฝั่งไหน ให้เว้นว่างทั้ง'
-            'เลขมิเตอร์และค่าใช้จ่ายของฝั่งนั้นไปเลย',
+            'ค่าใช้จ่าย: ยอดที่ต้องจ่ายของบิลใบเดียวกัน กรอกคู่กับเลขมิเตอร์'
+            'เสมอ ฝั่งไหนยังไม่มีบิลให้เว้นว่างทั้งคู่',
             style: TextStyle(fontSize: 13.5, height: 1.6),
           ),
           const SizedBox(height: 12),
@@ -319,10 +317,8 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'เลขมิเตอร์สะสมเป็นเลขบนหน้าปัดตั้งแต่วันติดตั้ง ไม่ใช่ '
-                    '"หน่วยที่ใช้เดือนนี้" — ถ้าเพิ่งเปลี่ยนมิเตอร์ใหม่หรือ'
-                    'เพิ่งขอมิเตอร์ครั้งแรก เลขนี้อาจเริ่มจากตัวเลขน้อยๆ '
-                    'ได้ตามปกติ ไม่ต้องกังวล',
+                    'มิเตอร์เพิ่งเปลี่ยน/ขอใหม่ เลขสะสมเริ่มจากตัวเลขน้อยๆ '
+                    'ได้ตามปกติ',
                     style: TextStyle(
                         fontSize: 12.5, height: 1.5, color: Colors.blue.shade900),
                   ),
@@ -370,7 +366,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
       children: [
         _field(
           controller: controller,
-          label: 'หน่วยที่ใช้ไปแล้วในรอบนี้ (ครั้งแรกเท่านั้น)',
+          label: 'หน่วยที่ใช้ไปแล้ว (ครั้งแรกเท่านั้น)',
           hint: hint,
           suffixText: suffixText,
           icon: Icons.bar_chart,
@@ -734,15 +730,12 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                 ? (widget.isTou && widget.eUsedPeakCtrl != null &&
                         widget.eUsedOffPeakCtrl != null
                     ? TouPairedUnitsField(
-                        title: 'หน่วยที่ใช้ไปแล้วในรอบนี้ (ครั้งแรกเท่านั้น)',
+                        title: 'หน่วยที่ใช้ไปแล้ว (ครั้งแรกเท่านั้น)',
                         peakCtrl: widget.eUsedPeakCtrl!,
                         offPeakCtrl: widget.eUsedOffPeakCtrl!,
                         iconColor: DashboardStyles.electricityBorder,
-                        helperText:
-                            'ตั้งค่าครั้งแรก ระบบยังไม่มีเลขของรอบก่อนหน้า'
-                            'ให้เทียบหาหน่วยที่ใช้ให้อัตโนมัติ — กรอกจากใบ'
-                            'แจ้งหนี้ใบเดียวกับเลขมิเตอร์สะสมด้านบน (ช่อง '
-                            '"หน่วยที่ใช้" แยก On-Peak/Off-Peak)',
+                        helperText: 'กรอกจากใบแจ้งหนี้ใบเดียวกับ'
+                            'เลขมิเตอร์สะสมด้านบน',
                       )
                     : _usedField(
                         controller: widget.eUsedCtrl,

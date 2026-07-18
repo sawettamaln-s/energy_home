@@ -614,27 +614,33 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  widget.existingBill != null
-                      ? 'แก้ไขบันทึกบิลย้อนหลัง'
-                      : 'เพิ่มบันทึกบิลย้อนหลัง',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Text(
+                      widget.existingBill != null
+                          ? 'แก้ไขบันทึกบิลย้อนหลัง'
+                          : 'เพิ่มบันทึกบิลย้อนหลัง',
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    // ตัดคำอธิบายยาวๆ ใต้หัวข้อออก (เดิม "ไม่บังคับ • สูงสุด
+                    // 6 เดือน • ช่วยให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก")
+                    // ซ้ำกับเนื้อหาใน _showHistoricalBillInfoPopup อยู่แล้ว
+                    // เก็บไว้แค่ไอคอน info กดดูได้ตามต้องการแทน ลดความรก
+                    // หน้าฟอร์มตอนเปิดครั้งแรก
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.info_outline,
+                          size: 18, color: Colors.grey.shade600),
+                      onPressed: () => _showHistoricalBillInfoPopup(context),
+                    ),
+                  ],
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'ไม่บังคับ • สูงสุด 6 เดือน • ช่วยให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
             ),
           ),
           Expanded(
@@ -878,8 +884,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                           Expanded(
                             child: Text(
                               'มีบิลของ${thaiMonths[_currentCycleMonth.month - 1]} '
-                              '${_currentCycleMonth.year} ด้วยไหม? '
-                              'กรอกที่หน้าเลขมิเตอร์ต้นรอบแทน',
+                              '${_currentCycleMonth.year}? ไปกรอกที่หน้าเลขมิเตอร์ต้นรอบ',
                               style: TextStyle(
                                   fontSize: 11.5,
                                   color: Colors.grey.shade600,

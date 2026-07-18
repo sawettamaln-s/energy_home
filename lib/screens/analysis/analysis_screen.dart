@@ -154,6 +154,12 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     title: 'ค่าไฟฟ้า',
                     label: 'ค่าไฟ',
                     accentColor: DashboardStyles.electricityBorder,
+                    // พาเลตที่เลือก: แดง #D0311E = ค่าใช้จ่าย, เหลือง #F7D87F
+                    // = หน่วย, เหลืองอ่อน #F8EBAB = Off-Peak (คู่กับ On-Peak
+                    // ที่ใช้สีหน่วยเดียวกัน)
+                    costColor: const Color(0xFFD0311E),
+                    unitColor: const Color(0xFFF7D87F),
+                    touOffPeakColor: const Color(0xFFF8EBAB),
                     currentCycle: _currentCycle?['electricity'],
                     onViewAppliances: () => _tabController.animateTo(2),
                     isTou: _isTou,
@@ -169,6 +175,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     title: 'ค่าน้ำ',
                     label: 'ค่าน้ำ',
                     accentColor: DashboardStyles.waterBorder,
+                    // พาเลตที่เลือก: น้ำเงินกลาง #4274D9 = ค่าใช้จ่าย, น้ำเงิน
+                    // เข้ม #293681 = หน่วย (น้ำไม่มี TOU จึงไม่ใช้ touOffPeakColor)
+                    costColor: const Color(0xFF4274D9),
+                    unitColor: const Color(0xFF293681),
                     currentCycle: _currentCycle?['water'],
                     onViewAppliances: () => _tabController.animateTo(2),
                     trackAppliances: false,
@@ -204,6 +214,11 @@ class _UtilityTab extends StatelessWidget {
   // แล้ว (DashboardStyles.electricityBorder/waterBorder) แทนที่จะใช้สีเขียว
   // เดียวกันหมดทั้ง 2 แท็บเหมือนเดิม แยกไม่ออกว่ากำลังดูแท็บไหนอยู่จากกราฟ
   final Color accentColor;
+  // พาเลตสีจริงของกราฟแท่งเทรนด์ ต่อโหมด "ค่าใช้จ่าย"/"หน่วย" — เลือกเฉด
+  // เฉพาะของแต่ละยูทิลิตี้ (ไฟฟ้า = แดง/เหลือง, น้ำ = น้ำเงิน) ตรงตาม swatch
+  final Color costColor;
+  final Color unitColor;
+  final Color? touOffPeakColor;
   final CurrentCycleForecast? currentCycle;
   // TOU เท่านั้น (แท็บไฟฟ้า) — ใช้ให้กราฟเทรนด์ฝั่ง "หน่วยที่ใช้" โชว์เป็น
   // แท่งซ้อน On-Peak/Off-Peak แทนแท่งทึบสีเดียว แท็บน้ำไม่ส่งมาเลย (default
@@ -235,6 +250,9 @@ class _UtilityTab extends StatelessWidget {
     required this.title,
     required this.label,
     required this.accentColor,
+    required this.costColor,
+    required this.unitColor,
+    this.touOffPeakColor,
     required this.currentCycle,
     this.onViewAppliances,
     this.trackAppliances = true,
@@ -288,6 +306,9 @@ class _UtilityTab extends StatelessWidget {
           costSelector: selector,
           usedSelector: usedSelector,
           accentColor: accentColor,
+          costColor: costColor,
+          unitColor: unitColor,
+          touOffPeakColor: touOffPeakColor,
           isTou: isTou,
           peakUsedSelector: peakUsedSelector,
           offPeakUsedSelector: offPeakUsedSelector,
@@ -319,8 +340,7 @@ class _UtilityTab extends StatelessWidget {
                 infoTitle: 'เทียบปีก่อนคืออะไร?',
                 infoMessage:
                     'เทียบยอด$labelเดือนนี้กับเดือนเดียวกันของปีที่แล้ว '
-                    'ช่วยให้เห็นแนวโน้มตามฤดูกาล เช่น หน้าร้อนมักใช้ไฟมากกว่าหน้าฝน '
-                    'ซึ่งการเทียบเดือนก่อนเดือนเดียวจะไม่เห็นภาพนี้',
+                    'ช่วยให้เห็นแนวโน้มตามฤดูกาล เช่น หน้าร้อนมักใช้ไฟมากกว่าหน้าฝน',
               ),
             ),
           ],
@@ -331,14 +351,13 @@ class _UtilityTab extends StatelessWidget {
           'เทียบค่าเฉลี่ย 6 เดือนล่าสุด',
           avg6,
           emptyHint:
-              'ต้องมีบิลอย่างน้อย 3 เดือน (ตอนนี้มี ${bills.length} เดือน) — '
-              'ช่วยให้เห็นภาพที่นิ่งกว่าเทียบเดือนก่อนเดือนเดียว',
+              'ต้องมีบิลอย่างน้อย 3 เดือน (ตอนนี้มี ${bills.length} เดือน)',
           fullWidth: true,
           infoTitle: 'เทียบค่าเฉลี่ย 6 เดือนคืออะไร?',
           infoMessage:
-              'เทียบยอด$labelเดือนนี้กับค่าเฉลี่ยของ 6 เดือนก่อนหน้า (ไม่รวมเดือนนี้) '
-              'ช่วยให้เห็นภาพที่นิ่งกว่าการเทียบเดือนก่อนเดือนเดียว เผื่อเดือนก่อน '
-              'มีอะไรผิดปกติไปเอง (เช่น ไปต่างจังหวัดทั้งเดือน) ก็จะไม่ทำให้เดือนนี้ดูเหมือนพุ่งทั้งที่จริงแค่กลับสู่ปกติ',
+              'เทียบยอด$labelเดือนนี้กับค่าเฉลี่ยของ 6 เดือนก่อนหน้า '
+              'ช่วยให้เห็นภาพที่นิ่งกว่าเทียบเดือนก่อนเดือนเดียว เผื่อเดือนก่อน'
+              'มีอะไรผิดปกติไปเอง',
         ),
         // ไม่มีบิลเลยสักเดือน = พยากรณ์ไม่มีความหมายอะไรทั้งสิ้น (ไม่ใช่แค่
         // "ความมั่นใจต่ำ") ซ่อนการ์ดนี้ไปเลยดีกว่าโชว์ "0.00 บาท" ซึ่งดู
@@ -457,14 +476,11 @@ class _UtilityTab extends StatelessWidget {
                 onTap: () => showInfoDialog(
                   context,
                   title: 'ตัวเลขนี้คำนวณอย่างไร?',
-                  message: 'ใช้วิธีค่าเฉลี่ยเคลื่อนที่ คำนวณจากค่าใช้จ่ายเฉลี่ย'
-                      'ต่อวันตั้งแต่ต้นรอบบิลถึงวันนี้ คูณด้วยจำนวนวันที่เหลือ'
-                      'ในรอบ แล้วบวกกับยอดที่ใช้จริงไปแล้ว โดยสมมติว่าช่วงที่'
-                      'เหลือของเดือนใช้ในอัตราเดิมต่อเนื่อง\n\n'
-                      'วิธีนี้ไม่ต้องรอสะสมข้อมูลหลายเดือน คำนวณได้ทันทีจาก'
-                      'พฤติกรรมการใช้จริงในรอบปัจจุบัน หากใช้งานไม่สม่ำเสมอมาก '
-                      '(เช่น ต้นเดือนใช้น้อย ปลายเดือนใช้พุ่ง) ตัวเลขอาจ'
-                      'คลาดเคลื่อนได้บ้าง',
+                  message: 'คำนวณจากค่าใช้จ่ายเฉลี่ยต่อวันตั้งแต่ต้นรอบถึง'
+                      'วันนี้ คูณด้วยจำนวนวันที่เหลือในรอบ แล้วบวกกับยอดที่'
+                      'ใช้จริงไปแล้ว\n\n'
+                      'หากใช้งานไม่สม่ำเสมอมาก (เช่น ต้นเดือนใช้น้อย ปลายเดือน'
+                      'ใช้พุ่ง) ตัวเลขอาจคลาดเคลื่อนได้บ้าง',
                 ),
                 child: Container(
                   width: 18,
@@ -732,10 +748,8 @@ class _UtilityTab extends StatelessWidget {
                   title: 'ตัวเลขนี้คำนวณอย่างไร?',
                   message:
                       'ประมาณแนวโน้มจากยอด$labelย้อนหลังทั้งหมดที่บันทึกไว้ '
-                      'โดยดูว่าตัวเลขแต่ละเดือนขยับขึ้นหรือลงตามแนวทางไหน '
                       'แล้วลากเส้นแนวโน้มนั้นต่อไปยังเดือนถัดไป\n\n'
-                      'ยิ่งมีข้อมูลสะสมหลายเดือน เส้นแนวโน้มจะยิ่งนิ่งและแม่นยำขึ้น '
-                      'ถ้ามีข้อมูลน้อยตัวเลขนี้จะเป็นแค่การประมาณการเบื้องต้นเท่านั้น',
+                      'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขนี้จะยิ่งแม่นยำขึ้น',
                 ),
                 child: Container(
                   width: 18,
@@ -795,8 +809,7 @@ class _UtilityTab extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'ประมาณการเบื้องต้น (ข้อมูลยังน้อย — มี ${bills.length} เดือน '
-                'ยิ่งบันทึกบิลสะสมมากขึ้น ตัวเลขนี้จะยิ่งแม่นยำขึ้น)',
+                'ประมาณการเบื้องต้น (มีข้อมูล ${bills.length} เดือน)',
                 style: TextStyle(
                     fontSize: 10.5,
                     color: Colors.orange.shade900,
@@ -919,6 +932,14 @@ class _TrendChartCard extends StatefulWidget {
   final double Function(BillModel) costSelector;
   final double Function(BillModel) usedSelector;
   final Color accentColor;
+  // สีแท่งกราฟจริง แยกตามโหมด "ค่าใช้จ่าย" กับ "หน่วย/ลบ.ม." — รับเฉดจาก
+  // พาเลตที่เลือกไว้ต่อยูทิลิตี้ตรงๆ (ไฟฟ้า = แดง/เหลือง, น้ำ = น้ำเงิน)
+  // แทนการไล่เฉดอัตโนมัติจาก accentColor เดิม ให้คุมสีได้แม่นยำตามที่เลือก
+  final Color costColor;
+  final Color unitColor;
+  // TOU เท่านั้น — สี Off-Peak ของแท่งซ้อน ถ้าไม่ส่งมาจะ fallback เป็นเฉด
+  // อ่อนของ unitColor แทน
+  final Color? touOffPeakColor;
   // TOU เท่านั้น — ดู _UtilityTab ด้านบนสำหรับที่มา
   final bool isTou;
   final double Function(BillModel)? peakUsedSelector;
@@ -931,6 +952,9 @@ class _TrendChartCard extends StatefulWidget {
     required this.costSelector,
     required this.usedSelector,
     required this.accentColor,
+    required this.costColor,
+    required this.unitColor,
+    this.touOffPeakColor,
     this.isTou = false,
     this.peakUsedSelector,
     this.offPeakUsedSelector,
@@ -1002,8 +1026,15 @@ class _TrendChartCardState extends State<_TrendChartCard> {
     final hasVariation = values.length >= 2 && maxVal != minVal;
     final peakIndex = hasVariation ? values.indexOf(maxVal) : -1;
     final lowIndex = hasVariation ? values.indexOf(minVal) : -1;
-    const peakColor = Color(0xFFE53935); // แดง — เดือนใช้สูงสุด
-    const lowColor = Color(0xFF00897B); // เขียวอมฟ้า — เดือนใช้ต่ำสุด
+    // สีสดใสแบบมินิมอล — ไฮไลต์เดือนสูงสุด/ต่ำสุดของทุกยูทิลิตี้ (แยกจาก
+    // พาเลตสีประจำยูทิลิตี้ ให้ยังโดดเด่นเห็นชัดไม่ว่าจะเป็นแท็บไหน)
+    const peakColor = Color(0xFFFF6F59); // ส้มแดงสด — เดือนใช้สูงสุด
+    const lowColor = Color(0xFF1FBF9C); // เขียวมินท์สด — เดือนใช้ต่ำสุด
+
+    // สีแท่งกราฟจริงตามโหมดที่กำลังดู — ใช้เฉดตรงจากพาเลตที่เลือกไว้
+    // (ไฟฟ้า = แดง/เหลือง, น้ำ = น้ำเงิน) ไม่ผ่านการไล่เฉดอัตโนมัติ เพื่อให้
+    // สีตรงตาม swatch ที่เลือกเป๊ะๆ
+    final modeAccent = _showCost ? widget.costColor : widget.unitColor;
 
     // TOU + กำลังดูมุมมอง "หน่วยที่ใช้" (ไม่ใช่ค่าใช้จ่าย) → แท่งซ้อน
     // On-Peak/Off-Peak แทนแท่งทึบสีเดียว ฝั่งค่าใช้จ่ายไม่แยก เพราะ
@@ -1012,10 +1043,12 @@ class _TrendChartCardState extends State<_TrendChartCard> {
         widget.isTou &&
         widget.peakUsedSelector != null &&
         widget.offPeakUsedSelector != null;
-    // Off-Peak ใช้เฉดอ่อนกว่าของสีเดียวกับ On-Peak (ไม่ใช้สีใหม่แยกต่างหาก)
-    // ให้ยังอยู่ในโทน "ไฟฟ้า" เดียวกันทั้งกราฟ แค่ต่างความเข้ม
-    final touPeakColor = widget.accentColor;
-    final touOffPeakColor = widget.accentColor.withValues(alpha: 0.38);
+    // Off-Peak ใช้สีที่เลือกไว้เฉพาะ (เช่น เหลืองอ่อนคู่กับเหลืองเข้มของ
+    // On-Peak) ถ้าไม่ได้ส่งมา fallback เป็นเฉดอ่อนของ unitColor แทน
+    final touPeakColor = widget.unitColor;
+    final touOffPeakColor =
+        widget.touOffPeakColor ?? Color.lerp(widget.unitColor, Colors.white, 0.3)!;
+
 
     final chartTitle = _showCost
         ? 'เทรนด์${widget.title} (${bills.length} เดือนล่าสุด)'
@@ -1093,7 +1126,8 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                                     toY: demo[i],
                                     color: Colors.grey.shade300,
                                     width: 18,
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(6)),
                                   ),
                                 ]);
                               }),
@@ -1215,7 +1249,8 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                                       touOffPeakColor),
                                 ],
                                 width: 18,
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(6)),
                               ),
                             ]);
                           }
@@ -1228,7 +1263,8 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                               toY: values[i],
                               color: Colors.grey.shade400,
                               width: 18,
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(6)),
                             ),
                           ]);
                         }
@@ -1236,13 +1272,14 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                             ? peakColor
                             : i == lowIndex
                                 ? lowColor
-                                : widget.accentColor;
+                                : modeAccent;
                         return BarChartGroupData(x: i, barRods: [
                           BarChartRodData(
                             toY: values[i],
                             color: barColor,
                             width: 18,
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(6)),
                           ),
                         ]);
                       }),
@@ -1348,14 +1385,17 @@ class _ApplianceTab extends StatelessWidget {
 
     final insights = analysisService.generateApplianceInsights(breakdown);
 
+    // พาเลตสดใสที่เลือกให้เข้าโทนกัน (ไม่ใช่สี Material ดิบๆ ที่ปะทะกันเอง)
+    // เรียงจากสีแบรนด์ (_green) แล้วไล่โทนอุ่น-เย็นสลับกันให้ชิ้นพายที่อยู่
+    // ติดกันแยกออกจากกันง่าย
     final colors = [
       _green,
-      Colors.orange,
-      Colors.blue,
-      Colors.purple,
-      Colors.teal,
-      Colors.brown,
-      Colors.pink,
+      const Color(0xFFFF8A65), // ส้มคอรัล
+      const Color(0xFF29B6F6), // ฟ้าสด
+      const Color(0xFFAB47BC), // ม่วงสด
+      const Color(0xFF26C6DA), // ฟ้าอมเขียว
+      const Color(0xFFFFB74D), // เหลืองอำพัน
+      const Color(0xFFEC698C), // ชมพูโรส
     ];
 
     return ListView(

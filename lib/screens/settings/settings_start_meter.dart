@@ -764,9 +764,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'แก้ไขค่าของรอบนี้ได้จนกว่าจะถึงวันตัดรอบบิล '
-                                  'ครั้งถัดไป ระบบจะเปิดให้ตั้งค่ารอบใหม่'
-                                  'อัตโนมัติตอนนั้น',
+                                  'แก้ไขได้จนกว่าจะถึงรอบบิลถัดไป',
                                   style: TextStyle(
                                       fontSize: 11.5,
                                       color: Colors.grey.shade600),
@@ -832,9 +830,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           // ไม่ส่ง title — sheet นี้มีหัว "บันทึกมิเตอร์ต้นรอบ"
                           // อยู่แล้ว (ดู AppBar/title ด้านบนของ sheet) ใส่ซ้ำ
                           // อีกชั้นแค่ทำให้ดูซ้ำซ้อนโดยไม่จำเป็น
-                          subtitle: 'กรอกเลขและค่าใช้จ่ายจากใบแจ้งหนี้เดือนที่'
-                              'เลือกไว้ด้านบน — มีบิลแค่ฝั่งไหนก็กรอกแค่ฝั่ง'
-                              'นั้นได้',
+                          subtitle: 'กรอกจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน '
+                              'มีบิลฝั่งไหนก็กรอกแค่ฝั่งนั้น',
                         ),
                         if (_generalError) ...[
                           const SizedBox(height: 8),
