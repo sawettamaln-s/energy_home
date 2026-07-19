@@ -87,6 +87,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ใช้คู่กับ widget.justCompletedSetup เพื่อทำให้แจ้งเตือนเงียบแค่รอบเดียว
   bool _isFirstLoad = true;
 
+  // =====================================================================
+  // เช็คว่า "รอบบิลปัจจุบัน" ตั้งมิเตอร์ต้นรอบไว้ครบแล้วหรือยัง — แยกราย
+  // ยูทิลิตี้จริงๆ (ไม่ใช่แค่เช็ค electricityStartConfigured/
+  // waterStartConfigured ตรงๆ เพราะ flag พวกนี้ค้าง true ตลอดไปตั้งแต่ครั้ง
+  // แรกที่ตั้ง ไม่เคยถูกรีเซ็ตตอนขึ้นรอบบิลใหม่) ต้องเช็คเพิ่มว่า
+  // startBillingMonth/startBillingYear ที่บันทึกไว้ตรงกับรอบที่ "ควรจะเป็น
+  // ตอนนี้" ไหมด้วย (คำนวณจาก billingDay จริงผ่าน EnergyForecaster.
+  // getCycleStart — สูตรเดียวกับที่ settings_start_meter.dart ใช้เป๊ะ) ถ้า
+  // รอบขยับไปแล้วแต่ยังไม่มาตั้งค่าใหม่ ให้ถือว่า "ยังไม่ได้ตั้งค่า" สำหรับ
+  // รอบนี้ แม้ flag เดิมจะยังเป็น true ค้างจากรอบก่อนอยู่ก็ตาม
+  DateTime get _expectedCycleStart =>
+      EnergyForecaster.getCycleStart(DateTime.now(), _user?.billingDay ?? 30);
+
+  bool get _electricityCurrentCycleConfigured {
+    final user = _user;
+    if (user == null) return false;
+    final expected = _expectedCycleStart;
+    return user.electricityStartConfigured &&
+        user.startBillingMonth == expected.month &&
+        user.startBillingYear == expected.year;
+  }
+
+  bool get _waterCurrentCycleConfigured {
+    final user = _user;
+    if (user == null) return false;
+    final expected = _expectedCycleStart;
+    return user.waterStartConfigured &&
+        user.startBillingMonth == expected.month &&
+        user.startBillingYear == expected.year;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -340,6 +371,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // บันทึกค่ามิเตอร์ไฟฟ้า
   Future<void> _saveElectricityLog() async {
+    // กันไว้อีกชั้น (นอกจาก UI ที่ซ่อนช่องกรอกด้วย
+    // _electricityCurrentCycleConfigured อยู่แล้ว) — ถ้าขึ้นรอบบิลใหม่แล้ว
+    // แต่ยังไม่ได้ตั้งมิเตอร์ต้นรอบไฟฟ้าของรอบนี้ ห้ามบันทึก log รายวันได้
+    // เด็ดขาด เพราะระบบจะเอาเลขมิเตอร์สะสมจริงไปคำนวณ "หน่วยที่ใช้เดือนนี้"
+    // ผิดทันที (เทียบกับเลขต้นรอบเก่าที่ไม่ตรงรอบ)
+    if (!_electricityCurrentCycleConfigured) {
+      setState(() => _electricityError =
+          'กรุณาตั้งค่ามิเตอร์ต้นรอบของรอบนี้ก่อนบันทึกมิเตอร์รายวันค่ะ');
+      return;
+    }
     final isTOU = _user?.meterType == 'tou';
 
     // ค่าต้นรอบ/ล่าสุดของ TOU เตรียมไว้ใช้ทั้งตอน validate และตอนเติมให้
@@ -494,6 +535,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // บันทึกค่ามิเตอร์น้ำ
   Future<void> _saveWaterLog() async {
+    // กันไว้อีกชั้นเหมือน _saveElectricityLog — ห้ามบันทึก log รายวันของ
+    // น้ำ ถ้ายังไม่ได้ตั้งมิเตอร์ต้นรอบน้ำของรอบปัจจุบัน
+    if (!_waterCurrentCycleConfigured) {
+      setState(() => _waterError =
+          'กรุณาตั้งค่ามิเตอร์ต้นรอบของรอบนี้ก่อนบันทึกมิเตอร์รายวันค่ะ');
+      return;
+    }
     if (_waterController.text.isEmpty) {
       setState(() => _waterError = 'กรุณากรอกค่ามิเตอร์น้ำก่อนค่ะ');
       return;
@@ -642,19 +690,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // เดิมเช็ค startMeterConfigured รวมอันเดียว (ครอบทั้ง
                       // ไฟ+น้ำ) พอแยก flag เป็นรายยูทิลิตี้แล้ว (ดูที่
                       // UserModel) เปลี่ยนมาเช็คแยกแต่ละฝั่งแทน — ถ้ายังไม่
-                      // ได้ตั้งเลยสักอย่าง (startMeterConfigured == false)
-                      // ยังคงโชว์การ์ดเต็มความกว้างแบบเดิม แต่ถ้าตั้งไปแล้ว
-                      // อย่างน้อย 1 ฝั่ง ให้ใช้งานฝั่งที่พร้อมได้ก่อนเลย ส่วน
-                      // ฝั่งที่ยังไม่พร้อมโชว์การ์ดล็อกแยกแทนที่จะบล็อกทั้งคู่
-                      _user?.startMeterConfigured == false
+                      // ได้ตั้งเลยสักอย่างสำหรับ "รอบปัจจุบัน" (เช็คผ่าน
+                      // _electricityCurrentCycleConfigured/
+                      // _waterCurrentCycleConfigured ซึ่งดูทั้ง flag และว่า
+                      // ตรงกับรอบบิลตอนนี้ไหม ไม่ใช่แค่ flag ดิบที่ค้าง true
+                      // จากรอบก่อน) ยังคงโชว์การ์ดเต็มความกว้างแบบเดิม แต่ถ้า
+                      // ตั้งไปแล้วอย่างน้อย 1 ฝั่ง ให้ใช้งานฝั่งที่พร้อมได้
+                      // ก่อนเลย ส่วนฝั่งที่ยังไม่พร้อมโชว์การ์ดล็อกแยกแทนที่
+                      // จะบล็อกทั้งคู่
+                      (!_electricityCurrentCycleConfigured &&
+                              !_waterCurrentCycleConfigured)
                           ? _buildStartMeterRequiredCard()
                           : IntrinsicHeight(
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Expanded(
-                                    child: (_user?.electricityStartConfigured ??
-                                            true)
+                                    child: _electricityCurrentCycleConfigured
                                         ? (_user?.meterType == 'tou'
                                             ? _buildTOUMeterCard()
                                             : _buildMeterCard(
@@ -692,8 +744,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: (_user?.waterStartConfigured ??
-                                            true)
+                                    child: _waterCurrentCycleConfigured
                                         ? _buildMeterCard(
                                             title: 'น้ำ',
                                             icon: Icons.water_drop,
@@ -1089,8 +1140,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // =====================================================================
   // การ์ดเตือนให้ตั้งค่ามิเตอร์ต้นรอบก่อน — แสดงแทนช่องกรอกมิเตอร์ปกติ
-  // เฉพาะตอนที่ยังไม่ได้ตั้งเลยสักฝั่ง (electricityStartConfigured และ
-  // waterStartConfigured เป็น false ทั้งคู่ = startMeterConfigured false)
+  // เฉพาะตอนที่ยังไม่ได้ตั้งเลยสักฝั่ง "สำหรับรอบปัจจุบัน" (ดู
+  // _electricityCurrentCycleConfigured / _waterCurrentCycleConfigured เป็น
+  // false ทั้งคู่ — เช็คทั้ง flag และว่าตรงกับรอบบิลตอนนี้ไหม ไม่ใช่แค่
+  // flag ดิบที่อาจค้าง true มาจากรอบก่อน)
   // ถ้าตั้งไปแล้วอย่างน้อย 1 ฝั่ง จะไม่โชว์การ์ดนี้อีกต่อไป แต่ไปโชว์
   // _buildMeterLockedCard() แยกเฉพาะฝั่งที่ยังไม่ได้ตั้งแทน (ดูจุดเรียกใช้
   // ใน build()) เพราะถ้าปล่อยให้กรอกเลย ระบบจะเอาเลขมิเตอร์สะสมจริงทั้งก้อน
@@ -1181,8 +1234,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   // =====================================================================
   // การ์ดล็อก — โชว์แทนการ์ดกรอกมิเตอร์ปกติ เฉพาะฝั่งที่ยังไม่ได้ตั้งเลข
-  // มิเตอร์ต้นรอบ (electricityStartConfigured / waterStartConfigured เป็น
-  // false) ในขณะที่อีกฝั่งตั้งไปแล้ว — เดิมถ้ายังไม่ครบทั้ง 2 ฝั่งจะบล็อก
+  // มิเตอร์ต้นรอบของรอบปัจจุบัน (_electricityCurrentCycleConfigured /
+  // _waterCurrentCycleConfigured เป็น false — รวมทั้งเคสขึ้นรอบใหม่แล้วแต่
+  // ยังไม่มาตั้งค่าใหม่ ถึงแม้ flag ดิบจะยังค้าง true จากรอบก่อนอยู่ก็ตาม)
+  // ในขณะที่อีกฝั่งตั้งไปแล้ว — เดิมถ้ายังไม่ครบทั้ง 2 ฝั่งจะบล็อก
   // ทั้งคู่ด้วย _buildStartMeterRequiredCard() ทั้งที่ฝั่งที่กรอกครบแล้ว
   // ควรใช้งานได้เลย ไม่ต้องรอรอบอีกฝั่งด้วย (เคสมีบิลแค่ใบเดียวในมือ)
   // ขนาด/โครงให้ใกล้เคียง _buildMeterCard ให้สูงเท่ากันตอนอยู่ใน Row เดียวกัน
