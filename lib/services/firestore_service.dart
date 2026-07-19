@@ -11,6 +11,7 @@ import '../models/user_model.dart';
 import '../models/water_log_model.dart';
 import '../utils/calculator.dart';
 import '../utils/data_refresh_bus.dart';
+import '../utils/forecaster.dart';
 
 class FirestoreService {
   // เดิม _db ผูกกับ FirebaseFirestore.instance ตรงๆ ทำให้เทสอัตโนมัติ
@@ -446,4 +447,195 @@ class FirestoreService {
       await batch.commit();
     }
   }
+
+  // ==================== Migration: TOU compiled bills ====================
+
+  /// Migration ย้อนหลังสำหรับบั๊กที่แก้ไปใน compileBill(): บิล TOU ที่ระบบ
+  /// auto-compile ไปแล้วก่อนแพตช์ (source=='compiled') ไม่มี
+  /// electricityPeakUsed/electricityOffPeakUsed เก็บไว้เลย (ค้างเป็น 0)
+  /// ฟังก์ชันนี้ไล่คำนวณย้อนหลังให้จาก log รายวันที่มีอยู่จริง ไม่ใช่เดา
+  ///
+  /// วิธีคำนวณ: ไล่ "เลขมิเตอร์ปิดรอบ" (log ล่าสุดของแต่ละรอบ) เป็นลูกโซ่
+  /// ต่อกันไปทีละรอบ (รอบนี้ - รอบก่อนหน้า) แทนที่จะไปจับคู่กับ
+  /// start_meter_history ของแต่ละรอบตรงๆ เพราะ:
+  ///   - ตัดความเสี่ยงเรื่องตีความว่า record ไหนคู่กับบิลไหนผิดจุด แล้วได้
+  ///     ค่าที่ดูสมเหตุสมผลแต่ผิดเงียบๆ (อันตรายกว่าปล่อยว่างไว้เสียอีก)
+  ///   - เลขมิเตอร์สะสม (peakMeterValue/offPeakMeterValue) เป็นค่าที่ไม่มี
+  ///     วันลดลงเอง ตราบใดที่ log ของทุกรอบยังอยู่ครบ ผลต่างระหว่าง log ปิด
+  ///     รอบติดกันจึงถูกต้องเสมอ ไม่ต้องพึ่งการจับคู่ที่อาจกำกวม
+  ///
+  /// ข้อจำกัดที่ต้องรู้ก่อนใช้ (สำคัญ — อ่านก่อนรัน dryRun:false):
+  ///   1) รอบแรกสุดในประวัติไม่มี "รอบก่อนหน้า" ให้ลบ ใช้
+  ///      start_meter_history ตัวที่เก่าแก่สุด (เรียงตาม recordedAt) เป็น
+  ///      ฐานตั้งต้นแทน ถ้า user ไม่เคยมี record นี้เลยจะข้ามบิลนั้น
+  ///   2) ถ้ารอบไหน log รายวันถูกลบไปหมดแล้ว (ไม่เหลือ log ในช่วงนั้นเลย)
+  ///      จะข้าม (skip) บิลนั้นไปพร้อมระบุเหตุผล ไม่เดาค่าให้
+  ///   3) ใช้ billingDay ปัจจุบันของ user ย้อนสร้างขอบเขตรอบเก่าทุกรอบ —
+  ///      ถ้า user เคยเปลี่ยนวันตัดรอบระหว่างทาง ขอบเขตที่ reconstruct ของ
+  ///      รอบเก่าๆ ก่อนเปลี่ยนอาจคลาดเคลื่อนไปบ้าง ควรตรวจ preview ดูก่อน
+  ///
+  /// ค่าเริ่มต้น dryRun=true ตั้งใจให้ต้องเรียกซ้ำแบบ dryRun:false เอง
+  /// หลังตรวจ preview แล้วพอใจ กันเขียนทับข้อมูลจริงโดยไม่ได้ตรวจก่อน
+  Future<List<TouBillMigrationPreview>> migrateTouCompiledBills(
+    String uid, {
+    bool dryRun = true,
+  }) async {
+    final user = await getUser(uid);
+    if (user == null || user.meterType != 'tou') {
+      debugPrint('⏭️ ข้าม migration: ไม่ใช่ user TOU หรือหา user ไม่เจอ (uid=$uid)');
+      return [];
+    }
+
+    final billingDay = user.billingDay;
+    final bills = await getBills(uid);
+    final compiledBills = bills.where((b) => b.source == 'compiled').toList()
+      ..sort(
+          (a, b) => (a.year * 12 + a.month).compareTo(b.year * 12 + b.month));
+
+    if (compiledBills.isEmpty) return [];
+
+    // ดึง log ไฟฟ้า "ทั้งหมด" ของ user (ไม่จำกัดช่วงวันที่) เรียงเก่า -> ใหม่
+    final allLogsSnapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('electricity_logs')
+        .orderBy('date')
+        .get();
+    final allLogs = allLogsSnapshot.docs
+        .map((doc) => ElectricityLogModel.fromMap(doc.data()))
+        .toList();
+
+    // ฐานตั้งต้นของรอบแรกสุด: ใช้ start_meter_history ตัวที่เก่าแก่สุด
+    final history = await getStartMeterHistory(uid); // ฟังก์ชันเดิมคืน desc
+    final earliestRecord = history.isEmpty
+        ? null
+        : history.reduce(
+            (a, b) => a.recordedAt.isBefore(b.recordedAt) ? a : b);
+
+    double? basePeak = earliestRecord?.peakValue;
+    double? baseOffPeak = earliestRecord?.offPeakValue;
+
+    final results = <TouBillMigrationPreview>[];
+
+    for (final bill in compiledBills) {
+      final endDate = _cutoffDate(bill.year, bill.month, billingDay);
+      final startDate =
+          EnergyForecaster.getPreviousCycleStart(endDate, billingDay);
+
+      final logsInCycle = allLogs
+          .where(
+              (l) => !l.date.isBefore(startDate) && l.date.isBefore(endDate))
+          .toList(); // allLogs เรียง asc มาแล้วจาก query ด้านบน
+
+      if (logsInCycle.isEmpty || basePeak == null || baseOffPeak == null) {
+        results.add(TouBillMigrationPreview(
+          billId: bill.id,
+          year: bill.year,
+          month: bill.month,
+          oldPeakUsed: bill.electricityPeakUsed,
+          newPeakUsed: bill.electricityPeakUsed,
+          oldOffPeakUsed: bill.electricityOffPeakUsed,
+          newOffPeakUsed: bill.electricityOffPeakUsed,
+          skippedReason: logsInCycle.isEmpty
+              ? 'ไม่มี log ไฟฟ้าเหลืออยู่ในช่วงรอบนี้ '
+                  '(${startDate.toIso8601String().split('T').first} - '
+                  '${endDate.toIso8601String().split('T').first})'
+              : 'ไม่มี start_meter_history ให้ใช้เป็นฐานตั้งต้น (รอบแรกสุด)',
+        ));
+        // รอบนี้ข้าม แต่ถ้ามี log อยู่ก็ยังต้องเดินฐานต่อให้รอบถัดไปคำนวณได้
+        if (logsInCycle.isNotEmpty) {
+          final closing = logsInCycle.last;
+          basePeak = closing.peakMeterValue ?? basePeak;
+          baseOffPeak = closing.offPeakMeterValue ?? baseOffPeak;
+        }
+        continue;
+      }
+
+      final closingLog = logsInCycle.last;
+      final closingPeak = closingLog.peakMeterValue ?? basePeak;
+      final closingOffPeak = closingLog.offPeakMeterValue ?? baseOffPeak;
+
+      final newPeakUsed =
+          EnergyCalculator.calculateUsed(closingPeak, basePeak);
+      final newOffPeakUsed =
+          EnergyCalculator.calculateUsed(closingOffPeak, baseOffPeak);
+
+      results.add(TouBillMigrationPreview(
+        billId: bill.id,
+        year: bill.year,
+        month: bill.month,
+        oldPeakUsed: bill.electricityPeakUsed,
+        newPeakUsed: newPeakUsed,
+        oldOffPeakUsed: bill.electricityOffPeakUsed,
+        newOffPeakUsed: newOffPeakUsed,
+        matchedLogDate: closingLog.date,
+      ));
+
+      if (!dryRun) {
+        await saveBill(BillModel(
+          id: bill.id,
+          uid: bill.uid,
+          year: bill.year,
+          month: bill.month,
+          electricityUsed: bill.electricityUsed,
+          electricityPeakUsed: newPeakUsed,
+          electricityOffPeakUsed: newOffPeakUsed,
+          waterUsed: bill.waterUsed,
+          electricityCost: bill.electricityCost,
+          waterCost: bill.waterCost,
+          fixedCost: bill.fixedCost,
+          totalCost: bill.totalCost,
+          forecastElectricity: bill.forecastElectricity,
+          forecastWater: bill.forecastWater,
+          forecastTotal: bill.forecastTotal,
+          source: bill.source,
+        ));
+      }
+
+      // เดินฐานต่อไปสำหรับรอบถัดไป
+      basePeak = closingPeak;
+      baseOffPeak = closingOffPeak;
+    }
+
+    return results;
+  }
+
+  // คัดลอกมาจาก EnergyForecaster._safeBillingDate (private เรียกจากนอกไฟล์
+  // ไม่ได้) — ต้องเหมือนต้นฉบับเป๊ะเพื่อ reconstruct ขอบเขตรอบเก่าให้ตรงกับ
+  // ที่แอปใช้จริงตอน compileBill()
+  DateTime _cutoffDate(int year, int month, int billingDay) {
+    final lastDayOfMonth = DateTime(year, month + 1, 0).day;
+    final safeDay = billingDay > lastDayOfMonth ? lastDayOfMonth : billingDay;
+    return DateTime(year, month, safeDay);
+  }
+}
+
+/// ผลลัพธ์ของการ migrate บิล TOU แต่ละใบ — ใช้โชว์ preview ให้ตรวจก่อน
+/// ตัดสินใจ apply จริง (dryRun:false)
+class TouBillMigrationPreview {
+  final String billId;
+  final int year;
+  final int month;
+  final double oldPeakUsed;
+  final double newPeakUsed;
+  final double oldOffPeakUsed;
+  final double newOffPeakUsed;
+  final DateTime? matchedLogDate;
+  final String? skippedReason; // null = แก้ได้จริง, ไม่ null = ข้ามพร้อมเหตุผล
+
+  TouBillMigrationPreview({
+    required this.billId,
+    required this.year,
+    required this.month,
+    required this.oldPeakUsed,
+    required this.newPeakUsed,
+    required this.oldOffPeakUsed,
+    required this.newOffPeakUsed,
+    this.matchedLogDate,
+    this.skippedReason,
+  });
+
+  bool get willChange =>
+      skippedReason == null &&
+      (oldPeakUsed != newPeakUsed || oldOffPeakUsed != newOffPeakUsed);
 }
