@@ -1,0 +1,221 @@
+From 20fecdcf9496a294b28c9d8ef4a0668504facbcf Mon Sep 17 00:00:00 2001
+From: Claude <claude@anthropic.com>
+Date: Mon, 20 Jul 2026 08:11:57 +0000
+Subject: [PATCH] =?UTF-8?q?=E0=B9=81=E0=B8=81=E0=B9=89=E0=B8=9A=E0=B8=B1?=
+ =?UTF-8?q?=E0=B9=8A=E0=B8=81=E0=B8=9A=E0=B8=B4=E0=B8=A5=E0=B8=8B=E0=B9=89?=
+ =?UTF-8?q?=E0=B8=AD=E0=B8=99=20+=20=E0=B9=80=E0=B8=9E=E0=B8=B4=E0=B9=88?=
+ =?UTF-8?q?=E0=B8=A1=20gate=20=E0=B8=AB=E0=B8=99=E0=B9=89=E0=B8=B2?=
+ =?UTF-8?q?=E0=B9=81=E0=B8=A3=E0=B8=81=E0=B8=81=E0=B8=B1=E0=B8=99=E0=B8=9A?=
+ =?UTF-8?q?=E0=B8=B1=E0=B8=99=E0=B8=97=E0=B8=B6=E0=B8=81=20log=20=E0=B8=96?=
+ =?UTF-8?q?=E0=B9=89=E0=B8=B2=E0=B8=A2=E0=B8=B1=E0=B8=87=E0=B9=84=E0=B8=A1?=
+ =?UTF-8?q?=E0=B9=88=E0=B8=95=E0=B8=B1=E0=B9=89=E0=B8=87=E0=B8=A1=E0=B8=B4?=
+ =?UTF-8?q?=E0=B9=80=E0=B8=95=E0=B8=AD=E0=B8=A3=E0=B9=8C=E0=B8=95=E0=B9=89?=
+ =?UTF-8?q?=E0=B8=99=E0=B8=A3=E0=B8=AD=E0=B8=9A=E0=B9=83=E0=B8=AB=E0=B8=A1?=
+ =?UTF-8?q?=E0=B9=88?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- compileBill(): เปลี่ยน bill id จาก UUID สุ่มเป็น deterministic
+  ('compiled_{year}_{month}') กัน race condition ตอน _loadData() ถูก
+  เรียกซ้อนกัน (เปิดแอปซ้ำ/pull-to-refresh รัวๆ ใกล้วันตัดรอบ) ทำให้เกิด
+  บิลซ้ำหลายใบสำหรับเดือนเดียวกัน ตอนนี้เขียนทับเอกสารเดิมเสมอ (idempotent)
+
+- dashboard_screen.dart: เพิ่ม _startMeterMatchesCurrentCycle เช็คว่าค่า
+  มิเตอร์ต้นรอบที่ตั้งไว้ (ถ้ามี) ยังตรงกับรอบบิลปัจจุบันไหม (สูตรเดียวกับ
+  settings_start_meter.dart) ใช้คู่กับ flag เดิม
+  (electricityStartConfigured/waterStartConfigured) เป็น
+  _electricityMeterReady/_waterMeterReady — บล็อกทั้งฝั่ง UI (โชว์การ์ดล็อก
+  พร้อมข้อความ/ปุ่มที่ต่างกันระหว่าง 'ยังไม่เคยตั้ง' กับ 'รอบใหม่แล้วต้อง
+  ตั้งใหม่') และฝั่งฟังก์ชัน (_saveElectricityLog/_saveWaterLog คืน error
+  ทันทีถ้ายังไม่พร้อม) กันไม่ให้บันทึก log รายวันด้วย start value ของรอบเก่า
+  ที่ค้างอยู่โดยไม่ตั้งใจ
+---
+ lib/screens/dashboard/dashboard_screen.dart | 81 +++++++++++++++++++--
+ lib/services/firestore_service.dart         | 16 +++-
+ 2 files changed, 89 insertions(+), 8 deletions(-)
+
+diff --git a/lib/screens/dashboard/dashboard_screen.dart b/lib/screens/dashboard/dashboard_screen.dart
+index f3352e9..593554e 100644
+--- a/lib/screens/dashboard/dashboard_screen.dart
++++ b/lib/screens/dashboard/dashboard_screen.dart
+@@ -124,6 +124,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
+     if (mounted) _loadData();
+   }
+ 
++  // =====================================================================
++  // ค่ามิเตอร์ต้นรอบที่ตั้งไว้ (ถ้ามี) ยังตรงกับ "รอบบิลปัจจุบัน" ไหม
++  //
++  // ทำไมต้องเช็คเพิ่ม: electricityStartConfigured/waterStartConfigured
++  // (ที่การ์ดใช้เช็คอยู่แล้ว) บอกแค่ว่า "เคยตั้งค่าไปหรือยัง" ไม่ได้บอกว่า
++  // ค่านั้นเป็นของรอบไหน — พอข้ามวันตัดรอบบิลไปแล้ว ถ้า user ยังไม่ได้เข้าไป
++  // ตั้งเลขมิเตอร์ต้นรอบใหม่ของรอบนี้ ค่า start เดิมที่ยังค้างอยู่คือของ
++  // "รอบก่อน" แต่ flag ยังเป็น true อยู่เหมือนเดิม ถ้าปล่อยให้กรอก log
++  // รายวันได้เลยตอนนี้ ระบบจะเอาเลขมิเตอร์วันนี้ไปลบกับ start ของรอบก่อน
++  // (ที่เลขน้อยกว่ามาก) ได้ "หน่วยที่ใช้" ที่รวมทั้งรอบเก่า+รอบใหม่ปนกันมั่ว
++  //
++  // ใช้สูตรเดียวกับ _AddStartMeterSheet/_StartMeterHistoryScreen ใน
++  // settings_start_meter.dart เป๊ะ (_expectedInvoiceMonth + เทียบ
++  // startBillingMonth/Year) เพื่อให้ทุกจุดของแอปตัดสิน "รอบปัจจุบัน" ตรงกัน
++  // หมด — เป็น field เดียวใช้ร่วมกันทั้งไฟและน้ำ (ไม่แยกรายยูทิลิตี้) เพราะ
++  // UserModel เก็บ startBillingMonth/Year ไว้แค่ชุดเดียว
++  bool get _startMeterMatchesCurrentCycle {
++    final user = _user;
++    if (user == null) return false;
++    final expected =
++        EnergyForecaster.getCycleStart(DateTime.now(), user.billingDay);
++    return user.startBillingMonth == expected.month &&
++        user.startBillingYear == expected.year;
++  }
++
++  // พร้อมบันทึก log รายวันไหม (แยกรายยูทิลิตี้) = เคยตั้งค่ามาก่อน AND
++  // ค่านั้นยังตรงกับรอบปัจจุบัน — ใช้ทั้งใน build() (โชว์การ์ดไหน) และซ้ำ
++  // อีกชั้นใน _saveElectricityLog/_saveWaterLog (กันเผื่อ state ไม่ตรงกัน)
++  bool get _electricityMeterReady =>
++      (_user?.electricityStartConfigured ?? true) &&
++      _startMeterMatchesCurrentCycle;
++  bool get _waterMeterReady =>
++      (_user?.waterStartConfigured ?? true) && _startMeterMatchesCurrentCycle;
++
++  static const _staleCycleMessage =
++      'ตัดรอบบิลใหม่แล้ว ต้องตั้งเลขมิเตอร์ต้นรอบใหม่ก่อนบันทึกค่ะ';
++
+   @override
+   void dispose() {
+     DataRefreshBus.instance.version.removeListener(_onDataChangedElsewhere);
+@@ -340,6 +377,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
+ 
+   // บันทึกค่ามิเตอร์ไฟฟ้า
+   Future<void> _saveElectricityLog() async {
++    // gate: ถ้ายังไม่ได้ตั้งมิเตอร์ต้นรอบไฟฟ้าของรอบปัจจุบัน ห้ามบันทึก log
++    // รายวัน (การ์ดฝั่ง UI ล็อกไว้อยู่แล้วปกติ เช็คซ้ำตรงนี้กันเผื่อ state
++    // ยังไม่ทันอัปเดตหรือมีทางเรียกฟังก์ชันนี้ทางอื่นในอนาคต)
++    if (!_electricityMeterReady) {
++      setState(() => _electricityError =
++          'กรุณาตั้งค่ามิเตอร์ต้นรอบไฟฟ้าของรอบนี้ก่อนค่ะ');
++      return;
++    }
++
+     final isTOU = _user?.meterType == 'tou';
+ 
+     // ค่าต้นรอบ/ล่าสุดของ TOU เตรียมไว้ใช้ทั้งตอน validate และตอนเติมให้
+@@ -494,6 +540,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
+ 
+   // บันทึกค่ามิเตอร์น้ำ
+   Future<void> _saveWaterLog() async {
++    // gate: เหมือน _saveElectricityLog — ห้ามบันทึก log น้ำถ้ายังไม่ได้ตั้ง
++    // มิเตอร์ต้นรอบน้ำของรอบปัจจุบัน
++    if (!_waterMeterReady) {
++      setState(
++          () => _waterError = 'กรุณาตั้งค่ามิเตอร์ต้นรอบน้ำของรอบนี้ก่อนค่ะ');
++      return;
++    }
++
+     if (_waterController.text.isEmpty) {
+       setState(() => _waterError = 'กรุณากรอกค่ามิเตอร์น้ำก่อนค่ะ');
+       return;
+@@ -653,8 +707,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
+                                 crossAxisAlignment: CrossAxisAlignment.stretch,
+                                 children: [
+                                   Expanded(
+-                                    child: (_user?.electricityStartConfigured ??
+-                                            true)
++                                    child: _electricityMeterReady
+                                         ? (_user?.meterType == 'tou'
+                                             ? _buildTOUMeterCard()
+                                             : _buildMeterCard(
+@@ -688,12 +741,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
+                                                 DashboardStyles.electricityAccent,
+                                             borderColor: DashboardStyles
+                                                 .electricityBorder,
++                                            message: (_user
++                                                        ?.electricityStartConfigured ??
++                                                    true)
++                                                ? _staleCycleMessage
++                                                : null,
+                                           ),
+                                   ),
+                                   const SizedBox(width: 12),
+                                   Expanded(
+-                                    child: (_user?.waterStartConfigured ??
+-                                            true)
++                                    child: _waterMeterReady
+                                         ? _buildMeterCard(
+                                             title: 'น้ำ',
+                                             icon: Icons.water_drop,
+@@ -720,6 +777,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
+                                             accent: DashboardStyles.waterAccent,
+                                             borderColor:
+                                                 DashboardStyles.waterBorder,
++                                            message: (_user
++                                                        ?.waterStartConfigured ??
++                                                    true)
++                                                ? _staleCycleMessage
++                                                : null,
+                                           ),
+                                   ),
+                                 ],
+@@ -1192,7 +1254,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
+     required IconData icon,
+     required Color accent,
+     required Color borderColor,
++    // null = ยังไม่เคยตั้งค่าฝั่งนี้เลย (ข้อความเดิม) ไม่ null = เคยตั้งแล้ว
++    // แต่รอบบิลเลื่อนไปแล้ว ต้องตั้งค่าต้นรอบใหม่ (ดู _staleCycleMessage)
++    String? message,
+   }) {
++    final isStaleCycle = message != null;
+     return Container(
+       width: double.infinity,
+       padding: const EdgeInsets.all(14),
+@@ -1216,7 +1282,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
+           ),
+           const SizedBox(height: 10),
+           Text(
+-            'ยังไม่ได้ตั้งเลขมิเตอร์ต้นรอบฝั่งนี้',
++            message ?? 'ยังไม่ได้ตั้งเลขมิเตอร์ต้นรอบฝั่งนี้',
+             style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+           ),
+           const Spacer(),
+@@ -1240,8 +1306,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
+                   borderRadius: BorderRadius.circular(10),
+                 ),
+               ),
+-              icon: const Icon(Icons.add, size: 16),
+-              label: const Text('ตั้งเลย', style: TextStyle(fontSize: 12.5)),
++              icon: Icon(isStaleCycle ? Icons.refresh : Icons.add, size: 16),
++              label: Text(isStaleCycle ? 'ตั้งรอบใหม่' : 'ตั้งเลย',
++                  style: const TextStyle(fontSize: 12.5)),
+             ),
+           ),
+         ],
+diff --git a/lib/services/firestore_service.dart b/lib/services/firestore_service.dart
+index 6707f3e..a0ef4f0 100644
+--- a/lib/services/firestore_service.dart
++++ b/lib/services/firestore_service.dart
+@@ -206,8 +206,22 @@ class FirestoreService {
+       }
+ 
+       // สร้าง Bill
++      //
++      // แก้บั๊ก: เดิมใช้ id = Uuid().v4() (สุ่มใหม่ทุกครั้ง) ทำให้ถ้า
++      // compileBill() ถูกเรียกซ้อนกันหลายครั้งในเวลาไล่เลี่ยกันสำหรับ
++      // เดือน/ปีเดียวกัน (เช่น เปิดแอปซ้ำๆ/pull-to-refresh รัวๆ ตอนใกล้วัน
++      // ตัดรอบบิล) แต่ละครั้งจะเช็ค billExistsForMonth() แล้วเจอ false
++      // เหมือนกันหมด เพราะครั้งก่อนหน้ายังเขียนไม่เสร็จ (race condition แบบ
++      // check-then-write ที่ไม่มี lock/transaction คั่น) ผลคือได้บิลซ้ำกัน
++      // หลายใบสำหรับรอบเดียวกัน ยอดรวม/ประวัติบิลเพี้ยน
++      //
++      // เปลี่ยนมาใช้ id แบบตายตัวผูกกับ (year, month) แทน — saveBill() เขียน
++      // ด้วย .doc(bill.id).set() อยู่แล้ว (ไม่ใช่ .add()) เพราะงั้นต่อให้
++      // compileBill() ถูกเรียกซ้อนกันกี่ครั้งก็ตาม ทุกครั้งจะเขียนทับเอกสาร
++      // เดียวกันเสมอ (idempotent) ไม่มีทางสร้างซ้ำได้อีกต่อไป ไม่ต้องพึ่งการ
++      // เช็ค billExistsForMonth() ให้แม่นเป๊ะแบบเดิม
+       final bill = BillModel(
+-        id: const Uuid().v4(),
++        id: 'compiled_${year}_${month.toString().padLeft(2, '0')}',
+         uid: uid,
+         year: year,
+         month: month,
+-- 
+2.43.0
+
