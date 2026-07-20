@@ -191,17 +191,48 @@ class FirestoreService {
       // peakUsedSelector/offPeakUsedSelector วาดกราฟแยก On-Peak/Off-Peak)
       // เห็นบิลที่ compile อัตโนมัติ (ซึ่งเป็นบิลส่วนใหญ่ที่เกิดขึ้นจริงในแอป)
       // เป็น 0 ทั้งคู่เสมอ ทั้งที่ log รายวันมี peakMeterValue/offPeakMeterValue
-      // เก็บไว้อยู่แล้ว — คำนวณ delta จากค่ามิเตอร์ต้นรอบ (user.startPeakValue/
-      // startOffPeakValue) แบบเดียวกับที่ _recalcCurrentCycleLogs ใน
-      // settings_start_meter.dart ทำอยู่แล้ว เพื่อให้บิล 'compiled' ได้ค่า
-      // แยกที่ถูกต้องเหมือนบิล 'imported'/'startMeter'
+      // เก็บไว้อยู่แล้ว — คำนวณ delta จากค่ามิเตอร์ต้นรอบเพื่อให้บิล 'compiled'
+      // ได้ค่าแยกที่ถูกต้องเหมือนบิล 'imported'/'startMeter'
+      //
+      // แก้บั๊กซ้อน: ตอนแรกใช้ user.startPeakValue/startOffPeakValue (ค่า
+      // เดียวบน user document) เป็นฐานลบ แต่ค่านี้คือ "ค่าล่าสุดที่ user ตั้ง
+      // ไว้ ณ ตอนนี้" เท่านั้น พอ user ไป re-setup ค่ามิเตอร์ใหม่ (เช่นเปลี่ยน
+      // มิเตอร์/ตั้งค่าใหม่กลางทาง) ค่านี้จะถูกเขียนทับเป็นของรอบล่าสุด แต่
+      // compileBill() ที่ auto-generate บิลของรอบเก่าที่ยังไม่ปิด (ถึงกำหนด
+      // แต่ user ยังไม่เข้าไป set) ดันเอาค่าล่าสุดนี้ไปลบกับ
+      // eLogs.first.peakMeterValue ที่เป็นเลขสะสมของรอบเก่า (คนละช่วงเวลากับ
+      // ค่าต้นรอบที่ใช้) ทำให้ delta เพี้ยนไปเป็นหมื่น (เช่น
+      // peakUsed/offPeakUsed รวมกันได้หลักหมื่นทั้งที่ electricityUsed มีแค่
+      // หลักหน่วย) เหมือนที่ _ElectricityLogTabState ใน
+      // settings_utility_log.dart เคยเจอและแก้ไปแล้วด้วย _startValuesFor() —
+      // เปลี่ยนมาใช้ pattern เดียวกัน คือ query start_meter_history หา
+      // record ที่ billingMonth/billingYear ตรงกับรอบที่กำลัง compile
+      // (year, month ที่รับเข้ามา) แทนการอิง user.startPeakValue ตรงๆ
       double peakUsedElec = 0;
       double offPeakUsedElec = 0;
       if (user.meterType == 'tou' && eLogs.isNotEmpty) {
+        final startHistory = await getStartMeterHistory(uid);
+        final cycleStart = startHistory
+            .where((r) => r.billingMonth == month && r.billingYear == year)
+            .toList();
+
+        double? cycleStartPeak;
+        double? cycleStartOffPeak;
+        if (cycleStart.isNotEmpty) {
+          cycleStartPeak = cycleStart.first.peakValue;
+          cycleStartOffPeak = cycleStart.first.offPeakValue;
+        }
+
+        // ถ้าไม่เจอ record ของรอบนี้เลย (เช่น log เก่าก่อนเคยตั้ง TOU) ค่อย
+        // fallback ไปใช้ user.startPeakValue/startOffPeakValue ปัจจุบัน
+        // เป็นทางเลือกสุดท้าย ดีกว่าไม่มีค่าให้เลย
+        cycleStartPeak ??= user.startPeakValue;
+        cycleStartOffPeak ??= user.startOffPeakValue;
+
         peakUsedElec = EnergyCalculator.calculateUsed(
-            eLogs.first.peakMeterValue ?? 0, user.startPeakValue);
+            eLogs.first.peakMeterValue ?? 0, cycleStartPeak);
         offPeakUsedElec = EnergyCalculator.calculateUsed(
-            eLogs.first.offPeakMeterValue ?? 0, user.startOffPeakValue);
+            eLogs.first.offPeakMeterValue ?? 0, cycleStartOffPeak);
       }
 
       // สร้าง Bill
