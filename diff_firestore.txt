@@ -1,0 +1,35 @@
+diff --git a/lib/services/firestore_service.dart b/lib/services/firestore_service.dart
+index 6707f3e..19d0ced 100644
+--- a/lib/services/firestore_service.dart
++++ b/lib/services/firestore_service.dart
+@@ -1,6 +1,5 @@
+ import 'package:cloud_firestore/cloud_firestore.dart';
+ import 'package:flutter/material.dart';
+-import 'package:uuid/uuid.dart';
+ 
+ import '../models/appliance_model.dart';
+ import '../models/bill_model.dart';
+@@ -206,8 +205,22 @@ class FirestoreService {
+       }
+ 
+       // สร้าง Bill
++      //
++      // แก้บั๊ก: เดิมใช้ id = Uuid().v4() (สุ่มใหม่ทุกครั้ง) ทำให้ถ้า
++      // compileBill() ถูกเรียกซ้อนกันหลายครั้งในเวลาไล่เลี่ยกันสำหรับ
++      // เดือน/ปีเดียวกัน (เช่น เปิดแอปซ้ำๆ/pull-to-refresh รัวๆ ตอนใกล้วัน
++      // ตัดรอบบิล) แต่ละครั้งจะเช็ค billExistsForMonth() แล้วเจอ false
++      // เหมือนกันหมด เพราะครั้งก่อนหน้ายังเขียนไม่เสร็จ (race condition แบบ
++      // check-then-write ที่ไม่มี lock/transaction คั่น) ผลคือได้บิลซ้ำกัน
++      // หลายใบสำหรับรอบเดียวกัน ยอดรวม/ประวัติบิลเพี้ยน
++      //
++      // เปลี่ยนมาใช้ id แบบตายตัวผูกกับ (year, month) แทน — saveBill() เขียน
++      // ด้วย .doc(bill.id).set() อยู่แล้ว (ไม่ใช่ .add()) เพราะงั้นต่อให้
++      // compileBill() ถูกเรียกซ้อนกันกี่ครั้งก็ตาม ทุกครั้งจะเขียนทับเอกสาร
++      // เดียวกันเสมอ (idempotent) ไม่มีทางสร้างซ้ำได้อีกต่อไป ไม่ต้องพึ่งการ
++      // เช็ค billExistsForMonth() ให้แม่นเป๊ะแบบเดิม
+       final bill = BillModel(
+-        id: const Uuid().v4(),
++        id: 'compiled_${year}_${month.toString().padLeft(2, '0')}',
+         uid: uid,
+         year: year,
+         month: month,
