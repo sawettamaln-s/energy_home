@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/auth_widgets.dart';
 import '../../widgets/info_dialog.dart';
 import 'setup_complete_screen.dart';
 
@@ -134,7 +135,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       margin: const EdgeInsets.only(right: 4),
                       decoration: BoxDecoration(
                         color: index <= _currentStep
-                            ? const Color(0xFF2E7D32)
+                            ? AuthStyle.green
                             : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(2),
                       ),
@@ -149,50 +150,33 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
               const SizedBox(height: 32),
               Expanded(child: _buildStep(_currentStep)),
+              // ปุ่มด้านล่าง — ความสูง/มุมโค้งชุดเดียวกับปุ่มหลักในหน้า
+              // Welcome/Login/Register (AuthStyle.buttonHeight/radius) เพื่อ
+              // ให้ทั้งขั้นตอน auth ทั้งหมดดูเป็นชุดเดียวกัน
               Row(
                 children: [
                   if (_currentStep > 0)
                     Expanded(
-                      child: OutlinedButton(
+                      child: AuthSecondaryButton(
+                        label: 'ย้อนกลับ',
                         onPressed: () => setState(() => _currentStep--),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text('ย้อนกลับ'),
                       ),
                     ),
                   if (_currentStep > 0) const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
-                    child: ElevatedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () async {
-                              if (_currentStep == _totalSteps - 1) {
-                                await _saveSetup();
-                              } else {
-                                setState(() => _currentStep++);
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                              _currentStep < _totalSteps - 1
-                                  ? 'ถัดไป'
-                                  : 'เริ่มใช้งาน',
-                              style: const TextStyle(fontSize: 16),
-                            ),
+                    child: AuthPrimaryButton(
+                      label: _currentStep < _totalSteps - 1
+                          ? 'ถัดไป'
+                          : 'เริ่มใช้งาน',
+                      isLoading: _isLoading,
+                      onPressed: () async {
+                        if (_currentStep == _totalSteps - 1) {
+                          await _saveSetup();
+                        } else {
+                          setState(() => _currentStep++);
+                        }
+                      },
                     ),
                   ),
                 ],

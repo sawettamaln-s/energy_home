@@ -6,7 +6,7 @@
 // แก้โดยฉีด FirebaseAuth/FirestoreService ปลอมเข้า AuthGate แทน (ดู
 // lib/screens/auth/auth_gate.dart, lib/services/firestore_service.dart)
 // แล้วเทส 2 branch ของการ routing ที่ทดสอบได้แบบสมบูรณ์:
-//   1) ยังไม่ล็อกอิน            -> LoginScreen
+//   1) ยังไม่ล็อกอิน            -> WelcomeScreen (หน้าแรกสุดของแอป)
 //   2) ล็อกอินแล้วแต่ยังไม่มีข้อมูล user -> SetupScreen
 //
 // หมายเหตุ (สำคัญ — ยังไม่ครอบคลุม 100%):
@@ -19,8 +19,8 @@
 // แบบเดียวกันนี้ต่อในแต่ละแท็บ (dashboard/appliance/analysis/settings) ซึ่ง
 // เป็นงานแยกต่างหากที่ใหญ่กว่านี้ ไม่ใช่แค่แก้ widget_test.dart
 import 'package:energy_home/screens/auth/auth_gate.dart';
-import 'package:energy_home/screens/auth/login_screen.dart';
 import 'package:energy_home/screens/auth/setup_screen.dart';
+import 'package:energy_home/screens/auth/welcome_screen.dart';
 import 'package:energy_home/services/firestore_service.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
@@ -30,7 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   Widget wrap(Widget child) => MaterialApp(home: child);
 
-  testWidgets('AuthGate shows LoginScreen when no one is signed in',
+  testWidgets('AuthGate shows WelcomeScreen when no one is signed in',
       (tester) async {
     final auth = MockFirebaseAuth(signedIn: false);
     final firestoreService = FirestoreService(firestore: FakeFirebaseFirestore());
@@ -40,7 +40,7 @@ void main() {
     );
     await tester.pump(); // ให้ authStateChanges() ยิง event แรกออกมา
 
-    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.byType(WelcomeScreen), findsOneWidget);
   });
 
   testWidgets(

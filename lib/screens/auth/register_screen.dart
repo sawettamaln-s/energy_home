@@ -1,6 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../widgets/auth_widgets.dart';
+import 'login_screen.dart';
+
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -63,9 +66,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // บันทึกชื่อผู้ใช้
       await userCredential.user?.updateDisplayName(_nameController.text.trim());
 
-      // กลับไปหน้า Login
+      // สมัครสำเร็จ — ต้องกลับไปให้ถึง AuthGate ที่ฐานสุดของ stack เสมอ
+      // (ไม่ใช่แค่ pop ทีเดียว) เพราะตอนนี้ Register อาจถูก push มาจาก
+      // Welcome ตรงๆ (1 ชั้น) หรือมาจาก Welcome -> Login -> Register (2
+      // ชั้น) ก็ได้ — pop ครั้งเดียวแบบเดิมจะกลับไปแค่หน้า Login เฉยๆ ไม่ถึง
+      // AuthGate ที่ StreamBuilder จะพาไปหน้า Setup ต่อให้อัตโนมัติ
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -93,32 +100,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'สมัครสมาชิก',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // โลโก้และหัวข้อ — โครงเดียวกับหน้า Login เพื่อความสมดุล/
+              // ทิศทางเดียวกันทั้งกลุ่มหน้า auth
+              Center(
+                child: Column(
+                  children: [
+                    const AuthLogoBadge(),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'สร้างบัญชีใหม่',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AuthStyle.green,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'สมัครสมาชิกเพื่อเริ่มติดตามพลังงานในบ้านคุณ',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13.5, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
               // ช่องชื่อ
-              const Text('ชื่อ-นามสกุล',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const AuthFieldLabel('ชื่อ-นามสกุล'),
               const SizedBox(height: 8),
               TextField(
                 controller: _nameController,
-                decoration: _fieldDecoration(
+                decoration: authFieldDecoration(
                   hint: 'กรอกชื่อของคุณ',
                   icon: Icons.person_outlined,
                 ),
@@ -127,13 +147,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
 
               // ช่อง Email
-              const Text('อีเมล',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const AuthFieldLabel('อีเมล'),
               const SizedBox(height: 8),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: _fieldDecoration(
+                decoration: authFieldDecoration(
                   hint: 'example@email.com',
                   icon: Icons.email_outlined,
                 ),
@@ -142,13 +161,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
 
               // ช่อง Password
-              const Text('รหัสผ่าน',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const AuthFieldLabel('รหัสผ่าน'),
               const SizedBox(height: 8),
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                decoration: _fieldDecoration(
+                decoration: authFieldDecoration(
                   hint: 'อย่างน้อย 6 ตัวอักษร',
                   icon: Icons.lock_outlined,
                   suffixIcon: IconButton(
@@ -164,13 +182,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
 
               // ช่องยืนยัน Password
-              const Text('ยืนยันรหัสผ่าน',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const AuthFieldLabel('ยืนยันรหัสผ่าน'),
               const SizedBox(height: 8),
               TextField(
                 controller: _confirmPasswordController,
                 obscureText: _obscureConfirmPassword,
-                decoration: _fieldDecoration(
+                decoration: authFieldDecoration(
                   hint: 'กรอกรหัสผ่านอีกครั้ง',
                   icon: Icons.lock_outlined,
                   suffixIcon: IconButton(
@@ -185,94 +202,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               if (_errorMessage.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          color: Colors.red, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _errorMessage,
-                          style: const TextStyle(
-                              color: Colors.red, fontSize: 12.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                AuthErrorBox(_errorMessage),
               ],
 
               const SizedBox(height: 24),
 
               // ปุ่มสมัคร
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _register,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              AuthPrimaryButton(
+                label: 'สมัครสมาชิก',
+                isLoading: _isLoading,
+                onPressed: _register,
+              ),
+              const SizedBox(height: 16),
+
+              // ลิงก์กลับไปเข้าสู่ระบบ — แทนที่ปุ่มย้อนกลับเดิม เผื่อกรณี
+              // ผู้ใช้มีบัญชีอยู่แล้วแต่หลงเข้ามาหน้าสมัครสมาชิก
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('มีบัญชีอยู่แล้ว? ',
+                      style: TextStyle(color: Colors.grey)),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'เข้าสู่ระบบ',
+                      style: TextStyle(
+                        color: AuthStyle.green,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2.5),
-                        )
-                      : const Text('สมัครสมาชิก',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600)),
-                ),
+                ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  // สไตล์ช่องกรอกกลาง — พื้นเทาอ่อนไม่มีเส้นขอบ ให้เป็นชุดเดียวกับหน้า login
-  InputDecoration _fieldDecoration({
-    required String hint,
-    required IconData icon,
-    Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: Colors.grey.shade400),
-      prefixIcon: Icon(icon, color: Colors.grey.shade500),
-      suffixIcon: suffixIcon,
-      filled: true,
-      fillColor: Colors.grey.shade50,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 1.5),
       ),
     );
   }

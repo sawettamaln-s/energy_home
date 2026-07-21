@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../widgets/auth_widgets.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -40,7 +41,14 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // ถ้าสำเร็จ Firebase จะ trigger AuthState เองอัตโนมัติ
+      // เข้าสู่ระบบสำเร็จ — ต้อง pop กลับไปที่ AuthGate ที่ฐานสุดของ stack
+      // เอง (เมื่อก่อน Login คือเนื้อหาที่ AuthGate render ตรงๆ ไม่ได้ push
+      // เลยแค่รอ authStateChanges() แล้วปล่อยให้ AuthGate build ใหม่ก็พอ
+      // แต่ตอนนี้ Login ถูก push มาจากหน้า Welcome แล้ว ถ้าไม่ pop ออก
+      // หน้า Login จะค้างอยู่ทับ AuthGate ที่อัปเดตอยู่ข้างล่างไปเรื่อยๆ)
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -137,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               SnackBar(
                                 content: Text(
                                     'ส่งลิงก์รีเซ็ตรหัสผ่านไปที่ $email แล้ว ตรวจสอบอีเมล (รวมถึง Junk/Spam) '),
-                                backgroundColor: const Color(0xFF2E7D32),
+                                backgroundColor: AuthStyle.green,
                               ),
                             );
                           } on FirebaseAuthException catch (e) {
@@ -157,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
+                    backgroundColor: AuthStyle.green,
                     foregroundColor: Colors.white,
                   ),
                   child: isSending
@@ -202,39 +210,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       Center(
                         child: Column(
                           children: [
-                            Container(
-                              width: 76,
-                              height: 76,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2E7D32),
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF2E7D32)
-                                        .withValues(alpha: 0.25),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.bolt,
-                                color: Colors.white,
-                                size: 44,
-                              ),
-                            ),
+                            const AuthLogoBadge(),
                             const SizedBox(height: 16),
                             const Text(
-                              'EnergyHome',
+                              'ยินดีต้อนรับกลับมา',
                               style: TextStyle(
-                                fontSize: 26,
+                                fontSize: 22,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF2E7D32),
+                                color: AuthStyle.green,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 4),
                             const Text(
-                              'ติดตามพลังงานในบ้านของคุณ',
+                              'เข้าสู่ระบบเพื่อติดตามพลังงานในบ้านของคุณ',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 13.5,
                                 color: Colors.grey,
@@ -247,13 +236,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Spacer(flex: 2),
 
                       // ช่อง Email
-                      const Text('อีเมล',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      const AuthFieldLabel('อีเมล'),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: _fieldDecoration(
+                        decoration: authFieldDecoration(
                           hint: 'example@email.com',
                           icon: Icons.email_outlined,
                         ),
@@ -262,13 +250,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
 
                       // ช่อง Password
-                      const Text('รหัสผ่าน',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      const AuthFieldLabel('รหัสผ่าน'),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
-                        decoration: _fieldDecoration(
+                        decoration: authFieldDecoration(
                           hint: '••••••••',
                           icon: Icons.lock_outlined,
                           suffixIcon: IconButton(
@@ -292,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: const Text(
                             'ลืมรหัสผ่าน?',
                             style: TextStyle(
-                              color: Color(0xFF2E7D32),
+                              color: AuthStyle.green,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -302,60 +289,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       if (_errorMessage.isNotEmpty) ...[
                         const SizedBox(height: 10),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.error_outline,
-                                  color: Colors.red, size: 16),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _errorMessage,
-                                  style: const TextStyle(
-                                      color: Colors.red, fontSize: 12.5),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        AuthErrorBox(_errorMessage),
                       ],
 
                       const SizedBox(height: 20),
 
                       // ปุ่ม Login
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _login,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2E7D32),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2.5),
-                                )
-                              : const Text('เข้าสู่ระบบ',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600)),
-                        ),
+                      AuthPrimaryButton(
+                        label: 'เข้าสู่ระบบ',
+                        isLoading: _isLoading,
+                        onPressed: _login,
                       ),
 
                       const Spacer(flex: 1),
@@ -378,7 +321,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: const Text(
                               'สมัครสมาชิก',
                               style: TextStyle(
-                                color: Color(0xFF2E7D32),
+                                color: AuthStyle.green,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -393,38 +336,6 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           },
         ),
-      ),
-    );
-  }
-
-  // สไตล์ช่องกรอกกลาง — พื้นเทาอ่อนไม่มีเส้นขอบ (แนวเดียวกับช่องกรอกมิเตอร์
-  // ในหน้าหลัก) ให้หน้า login ดูเป็นชุดเดียวกับส่วนอื่นของแอป แทนกรอบเส้น
-  // ธรรมดาที่ดูหลุดโทนจากหน้าจออื่นๆ
-  InputDecoration _fieldDecoration({
-    required String hint,
-    required IconData icon,
-    Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: Colors.grey.shade400),
-      prefixIcon: Icon(icon, color: Colors.grey.shade500),
-      suffixIcon: suffixIcon,
-      filled: true,
-      fillColor: Colors.grey.shade50,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 1.5),
       ),
     );
   }

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../services/firestore_service.dart';
 import '../main_shell.dart';
-import 'login_screen.dart';
 import 'setup_screen.dart';
+import 'welcome_screen.dart';
 
 /// AuthGate = ตัวคอยฟัง auth state แล้วสลับ Login/Setup/Dashboard ให้อัตโนมัติ
 ///
@@ -49,9 +49,9 @@ class AuthGate extends StatelessWidget {
           );
         }
 
-        // ยังไม่ได้ Login
+        // ยังไม่ได้ Login → หน้าแรกสุด (Welcome) ให้เลือกเข้าสู่ระบบ/สมัคร
         if (!snapshot.hasData) {
-          return const LoginScreen();
+          return const WelcomeScreen();
         }
 
         // Login แล้ว → เช็คว่ามีข้อมูล Setup ไหม

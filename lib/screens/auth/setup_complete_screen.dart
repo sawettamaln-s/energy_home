@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/auth_widgets.dart';
 import '../appliance/appliance_screen.dart';
 import '../main_shell.dart';
 import '../settings/settings_screen.dart';
@@ -88,9 +89,16 @@ class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
               Container(
                 width: 64,
                 height: 64,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: _green,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _green.withValues(alpha: 0.25),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: const Icon(Icons.check, color: Colors.white, size: 36),
               ),
@@ -219,21 +227,10 @@ class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _goToDashboard,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child:
-                        const Text('เข้าใช้งาน', style: TextStyle(fontSize: 16)),
-                  ),
+                child: AuthPrimaryButton(
+                  label: 'เข้าใช้งาน',
+                  onPressed: _goToDashboard,
+                  icon: Icons.arrow_forward_rounded,
                 ),
               ),
             ],
