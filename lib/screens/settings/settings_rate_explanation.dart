@@ -42,14 +42,15 @@ class _RateExplanationScreenState extends State<_RateExplanationScreen>
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('อัตราค่าไฟฟ้า / น้ำ'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: _green,
+        foregroundColor: Colors.white,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: _green,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: _green,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(icon: Icon(Icons.bolt), text: 'ไฟฟ้า'),
             Tab(icon: Icon(Icons.water_drop), text: 'น้ำ'),

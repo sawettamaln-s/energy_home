@@ -36,15 +36,16 @@ class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('ประวัติมการบันทึกมิเตอร์'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        title: const Text('ประวัติการบันทึกมิเตอร์'),
+        backgroundColor: _green,
+        foregroundColor: Colors.white,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: _green,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: _green,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(icon: Icon(Icons.bolt), text: 'ไฟฟ้า'),
             Tab(icon: Icon(Icons.water_drop), text: 'ประปา'),

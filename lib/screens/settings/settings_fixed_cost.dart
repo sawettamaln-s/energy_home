@@ -232,6 +232,10 @@ final confirmed = await showConfirmDialog(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('รายจ่ายประจำ'),
+        backgroundColor: const Color(0xFF2E7D32),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),

@@ -1211,6 +1211,10 @@ final confirmed = await showConfirmDialog(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('บันทึกบิลย้อนหลัง'),
+        backgroundColor: const Color(0xFF2E7D32),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -1219,9 +1223,9 @@ final confirmed = await showConfirmDialog(
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF2E7D32),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFF2E7D32),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(icon: Icon(Icons.bolt), text: 'ไฟฟ้า'),
             Tab(icon: Icon(Icons.water_drop), text: 'ประปา'),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -154,12 +155,15 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     title: 'ค่าไฟฟ้า',
                     label: 'ค่าไฟ',
                     accentColor: DashboardStyles.electricityBorder,
-                    // พาเลตที่เลือก: แดง #D0311E = ค่าใช้จ่าย, เหลือง #F7D87F
-                    // = หน่วย, เหลืองอ่อน #F8EBAB = Off-Peak (คู่กับ On-Peak
-                    // ที่ใช้สีหน่วยเดียวกัน)
-                    costColor: const Color(0xFFD0311E),
-                    unitColor: const Color(0xFFF7D87F),
-                    touOffPeakColor: const Color(0xFFF8EBAB),
+                    // พาเลตใหม่: ใช้สีน้ำตาล-ส้ม #C98A4B เดียวกับกรอบการ์ด
+                    // มิเตอร์ไฟฟ้าที่หน้า Dashboard/ปุ่มสลับมุมมองด้านบนอยู่
+                    // แล้ว (เดิมเป็นแดง #D0311E ซึ่งเป็นคนละโทนกับปุ่มสลับ
+                    // ที่ใช้สีน้ำตาล-ส้ม ทำให้ดูไม่เป็นชุดเดียวกัน) หน่วย
+                    // ใช้เฉดทองอ่อนกว่าในตระกูลสีเดียวกัน, Off-Peak อ่อน
+                    // กว่านั้นอีกขั้น ให้ไล่โทนอุ่นเดียวกันตลอดทั้งกราฟ
+                    costColor: const Color(0xFFC98A4B),
+                    unitColor: const Color(0xFFE8B86D),
+                    touOffPeakColor: const Color(0xFFF3D9B1),
                     currentCycle: _currentCycle?['electricity'],
                     onViewAppliances: () => _tabController.animateTo(2),
                     isTou: _isTou,
@@ -175,10 +179,12 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     title: 'ค่าน้ำ',
                     label: 'ค่าน้ำ',
                     accentColor: DashboardStyles.waterBorder,
-                    // พาเลตที่เลือก: น้ำเงินกลาง #4274D9 = ค่าใช้จ่าย, น้ำเงิน
-                    // เข้ม #293681 = หน่วย (น้ำไม่มี TOU จึงไม่ใช้ touOffPeakColor)
-                    costColor: const Color(0xFF4274D9),
-                    unitColor: const Color(0xFF293681),
+                    // พาเลตใหม่: ใช้สีฟ้า #1E76C7 เดียวกับกรอบการ์ดมิเตอร์น้ำ/
+                    // ปุ่มสลับมุมมองด้านบน (เดิมเป็นฟ้าคนละเฉด #4274D9 ทำให้
+                    // ดูไม่ใช่ชุดสีเดียวกันเป๊ะๆ) หน่วยใช้น้ำเงินเข้มกว่าใน
+                    // ตระกูลเดียวกันแทนโทนที่ออกม่วง
+                    costColor: const Color(0xFF1E76C7),
+                    unitColor: const Color(0xFF123F6D),
                     currentCycle: _currentCycle?['water'],
                     onViewAppliances: () => _tabController.animateTo(2),
                     trackAppliances: false,
@@ -326,7 +332,12 @@ class _UtilityTab extends StatelessWidget {
                 infoTitle: 'เทียบเดือนก่อนคืออะไร?',
                 infoMessage:
                     'เทียบยอด$labelของเดือนล่าสุดกับเดือนก่อนหน้าเดือนเดียว '
-                    'ช่วยให้เห็นการเปลี่ยนแปลงระยะสั้นแบบเดือนต่อเดือน',
+                    'ช่วยให้เห็นการเปลี่ยนแปลงระยะสั้นแบบเดือนต่อเดือน\n\n'
+                    'คำนวณอย่างไร?\n'
+                    'เอายอด$labelเดือนนี้ ลบด้วยยอดเดือนก่อน แล้วหารด้วยยอด'
+                    'เดือนก่อน คูณ 100 จะได้เป็น% ที่เพิ่มขึ้นหรือลดลง '
+                    '(ถ้าเดือนก่อนเป็น 0 บาท จะโชว์เป็นส่วนต่างบาทแทน '
+                    'เพราะหารด้วย 0 ไม่ได้)',
               ),
             ),
             const SizedBox(width: 10),
@@ -340,7 +351,10 @@ class _UtilityTab extends StatelessWidget {
                 infoTitle: 'เทียบปีก่อนคืออะไร?',
                 infoMessage:
                     'เทียบยอด$labelเดือนนี้กับเดือนเดียวกันของปีที่แล้ว '
-                    'ช่วยให้เห็นแนวโน้มตามฤดูกาล เช่น หน้าร้อนมักใช้ไฟมากกว่าหน้าฝน',
+                    'ช่วยให้เห็นแนวโน้มตามฤดูกาล เช่น หน้าร้อนมักใช้ไฟมากกว่าหน้าฝน\n\n'
+                    'คำนวณอย่างไร?\n'
+                    'เอายอด$labelเดือนนี้ ลบด้วยยอดเดือนเดียวกันของปีก่อน '
+                    'แล้วหารด้วยยอดปีก่อน คูณ 100 จะได้เป็น% ที่เพิ่มขึ้นหรือลดลง',
               ),
             ),
           ],
@@ -357,7 +371,12 @@ class _UtilityTab extends StatelessWidget {
           infoMessage:
               'เทียบยอด$labelเดือนนี้กับค่าเฉลี่ยของ 6 เดือนก่อนหน้า '
               'ช่วยให้เห็นภาพที่นิ่งกว่าเทียบเดือนก่อนเดือนเดียว เผื่อเดือนก่อน'
-              'มีอะไรผิดปกติไปเอง',
+              'มีอะไรผิดปกติไปเอง\n\n'
+              'คำนวณอย่างไร?\n'
+              'เอายอด$labelของ 6 เดือนก่อนหน้ามารวมกัน แล้วหารด้วย 6 '
+              'จะได้ค่าเฉลี่ย จากนั้นเอายอดเดือนนี้ลบค่าเฉลี่ยนั้น หารด้วย'
+              'ค่าเฉลี่ย คูณ 100 จะได้เป็น% ที่เพิ่มขึ้นหรือลดลง '
+              '(ถ้าเดือนไหนไม่มีบิลก็จะไม่ถูกนับรวมในค่าเฉลี่ย)',
         ),
         // ไม่มีบิลเลยสักเดือน = พยากรณ์ไม่มีความหมายอะไรทั้งสิ้น (ไม่ใช่แค่
         // "ความมั่นใจต่ำ") ซ่อนการ์ดนี้ไปเลยดีกว่าโชว์ "0.00 บาท" ซึ่งดู
@@ -1028,8 +1047,11 @@ class _TrendChartCardState extends State<_TrendChartCard> {
     final lowIndex = hasVariation ? values.indexOf(minVal) : -1;
     // สีสดใสแบบมินิมอล — ไฮไลต์เดือนสูงสุด/ต่ำสุดของทุกยูทิลิตี้ (แยกจาก
     // พาเลตสีประจำยูทิลิตี้ ให้ยังโดดเด่นเห็นชัดไม่ว่าจะเป็นแท็บไหน)
-    const peakColor = Color(0xFFFF6F59); // ส้มแดงสด — เดือนใช้สูงสุด
-    const lowColor = Color(0xFF1FBF9C); // เขียวมินท์สด — เดือนใช้ต่ำสุด
+    // เดือนต่ำสุดใช้สีเขียวหลักของแบรนด์ (สื่อว่า "ใช้น้อย = ดี" ตรงกับ
+    // ความหมายสีเขียวที่ใช้ทั้งแอป) เดือนสูงสุดใช้ส้มอิฐอุ่นๆ แทนสีแดงสด
+    // เดิมที่ปะทะกับพาเลตอุ่นของกราฟมากไป
+    const peakColor = Color(0xFFE2673F); // ส้มอิฐ — เดือนใช้สูงสุด
+    const lowColor = Color(0xFF2E7D32); // เขียวหลักของแบรนด์ — เดือนใช้ต่ำสุด
 
     // สีแท่งกราฟจริงตามโหมดที่กำลังดู — ใช้เฉดตรงจากพาเลตที่เลือกไว้
     // (ไฟฟ้า = แดง/เหลือง, น้ำ = น้ำเงิน) ไม่ผ่านการไล่เฉดอัตโนมัติ เพื่อให้
@@ -1385,17 +1407,18 @@ class _ApplianceTab extends StatelessWidget {
 
     final insights = analysisService.generateApplianceInsights(breakdown);
 
-    // พาเลตสดใสที่เลือกให้เข้าโทนกัน (ไม่ใช่สี Material ดิบๆ ที่ปะทะกันเอง)
-    // เรียงจากสีแบรนด์ (_green) แล้วไล่โทนอุ่น-เย็นสลับกันให้ชิ้นพายที่อยู่
-    // ติดกันแยกออกจากกันง่าย
+    // พาเลตใหม่: ยึดโทนเขียวของแบรนด์เป็นหลัก ไล่เฉดเขียวอ่อน-เข้ม สลับกับ
+    // สีอุ่นคู่ตรงข้าม (ทอง/ส้ม/น้ำตาล) แทนพาเลตเดิมที่ผสมสีสดจัดหลายโทน
+    // ปะปนกัน (ม่วง/ฟ้าสด/ชมพู) ซึ่งดูไม่เป็นชุดเดียวกับสีเขียวหลักของแอป
+    // เรียงให้ชิ้นพายที่อยู่ติดกันสลับอุ่น-เย็นชัดเจน แยกออกจากกันง่าย
     final colors = [
-      _green,
-      const Color(0xFFFF8A65), // ส้มคอรัล
-      const Color(0xFF29B6F6), // ฟ้าสด
-      const Color(0xFFAB47BC), // ม่วงสด
-      const Color(0xFF26C6DA), // ฟ้าอมเขียว
-      const Color(0xFFFFB74D), // เหลืองอำพัน
-      const Color(0xFFEC698C), // ชมพูโรส
+      _green, // เขียวหลักของแบรนด์
+      const Color(0xFFFFA726), // ส้มทอง
+      const Color(0xFF26A69A), // เขียวอมฟ้า (teal)
+      const Color(0xFFFFCA28), // เหลืองทอง
+      const Color(0xFF8D6E63), // น้ำตาลอบอุ่น
+      const Color(0xFF66BB6A), // เขียวอ่อน
+      const Color(0xFFD98E5B), // ส้มดิน
     ];
 
     return ListView(
@@ -1417,32 +1440,46 @@ class _ApplianceTab extends StatelessWidget {
               const Text('สัดส่วนการใช้พลังงาน (kWh/เดือน, ประมาณการ)',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 8),
-              SizedBox(
-                height: 190,
-                child: PieChart(
-                  PieChartData(
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 40,
-                    sections: List.generate(breakdown.length, (i) {
-                      final u = breakdown[i];
-                      // ซ่อนตัวเลข % บนชิ้นที่เล็กเกินไป (ไม่งั้นตัวหนังสือ
-                      // จะเบียดกันเองหรือล้นออกนอกชิ้นพาย) ไปดู % แทนได้
-                      // จาก legend ด้านล่างซึ่งมีพื้นที่พอสำหรับทุกชิ้น
-                      final showTitle = u.percentOfTotal >= 8;
-                      return PieChartSectionData(
-                        value: u.kWh,
-                        color: colors[i % colors.length],
-                        title: showTitle
-                            ? '${u.percentOfTotal.toStringAsFixed(0)}%'
-                            : '',
-                        radius: 56,
-                        titleStyle: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold),
-                      );
-                    }),
-                  ),
+              // วงกลม + ป้ายชื่อรายการรอบวง — ป้ายวางด้วย Alignment (ไม่ใช่
+              // Positioned ตำแหน่งตายตัว) เพราะไม่รู้ขนาดจริงของป้ายแต่ละ
+              // อันล่วงหน้า (ความยาวชื่ออุปกรณ์ไม่เท่ากัน) Alignment ยึด
+              // "จุดกึ่งกลาง" ของป้ายที่ตำแหน่งเปอร์เซ็นต์ของกรอบสี่เหลี่ยม
+              // ให้เอง ไม่ต้องคำนวณขนาดป้ายเอง
+              AspectRatio(
+                aspectRatio: 1,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    PieChart(
+                      PieChartData(
+                        sectionsSpace: 2,
+                        centerSpaceRadius: 40,
+                        // มุมเริ่มที่ 12 นาฬิกา (-90 องศา) ให้คำนวณตำแหน่ง
+                        // ป้ายรอบวงตรงกับชิ้นพายจริงเป๊ะๆ
+                        startDegreeOffset: -90,
+                        sections: List.generate(breakdown.length, (i) {
+                          final u = breakdown[i];
+                          // ซ่อนตัวเลข % บนชิ้นที่เล็กเกินไป (ไม่งั้นตัวหนังสือ
+                          // จะเบียดกันเองหรือล้นออกนอกชิ้นพาย) ไปดู % แทนได้
+                          // จากป้ายรอบวง/ตารางอันดับด้านล่าง
+                          final showTitle = u.percentOfTotal >= 8;
+                          return PieChartSectionData(
+                            value: u.kWh,
+                            color: colors[i % colors.length],
+                            title: showTitle
+                                ? '${u.percentOfTotal.toStringAsFixed(0)}%'
+                                : '',
+                            radius: 56,
+                            titleStyle: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
+                          );
+                        }),
+                      ),
+                    ),
+                    ..._pieLabelPills(breakdown, colors),
+                  ],
                 ),
               ),
             ],
@@ -1526,6 +1563,87 @@ class _ApplianceTab extends StatelessWidget {
       ],
     );
   }
+
+  // สร้างป้ายชื่อรายการ (ไอคอนจุดสี + ชื่ออุปกรณ์) วางรอบวงกลม โดยอิง
+  // ตำแหน่งมุมกึ่งกลางของแต่ละชิ้นพายจริง (คำนวณจาก percentOfTotal
+  // สะสมของแต่ละรายการ ตรงกับ startDegreeOffset: -90 ที่ตั้งไว้ในกราฟ)
+  // ใช้ Alignment แทน Positioned เพราะไม่ต้องรู้ขนาดป้ายล่วงหน้า — ซ่อน
+  // ป้ายของชิ้นที่เล็กเกินไป (<4%) กันป้ายเบียดกันเองรอบวงเวลามีอุปกรณ์
+  // เยอะ (ชิ้นเล็กๆ พวกนี้ยังดูรายละเอียดได้จากตารางอันดับด้านล่าง)
+  List<Widget> _pieLabelPills(
+      List<ApplianceUsage> breakdown, List<Color> colors) {
+    const minPercentToLabel = 4.0;
+    const radiusFactor = 0.86; // ระยะห่างจากจุดกึ่งกลางออกไปรอบขอบกรอบ
+    double cumulative = 0;
+    final widgets = <Widget>[];
+
+    for (var i = 0; i < breakdown.length; i++) {
+      final u = breakdown[i];
+      final sweep = u.percentOfTotal * 3.6;
+      if (u.percentOfTotal >= minPercentToLabel) {
+        final midAngleDeg = -90 + cumulative * 3.6 + sweep / 2;
+        final midAngleRad = midAngleDeg * math.pi / 180;
+        widgets.add(
+          Align(
+            alignment: Alignment(
+              math.cos(midAngleRad) * radiusFactor,
+              math.sin(midAngleRad) * radiusFactor,
+            ),
+            child: _PieLabelPill(
+              color: colors[i % colors.length],
+              label: u.appliance.name,
+            ),
+          ),
+        );
+      }
+      cumulative += u.percentOfTotal;
+    }
+    return widgets;
+  }
+}
+
+// ป้ายชื่อรายการรอบวงกลม — จุดสีตรงกับสีชิ้นพาย + ชื่ออุปกรณ์ ในกล่องมน
+// ขอบขาว มีเงาบางๆ (ตาม ref ที่แนบมา) ตัดชื่อที่ยาวเกินด้วย ... กันป้ายเบียด
+// ป้ายอื่นหรือล้นออกนอกการ์ด
+class _PieLabelPill extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _PieLabelPill({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 92),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE4F2E4),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.18), blurRadius: 5)
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // =====================================================================
@@ -1564,53 +1682,57 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ...List.generate(visibleCount, (i) {
-          final u = breakdown[i];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(color: Colors.grey.withValues(alpha: 0.06), blurRadius: 4)
-              ],
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor:
-                      widget.colors[i % widget.colors.length].withValues(alpha: 0.15),
-                  child: Text('${i + 1}',
-                      style: TextStyle(
-                          color: widget.colors[i % widget.colors.length],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(u.appliance.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 13)),
-                      Text(
-                          '${u.kWh.toStringAsFixed(1)} kWh • '
-                          '${widget.fmt.format(u.cost)} บาท',
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade600)),
-                    ],
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(color: Colors.grey.withValues(alpha: 0.06), blurRadius: 4)
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Table(
+            columnWidths: const {
+              0: FlexColumnWidth(2.4),
+              1: FlexColumnWidth(1),
+              2: FlexColumnWidth(0.9),
+              3: FlexColumnWidth(1.3),
+            },
+            children: [
+              // ---- หัวตาราง ----
+              TableRow(
+                decoration: const BoxDecoration(color: _green),
+                children: [
+                  _headerCell('อุปกรณ์', alignLeft: true),
+                  _headerCell('kWh'),
+                  _headerCell('%'),
+                  _headerCell('บาท', alignRight: true),
+                ],
+              ),
+              // ---- แถวข้อมูล (แถวสุดท้ายไม่มีเส้นคั่นด้านล่าง) ----
+              ...List.generate(visibleCount, (i) {
+                final u = breakdown[i];
+                final isLast = i == visibleCount - 1;
+                return TableRow(
+                  decoration: BoxDecoration(
+                    border: isLast
+                        ? null
+                        : Border(
+                            bottom: BorderSide(color: Colors.grey.shade100)),
                   ),
-                ),
-                Text('${u.percentOfTotal.toStringAsFixed(0)}%',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, color: _green)),
-              ],
-            ),
-          );
-        }),
+                  children: [
+                    _nameCell(u.appliance.name,
+                        widget.colors[i % widget.colors.length], i),
+                    _dataCell(u.kWh.toStringAsFixed(1)),
+                    _dataCell('${u.percentOfTotal.toStringAsFixed(0)}%',
+                        bold: true, color: _green),
+                    _dataCell(widget.fmt.format(u.cost), alignRight: true),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ),
         if (hasMore)
           GestureDetector(
             onTap: () => setState(() => _showAll = !_showAll),
@@ -1629,6 +1751,82 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
             ),
           ),
       ],
+    );
+  }
+
+  // หัวคอลัมน์ — ตัวหนังสือเทาเล็ก จัดตำแหน่งตามคอลัมน์ (ชื่ออุปกรณ์ชิดซ้าย,
+  // บาทชิดขวา, ที่เหลือกึ่งกลาง) ตาม ref
+  Widget _headerCell(String label,
+      {bool alignLeft = false, bool alignRight = false}) {
+    return TableCell(
+      verticalAlignment: TableCellVerticalAlignment.middle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Text(
+          label,
+          textAlign: alignLeft
+              ? TextAlign.left
+              : (alignRight ? TextAlign.right : TextAlign.center),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // คอลัมน์ชื่ออุปกรณ์ — คงวงกลมสีลำดับ (1,2,3...) แบบเดิมไว้ด้วยกัน แค่ย่อ
+  // ขนาดให้พอดีคอลัมน์ตาราง แทนที่จะเป็นการ์ดแยกบรรทัดแบบเดิม
+  Widget _nameCell(String name, Color rankColor, int index) {
+    return TableCell(
+      verticalAlignment: TableCellVerticalAlignment.middle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 10,
+              backgroundColor: rankColor.withValues(alpha: 0.15),
+              child: Text('${index + 1}',
+                  style: TextStyle(
+                      color: rankColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10)),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                name,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // คอลัมน์ตัวเลข (kWh / % / บาท) — กึ่งกลางเป็นค่าเริ่มต้น ยกเว้นคอลัมน์
+  // "บาท" ที่ชิดขวาตาม ref, สีเข้ม/หนาได้ถ้าระบุมา (ใช้กับคอลัมน์ %)
+  Widget _dataCell(String text, {bool alignRight = false, bool bold = false, Color? color}) {
+    return TableCell(
+      verticalAlignment: TableCellVerticalAlignment.middle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Text(
+          text,
+          textAlign: alignRight ? TextAlign.right : TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            color: color ?? Colors.grey.shade800,
+          ),
+        ),
+      ),
     );
   }
 }
