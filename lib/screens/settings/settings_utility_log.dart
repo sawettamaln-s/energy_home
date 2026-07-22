@@ -333,6 +333,13 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   // ล้วนๆ (ไม่ใช้ user.startPeakValue ตัวเดียวเพราะรอบเก่าที่ปิดไปแล้วมี
   // ต้นรอบคนละค่ากับรอบปัจจุบัน — ต้องอิงประวัติจริงของรอบนั้นๆ)
   List<StartMeterRecordModel> _startHistory = [];
+  // ค่ามิเตอร์ต้นรอบล่าสุดที่ user ตั้งไว้ (จาก user document) — ใช้เป็น
+  // fallback เฉพาะรอบปัจจุบันตอนยังไม่มี StartMeterRecordModel ของรอบนี้
+  // (เช่น กรอก log รายวันไปก่อนที่จะเข้าไปตั้งเลขต้นรอบ) เพื่อไม่ให้ตาราง
+  // โชว์ "-" ทั้งที่จริงมีค่าตั้งต้นรออยู่แล้ว — pattern เดียวกับที่แก้ใน
+  // compileBill() (firestore_service.dart)
+  double? _userStartPeak;
+  double? _userStartOffPeak;
 
   @override
   void initState() {
@@ -350,6 +357,8 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
     _isTou = user?.meterType == 'tou';
     if (_isTou) {
       _startHistory = await widget.firestoreService.getStartMeterHistory(widget.uid);
+      _userStartPeak = user?.startPeakValue;
+      _userStartOffPeak = user?.startOffPeakValue;
     }
     _cycleStart = EnergyForecaster.getCycleStart(now, _billingDay);
 
@@ -382,10 +391,24 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   (double peak, double offPeak)? _startValuesFor(DateTime cycleKey) {
     final match = _startHistory.where((r) =>
         r.billingMonth == cycleKey.month && r.billingYear == cycleKey.year);
-    if (match.isEmpty) return null;
-    final r = match.first;
-    if (r.peakValue <= 0 && r.offPeakValue <= 0) return null;
-    return (r.peakValue, r.offPeakValue);
+    if (match.isNotEmpty) {
+      final r = match.first;
+      if (r.peakValue > 0 || r.offPeakValue > 0) {
+        return (r.peakValue, r.offPeakValue);
+      }
+    }
+    // ไม่เจอ record ของรอบนี้เลย — ถ้าเป็นรอบปัจจุบัน (กำลังสะสมยอด) ให้
+    // fallback ไปใช้ค่าต้นรอบล่าสุดที่ user ตั้งไว้ใน user document แทน
+    // (เกิดขึ้นได้ตอนกรอก log รายวันไปก่อนที่จะเข้าไปตั้งเลขต้นรอบของรอบนี้)
+    // รอบเก่าที่ปิดไปแล้วไม่ fallback เพราะจะได้เลขต้นรอบผิดรอบ
+    if (cycleKey == _billingCycleKey) {
+      final peak = _userStartPeak;
+      final offPeak = _userStartOffPeak;
+      if (peak != null && offPeak != null && (peak > 0 || offPeak > 0)) {
+        return (peak, offPeak);
+      }
+    }
+    return null;
   }
 
   Future<void> _confirmDelete(ElectricityLogModel log) async {
