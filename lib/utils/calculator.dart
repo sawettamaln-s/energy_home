@@ -61,30 +61,17 @@ class EnergyCalculator {
 
   // คำนวณค่าไฟฟ้าแบบปกติ
   // area: 'bangkok' = MEA, 'province' = PEA
-  // หมายเหตุ: แอปรองรับเฉพาะมิเตอร์ 15A ขึ้นไป (ประเภท 1.2) เท่านั้น
-  // เพราะบ้านส่วนใหญ่ในปัจจุบันใช้มิเตอร์ขนาดนี้ ตัดการรองรับมิเตอร์ 5A (ประเภท 1.1) ออกแล้ว
+  // หมายเหตุ: แอปเซตค่าไฟทั้ง MEA และ PEA ไว้ที่ประเภท 1.2 / 1.1.2 (ใช้เกิน
+  // 150 หน่วยต่อเดือน) เป็นค่าเริ่มต้นเสมอ เพราะบ้านส่วนใหญ่ในปัจจุบันมีแอร์
+  // และเครื่องทำน้ำอุ่น ทำให้ใช้ไฟฟ้าเกิน 150 หน่วยต่อเดือนอยู่แล้ว
   static Future<double> calculateElectricity(
       double units, String area) async {
     if (units <= 0) return 0;
 
     final ftRate = await getFtRate();
-    double energyCost;
-    double serviceFee;
-
-    if (area == 'bangkok') {
-      // MEA: มิเตอร์ 15A ขึ้นไป → ประเภท 1.2 เสมอ
-      energyCost = _calculateEnergyRateOver150(units);
-      serviceFee = 24.62;
-    } else {
-      // PEA: หน่วยที่ใช้เป็นตัวกำหนดอย่างเดียว
-      if (units <= 150) {
-        energyCost = _calculateEnergyRateUnder150(units);
-        serviceFee = 8.19;
-      } else {
-        energyCost = _calculateEnergyRateOver150(units);
-        serviceFee = 24.62;
-      }
-    }
+    // ทั้ง MEA (bangkok) และ PEA (province) ใช้อัตราประเภท 1.2 / 1.1.2 เสมอ
+    double energyCost = _calculateEnergyRateOver150(units);
+    double serviceFee = 24.62;
 
     double ftCost = units * ftRate;
     double total = (energyCost + serviceFee + ftCost) * 1.07;

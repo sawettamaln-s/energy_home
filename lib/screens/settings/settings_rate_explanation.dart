@@ -298,12 +298,12 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
                             'กันแล้ว แอปจึงตั้งค่าคำนวณด้วยอัตราประเภท 1.2 '
                             '(ตารางที่เห็นด้านล่าง) ให้อัตโนมัติเลย'
                         : 'การไฟฟ้าส่วนภูมิภาค (PEA) แบ่งประเภทผู้ใช้ไฟตาม '
-                            '"จำนวนหน่วยที่ใช้จริงในเดือนนั้น" แทน — '
-                            'เดือนไหนใช้ไม่เกิน 150 หน่วย จัดเป็นประเภท 1.1 '
-                            '(อัตราถูกกว่า) เดือนไหนใช้เกิน 150 หน่วย จัดเป็น'
-                            'ประเภท 1.2 อัตโนมัติ เพราะงั้นอัตราที่แอปใช้'
-                            'คำนวณให้อาจสลับไปมาได้ในแต่ละเดือน ขึ้นอยู่กับ'
-                            'ว่าเดือนนั้นใช้ไฟเท่าไหร่'),
+                            '"จำนวนหน่วยที่ใช้ต่อเดือน" — ใช้ไม่เกิน 150 '
+                            'หน่วย จัดเป็นประเภท 1.1.1 ใช้เกิน 150 หน่วย '
+                            'จัดเป็นประเภท 1.1.2 เนื่องจากบ้านส่วนใหญ่ในปัจจุบัน'
+                            'มีทั้งแอร์และเครื่องทำน้ำอุ่น ทำให้ใช้ไฟเกิน 150 '
+                            'หน่วยต่อเดือนอยู่แล้ว แอปจึงตั้งค่าคำนวณด้วยอัตรา'
+                            'ประเภท 1.1.2 (ตารางที่เห็นด้านล่าง) ให้อัตโนมัติเลย'),
               ),
               const SizedBox(height: 8),
               if (isTou) ...[
@@ -346,66 +346,26 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
                     isAlt: true,
                     color: _green),
               ] else ...[
-                Text('ใช้ไฟไม่เกิน 150 หน่วย/เดือน:',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700)),
-                _tierRow(
-                    range: '1 - 15 หน่วยแรก',
-                    pricePerUnit: '2.3488 บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                _tierRow(
-                    range: '16 - 25 หน่วย',
-                    pricePerUnit: '2.9882 บาท/หน่วย',
-                    isAlt: true,
-                    color: _green),
-                _tierRow(
-                    range: '26 - 35 หน่วย',
-                    pricePerUnit: '3.2405 บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                _tierRow(
-                    range: '36 - 100 หน่วย',
-                    pricePerUnit: '3.6237 บาท/หน่วย',
-                    isAlt: true,
-                    color: _green),
-                _tierRow(
-                    range: '101 - 150 หน่วย',
-                    pricePerUnit: '3.7171 บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                _tierRow(
-                    range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '8.19 บาท',
-                    isAlt: true,
-                    color: _green),
-                const Divider(height: 20),
-                Text('ใช้ไฟเกิน 150 หน่วย/เดือน:',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700)),
                 _tierRow(
                     range: '1 - 150 หน่วย',
                     pricePerUnit: '3.2484 บาท/หน่วย',
-                    isAlt: true,
+                    isAlt: false,
                     color: _green),
                 _tierRow(
                     range: '151 - 400 หน่วย',
                     pricePerUnit: '4.2218 บาท/หน่วย',
-                    isAlt: false,
+                    isAlt: true,
                     color: _green),
                 _tierRow(
                     range: '401 หน่วยขึ้นไป',
                     pricePerUnit: '4.4217 บาท/หน่วย',
-                    isAlt: true,
+                    isAlt: false,
                     color: _green),
+                const Divider(height: 20),
                 _tierRow(
                     range: 'ค่าบริการรายเดือน',
                     pricePerUnit: '24.62 บาท',
-                    isAlt: false,
+                    isAlt: true,
                     color: _green),
               ],
             ],
