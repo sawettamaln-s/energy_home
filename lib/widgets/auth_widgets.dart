@@ -129,6 +129,95 @@ class AuthSecondaryButton extends StatelessWidget {
   }
 }
 
+/// เส้นคั่น "หรือ" ระหว่างปุ่ม login/register หลัก กับปุ่ม Google — ใช้ร่วมกัน
+/// ทั้งหน้า Login และ Register
+class AuthDivider extends StatelessWidget {
+  const AuthDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Divider(color: Colors.grey.shade300)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            'หรือ',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 12.5),
+          ),
+        ),
+        Expanded(child: Divider(color: Colors.grey.shade300)),
+      ],
+    );
+  }
+}
+
+/// ปุ่ม "เข้าสู่ระบบด้วย Google" — พื้นขาวขอบเทาตาม Google branding
+/// guideline ทั่วไป ใช้ตัวอักษร G สีแบรนด์แทนโลโก้ภาพจริง (โปรเจกต์นี้ไม่มี
+/// asset ภาพ ใช้แนวทางเดียวกับ AuthLogoBadge ที่วาดด้วยโค้ดล้วน)
+class AuthGoogleButton extends StatelessWidget {
+  const AuthGoogleButton({
+    super.key,
+    required this.onPressed,
+    this.isLoading = false,
+  });
+
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: AuthStyle.buttonHeight,
+      child: OutlinedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.black87,
+          backgroundColor: Colors.white,
+          side: BorderSide(color: Colors.grey.shade300, width: 1.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AuthStyle.radius),
+          ),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: const Text(
+                      'G',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4285F4), // Google blue
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'เข้าสู่ระบบด้วย Google',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
 /// สไตล์ช่องกรอกกลาง — พื้นเทาอ่อนไม่มีเส้นขอบ ใช้เหมือนกันทุกช่องกรอกในกลุ่ม
 /// หน้า auth (login / register / เปลี่ยนรหัสผ่าน ฯลฯ)
 InputDecoration authFieldDecoration({

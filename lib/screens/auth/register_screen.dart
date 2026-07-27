@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../services/google_auth_service.dart';
 import '../../widgets/auth_widgets.dart';
 import 'login_screen.dart';
 
@@ -18,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isGoogleLoading = false; // กำลังสมัคร/เข้าสู่ระบบด้วย Google อยู่ไหม
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String _errorMessage = '';
@@ -93,6 +95,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // สมัคร/เข้าสู่ระบบด้วย Google — signInWithCredential ของ Firebase สร้าง
+  // บัญชีให้อัตโนมัติถ้าเป็น Google account ใหม่ จึงทำหน้าที่แทนฟอร์มสมัคร
+  // สมาชิกด้านบนได้เลยในคลิกเดียว ไม่ต้อง pop เองเพราะ AuthGate ฟัง
+  // authStateChanges() แล้วสลับหน้าให้อัตโนมัติอยู่แล้ว
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isGoogleLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final credential = await GoogleAuthService.signIn();
+      // credential == null แปลว่าผู้ใช้กดยกเลิกเอง ไม่ต้องแจ้ง error
+      if (credential != null && mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } on FirebaseAuthException {
+      if (!mounted) return;
+      setState(() => _errorMessage =
+          'เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorMessage =
+          'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
     }
   }
 
@@ -212,6 +243,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 label: 'สมัครสมาชิก',
                 isLoading: _isLoading,
                 onPressed: _register,
+              ),
+
+              const SizedBox(height: 16),
+              const AuthDivider(),
+              const SizedBox(height: 16),
+
+              // ปุ่มสมัคร/เข้าสู่ระบบด้วย Google
+              AuthGoogleButton(
+                isLoading: _isGoogleLoading,
+                onPressed: _signInWithGoogle,
               ),
               const SizedBox(height: 16),
 
