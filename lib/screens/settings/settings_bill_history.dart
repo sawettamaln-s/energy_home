@@ -52,6 +52,10 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   // กรอก (ดู _showUsageInfoPopup) ตอนนี้แยกช่องแล้วรวมให้อัตโนมัติแทน
   final _ePeakUsedCtrl = TextEditingController();
   final _eOffPeakUsedCtrl = TextEditingController();
+  // debounce ช่องหน่วยที่ใช้ ก่อนยิงคำนวณค่าใช้จ่ายอัตโนมัติตามอัตรา กันไม่
+  // ให้เรียก getFtRate() (อ่าน Firestore) ทุกครั้งที่พิมพ์แต่ละตัวอักษร
+  Timer? _eCostDebounce;
+  Timer? _wCostDebounce;
 
   // ----- ส่วนเสริม: ชวนตั้งค่ามิเตอร์ต้นรอบต่อ (เปิดฟอร์มจริงแยกต่างหาก) -----
   // โหลด user มาเองอิสระ (ตามแพทเทิร์นเดียวกับ _AddStartMeterSheet) เพื่อรู้
@@ -129,6 +133,13 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
           existing.waterCost == 0 ? '' : existing.waterCost.toStringAsFixed(2);
       _wUsedCtrl.text =
           existing.waterUsed == 0 ? '' : existing.waterUsed.toStringAsFixed(2);
+    } else {
+      // เพิ่มบิลใหม่ (ยังไม่มีข้อมูลเดิม): เซตค่าใช้จ่ายเป็น "0.00" ตรงๆ ไว้
+      // ก่อนเลยตั้งแต่เปิดฟอร์ม แทนที่จะปล่อยว่าง — ไม่งั้นช่องจะโชว์ว่างเปล่า
+      // ค้างไว้จนกว่าผู้ใช้จะพิมพ์อะไรลงช่องหน่วยก่อนสักครั้ง ทั้งที่ควรเห็น
+      // "0.00" รอไว้ตั้งแต่แรกแล้วค่อยขยับตามหน่วยที่กรอก
+      _eCostCtrl.text = '0.00';
+      _wCostCtrl.text = '0.00';
     }
     _loadTakenMonths();
     _loadUser();
@@ -143,6 +154,66 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     ]) {
       c.addListener(() => setState(() {}));
     }
+
+    // คำนวณ "ค่าใช้จ่าย" อัตโนมัติตามอัตรา ทุกครั้งที่ช่อง "หน่วยที่ใช้เดือนนี้"
+    // เปลี่ยน — ต่างจากหน้าเลขมิเตอร์ต้นรอบตรงที่หน้านี้ผู้ใช้กรอก "หน่วยที่
+    // ใช้" ตรงๆ อยู่แล้ว (ไม่ใช่เลขมิเตอร์สะสมที่ต้องหา delta) จึงคำนวณจาก
+    // หน่วยที่กรอกได้ทันทีไม่ต้องพึ่งประวัติ — ผู้ใช้ยังแก้ค่าที่คำนวณได้
+    // เองอยู่ดี เพราะช่อง _eCostCtrl/_wCostCtrl ไม่ได้ถูก disable
+    for (final c in [_eUsedCtrl, _ePeakUsedCtrl, _eOffPeakUsedCtrl]) {
+      c.addListener(_scheduleElectricityCostCalc);
+    }
+    _wUsedCtrl.addListener(_scheduleWaterCostCalc);
+  }
+
+  void _scheduleElectricityCostCalc() {
+    _eCostDebounce?.cancel();
+    _eCostDebounce =
+        Timer(const Duration(milliseconds: 400), _autoCalcElectricityCost);
+  }
+
+  void _scheduleWaterCostCalc() {
+    _wCostDebounce?.cancel();
+    _wCostDebounce =
+        Timer(const Duration(milliseconds: 400), _autoCalcWaterCost);
+  }
+
+  // ยังไม่รู้ user (ยังโหลดไม่เสร็จ) -> ยังคำนวณไม่ได้ ปล่อยผ่านเฉยๆ ไม่แตะ
+  // ค่าใช้จ่ายที่มีอยู่ (กันเคส initState ตั้งค่าเริ่มต้นจากบิลเดิมตอนแก้ไข
+  // แล้วดันโดนคำนวณทับก่อน _user จะโหลดเสร็จ)
+  Future<void> _autoCalcElectricityCost() async {
+    if (_user == null) return;
+    final units = _isTou ? 0.0 : parseNumInput(_eUsedCtrl.text);
+    final peakUnits = _isTou ? parseNumInput(_ePeakUsedCtrl.text) : 0.0;
+    final offPeakUnits = _isTou ? parseNumInput(_eOffPeakUsedCtrl.text) : 0.0;
+
+    if (units <= 0 && peakUnits <= 0 && offPeakUnits <= 0) {
+      if (mounted) setState(() => _eCostCtrl.text = '0.00');
+      return;
+    }
+
+    final cost = await EnergyCalculator.calculateElectricityByType(
+      units: units,
+      meterType: _isTou ? 'tou' : 'normal',
+      area: _user!.area,
+      peakUnits: peakUnits,
+      offPeakUnits: offPeakUnits,
+    );
+    if (!mounted) return;
+    setState(() => _eCostCtrl.text = cost.toStringAsFixed(2));
+  }
+
+  // เหมือน _autoCalcElectricityCost() แต่ฝั่งน้ำ (calculateWater เป็น sync
+  // function ไม่ต้อง await)
+  void _autoCalcWaterCost() {
+    if (_user == null) return;
+    final units = parseNumInput(_wUsedCtrl.text);
+    if (units <= 0) {
+      setState(() => _wCostCtrl.text = '0.00');
+      return;
+    }
+    final cost = EnergyCalculator.calculateWater(units, _user!.area);
+    setState(() => _wCostCtrl.text = cost.toStringAsFixed(2));
   }
 
   Future<void> _loadUser() async {
@@ -185,6 +256,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
 
   @override
   void dispose() {
+    _eCostDebounce?.cancel();
+    _wCostDebounce?.cancel();
     _eUsedCtrl.dispose();
     _eCostCtrl.dispose();
     _wUsedCtrl.dispose();

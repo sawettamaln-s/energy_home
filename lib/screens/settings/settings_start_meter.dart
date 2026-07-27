@@ -45,6 +45,10 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   final _eUsedOffPeakCtrl = TextEditingController();
   bool _electricityNoBillYet = false;
   bool _waterNoBillYet = false;
+  // debounce ช่องหน่วย/เลขมิเตอร์ก่อนยิงคำนวณค่าใช้จ่ายอัตโนมัติ กันไม่ให้
+  // เรียก getFtRate() (อ่าน Firestore) ทุกครั้งที่พิมพ์แต่ละตัวอักษร
+  Timer? _eCostDebounce;
+  Timer? _wCostDebounce;
   // โชว์ตอนกดบันทึกแล้วไม่มีคู่ไหนกรอกครบเลยสักคู่
   bool _generalError = false;
   List<BillModel> _existingBills = [];
@@ -85,7 +89,120 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         if (mounted) setState(() {});
       });
     }
+
+    // คำนวณ "ค่าใช้จ่าย" อัตโนมัติตามอัตรา ทุกครั้งที่ช่องหน่วย/เลขมิเตอร์ที่
+    // เกี่ยวข้องเปลี่ยน (ทั้งกรณีครั้งแรกสุด A: กรอกหน่วยที่ใช้ไปแล้วตรงๆ
+    // และกรณีรอบถัดไป B: กรอกแค่เลขมิเตอร์สะสมแล้วคำนวณ delta จากรอบก่อน
+    // หน้า) — ผู้ใช้ยังแก้ค่าที่คำนวณได้เองอยู่ดี เพราะช่อง _eCostCtrl/
+    // _wCostCtrl ไม่ได้ถูก disable แค่ auto-fill ให้เฉยๆ
+    for (final c in [
+      _eCtrl,
+      _peakCtrl,
+      _offPeakCtrl,
+      _eUsedCtrl,
+      _eUsedPeakCtrl,
+      _eUsedOffPeakCtrl,
+    ]) {
+      c.addListener(_scheduleElectricityCostCalc);
+    }
+    for (final c in [_wCtrl, _wUsedCtrl]) {
+      c.addListener(_scheduleWaterCostCalc);
+    }
+
     _loadCurrent();
+  }
+
+  void _scheduleElectricityCostCalc() {
+    _eCostDebounce?.cancel();
+    _eCostDebounce =
+        Timer(const Duration(milliseconds: 400), _autoCalcElectricityCost);
+  }
+
+  void _scheduleWaterCostCalc() {
+    _wCostDebounce?.cancel();
+    _wCostDebounce =
+        Timer(const Duration(milliseconds: 400), _autoCalcWaterCost);
+  }
+
+  // คำนวณ "ค่าใช้จ่าย" ไฟฟ้าอัตโนมัติตามอัตรา (MEA/PEA ปกติ หรือ TOU)
+  // กรณี A (ครั้งแรกสุดของยูทิลิตี้นี้): ใช้หน่วยที่ผู้ใช้กรอกในช่อง
+  // "หน่วยที่ใช้ไปแล้ว" ตรงๆ (ผลรวม On-Peak/Off-Peak ถ้าเป็น TOU)
+  // กรณี B (มีรอบก่อนหน้าแล้ว): คำนวณหน่วยจาก delta ของเลขมิเตอร์สะสม
+  // (รอบนี้ - รอบก่อนหน้า) เหมือนตอนกด "บันทึก" จริงทุกประการ (ดู _save())
+  // ยังไม่กรอกหน่วย (หรือคำนวณ delta ไม่ได้) -> เซตค่าใช้จ่ายเป็น 0.00
+  Future<void> _autoCalcElectricityCost() async {
+    if (!mounted || _isLoading || _electricityNoBillYet) return;
+    final user = _user;
+    if (user == null) return;
+
+    double units = 0;
+    double peakUnits = 0;
+    double offPeakUnits = 0;
+
+    if (_eIsFirstEntry) {
+      if (widget.isTou) {
+        peakUnits = parseNumInput(_eUsedPeakCtrl.text);
+        offPeakUnits = parseNumInput(_eUsedOffPeakCtrl.text);
+      } else {
+        units = parseNumInput(_eUsedCtrl.text);
+      }
+    } else {
+      final prev = _previousRecord;
+      if (prev != null) {
+        if (widget.isTou) {
+          final peakVal = parseNumInput(_peakCtrl.text);
+          final offPeakVal = parseNumInput(_offPeakCtrl.text);
+          peakUnits = EnergyCalculator.calculateUsed(peakVal, prev.peakValue);
+          offPeakUnits =
+              EnergyCalculator.calculateUsed(offPeakVal, prev.offPeakValue);
+        } else {
+          final eVal = parseNumInput(_eCtrl.text);
+          units = EnergyCalculator.calculateUsed(eVal, prev.electricityValue);
+        }
+      }
+    }
+
+    if (!mounted) return;
+    if (units <= 0 && peakUnits <= 0 && offPeakUnits <= 0) {
+      setState(() => _eCostCtrl.text = '0.00');
+      return;
+    }
+
+    final cost = await EnergyCalculator.calculateElectricityByType(
+      units: units,
+      meterType: widget.isTou ? 'tou' : 'normal',
+      area: user.area,
+      peakUnits: peakUnits,
+      offPeakUnits: offPeakUnits,
+    );
+    if (!mounted) return;
+    setState(() => _eCostCtrl.text = cost.toStringAsFixed(2));
+  }
+
+  // เหมือน _autoCalcElectricityCost() แต่ฝั่งน้ำ (ไม่มี TOU ให้แยก และ
+  // calculateWater เป็น sync function ไม่ต้อง await)
+  void _autoCalcWaterCost() {
+    if (!mounted || _isLoading || _waterNoBillYet) return;
+    final user = _user;
+    if (user == null) return;
+
+    double units = 0;
+    if (_wIsFirstEntry) {
+      units = parseNumInput(_wUsedCtrl.text);
+    } else {
+      final prev = _previousRecord;
+      if (prev != null) {
+        final wVal = parseNumInput(_wCtrl.text);
+        units = EnergyCalculator.calculateUsed(wVal, prev.waterValue);
+      }
+    }
+
+    if (units <= 0) {
+      setState(() => _wCostCtrl.text = '0.00');
+      return;
+    }
+    final cost = EnergyCalculator.calculateWater(units, user.area);
+    setState(() => _wCostCtrl.text = cost.toStringAsFixed(2));
   }
 
   // ดึงค่าปัจจุบันของ user มาตั้งเป็นค่าเริ่มต้นในฟอร์ม (widget ทำงานอิสระ ไม่ผูกกับ state หน้าตั้งค่า)
@@ -153,6 +270,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
 
   @override
   void dispose() {
+    _eCostDebounce?.cancel();
+    _wCostDebounce?.cancel();
     _eCtrl.dispose();
     _peakCtrl.dispose();
     _offPeakCtrl.dispose();
