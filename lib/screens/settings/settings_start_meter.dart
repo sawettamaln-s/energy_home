@@ -147,17 +147,16 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         units = parseNumInput(_eUsedCtrl.text);
       }
     } else {
-      final prev = _previousRecord;
+      final prev = _previousElectricityRecord;
       if (prev != null) {
         if (widget.isTou) {
           final peakVal = parseNumInput(_peakCtrl.text);
           final offPeakVal = parseNumInput(_offPeakCtrl.text);
-          peakUnits = EnergyCalculator.calculateUsed(peakVal, prev.peakValue);
-          offPeakUnits =
-              EnergyCalculator.calculateUsed(offPeakVal, prev.offPeakValue);
+          peakUnits = _deltaUsed(peakVal, prev.peakValue);
+          offPeakUnits = _deltaUsed(offPeakVal, prev.offPeakValue);
         } else {
           final eVal = parseNumInput(_eCtrl.text);
-          units = EnergyCalculator.calculateUsed(eVal, prev.electricityValue);
+          units = _deltaUsed(eVal, prev.electricityValue);
         }
       }
     }
@@ -190,10 +189,10 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     if (_wIsFirstEntry) {
       units = parseNumInput(_wUsedCtrl.text);
     } else {
-      final prev = _previousRecord;
+      final prev = _previousWaterRecord;
       if (prev != null) {
         final wVal = parseNumInput(_wCtrl.text);
-        units = EnergyCalculator.calculateUsed(wVal, prev.waterValue);
+        units = _deltaUsed(wVal, prev.waterValue);
       }
     }
 
@@ -295,10 +294,19 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   bool get _wIsFirstEntry =>
       !_history.any((r) => r.id != _editingRecordId && r.waterValue > 0);
 
-  // หา record ก่อนหน้าที่ใกล้ที่สุด (ไม่นับตัวที่กำลังแก้ไข) เอาไว้คำนวณหน่วยที่ใช้ไปในรอบที่เพิ่งปิด (delta)
-  StartMeterRecordModel? get _previousRecord {
+  // หา record ก่อนหน้าที่ใกล้ที่สุด "ที่มีข้อมูลของยูทิลิตี้นั้นจริงๆ" (ไม่นับ
+  // ตัวที่กำลังแก้ไข) เอาไว้คำนวณหน่วยที่ใช้ไปในรอบที่เพิ่งปิด (delta)
+  // สำคัญ: ต้องกรองด้วย hasData ก่อนเสมอ ห้ามแค่หยิบ record ที่เดือนใกล้ที่สุด
+  // เฉยๆ เพราะบางรอบอาจมี record ถูกสร้างไว้ทั้งที่ยูทิลิตี้นี้ไม่มีค่าเลย
+  // (เช่นรอบนั้นกรอกแค่น้ำอย่างเดียว ไม่แตะไฟฟ้าเลย หรือเคยลบข้อมูลไฟฟ้า
+  // ของรอบนั้นทิ้งไปแล้วผ่าน _confirmDelete) ถ้าไม่กรองจะได้ record ที่
+  // electricityValue/peakValue/offPeakValue = 0 มาเป็น baseline ผิดๆ ทำให้
+  // เลขมิเตอร์สะสมทั้งก้อนถูกนับเป็น "หน่วยที่ใช้" แทนที่จะเป็นแค่ส่วนต่าง
+  StartMeterRecordModel? _previousRecordWhere(
+      bool Function(StartMeterRecordModel r) hasData) {
     final candidates = _history.where((r) =>
         r.id != _editingRecordId &&
+        hasData(r) &&
         (r.billingYear < _selectedYear ||
             (r.billingYear == _selectedYear &&
                 r.billingMonth < _selectedMonth)));
@@ -307,6 +315,55 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       ..sort((a, b) => (b.billingYear * 12 + b.billingMonth)
           .compareTo(a.billingYear * 12 + a.billingMonth));
     return list.first;
+  }
+
+  // ไฟฟ้า: TOU เช็คจากคู่ peak/offPeak (electricityValue ไม่เคยถูกเซ็ตสำหรับ
+  // TOU), ปกติเช็คจาก electricityValue ตรงๆ — ใช้ตัวเดียวกับ _eIsFirstEntry
+  StartMeterRecordModel? get _previousElectricityRecord =>
+      _previousRecordWhere((r) => widget.isTou
+          ? (r.peakValue > 0 || r.offPeakValue > 0)
+          : r.electricityValue > 0);
+
+  StartMeterRecordModel? get _previousWaterRecord =>
+      _previousRecordWhere((r) => r.waterValue > 0);
+
+  // คำนวณ "หน่วยที่ใช้ไป" แบบ delta เดียวที่ใช้ร่วมกันทั้ง preview (ตอนพิมพ์)
+  // และตอนกด "บันทึก" จริง กันไม่ให้ตัวเลขที่โชว์ให้ผู้ใช้เห็นระหว่างพิมพ์
+  // กับตัวเลขที่ถูกเซฟลง Firestore จริงๆ ไม่ตรงกัน (เคยเป็นจุดบั๊ก: preview
+  // เรียก EnergyCalculator.calculateUsed() ตรงๆ ไม่มี guard แต่ _save() มี
+  // guard "previous > 0" เพิ่มมาอีกชั้น พอ previous เป็น 0 (เช่นจาก record
+  // ที่ไม่มีข้อมูลจริง) preview เลยโชว์หน่วย/ค่าใช้จ่ายพุ่งสูงผิดปกติ ทั้งที่
+  // ตอนเซฟจริงกลับได้ 0 หน่วย เพราะ guard บล็อกไว้ — ค่าที่โชว์กับค่าที่เซฟ
+  // เลยไม่ตรงกัน) previous <= 0 หมายถึง "ไม่มี baseline ที่เชื่อถือได้" จึง
+  // ถือว่ายังคำนวณ delta ไม่ได้ ต้องคืน 0 เสมอ ไม่ใช่เอาเลขสะสมทั้งก้อนมานับ
+  double _deltaUsed(double current, double previous) =>
+      previous > 0 ? EnergyCalculator.calculateUsed(current, previous) : 0;
+
+  // เช็คว่าเลขมิเตอร์ที่กรอกรอบนี้ "ต่ำกว่า" รอบก่อนหน้าไหม (เลขมิเตอร์สะสม
+  // ต้องเพิ่มขึ้นเรื่อยๆ เท่านั้น ห้ามน้อยกว่ารอบก่อน) — เดิมไม่มีการเช็คแบบนี้
+  // เลย ปล่อยให้ EnergyCalculator.calculateUsed() เงียบๆ ตีความว่าใช้ไป 0
+  // หน่วยถ้ากรอกน้อยกว่ารอบก่อน ซึ่งส่วนใหญ่เป็นการกรอกผิด (เผลอพิมพ์เลข
+  // มิเตอร์เก่า/พิมพ์ตกหลัก) ไม่ใช่ค่าที่ตั้งใจ — ใช้เตือนผู้ใช้แบบ live ใต้
+  // ฟอร์ม และกันไว้อีกชั้นก่อนกด "บันทึก" จริงใน _save()
+  // ไม่เช็คตอน isFirstEntry เพราะยังไม่มี record ก่อนหน้าให้เทียบเลย
+  bool get _eBelowPrevious {
+    final prev = _previousElectricityRecord;
+    if (prev == null) return false;
+    if (widget.isTou) {
+      final peakVal = parseNumInput(_peakCtrl.text);
+      final offPeakVal = parseNumInput(_offPeakCtrl.text);
+      return (peakVal > 0 && peakVal < prev.peakValue) ||
+          (offPeakVal > 0 && offPeakVal < prev.offPeakValue);
+    }
+    final eVal = parseNumInput(_eCtrl.text);
+    return eVal > 0 && eVal < prev.electricityValue;
+  }
+
+  bool get _wBelowPrevious {
+    final prev = _previousWaterRecord;
+    if (prev == null) return false;
+    final wVal = parseNumInput(_wCtrl.text);
+    return wVal > 0 && wVal < prev.waterValue;
   }
 
   Future<void> _save() async {
@@ -341,6 +398,22 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     if (!ok) {
       setState(() => _generalError = true);
       return;
+    }
+    // เลขมิเตอร์ต่ำกว่ารอบก่อนหน้า มักเป็นการกรอกผิด (เผลอพิมพ์เลขเก่า/พิมพ์
+    // ตกหลัก) — ไม่บล็อกเด็ดขาด เผื่อกรณีเปลี่ยนมิเตอร์ตัวใหม่จริงๆ ที่เลข
+    // เริ่มนับใหม่ต่ำกว่าตัวเก่าจริงๆ ได้ แต่ต้องให้ผู้ใช้ยืนยันก่อนเสมอ
+    if (_eBelowPrevious || _wBelowPrevious) {
+      final confirm = await showConfirmDialog(
+        context,
+        title: 'เลขมิเตอร์ต่ำกว่ารอบก่อนหน้า',
+        content: [
+              if (_eBelowPrevious) 'เลขมิเตอร์ไฟฟ้า',
+              if (_wBelowPrevious) 'เลขมิเตอร์น้ำ',
+            ].join(' และ ') +
+            'ที่กรอกไว้ต่ำกว่ารอบก่อนหน้า ถ้าไม่ได้เพิ่งเปลี่ยนมิเตอร์ตัวใหม่ '
+                'อาจเป็นการกรอกผิด ต้องการบันทึกต่อเลยไหมคะ?',
+      );
+      if (confirm != true || !mounted) return;
     }
     final navigator = Navigator.of(context);
     setState(() {
@@ -425,7 +498,12 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         // ถ้ากรอกค่าใช้จ่ายไว้ บันทึกเป็นบิลของรอบที่เพิ่งปิด ถ้าเดือนนี้มีบิลอยู่แล้วใช้ id เดิมอัปเดตทับ
         // บิลต้องมี electricityUsed/waterUsed ด้วย ไม่ใช่แค่ cost: ถ้ามี record ก่อนหน้าคำนวณ delta อัตโนมัติ
         // ถ้าเป็นครั้งแรกสุดใช้ค่าที่ผู้ใช้กรอกในช่อง "หน่วยที่ใช้ไปแล้ว" ตรงๆ
-        final prev = _previousRecord;
+        // แยก prev ของไฟฟ้ากับน้ำออกจากกัน (คนละ record ก่อนหน้ากันได้ ถ้ารอบใด
+        // รอบหนึ่งเคยกรอกแค่ยูทิลิตี้เดียว) กันไม่ให้หยิบ record ที่ไม่มีข้อมูล
+        // ของยูทิลิตี้นั้นมาเป็น baseline ผิดๆ (ดู _previousElectricityRecord /
+        // _previousWaterRecord ด้านบน)
+        final prevE = _previousElectricityRecord;
+        final prevW = _previousWaterRecord;
         double wUsed = _wIsFirstEntry ? wUsedInput : 0;
         // TOU: หน่วยที่ใช้คำนวณจากคู่ On-Peak/Off-Peak เสมอ (electricityValue ไม่เคยถูกเซ็ตสำหรับ TOU)
         double eUsed = widget.isTou ? 0 : (_eIsFirstEntry ? eUsedInput : 0);
@@ -435,24 +513,18 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         double eOffPeakUsed = widget.isTou && _eIsFirstEntry
             ? parseNumInput(_eUsedOffPeakCtrl.text)
             : 0;
-        if (prev != null) {
+        if (prevE != null) {
           if (widget.isTou) {
-            if (eComplete && prev.peakValue > 0 && peakVal > prev.peakValue) {
-              ePeakUsed = peakVal - prev.peakValue;
+            if (eComplete) {
+              ePeakUsed = _deltaUsed(peakVal, prevE.peakValue);
+              eOffPeakUsed = _deltaUsed(offPeakVal, prevE.offPeakValue);
             }
-            if (eComplete &&
-                prev.offPeakValue > 0 &&
-                offPeakVal > prev.offPeakValue) {
-              eOffPeakUsed = offPeakVal - prev.offPeakValue;
-            }
-          } else if (eComplete &&
-              prev.electricityValue > 0 &&
-              eVal > prev.electricityValue) {
-            eUsed = eVal - prev.electricityValue;
+          } else if (eComplete) {
+            eUsed = _deltaUsed(eVal, prevE.electricityValue);
           }
-          if (wComplete && prev.waterValue > 0 && wVal > prev.waterValue) {
-            wUsed = wVal - prev.waterValue;
-          }
+        }
+        if (prevW != null && wComplete) {
+          wUsed = _deltaUsed(wVal, prevW.waterValue);
         }
         if (widget.isTou) {
           eUsed = ePeakUsed + eOffPeakUsed;
@@ -827,6 +899,43 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           subtitle: 'กรอกจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน '
                               'มีบิลฝั่งไหนก็กรอกแค่ฝั่งนั้น',
                         ),
+                        if (_eBelowPrevious || _wBelowPrevious) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border:
+                                  Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.warning_amber_rounded,
+                                    size: 18, color: Colors.orange.shade800),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    [
+                                      if (_eBelowPrevious)
+                                        'เลขมิเตอร์ไฟฟ้าที่กรอกต่ำกว่ารอบก่อนหน้า',
+                                      if (_wBelowPrevious)
+                                        'เลขมิเตอร์น้ำที่กรอกต่ำกว่ารอบก่อนหน้า',
+                                    ].join(' และ ') +
+                                        ' กรุณาตรวจสอบว่าพิมพ์ถูกไหมค่ะ '
+                                            '(เลขมิเตอร์สะสมควรเพิ่มขึ้นทุกรอบ)',
+                                    style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Colors.orange.shade900),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (_generalError) ...[
                           const SizedBox(height: 8),
                           Text(
