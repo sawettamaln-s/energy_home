@@ -8,6 +8,18 @@ DateTime _expectedInvoiceMonth(int billingDay) {
   return EnergyForecaster.getCycleStart(now, billingDay);
 }
 
+// แถวเดียวของการ์ดสรุป "เดือนก่อน -> ตอนนี้ = ใช้ไปกี่หน่วย" (ดู
+// _eUsageSummary/_wUsageSummary ใน _AddStartMeterSheetState) — label เป็น
+// null สำหรับกรณีปกติที่มีแค่คู่เดียว (น้ำ, ไฟไม่ใช่ TOU) ใช้ label เมื่อ
+// ต้องแยกแสดง On-Peak/Off-Peak เป็นคนละแถว
+class _MeterDeltaRow {
+  final String? label;
+  final double prevVal;
+  final double currentVal;
+  final double used;
+  const _MeterDeltaRow(this.label, this.prevVal, this.currentVal, this.used);
+}
+
 // บันทึกเลขมิเตอร์ต้นรอบ (bottom sheet) — รวมกับหน้าประวัติผ่านปุ่ม FAB "+"
 class _AddStartMeterSheet extends StatefulWidget {
   final String uid;
@@ -236,6 +248,33 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
 
         // หา record ล่าสุดในประวัติ เอา id มาใช้แก้ทับตอนบันทึก แทนการสร้างใหม่
         _editingRecordId = _history.isNotEmpty ? _history.first.id : null;
+
+        // prefill ค่าใช้จ่าย ถ้าเดือน/ปีนี้มีบิลบันทึกไว้แล้ว — ทำเฉพาะโหมด
+        // แก้ไขรอบปัจจุบันเท่านั้น (ตอนกลับมาแก้ไขค่าที่เพิ่งบันทึก) ห้ามรัน
+        // ตอนโหมดตั้งใหม่ ไม่งั้นถ้ามีบิลเก่าค้างของเดือนนี้อยู่ (ถูกสร้างจาก
+        // จุดอื่นโดยไม่มีเลขมิเตอร์ผูกมาด้วย) จะได้ค่าใช้จ่าย > 0 ทั้งที่เลข
+        // มิเตอร์ถูก clear เป็นค่าว่างไปแล้วในโหมดตั้งใหม่ (else ด้านล่าง)
+        // ทำให้ StartMeterValidation มองว่ายูทิลิตี้นั้น "กรอกครึ่งเดียวค้าง
+        // อยู่" (partial) แล้วบล็อกปุ่มบันทึกไปทั้งฟอร์ม แม้อีกยูทิลิตี้ที่
+        // ผู้ใช้กรอกจริงจะครบสมบูรณ์แล้วก็ตาม
+        final existingBill = _existingBills.where(
+            (b) => b.year == _selectedYear && b.month == _selectedMonth);
+        if (existingBill.isNotEmpty) {
+          final b = existingBill.first;
+          _eCostCtrl.text =
+              b.electricityCost == 0 ? '' : b.electricityCost.toString();
+          _wCostCtrl.text = b.waterCost == 0 ? '' : b.waterCost.toString();
+          _eUsedCtrl.text =
+              b.electricityUsed == 0 ? '' : b.electricityUsed.toString();
+          _wUsedCtrl.text = b.waterUsed == 0 ? '' : b.waterUsed.toString();
+          // prefill คู่ TOU ด้วย (ช่อง On/Off ของ "หน่วยที่ใช้ไปแล้ว") ตอนกลับมาแก้ไขค่าที่เพิ่งบันทึก
+          _eUsedPeakCtrl.text = b.electricityPeakUsed == 0
+              ? ''
+              : b.electricityPeakUsed.toString();
+          _eUsedOffPeakCtrl.text = b.electricityOffPeakUsed == 0
+              ? ''
+              : b.electricityOffPeakUsed.toString();
+        }
       } else {
         // โหมดตั้งใหม่ (ยังไม่เคยตั้ง หรือรอบขยับไปแล้ว): ฟอร์มว่าง ตั้ง default เดือน/ปีเป็นรอบที่ควรตั้งตอนนี้
         _eCtrl.clear();
@@ -245,23 +284,6 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         _selectedMonth = expected.month;
         _selectedYear = expected.year;
         _editingRecordId = null;
-      }
-
-      // prefill ค่าใช้จ่าย ถ้าเดือน/ปีนี้มีบิลบันทึกไว้แล้ว
-      final existingBill = _existingBills.where(
-          (b) => b.year == _selectedYear && b.month == _selectedMonth);
-      if (existingBill.isNotEmpty) {
-        final b = existingBill.first;
-        _eCostCtrl.text = b.electricityCost == 0 ? '' : b.electricityCost.toString();
-        _wCostCtrl.text = b.waterCost == 0 ? '' : b.waterCost.toString();
-        _eUsedCtrl.text = b.electricityUsed == 0 ? '' : b.electricityUsed.toString();
-        _wUsedCtrl.text = b.waterUsed == 0 ? '' : b.waterUsed.toString();
-        // prefill คู่ TOU ด้วย (ช่อง On/Off ของ "หน่วยที่ใช้ไปแล้ว") ตอนกลับมาแก้ไขค่าที่เพิ่งบันทึก
-        _eUsedPeakCtrl.text =
-            b.electricityPeakUsed == 0 ? '' : b.electricityPeakUsed.toString();
-        _eUsedOffPeakCtrl.text = b.electricityOffPeakUsed == 0
-            ? ''
-            : b.electricityOffPeakUsed.toString();
       }
     }
     if (mounted) setState(() => _isLoading = false);
@@ -364,6 +386,109 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     if (prev == null) return false;
     final wVal = parseNumInput(_wCtrl.text);
     return wVal > 0 && wVal < prev.waterValue;
+  }
+
+  // การ์ดสรุป "เดือนก่อน -> ตอนนี้ = ใช้ไปกี่หน่วย" ให้ผู้ใช้เช็คก่อนบันทึก
+  // จริงว่าหน่วยที่คำนวณได้ถูกไหม — โชว์เฉพาะรอบถัดๆ ไปที่มีรอบก่อนหน้าให้
+  // เทียบจริง (ไม่ใช่ isFirstEntry ซึ่งไม่มี baseline) ใช้ _deltaUsed() ตัว
+  // เดียวกับตอนกด "บันทึก" เป๊ะๆ กันตัวเลขที่โชว์กับที่เซฟไม่ตรงกัน
+  Widget? get _eUsageSummary {
+    if (_eIsFirstEntry) return null;
+    final prev = _previousElectricityRecord;
+    if (prev == null) return null;
+    final rows = <_MeterDeltaRow>[];
+    if (widget.isTou) {
+      final peakVal = parseNumInput(_peakCtrl.text);
+      final offPeakVal = parseNumInput(_offPeakCtrl.text);
+      rows.add(_MeterDeltaRow('On-Peak', prev.peakValue, peakVal,
+          _deltaUsed(peakVal, prev.peakValue)));
+      rows.add(_MeterDeltaRow('Off-Peak', prev.offPeakValue, offPeakVal,
+          _deltaUsed(offPeakVal, prev.offPeakValue)));
+    } else {
+      final eVal = parseNumInput(_eCtrl.text);
+      rows.add(_MeterDeltaRow(null, prev.electricityValue, eVal,
+          _deltaUsed(eVal, prev.electricityValue)));
+    }
+    return _usageSummaryCard(
+      rows: rows,
+      unit: 'หน่วย',
+      color: DashboardStyles.electricityBorder,
+      prevMonthLabel:
+          '${thaiMonths[prev.billingMonth - 1]} ${prev.billingYear}',
+    );
+  }
+
+  Widget? get _wUsageSummary {
+    if (_wIsFirstEntry) return null;
+    final prev = _previousWaterRecord;
+    if (prev == null) return null;
+    final wVal = parseNumInput(_wCtrl.text);
+    return _usageSummaryCard(
+      rows: [
+        _MeterDeltaRow(
+            null, prev.waterValue, wVal, _deltaUsed(wVal, prev.waterValue)),
+      ],
+      unit: 'ลบ.ม.',
+      color: DashboardStyles.waterBorder,
+      prevMonthLabel:
+          '${thaiMonths[prev.billingMonth - 1]} ${prev.billingYear}',
+    );
+  }
+
+  // แถวที่ยังไม่กรอกเลขมิเตอร์รอบนี้ (currentVal <= 0) โชว์แค่ฝั่ง "เดือน
+  // ก่อน -> รอกรอก..." ค้างไว้ก่อน พอผู้ใช้พิมพ์เลขมิเตอร์ปุ๊บ ตัวเลข
+  // "ตอนนี้" กับ "ใช้ไปกี่หน่วย" จะขึ้นตามมาทันที (ทั้งไฟล์นี้ rebuild ทุก
+  // ครั้งที่คีย์บอร์ดพิมพ์ ผ่าน listener ของ controller ที่ setState อยู่แล้ว)
+  Widget _usageSummaryCard({
+    required List<_MeterDeltaRow> rows,
+    required String unit,
+    required Color color,
+    required String prevMonthLabel,
+  }) {
+    final fmt = NumberFormat('#,##0.##');
+    final filledRows = rows.where((r) => r.currentVal > 0).toList();
+    final total = filledRows.fold<double>(0, (s, r) => s + r.used);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final r in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                r.currentVal > 0
+                    ? '${r.label != null ? '${r.label} ' : ''}'
+                        '$prevMonthLabel ${fmt.format(r.prevVal)} → ตอนนี้ ${fmt.format(r.currentVal)}'
+                        '  =  ใช้ไป ${fmt.format(r.used)} $unit'
+                    : '${r.label != null ? '${r.label} ' : ''}'
+                        '$prevMonthLabel ${fmt.format(r.prevVal)} → ตอนนี้ ...',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: r.currentVal > 0
+                      ? color
+                      : color.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+          if (filledRows.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'รวมใช้ไปทั้งหมด ${fmt.format(total)} $unit',
+                style: TextStyle(
+                    fontSize: 11.5, fontWeight: FontWeight.w700, color: color),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -898,6 +1023,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           // ไม่ส่ง title ซ้ำ — sheet นี้มีหัว "บันทึกมิเตอร์ต้นรอบ" อยู่แล้ว
                           subtitle: 'กรอกจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน '
                               'มีบิลฝั่งไหนก็กรอกแค่ฝั่งนั้น',
+                          eUsageSummary: _eUsageSummary,
+                          wUsageSummary: _wUsageSummary,
                         ),
                         if (_eBelowPrevious || _wBelowPrevious) ...[
                           const SizedBox(height: 8),

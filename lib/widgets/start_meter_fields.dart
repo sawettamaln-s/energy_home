@@ -249,6 +249,15 @@ class StartMeterPairedFields extends StatefulWidget {
   final String? title;
   final String subtitle;
 
+  // การ์ดสรุป "เดือนก่อน -> ตอนนี้ = ใช้ไปกี่หน่วย" ให้ผู้ใช้เช็คเลขที่กรอก
+  // ก่อนบันทึก — คำนวณมาจากหน้าที่เรียกใช้ (มี _previousElectricityRecord/
+  // _previousWaterRecord ให้ใช้อยู่แล้ว) ไม่คำนวณเองในนี้ กันไม่ให้สูตร
+  // delta ดริฟท์ไปคนละทางกับ _deltaUsed() ที่ใช้ตอนกด "บันทึก" จริง — เป็น
+  // null ได้เสมอ (เช่น รอบแรกสุดที่ยังไม่มีรอบก่อนหน้าให้เทียบ) แล้วจะไม่
+  // โชว์การ์ดนี้เลย
+  final Widget? eUsageSummary;
+  final Widget? wUsageSummary;
+
   const StartMeterPairedFields({
     super.key,
     required this.isTou,
@@ -270,6 +279,8 @@ class StartMeterPairedFields extends StatefulWidget {
     required this.onWNoBillYetChanged,
     this.title,
     required this.subtitle,
+    this.eUsageSummary,
+    this.wUsageSummary,
   });
 
   @override
@@ -491,6 +502,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
     required bool noBillYet,
     required ValueChanged<bool> onNoBillYetChanged,
     Widget? usedField,
+    Widget? usageSummary,
   }) {
     return Container(
       width: double.infinity,
@@ -536,6 +548,10 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
           ),
           const SizedBox(height: 12),
           meterFields,
+          if (usageSummary != null) ...[
+            const SizedBox(height: 10),
+            usageSummary,
+          ],
           if (usedField != null) ...[
             const SizedBox(height: 10),
             usedField,
@@ -726,6 +742,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             isPartial: ePartial,
             noBillYet: widget.eNoBillYet,
             onNoBillYetChanged: widget.onENoBillYetChanged,
+            usageSummary: widget.eUsageSummary,
             usedField: widget.eIsFirstEntry
                 ? (widget.isTou && widget.eUsedPeakCtrl != null &&
                         widget.eUsedOffPeakCtrl != null
@@ -764,6 +781,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             isPartial: wPartial,
             noBillYet: widget.wNoBillYet,
             onNoBillYetChanged: widget.onWNoBillYetChanged,
+            usageSummary: widget.wUsageSummary,
             usedField: widget.wIsFirstEntry
                 ? _usedField(
                     controller: widget.wUsedCtrl,
