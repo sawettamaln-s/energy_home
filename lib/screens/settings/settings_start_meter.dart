@@ -531,12 +531,12 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       final confirm = await showConfirmDialog(
         context,
         title: 'เลขมิเตอร์ต่ำกว่ารอบก่อนหน้า',
-        content: [
-              if (_eBelowPrevious) 'เลขมิเตอร์ไฟฟ้า',
-              if (_wBelowPrevious) 'เลขมิเตอร์น้ำ',
-            ].join(' และ ') +
+        content: '${[
+          if (_eBelowPrevious) 'เลขมิเตอร์ไฟฟ้า',
+          if (_wBelowPrevious) 'เลขมิเตอร์น้ำ',
+        ].join(' และ ')}'
             'ที่กรอกไว้ต่ำกว่ารอบก่อนหน้า ถ้าไม่ได้เพิ่งเปลี่ยนมิเตอร์ตัวใหม่ '
-                'อาจเป็นการกรอกผิด ต้องการบันทึกต่อเลยไหมคะ?',
+            'อาจเป็นการกรอกผิด ต้องการบันทึกต่อเลยไหมคะ?',
       );
       if (confirm != true || !mounted) return;
     }
@@ -995,7 +995,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             ),
                           ),
                         const SizedBox(height: 4),
-                        // ใช้ widget กลาง StartMeterPairedFields ร่วมกับ setup_screen.dart ไม่ต้องแก้ 2 ที่แยกกัน
+                        // ใช้ widget กลาง StartMeterPairedFields (widgets/start_meter_fields.dart) — เดิมใช้ร่วมกับ setup_screen.dart แต่ขั้นตอนนั้นถูกตัดออกจากเซตอัพแล้ว ปัจจุบันเรียกใช้จากที่นี่ที่เดียว
                         StartMeterPairedFields(
                           isTou: widget.isTou,
                           electricityCtrl: _eCtrl,
@@ -1046,14 +1046,14 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    [
+                                    '${[
                                       if (_eBelowPrevious)
                                         'เลขมิเตอร์ไฟฟ้าที่กรอกต่ำกว่ารอบก่อนหน้า',
                                       if (_wBelowPrevious)
                                         'เลขมิเตอร์น้ำที่กรอกต่ำกว่ารอบก่อนหน้า',
-                                    ].join(' และ ') +
+                                    ].join(' และ ')}'
                                         ' กรุณาตรวจสอบว่าพิมพ์ถูกไหมค่ะ '
-                                            '(เลขมิเตอร์สะสมควรเพิ่มขึ้นทุกรอบ)',
+                                        '(เลขมิเตอร์สะสมควรเพิ่มขึ้นทุกรอบ)',
                                     style: TextStyle(
                                         fontSize: 11.5,
                                         color: Colors.orange.shade900),

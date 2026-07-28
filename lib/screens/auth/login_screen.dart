@@ -238,12 +238,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Spacer(flex: 2),
 
                       // โลโก้และชื่อแอป
-                      Center(
+                      const Center(
                         child: Column(
                           children: [
-                            const AuthLogoBadge(),
-                            const SizedBox(height: 16),
-                            const Text(
+                            AuthLogoBadge(),
+                            SizedBox(height: 16),
+                            Text(
                               'ยินดีต้อนรับกลับมา',
                               style: TextStyle(
                                 fontSize: 22,
@@ -251,8 +251,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: AuthStyle.green,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            const Text(
+                            SizedBox(height: 4),
+                            Text(
                               'เข้าสู่ระบบเพื่อติดตามพลังงานในบ้านของคุณ',
                               textAlign: TextAlign.center,
                               style: TextStyle(

@@ -139,12 +139,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               // โลโก้และหัวข้อ — โครงเดียวกับหน้า Login เพื่อความสมดุล/
               // ทิศทางเดียวกันทั้งกลุ่มหน้า auth
-              Center(
+              const Center(
                 child: Column(
                   children: [
-                    const AuthLogoBadge(),
-                    const SizedBox(height: 16),
-                    const Text(
+                    AuthLogoBadge(),
+                    SizedBox(height: 16),
+                    Text(
                       'สร้างบัญชีใหม่',
                       style: TextStyle(
                         fontSize: 22,
@@ -152,8 +152,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         color: AuthStyle.green,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
+                    SizedBox(height: 4),
+                    Text(
                       'สมัครสมาชิกเพื่อเริ่มติดตามพลังงานในบ้านคุณ',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13.5, color: Colors.grey),

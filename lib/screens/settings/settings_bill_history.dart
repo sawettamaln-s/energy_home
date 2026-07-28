@@ -686,7 +686,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                         )
                       : DropdownButtonFormField<DateTime>(
                           initialValue: _selectedMonth,
-                          icon: Icon(Icons.expand_more,
+                          icon: const Icon(Icons.expand_more,
                               color: DashboardStyles.primaryGreen),
                           decoration: _fieldDecoration(
                             icon: Icons.calendar_month,

@@ -36,13 +36,13 @@ class WelcomeScreen extends StatelessWidget {
           ),
 
           // แสงเรืองนุ่มๆ มุมบนขวา — วงกลมโปร่งแสงเบลอขอบ จำลองแสงตกกระทบ
-          Positioned(
+          const Positioned(
             top: -70,
             right: -60,
             child: _GlowOrb(size: 260, opacity: 0.16),
           ),
           // เงานุ่มๆ มุมล่างซ้าย ให้มีน้ำหนัก/ความลึกถ่วงองค์ประกอบ
-          Positioned(
+          const Positioned(
             bottom: -90,
             left: -80,
             child: _GlowOrb(
@@ -52,13 +52,13 @@ class WelcomeScreen extends StatelessWidget {
             ),
           ),
           // จุดแสงเล็กแซมกลางค่อนบน เพิ่มลูกเล่นให้พื้นหลังไม่ราบเรียบไปหมด
-          Positioned(
+          const Positioned(
             top: 90,
             left: -30,
             child: _GlowOrb(size: 120, opacity: 0.12),
           ),
 
-          SafeArea(child: _WelcomeContent()),
+          const SafeArea(child: _WelcomeContent()),
         ],
       ),
     );
@@ -111,7 +111,7 @@ class _WelcomeContent extends StatelessWidget {
               // ภาพประกอบตรงกลาง — ใช้ไอคอนแทนภาพประกอบ (ไม่มีไฟล์ภาพ)
               // วางเป็นวงกลมซ้อนกันคล้ายลูกโป่งลอย ให้ความรู้สึกเดียวกับ
               // ภาพ reference โดยไม่ต้องพึ่ง asset ภายนอก
-              Expanded(
+              const Expanded(
                 flex: 5,
                 child: Center(
                   child: _WelcomeIllustration(),

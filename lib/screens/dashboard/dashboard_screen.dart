@@ -873,11 +873,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         DashboardStyles.primaryGreen.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('บัญชีใหม่', style: DashboardStyles.subGreeting),
-                      const Text(' • ', style: DashboardStyles.subGreeting),
+                      Text(' • ', style: DashboardStyles.subGreeting),
                       Text('รอดำเนินการเปิดระบบพยากรณ์',
                           style: DashboardStyles.subGreeting),
                     ],
@@ -1132,7 +1132,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         child: Row(
           children: [
-            Icon(Icons.event_repeat,
+            const Icon(Icons.event_repeat,
                 color: DashboardStyles.primaryGreen, size: 19),
             const SizedBox(width: 10),
             const Expanded(
@@ -1186,7 +1186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: DashboardStyles.primaryGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.speed_outlined,
+                child: const Icon(Icons.speed_outlined,
                     color: DashboardStyles.primaryGreen, size: 20),
               ),
               const SizedBox(width: 10),
