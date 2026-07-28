@@ -6,6 +6,7 @@ import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/auth_widgets.dart';
 import '../../widgets/info_dialog.dart';
+import '../dashboard/dashboard_styles.dart';
 import 'setup_complete_screen.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -302,7 +303,7 @@ class _SetupScreenState extends State<SetupScreen> {
     String? helpTitle,
     String? helpMessage,
   }) {
-    const green = Color(0xFF2E7D32);
+    const green = DashboardStyles.primaryGreen;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -368,11 +369,11 @@ class _SetupScreenState extends State<SetupScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF2E7D32).withValues(alpha: 0.1)
+              ? DashboardStyles.primaryGreen.withValues(alpha: 0.1)
               : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
+            color: isSelected ? DashboardStyles.primaryGreen : Colors.grey.shade200,
             width: 2,
           ),
         ),
@@ -382,7 +383,7 @@ class _SetupScreenState extends State<SetupScreen> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color:
-                    isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
+                    isSelected ? DashboardStyles.primaryGreen : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -400,7 +401,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color:
-                          isSelected ? const Color(0xFF2E7D32) : Colors.black,
+                          isSelected ? DashboardStyles.primaryGreen : Colors.black,
                     ),
                   ),
                   Text(
@@ -411,7 +412,7 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle, color: Color(0xFF2E7D32)),
+              const Icon(Icons.check_circle, color: DashboardStyles.primaryGreen),
           ],
         ),
       ),

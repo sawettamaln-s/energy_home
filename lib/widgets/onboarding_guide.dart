@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../screens/dashboard/dashboard_styles.dart';
+
 /// ===========================================================
 /// OnboardingGuide
 /// พาร์ทนี้ทำหน้าที่: แสดง dialog คู่มือเริ่มต้นใช้งานให้ผู้ใช้ใหม่
@@ -85,7 +87,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(page.icon, color: const Color(0xFF2E7D32), size: 36),
+            Icon(page.icon, color: DashboardStyles.primaryGreen, size: 36),
             const SizedBox(height: 14),
             Text(
               page.title,
@@ -118,7 +120,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                   height: 6,
                   decoration: BoxDecoration(
                     color: active
-                        ? const Color(0xFF2E7D32)
+                        ? DashboardStyles.primaryGreen
                         : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(3),
                   ),
@@ -144,7 +146,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                 const SizedBox(width: 4),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
+                    backgroundColor: DashboardStyles.primaryGreen,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),

@@ -45,7 +45,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   // ถ้า user ออกจากหน้านี้ระหว่างที่ Firestore ยังส่ง snapshot ใหม่เข้ามา)
   StreamSubscription<List<ApplianceModel>>? _applianceSub;
 
-  static const _green = Color(0xFF2E7D32);
+  static const _green = DashboardStyles.primaryGreen;
 
   @override
   void initState() {
@@ -117,7 +117,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       appBar: AppBar(
         backgroundColor: _green,
         elevation: 0,
@@ -243,7 +243,7 @@ class _UtilityTab extends StatelessWidget {
   // ข้อมูลที่ไม่เกี่ยวข้องกับสิ่งที่ผู้ใช้กำลังดูอยู่
   final bool trackAppliances;
 
-  static const _green = Color(0xFF2E7D32);
+  static const _green = DashboardStyles.primaryGreen;
   final _fmt = NumberFormat('#,##0.00');
   final _fmtUnit = NumberFormat('#,##0.0');
 
@@ -549,7 +549,7 @@ class _UtilityTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F5),
+              color: DashboardStyles.background,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -1051,7 +1051,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
     // ความหมายสีเขียวที่ใช้ทั้งแอป) เดือนสูงสุดใช้ส้มอิฐอุ่นๆ แทนสีแดงสด
     // เดิมที่ปะทะกับพาเลตอุ่นของกราฟมากไป
     const peakColor = Color(0xFFE2673F); // ส้มอิฐ — เดือนใช้สูงสุด
-    const lowColor = Color(0xFF2E7D32); // เขียวหลักของแบรนด์ — เดือนใช้ต่ำสุด
+    const lowColor = DashboardStyles.primaryGreen; // เขียวหลักของแบรนด์ — เดือนใช้ต่ำสุด
 
     // สีแท่งกราฟจริงตามโหมดที่กำลังดู — ใช้เฉดตรงจากพาเลตที่เลือกไว้
     // (ไฟฟ้า = แดง/เหลือง, น้ำ = น้ำเงิน) ไม่ผ่านการไล่เฉดอัตโนมัติ เพื่อให้
@@ -1335,7 +1335,7 @@ class _ApplianceTab extends StatelessWidget {
   final List<ApplianceModel> appliances;
   final AnalysisService analysisService;
 
-  static const _green = Color(0xFF2E7D32);
+  static const _green = DashboardStyles.primaryGreen;
   final _fmt = NumberFormat('#,##0.00');
 
   _ApplianceTab({required this.appliances, required this.analysisService});
@@ -1667,7 +1667,7 @@ class _ApplianceRankingList extends StatefulWidget {
 }
 
 class _ApplianceRankingListState extends State<_ApplianceRankingList> {
-  static const _green = Color(0xFF2E7D32);
+  static const _green = DashboardStyles.primaryGreen;
   static const _collapsedCount = 3;
 
   bool _showAll = false;

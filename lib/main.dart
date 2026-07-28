@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'screens/auth/auth_gate.dart';
+import 'screens/dashboard/dashboard_styles.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -25,7 +26,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D32),
+          seedColor: DashboardStyles.primaryGreen,
         ),
         useMaterial3: true,
       ),

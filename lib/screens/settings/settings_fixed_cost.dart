@@ -119,9 +119,9 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                       label: Text(c.label, style: const TextStyle(fontSize: 12)),
                       avatar: Icon(c.icon,
                           size: 16,
-                          color: selected ? Colors.white : const Color(0xFF2E7D32)),
+                          color: selected ? Colors.white : DashboardStyles.primaryGreen),
                       selected: selected,
-                      selectedColor: const Color(0xFF2E7D32),
+                      selectedColor: DashboardStyles.primaryGreen,
                       labelStyle: TextStyle(
                           color: selected ? Colors.white : Colors.black87),
                       onSelected: (_) => setDialogState(() {
@@ -202,7 +202,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                 await _load();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
+                backgroundColor: DashboardStyles.primaryGreen,
                 foregroundColor: Colors.white,
               ),
               child: const Text('บันทึก'),
@@ -229,10 +229,10 @@ final confirmed = await showConfirmDialog(
   Widget build(BuildContext context) {
     final formatter = NumberFormat('#,##0');
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       appBar: AppBar(
         title: const Text('รายจ่ายประจำ'),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: DashboardStyles.primaryGreen,
         foregroundColor: Colors.white,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -244,7 +244,7 @@ final confirmed = await showConfirmDialog(
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+          ? const Center(child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
           : Column(
               children: [
                 // การ์ดสรุปยอดรวมด้านบน
@@ -252,11 +252,11 @@ final confirmed = await showConfirmDialog(
                   margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32),
+                    color: DashboardStyles.primaryGreen,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
+                        color: DashboardStyles.primaryGreen.withValues(alpha: 0.25),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -323,7 +323,7 @@ final confirmed = await showConfirmDialog(
                             final item = _items[index];
                             final isLatest = index == 0;
                             final isLast = index == _items.length - 1;
-                            const accent = Color(0xFF2E7D32);
+                            const accent = DashboardStyles.primaryGreen;
 
                             return IntrinsicHeight(
                               child: Row(
@@ -485,7 +485,7 @@ final confirmed = await showConfirmDialog(
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditItem(),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: DashboardStyles.primaryGreen,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );

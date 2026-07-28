@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../screens/dashboard/dashboard_styles.dart';
+
 /// ชุดสี/สไตล์กลางสำหรับหน้า Welcome / Login / Register / Setup
 ///
 /// รวมไว้ที่เดียวเพื่อให้ทุกหน้าในกลุ่ม auth ใช้ปุ่ม, ช่องกรอก, ระยะห่าง,
@@ -8,7 +10,7 @@ import 'package:flutter/material.dart';
 class AuthStyle {
   AuthStyle._();
 
-  static const Color green = Color(0xFF2E7D32);
+  static const Color green = DashboardStyles.primaryGreen;
   static const Color greenDark = Color(0xFF1B5E20);
   static const Color greenLight = Color(0xFF43A047);
 

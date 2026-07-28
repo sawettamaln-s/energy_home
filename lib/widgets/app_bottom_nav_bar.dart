@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../screens/analysis/analysis_screen.dart';
 import '../screens/appliance/appliance_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
+import '../screens/dashboard/dashboard_styles.dart';
 import '../screens/settings/settings_screen.dart';
 
 /// บาร์ล่างแบบ floating pill ใช้ร่วมกันทุกหน้า (หน้าหลัก/วิเคราะห์/อุปกรณ์/ตั้งค่า)
@@ -89,7 +90,7 @@ class AppBottomNavBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
+                      ? DashboardStyles.primaryGreen.withValues(alpha: 0.12)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -100,7 +101,7 @@ class AppBottomNavBar extends StatelessWidget {
                       item.icon,
                       size: 22,
                       color: isSelected
-                          ? const Color(0xFF2E7D32)
+                          ? DashboardStyles.primaryGreen
                           : Colors.grey.shade500,
                     ),
                     const SizedBox(height: 3),
@@ -111,7 +112,7 @@ class AppBottomNavBar extends StatelessWidget {
                         fontWeight:
                             isSelected ? FontWeight.bold : FontWeight.w500,
                         color: isSelected
-                            ? const Color(0xFF2E7D32)
+                            ? DashboardStyles.primaryGreen
                             : Colors.grey.shade500,
                       ),
                     ),

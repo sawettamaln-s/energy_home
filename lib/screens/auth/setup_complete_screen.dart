@@ -6,6 +6,7 @@ import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/auth_widgets.dart';
 import '../appliance/appliance_screen.dart';
+import '../dashboard/dashboard_styles.dart';
 import '../main_shell.dart';
 import '../settings/settings_screen.dart';
 
@@ -34,7 +35,7 @@ class SetupCompleteScreen extends StatefulWidget {
 }
 
 class _SetupCompleteScreenState extends State<SetupCompleteScreen> {
-  static const _green = Color(0xFF2E7D32);
+  static const _green = DashboardStyles.primaryGreen;
   static const _bg = Colors.white;
   static const _card = Colors.white;
   static final _border = Colors.grey.shade200;

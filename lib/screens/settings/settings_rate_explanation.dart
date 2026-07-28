@@ -21,7 +21,7 @@ class _RateExplanationScreen extends StatefulWidget {
 
 class _RateExplanationScreenState extends State<_RateExplanationScreen>
     with SingleTickerProviderStateMixin {
-  static const _green = Color(0xFF2E7D32);
+  static const _green = DashboardStyles.primaryGreen;
   late TabController _tabController;
 
   @override
@@ -39,7 +39,7 @@ class _RateExplanationScreenState extends State<_RateExplanationScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       appBar: AppBar(
         title: const Text('อัตราค่าไฟฟ้า / น้ำ'),
         backgroundColor: _green,
@@ -211,7 +211,7 @@ class _ElectricityRateTab extends StatefulWidget {
 
 class _ElectricityRateTabState extends State<_ElectricityRateTab> {
   static const _amber = Color(0xFFF9A825);
-  static const _green = Color(0xFF2E7D32);
+  static const _green = DashboardStyles.primaryGreen;
   double? _ftRate;
 
   @override
@@ -443,7 +443,7 @@ class _WaterRateTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const blue = Color(0xFF0288D1);
-    const green = Color(0xFF2E7D32);
+    const green = DashboardStyles.primaryGreen;
     final isBangkok = area == 'bangkok';
 
     return ListView(

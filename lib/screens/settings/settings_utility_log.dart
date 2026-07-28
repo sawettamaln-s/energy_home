@@ -16,7 +16,7 @@ class _UtilityHistoryScreen extends StatefulWidget {
 
 class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
     with SingleTickerProviderStateMixin {
-  static const _green = Color(0xFF2E7D32);
+  static const _green = DashboardStyles.primaryGreen;
   late TabController _tabController;
 
   @override
@@ -34,7 +34,7 @@ class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       appBar: AppBar(
         title: const Text('ประวัติการบันทึกมิเตอร์'),
         backgroundColor: _green,
@@ -428,7 +428,7 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
     final formatter = NumberFormat('#,##0.00');
     if (_isLoading) {
       return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+          child: CircularProgressIndicator(color: DashboardStyles.primaryGreen));
     }
     if (_logs.isEmpty) {
       return excelTableEmptyState(
@@ -626,7 +626,7 @@ class _WaterLogTabState extends State<_WaterLogTab> {
     final formatter = NumberFormat('#,##0.00');
     if (_isLoading) {
       return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+          child: CircularProgressIndicator(color: DashboardStyles.primaryGreen));
     }
     if (_logs.isEmpty) {
       return excelTableEmptyState(

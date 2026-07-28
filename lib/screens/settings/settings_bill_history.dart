@@ -433,13 +433,13 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+                    color: DashboardStyles.primaryGreen.withValues(alpha: 0.12),
                   ),
                   child: const Text('!',
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF2E7D32))),
+                          color: DashboardStyles.primaryGreen)),
                 ),
               ),
             ],
@@ -447,7 +447,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
         ),
       );
 
-  // แท็บเลือกไฟฟ้า/น้ำ — สไตล์เดียวกับ _tabChip ใน StartMeterPairedFields
+  // แท็บเลือกไฟฟ้า/น้ำ — ใช้ TabChip กลางร่วมกับ StartMeterPairedFields
   // (widgets/start_meter_fields.dart) ✓ สีเขียวโผล่ข้างชื่อแท็บเมื่อฝั่งนั้น
   // กรอกค่าใช้จ่ายมาแล้ว (ใช้ cost > 0 เป็นตัวบ่งชี้ "มีข้อมูล" เพราะฟอร์มนี้
   // ไม่บังคับกรอกครบทั้งคู่เหมือนหน้ามิเตอร์ต้นรอบ)
@@ -457,72 +457,27 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     return Row(
       children: [
         Expanded(
-          child: _tabChip(
+          child: TabChip(
             label: 'ไฟฟ้า',
             icon: Icons.bolt,
             color: DashboardStyles.electricityBorder,
             selected: _selectedTab == 0,
-            hasData: eHasData,
+            checked: eHasData,
             onTap: () => setState(() => _selectedTab = 0),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _tabChip(
+          child: TabChip(
             label: 'น้ำ',
             icon: Icons.water_drop,
             color: DashboardStyles.waterBorder,
             selected: _selectedTab == 1,
-            hasData: wHasData,
+            checked: wHasData,
             onTap: () => setState(() => _selectedTab = 1),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _tabChip({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required bool selected,
-    required bool hasData,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.12) : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? color : Colors.grey.shade200,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: selected ? color : Colors.grey.shade500),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                color: selected ? color : Colors.grey.shade700,
-              ),
-            ),
-            if (hasData) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.check_circle, size: 14, color: Colors.green),
-            ],
-          ],
-        ),
-      ),
     );
   }
 
@@ -974,7 +929,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
+                      color: DashboardStyles.primaryGreen.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -991,7 +946,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF2E7D32),
+                                color: DashboardStyles.primaryGreen,
                               ),
                             ),
                           ],
@@ -1024,7 +979,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                           ? null
                           : _save,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
+                        backgroundColor: DashboardStyles.primaryGreen,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -1050,13 +1005,13 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
 Widget _infoSectionHeader(String label, {IconData icon = Icons.checklist_rounded}) {
   return Row(
     children: [
-      Icon(icon, size: 15, color: const Color(0xFF2E7D32)),
+      Icon(icon, size: 15, color: DashboardStyles.primaryGreen),
       const SizedBox(width: 6),
       Text(label,
           style: const TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF2E7D32))),
+              color: DashboardStyles.primaryGreen)),
     ],
   );
 }
@@ -1281,10 +1236,10 @@ final confirmed = await showConfirmDialog(
     final waterBills = _bills.where((b) => b.waterCost > 0).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       appBar: AppBar(
         title: const Text('บันทึกบิลย้อนหลัง'),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: DashboardStyles.primaryGreen,
         foregroundColor: Colors.white,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -1307,7 +1262,7 @@ final confirmed = await showConfirmDialog(
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+              child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
           : Column(
               children: [
                 // การ์ดสรุปด้านบน — แยกแสดงตามแท็บที่เลือก (ไฟฟ้า/ประปา)
@@ -1387,7 +1342,7 @@ final confirmed = await showConfirmDialog(
           ? null
           : FloatingActionButton(
               onPressed: () => _openSheet(),
-              backgroundColor: const Color(0xFF2E7D32),
+              backgroundColor: DashboardStyles.primaryGreen,
               child: const Icon(Icons.add, color: Colors.white),
             ),
     );

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/firestore_service.dart';
+import '../dashboard/dashboard_styles.dart';
 import '../main_shell.dart';
 import 'setup_screen.dart';
 import 'welcome_screen.dart';
@@ -43,7 +44,7 @@ class AuthGate extends StatelessWidget {
           return const Scaffold(
             body: Center(
               child: CircularProgressIndicator(
-                color: Color(0xFF2E7D32),
+                color: DashboardStyles.primaryGreen,
               ),
             ),
           );
@@ -63,7 +64,7 @@ class AuthGate extends StatelessWidget {
               return const Scaffold(
                 body: Center(
                   child: CircularProgressIndicator(
-                    color: Color(0xFF2E7D32),
+                    color: DashboardStyles.primaryGreen,
                   ),
                 ),
               );

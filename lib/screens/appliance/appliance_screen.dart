@@ -13,6 +13,7 @@ import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/info_dialog.dart';
+import '../dashboard/dashboard_styles.dart';
 
 class ApplianceScreen extends StatefulWidget {
   // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
@@ -118,7 +119,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   }
 
   Color _scheduleFgColor(double hoursPerDay) {
-    if (hoursPerDay <= 5) return const Color(0xFF2E7D32);
+    if (hoursPerDay <= 5) return DashboardStyles.primaryGreen;
     if (hoursPerDay <= 10) return const Color(0xFFF9A825);
     if (hoursPerDay <= 15) return const Color(0xFFEF6C00);
     return const Color(0xFFC62828);
@@ -155,9 +156,9 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     final formatter = NumberFormat('#,##0.00');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: DashboardStyles.primaryGreen,
         elevation: 0,
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -166,16 +167,16 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
         automaticallyImplyLeading: false,
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: DashboardStyles.primaryGreen,
         onPressed: _showAddApplianceSheet,
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+              child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
           : RefreshIndicator(
               onRefresh: _loadData,
-              color: const Color(0xFF2E7D32),
+              color: DashboardStyles.primaryGreen,
               child: Column(
               children: [
                 // ---- สรุปยอด 3 ช่อง ----
@@ -201,7 +202,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                         child: _summaryBox(
                           label: 'ค่าไฟ/เดือน',
                           value: '${formatter.format(_totalMonthlyCost)} บาท',
-                          valueColor: const Color(0xFF2E7D32),
+                          valueColor: DashboardStyles.primaryGreen,
                         ),
                       ),
                     ],
@@ -275,14 +276,14 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                         Container(
                                           padding: const EdgeInsets.all(10),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF2E7D32)
+                                            color: DashboardStyles.primaryGreen
                                                 .withValues(alpha: 0.1),
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                           ),
                                           child: const Icon(
                                               Icons.electrical_services,
-                                              color: Color(0xFF2E7D32)),
+                                              color: DashboardStyles.primaryGreen),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
@@ -396,7 +397,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w600,
-                                                    color: Color(0xFF2E7D32),
+                                                    color: DashboardStyles.primaryGreen,
                                                   ),
                                                 ),
                                               ),
@@ -431,7 +432,7 @@ Widget _summaryBox({
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-        color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
+        color: DashboardStyles.primaryGreen.withValues(alpha: 0.25),
       ),
       boxShadow: [
         BoxShadow(
@@ -609,7 +610,7 @@ Future<void> _confirmDelete(ApplianceModel a) async {
               style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
-                  color: Color(0xFF2E7D32))),
+                  color: DashboardStyles.primaryGreen)),
         ],
       ),
     );
@@ -798,7 +799,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             leading: const Icon(Icons.electrical_services,
-                                color: Color(0xFF2E7D32)),
+                                color: DashboardStyles.primaryGreen),
                             title: Text(d.name,
                                 style: const TextStyle(fontSize: 14)),
                             subtitle: Text(
@@ -911,7 +912,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                       child: ElevatedButton(
                         onPressed: _isSaving ? null : _save,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
+                          backgroundColor: DashboardStyles.primaryGreen,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -962,10 +963,10 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: selected ? const Color(0xFF2E7D32) : Colors.white,
+                color: selected ? DashboardStyles.primaryGreen : Colors.white,
                 border: Border.all(
                   color:
-                      selected ? const Color(0xFF2E7D32) : Colors.grey.shade300,
+                      selected ? DashboardStyles.primaryGreen : Colors.grey.shade300,
                 ),
               ),
               child: Text(
@@ -1009,7 +1010,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
+        color: DashboardStyles.primaryGreen.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1077,7 +1078,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
               style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
-                  color: Color(0xFF2E7D32))),
+                  color: DashboardStyles.primaryGreen)),
         ],
       ),
     );

@@ -834,7 +834,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+          ? const Center(child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
           : Column(
               children: [
                 Container(
@@ -983,7 +983,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                 horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               color:
-                                  const Color(0xFF2E7D32).withValues(alpha: 0.08),
+                                  DashboardStyles.primaryGreen.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -991,7 +991,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                               style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF2E7D32)),
+                                  color: DashboardStyles.primaryGreen),
                             ),
                           ),
                         const SizedBox(height: 4),
@@ -1079,7 +1079,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           child: ElevatedButton(
                             onPressed: _isSaving ? null : _save,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2E7D32),
+                              backgroundColor: DashboardStyles.primaryGreen,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -1351,10 +1351,10 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
     final waterRecords = _records;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       appBar: AppBar(
         title: const Text('บันทึกมิเตอร์ต้นรอบ'),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: DashboardStyles.primaryGreen,
         foregroundColor: Colors.white,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -1376,7 +1376,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+          ? const Center(child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
           : Column(
               children: [
                 // การ์ดสรุปด้านบน แยกแสดงตามแท็บที่เลือก (ไฟฟ้า/ประปา)
@@ -1453,7 +1453,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
           ? null
           : FloatingActionButton(
               onPressed: _openSheet,
-              backgroundColor: const Color(0xFF2E7D32),
+              backgroundColor: DashboardStyles.primaryGreen,
               child: const Icon(Icons.add, color: Colors.white),
             ),
     );

@@ -5,6 +5,7 @@ import '../../models/notification_item_model.dart';
 import '../../services/notification_service.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/confirm_dialog.dart';
+import 'dashboard_styles.dart';
 
 /// ===========================================================
 /// NotificationScreen
@@ -75,7 +76,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'billing':
         return (
           icon: Icons.calendar_month_rounded,
-          color: const Color(0xFF2E7D32)
+          color: DashboardStyles.primaryGreen
         );
       case 'meter':
         return (icon: Icons.edit_note_rounded, color: Colors.blueGrey);
@@ -134,7 +135,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final hasItems = _items.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       appBar: AppBar(
         title: const Text('การแจ้งเตือน'),
         backgroundColor: Colors.white,
@@ -159,12 +160,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+              child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
           : !hasItems
               ? _buildEmptyState()
               : RefreshIndicator(
                   onRefresh: _load,
-                  color: const Color(0xFF2E7D32),
+                  color: DashboardStyles.primaryGreen,
                   child: Builder(
                     builder: (context) {
                       final grouped = _groupedItems();

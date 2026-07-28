@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../screens/dashboard/dashboard_styles.dart';
+
 /// Dialog แบบ "ไอคอน info + หัวข้อ + ข้อความ + ปุ่มเข้าใจแล้ว" ที่ใช้ซ้ำ
 /// ทั่วแอป (เดิมก็อปวางโครงเดิมซ้ำอยู่ ~14 ที่ กระจายอยู่ใน setup_screen.dart,
 /// settings_screen.dart (9 จุด), dashboard_screen.dart, appliance_screen.dart,
@@ -15,7 +17,7 @@ void showInfoDialog(
   required String title,
   String? message,
   WidgetBuilder? contentBuilder,
-  Color iconColor = const Color(0xFF2E7D32),
+  Color iconColor = DashboardStyles.primaryGreen,
   String buttonLabel = 'เข้าใจแล้ว',
 }) {
   assert(message != null || contentBuilder != null,
@@ -59,7 +61,7 @@ void showApplianceEstimateInfoDialog(BuildContext context) {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Row(
         children: [
-          Icon(Icons.info_outline, color: Color(0xFF2E7D32), size: 20),
+          Icon(Icons.info_outline, color: DashboardStyles.primaryGreen, size: 20),
           SizedBox(width: 8),
           Expanded(
             child: Text('ตัวเลขนี้คำนวณอย่างไร?', style: TextStyle(fontSize: 16)),

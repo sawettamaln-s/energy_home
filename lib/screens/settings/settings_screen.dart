@@ -23,6 +23,7 @@ import '../../widgets/confirm_dialog.dart';
 import '../../widgets/excel_style_table.dart';
 import '../../widgets/info_dialog.dart';
 import '../../widgets/start_meter_fields.dart';
+import '../../widgets/tab_chip.dart';
 import '../auth/auth_gate.dart';
 import '../dashboard/dashboard_styles.dart';
 
@@ -87,7 +88,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // หมวดไปแล้วแต่พอดีอยากได้เขียวเหมือนเดิมมากกว่า) เก็บเป็น constant
   // ไว้จุดเดียวเผื่ออยากเปลี่ยนสีทีหลัง ไม่ต้องไล่แก้ทีละจุด
   // -------------------------------------------------------------------
-  static const Color _sectionColor = Color(0xFF2E7D32);
+  static const Color _sectionColor = DashboardStyles.primaryGreen;
 
   // กันไม่ให้ auto-open หน้า Fixed Cost ซ้ำ ถ้า _loadUser ถูกเรียกอีกครั้ง
   // (เช่น pull-to-refresh หรือ reload หลังปิดหน้า Fixed Cost กลับมา)
@@ -160,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               openAppSettings();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
+              backgroundColor: DashboardStyles.primaryGreen,
               foregroundColor: Colors.white,
             ),
             child: const Text('ไปที่ตั้งค่าเครื่อง'),
@@ -351,9 +352,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: DashboardStyles.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: DashboardStyles.primaryGreen,
         elevation: 0,
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -368,7 +369,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF2E7D32)))
+              child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -896,7 +897,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (context.mounted) Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
+              backgroundColor: DashboardStyles.primaryGreen,
               foregroundColor: Colors.white,
             ),
             child: const Text('บันทึก'),
@@ -931,10 +932,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2E7D32) : Colors.white,
+          color: isSelected ? DashboardStyles.primaryGreen : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
+            color: isSelected ? DashboardStyles.primaryGreen : Colors.grey.shade200,
           ),
         ),
         alignment: Alignment.center,
@@ -997,7 +998,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.info_outline,
-                          color: Color(0xFF2E7D32), size: 20),
+                          color: DashboardStyles.primaryGreen, size: 20),
                       onPressed: () => _showInfoPopup(
                         'วันบันทึกบิล คืออะไร?',
                         'วันที่บิลค่าไฟหรือค่าน้ำมาส่งที่บ้านของคุณ โดยระบบจะใช้เพื่อ:'
@@ -1045,7 +1046,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF2E7D32),
+                      color: DashboardStyles.primaryGreen,
                     ),
                   ),
                 ),
@@ -1077,7 +1078,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           if (context.mounted) Navigator.pop(context);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
+                          backgroundColor: DashboardStyles.primaryGreen,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(

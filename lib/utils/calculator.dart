@@ -15,34 +15,6 @@ class EnergyCalculator {
 
   // ==================== ค่าไฟฟ้า ====================
 
-  // อัตราขั้นบันไดสำหรับ ≤150 หน่วย/เดือน (ประเภท 1.1 / 1.1.1)
-  static double _calculateEnergyRateUnder150(double units) {
-    double cost = 0;
-    if (units <= 15) {
-      cost = units * 2.3488;
-    } else if (units <= 25) {
-      cost = 15 * 2.3488;
-      cost += (units - 15) * 2.9882;
-    } else if (units <= 35) {
-      cost = 15 * 2.3488;
-      cost += 10 * 2.9882;
-      cost += (units - 25) * 3.2405;
-    } else if (units <= 100) {
-      cost = 15 * 2.3488;
-      cost += 10 * 2.9882;
-      cost += 10 * 3.2405;
-      cost += (units - 35) * 3.6237;
-    } else {
-      // 101-150
-      cost = 15 * 2.3488;
-      cost += 10 * 2.9882;
-      cost += 10 * 3.2405;
-      cost += 65 * 3.6237;
-      cost += (units - 100) * 3.7171;
-    }
-    return cost;
-  }
-
   // อัตราขั้นบันไดสำหรับ >150 หน่วย/เดือน (ประเภท 1.2 / 1.1.2)
   static double _calculateEnergyRateOver150(double units) {
     double cost = 0;

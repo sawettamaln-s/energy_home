@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/dashboard/dashboard_styles.dart';
 import 'info_dialog.dart';
+import 'tab_chip.dart';
 
 // แปลงข้อความในช่องกรอกตัวเลขเป็น double — ตัด comma (ตัวคั่นหลักพัน) และช่อง
 // ว่างหัวท้ายออกก่อน parse เสมอ เพราะ hint ในฟอร์มโชว์ตัวอย่างเลขแบบมี comma
@@ -421,72 +422,27 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
     return Row(
       children: [
         Expanded(
-          child: _tabChip(
+          child: TabChip(
             label: 'ไฟฟ้า',
             icon: Icons.bolt,
             color: DashboardStyles.electricityBorder,
             selected: _selectedTab == 0,
-            complete: eComplete,
+            checked: eComplete,
             onTap: () => setState(() => _selectedTab = 0),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _tabChip(
+          child: TabChip(
             label: 'น้ำ',
             icon: Icons.water_drop,
             color: DashboardStyles.waterBorder,
             selected: _selectedTab == 1,
-            complete: wComplete,
+            checked: wComplete,
             onTap: () => setState(() => _selectedTab = 1),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _tabChip({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required bool selected,
-    required bool complete,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.12) : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? color : Colors.grey.shade200,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: selected ? color : Colors.grey.shade500),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                color: selected ? color : Colors.grey.shade700,
-              ),
-            ),
-            if (complete) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.check_circle, size: 14, color: Colors.green),
-            ],
-          ],
-        ),
-      ),
     );
   }
 
@@ -585,7 +541,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                 const SizedBox(width: 8),
                 Icon(
                   noBillYet ? Icons.check_circle : Icons.circle_outlined,
-                  color: noBillYet ? const Color(0xFF2E7D32) : Colors.grey.shade400,
+                  color: noBillYet ? DashboardStyles.primaryGreen : Colors.grey.shade400,
                   size: 22,
                 ),
               ],
