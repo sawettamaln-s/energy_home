@@ -2,7 +2,7 @@ class ApplianceModel {
   final String id;
   final String uid;
   final String name; // ชื่ออุปกรณ์ เช่น แอร์ห้องนอน
-  final String icon; // ไอคอนอุปกรณ์
+  final String icon; // ไอคอนอุปกรณ์ (เก็บไว้ใน Firestore แต่ยังไม่ถูกใช้แสดงผลจริง — หน้าจอใช้ Icons.electrical_services คงที่แทน)
   final double watt; // กำลังไฟ (วัตต์)
   final List<ScheduleModel> schedules; // ตารางการใช้งาน
 
@@ -44,7 +44,7 @@ class ApplianceModel {
 
 class ScheduleModel {
   final List<int> days; // วันที่ใช้งาน 0=จันทร์ 6=อาทิตย์
-  final String startTime; // เวลาเริ่ม เช่น '22:00'
+  final String startTime; // เวลาเริ่ม (ปัจจุบันฟอร์มในแอปฮาร์ดโค้ดเป็น '00:00' เสมอ ยังไม่มี UI ให้ตั้งเอง)
   final String endTime; // เวลาสิ้นสุด เช่น '06:00'
 
   ScheduleModel({
