@@ -4,12 +4,8 @@ class BillModel {
   final int year;
   final int month;
   final double electricityUsed; // หน่วยไฟฟ้าที่ใช้รวมทั้งเดือน
-  // TOU เท่านั้น: แยกหน่วยที่ใช้เป็น On-Peak/Off-Peak (ผลรวมของสองค่านี้ควร
-  // เท่ากับ electricityUsed ด้านบนเสมอ) — เก็บแยกไว้ด้วยเพื่อให้หน้าประวัติ
-  // บิลย้อนหลังโชว์ค่าที่กรอกจริงแยกประเภทได้ ไม่ใช่แค่ยอดรวมเดียว บิลเก่า
-  // ก่อนมีฟิลด์นี้ (หรือมิเตอร์ปกติ) จะเป็น 0 ทั้งคู่ตามค่า default
-  final double electricityPeakUsed;
-  final double electricityOffPeakUsed;
+  final double electricityPeakUsed; // หน่วยไฟฟ้าช่วง On-Peak (เฉพาะมิเตอร์ TOU)
+  final double electricityOffPeakUsed; // หน่วยไฟฟ้าช่วง Off-Peak (เฉพาะมิเตอร์ TOU)
   final double waterUsed; // หน่วยน้ำที่ใช้รวมทั้งเดือน
   final double electricityCost; // ค่าไฟรวมทั้งเดือน
   final double waterCost; // ค่าน้ำรวมทั้งเดือน

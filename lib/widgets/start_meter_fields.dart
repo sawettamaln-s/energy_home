@@ -389,7 +389,10 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
           iconColor: iconColor,
         ),
         const SizedBox(height: 4),
-        
+        Text(
+          'กรอกจากใบแจ้งหนี้ใบเดียวกับเลขมิเตอร์สะสมด้านบน',
+          style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
+        ),
       ],
     );
   }

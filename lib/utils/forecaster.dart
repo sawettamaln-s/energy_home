@@ -70,59 +70,6 @@ class EnergyForecaster {
     return double.parse(forecast.toStringAsFixed(2));
   }
 
-  // ==================== ฟังก์ชันช่วย ====================
-
-  // พยากรณ์ยอดค่าไฟสิ้นเดือน (Moving Average)
-  static Map<String, double> forecastCurrentMonth({
-    required List<double> dailyElectricityUsage,
-    required List<double> dailyWaterUsage,
-    required double currentElectricityCost,
-    required double currentWaterCost,
-    required int remainingDays,
-  }) {
-    double forecastElectricity = movingAverage(
-      dailyUsage: dailyElectricityUsage,
-      remainingDays: remainingDays,
-      currentTotal: currentElectricityCost,
-    );
-
-    double forecastWater = movingAverage(
-      dailyUsage: dailyWaterUsage,
-      remainingDays: remainingDays,
-      currentTotal: currentWaterCost,
-    );
-
-    return {
-      'electricity': forecastElectricity,
-      'water': forecastWater,
-      'total': forecastElectricity + forecastWater,
-    };
-  }
-
-  // พยากรณ์แนวโน้มเดือนถัดไป (Linear Regression)
-  static Map<String, double> forecastNextMonth({
-    required List<double> monthlyElectricityCosts,
-    required List<double> monthlyWaterCosts,
-  }) {
-    int nextMonth = monthlyElectricityCosts.length + 1;
-
-    double forecastElectricity = linearRegression(
-      monthlyValues: monthlyElectricityCosts,
-      forecastMonth: nextMonth,
-    );
-
-    double forecastWater = linearRegression(
-      monthlyValues: monthlyWaterCosts,
-      forecastMonth: nextMonth,
-    );
-
-    return {
-      'electricity': forecastElectricity,
-      'water': forecastWater,
-      'total': forecastElectricity + forecastWater,
-    };
-  }
-
   // =====================================================================
   // ขอบเขตรอบบิล — แหล่งความจริงเดียว (single source of truth)
   // นิยาม: รอบบิลปัจจุบัน = ตั้งแต่วันตัดรอบล่าสุดที่ผ่านมา (รวมวันนั้น)

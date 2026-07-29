@@ -344,9 +344,7 @@ class AnalysisService {
   /// totalDaysInPeriod: 30 = รายเดือน, 365 = รายปี
   /// avgRatePerUnit: อัตราค่าไฟเฉลี่ยประมาณการ บาท/หน่วย (ดีฟอลต์ 4.5 ให้ตรงกับหน้าอุปกรณ์)
   ///
-  /// หมายเหตุ: กรองอุปกรณ์ด้วยการมีตารางการใช้งาน (schedules ไม่ว่าง) เท่านั้น
-  /// (เดิมมี field isActive ในโมเดล แต่ไม่มี UI ให้ผู้ใช้ปิด/เปิดจริง
-  /// จึงลบ field นี้ทิ้งไปแล้ว เพื่อไม่ให้ดูเหมือนมีฟีเจอร์ที่ใช้งานไม่ได้)
+  /// นับเฉพาะอุปกรณ์ที่มีตารางการใช้งาน (schedules ไม่ว่าง) เท่านั้น
   List<ApplianceUsage> applianceBreakdown(
     List<ApplianceModel> appliances, {
     int totalDaysInPeriod = 30,

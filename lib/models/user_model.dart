@@ -2,7 +2,7 @@ class UserModel {
   final String uid;
   final String name;
   final String email;
-  final String area;
+  final String area; // 'bangkok' = เขต MEA, 'province' = เขต PEA
   final String meterType; // 'normal' หรือ 'tou'
   final int billingDay;
   final String dailyCutoffTime;
@@ -16,27 +16,16 @@ class UserModel {
   final int startBillingMonth; // เดือนที่ตั้งต้น เช่น 5
   final int startBillingYear; // ปีที่ตั้งต้น เช่น 2026
 
-  // true = ผู้ใช้กรอกค่ามิเตอร์ตั้งต้นเรียบร้อยแล้ว (ไม่ว่าจะตอนสมัครหรือ
-  // มาตั้งทีหลังที่หน้าตั้งค่า) / false = ตอนสมัครกด "ข้ามไปก่อน" ไว้ ยังไม่
-  // เคยกรอกค่าจริง — ใช้แยกเคส "ข้าม" ออกจาก "กรอกเป็น 0 จริง" เพื่อกัน
-  // ไม่ให้ Dashboard เอา 0 ไปคำนวณหน่วยที่ใช้แบบผิดๆตอนยังไม่ได้ตั้งค่า
-  //
-  // เดิม flag เดียวครอบทั้งไฟ+น้ำ แต่ตอนนี้อนุญาตให้กรอกแค่ยูทิลิตี้เดียว
-  // ได้แล้ว (มีบิลแค่ใบเดียวในมือ) จึงต้องแยกเป็น 2 flag ย่อยด้านล่างด้วย
-  // — เหลือ startMeterConfigured ไว้เป็น "เคยตั้งอย่างน้อย 1 อย่างไหม"
-  // (= electricityStartConfigured || waterStartConfigured) เพื่อไม่ให้จุด
-  // อื่นที่ยังอ้างอิง flag เดิมอยู่ (เช่น dashboard_screen.dart) พังทันที
-  // รอไปแก้ logic การใช้งานจริงเป็นระดับยูทิลิตี้ทีหลัง
+  // true = ตั้งค่ามิเตอร์ต้นรอบแล้ว, false = ตอนสมัครกด "ข้ามไปก่อน"
+  // (กันไม่ให้ Dashboard เอา 0 ไปคำนวณผิดตอนยังไม่ได้ตั้งค่า)
+  // startMeterConfigured = ตั้งไปแล้วอย่างน้อย 1 ยูทิลิตี้ (electricity || water)
+  // ส่วน 2 ตัวล่างคือ flag แยกรายยูทิลิตี้ เพราะตอนนี้ตั้งแค่ไฟหรือน้ำอย่างเดียวก็ได้
   final bool startMeterConfigured;
   final bool electricityStartConfigured;
   final bool waterStartConfigured;
 
-  // true = ผู้ใช้เคยกดเลือกวันตัดรอบบิลเองจริงๆ แล้ว (ไม่ว่าจะตอนสมัครหรือ
-  // มาตั้งทีหลังที่หน้าตั้งค่า) / false = ยังไม่เคยเลือกเอง กำลังใช้ค่า
-  // default (billingDay = 30) อยู่เฉยๆ — เดิมไม่มี flag นี้เลย ทำให้หน้าหลัก
-  // ไม่มีทางรู้ว่าค่า 30 ที่เห็นเป็น "ผู้ใช้ตั้งใจเลือกวันที่ 30 จริง" หรือ
-  // "ยังไม่ได้ตั้งเลย" ก็เลยไม่มีตัวเตือนให้ไปตั้งค่าได้ — ใช้แพทเทิร์นเดียว
-  // กับ startMeterConfigured ด้านบน
+  // true = ผู้ใช้เคยเลือกวันตัดรอบบิลเอง, false = ยังใช้ค่า default (billingDay = 30)
+  // อยู่เฉยๆ (ใช้แยกกรณี "ตั้งใจเลือก 30" กับ "ยังไม่ได้ตั้ง" เพื่อโชว์ตัวเตือน)
   final bool billingDayConfigured;
 
   UserModel({
@@ -76,21 +65,15 @@ class UserModel {
       startOffPeakValue: (map['startOffPeakValue'] ?? 0).toDouble(),
       startBillingMonth: map['startBillingMonth'] ?? 0,
       startBillingYear: map['startBillingYear'] ?? 0,
-      // บัญชีเก่าก่อนมี field นี้ (map ไม่มี key) ให้ default เป็น true เสมอ
-      // เพราะบัญชีเก่าทุกบัญชีกรอกค่ามิเตอร์ตั้งต้นไว้แล้วตั้งแต่ตอนนั้น
-      // (ฟีเจอร์ "ข้ามได้" เพิ่งมีทีหลัง)
+      // บัญชีเก่าไม่มี key นี้ -> default true (ตอนนั้นบังคับกรอกค่าตั้งต้นอยู่แล้ว)
       startMeterConfigured: map['startMeterConfigured'] ?? true,
-      // บัญชีเก่าก่อนมี flag แยกยูทิลิตี้ (ยังไม่มี key นี้ใน map) ให้ fallback
-      // ไปใช้ค่า startMeterConfigured เดิม (ครอบทั้งไฟ+น้ำเหมือนพฤติกรรมเดิม
-      // ก่อนแยก) จนกว่าผู้ใช้จะมาตั้งค่าใหม่ผ่านฟอร์มที่แยกยูทิลิตี้แล้ว
+      // บัญชีเก่าไม่มี flag แยกยูทิลิตี้ -> fallback ไปใช้ startMeterConfigured เดิม
       electricityStartConfigured: map['electricityStartConfigured'] ??
           map['startMeterConfigured'] ??
           true,
       waterStartConfigured:
           map['waterStartConfigured'] ?? map['startMeterConfigured'] ?? true,
-      // บัญชีเก่าก่อนมี field นี้ (map ไม่มี key) ให้ default เป็น true เสมอ
-      // เพราะตอนนั้นเซตอัพยังบังคับให้เลือกวันตัดรอบบิลอยู่ (ฟีเจอร์ "ข้าม
-      // ได้" เพิ่งมาตัดขั้นนี้ออกทีหลัง) จึงถือว่าบัญชีเก่าทุกบัญชีเลือกไปแล้ว
+      // บัญชีเก่าไม่มี key นี้ -> default true (ตอนนั้นบังคับเลือกวันตัดรอบอยู่แล้ว)
       billingDayConfigured: map['billingDayConfigured'] ?? true,
     );
   }

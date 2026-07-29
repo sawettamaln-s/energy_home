@@ -30,8 +30,9 @@ class OnboardingGuide {
     await prefs.setBool(_prefKey, true);
   }
 
-  /// เรียกตอนผู้ใช้กดเปิดคู่มือเองซ้ำ (เช่น กดปุ่มกระดิ่งที่หัว Dashboard)
-  /// ไม่เช็ค flag ใด ๆ เปิดได้เสมอไม่ว่าจะเคยเห็นมาก่อนหรือไม่
+  /// เรียกตอนผู้ใช้กดเปิดคู่มือเองซ้ำ — ปุ่ม "คู่มือการใช้งาน" ในหน้า
+  /// ตั้งค่า (settings_screen.dart หมวด "ตั้งค่าระบบ") ไม่เช็ค flag ใด ๆ
+  /// เปิดได้เสมอไม่ว่าจะเคยเห็นมาก่อนหรือไม่
   static Future<void> showAgain(BuildContext context) async {
     if (!context.mounted) return;
     await showDialog(

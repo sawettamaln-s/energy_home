@@ -151,7 +151,8 @@ class ExcelStyleTable extends StatelessWidget {
   }
 }
 
-// แถบสรุปเล็กด้านบนตาราง (จำนวนรายการ) ใช้ร่วมกันได้ทุกหน้า
+// สถานะ "ยังไม่มีรายการ" — โชว์แทนตารางตอนไม่มีข้อมูล (ไอคอน + ข้อความ)
+// ใช้ร่วมกัน 3 หน้า: บันทึกบิลย้อนหลัง, ประวัติมิเตอร์ไฟฟ้า/ประปา, เลขมิเตอร์ต้นรอบ
 Widget excelTableEmptyState({
   required IconData icon,
   required String message,

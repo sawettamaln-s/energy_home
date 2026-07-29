@@ -328,10 +328,8 @@ class FirestoreService {
         .collection('appliances')
         .snapshots()
         .map((snapshot) => snapshot.docs
-            // เติม id ของ document เข้าไปด้วย (เดิมขาด ทำให้ appliance.id
-            // เป็นค่าว่างเสมอ ไม่ตรงกับ getBills/fetchBills ที่ merge id ไว้)
-            .map((doc) =>
-                ApplianceModel.fromMap({...doc.data(), 'id': doc.id}))
+            // เติม id ของ document เข้าไปด้วย เพื่อป้องกันปัญหา appliance.id เป็นค่าว่าง
+            .map((doc) => ApplianceModel.fromMap({...doc.data(), 'id': doc.id}))
             .toList());
   }
 
@@ -518,15 +516,17 @@ class FirestoreService {
   ///      ถ้า user เคยเปลี่ยนวันตัดรอบระหว่างทาง ขอบเขตที่ reconstruct ของ
   ///      รอบเก่าๆ ก่อนเปลี่ยนอาจคลาดเคลื่อนไปบ้าง ควรตรวจ preview ดูก่อน
   ///
-  /// ค่าเริ่มต้น dryRun=true ตั้งใจให้ต้องเรียกซ้ำแบบ dryRun:false เอง
-  /// หลังตรวจ preview แล้วพอใจ กันเขียนทับข้อมูลจริงโดยไม่ได้ตรวจก่อน
+  /// ค่าเริ่มต้น dryRun = true เพื่อจำลองผลลัพธ์และตรวจสอบข้อมูลล่วงหน้า
+  /// ป้องกันการเขียนทับข้อมูลจริงโดยไม่ได้ตั้งใจ
+  /// (หากต้องการบันทึกจริง ให้กำหนดค่าเป็น dryRun: false)
   Future<List<TouBillMigrationPreview>> migrateTouCompiledBills(
     String uid, {
     bool dryRun = true,
   }) async {
     final user = await getUser(uid);
     if (user == null || user.meterType != 'tou') {
-      debugPrint('⏭️ ข้าม migration: ไม่ใช่ user TOU หรือหา user ไม่เจอ (uid=$uid)');
+      debugPrint(
+          '⏭️ ข้าม migration: ไม่ใช่ user TOU หรือหา user ไม่เจอ (uid=$uid)');
       return [];
     }
 
@@ -553,8 +553,7 @@ class FirestoreService {
     final history = await getStartMeterHistory(uid); // ฟังก์ชันเดิมคืน desc
     final earliestRecord = history.isEmpty
         ? null
-        : history.reduce(
-            (a, b) => a.recordedAt.isBefore(b.recordedAt) ? a : b);
+        : history.reduce((a, b) => a.recordedAt.isBefore(b.recordedAt) ? a : b);
 
     double? basePeak = earliestRecord?.peakValue;
     double? baseOffPeak = earliestRecord?.offPeakValue;
@@ -567,8 +566,7 @@ class FirestoreService {
           EnergyForecaster.getPreviousCycleStart(endDate, billingDay);
 
       final logsInCycle = allLogs
-          .where(
-              (l) => !l.date.isBefore(startDate) && l.date.isBefore(endDate))
+          .where((l) => !l.date.isBefore(startDate) && l.date.isBefore(endDate))
           .toList(); // allLogs เรียง asc มาแล้วจาก query ด้านบน
 
       if (logsInCycle.isEmpty || basePeak == null || baseOffPeak == null) {
@@ -599,8 +597,7 @@ class FirestoreService {
       final closingPeak = closingLog.peakMeterValue ?? basePeak;
       final closingOffPeak = closingLog.offPeakMeterValue ?? baseOffPeak;
 
-      final newPeakUsed =
-          EnergyCalculator.calculateUsed(closingPeak, basePeak);
+      final newPeakUsed = EnergyCalculator.calculateUsed(closingPeak, basePeak);
       final newOffPeakUsed =
           EnergyCalculator.calculateUsed(closingOffPeak, baseOffPeak);
 

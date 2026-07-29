@@ -4,7 +4,6 @@ class ApplianceModel {
   final String name; // ชื่ออุปกรณ์ เช่น แอร์ห้องนอน
   final String icon; // ไอคอนอุปกรณ์
   final double watt; // กำลังไฟ (วัตต์)
-  final bool isActive; // เปิดใช้งานอยู่ไหม
   final List<ScheduleModel> schedules; // ตารางการใช้งาน
 
   ApplianceModel({
@@ -13,7 +12,6 @@ class ApplianceModel {
     required this.name,
     this.icon = 'devices',
     required this.watt,
-    this.isActive = true,
     this.schedules = const [],
   });
 
@@ -25,7 +23,6 @@ class ApplianceModel {
       name: map['name'] ?? '',
       icon: map['icon'] ?? 'devices',
       watt: (map['watt'] ?? 0).toDouble(),
-      isActive: map['isActive'] ?? true,
       schedules: (map['schedules'] as List<dynamic>? ?? [])
           .map((s) => ScheduleModel.fromMap(s))
           .toList(),
@@ -40,7 +37,6 @@ class ApplianceModel {
       'name': name,
       'icon': icon,
       'watt': watt,
-      'isActive': isActive,
       'schedules': schedules.map((s) => s.toMap()).toList(),
     };
   }
