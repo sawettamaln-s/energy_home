@@ -324,20 +324,15 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   int _billingDay = 30;
   DateTime? _cycleStart;
   DateTime? _billingCycleKey;
-  // ใช้ตัดสินว่าตารางควรโชว์คอลัมน์ On-Peak/Off-Peak แยกไหม (เดิมข้อมูลนี้
-  // โชว์ได้แค่ตอนแตะแถวดู detail เฉยๆ ทั้งที่เป็นตัวเลขที่ TOU ใช้ตัดสินใจ
-  // บ่อย เลยยกขึ้นมาเป็นคอลัมน์ในตารางหลักด้วย)
+  // ใช้ตัดสินว่าตารางควรโชว์คอลัมน์ On-Peak/Off-Peak แยกไหม (เดิมโชว์ได้แค่ตอนแตะแถวดู detail เฉยๆ)
   bool _isTou = false;
-  // เลขมิเตอร์ต้นรอบ (peak/offpeak) ของแต่ละรอบบิล — ใช้คำนวณ "ที่ใช้ไป"
-  // แยกตามประเภทจาก log.peakMeterValue/offPeakMeterValue ที่เป็นเลขสะสม
-  // ล้วนๆ (ไม่ใช้ user.startPeakValue ตัวเดียวเพราะรอบเก่าที่ปิดไปแล้วมี
-  // ต้นรอบคนละค่ากับรอบปัจจุบัน — ต้องอิงประวัติจริงของรอบนั้นๆ)
+  // เลขมิเตอร์ต้นรอบ (peak/offpeak) ของแต่ละรอบบิล — อิงจาก log.peakMeterValue/
+  // offPeakMeterValue ของประวัติจริงรอบนั้นๆ ไม่ใช้ user.startPeakValue ตัวเดียว
+  // เพราะรอบเก่าที่ปิดไปแล้วมีต้นรอบคนละค่ากับรอบปัจจุบัน
   List<StartMeterRecordModel> _startHistory = [];
-  // ค่ามิเตอร์ต้นรอบล่าสุดที่ user ตั้งไว้ (จาก user document) — ใช้เป็น
-  // fallback เฉพาะรอบปัจจุบันตอนยังไม่มี StartMeterRecordModel ของรอบนี้
-  // (เช่น กรอก log รายวันไปก่อนที่จะเข้าไปตั้งเลขต้นรอบ) เพื่อไม่ให้ตาราง
-  // โชว์ "-" ทั้งที่จริงมีค่าตั้งต้นรออยู่แล้ว — pattern เดียวกับที่แก้ใน
-  // compileBill() (firestore_service.dart)
+  // ค่ามิเตอร์ต้นรอบล่าสุดที่ user ตั้งไว้ — ใช้เป็น fallback เฉพาะรอบปัจจุบัน
+  // ตอนยังไม่มี StartMeterRecordModel ของรอบนี้ (เช่น กรอก log ก่อนตั้งเลขต้นรอบ)
+  // ไม่ให้ตารางโชว์ "-" ทั้งที่มีค่าตั้งต้นอยู่แล้ว — pattern เดียวกับ compileBill() (firestore_service.dart)
   double? _userStartPeak;
   double? _userStartOffPeak;
 
@@ -385,9 +380,8 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
     return !log.date.isBefore(_cycleStart!);
   }
 
-  // หาเลขต้นรอบ (peak/offpeak) ของรอบบิลที่ cycleKey นี้ตรงกับ — ใช้ month/
-  // year เดียวกับที่ StartMeterRecordModel เก็บไว้ (r.billingMonth/Year)
-  // คืน null ถ้าไม่เจอ record ของรอบนั้นเลย (เช่น log เก่าก่อนเคยตั้ง TOU)
+  // หาเลขต้นรอบ (peak/offpeak) ของรอบบิลที่ cycleKey นี้ตรงกับ — ใช้ month/year
+  // เดียวกับที่ StartMeterRecordModel เก็บไว้ คืน null ถ้าไม่เจอ record ของรอบนั้นเลย
   (double peak, double offPeak)? _startValuesFor(DateTime cycleKey) {
     final match = _startHistory.where((r) =>
         r.billingMonth == cycleKey.month && r.billingYear == cycleKey.year);
@@ -397,10 +391,8 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
         return (r.peakValue, r.offPeakValue);
       }
     }
-    // ไม่เจอ record ของรอบนี้เลย — ถ้าเป็นรอบปัจจุบัน (กำลังสะสมยอด) ให้
-    // fallback ไปใช้ค่าต้นรอบล่าสุดที่ user ตั้งไว้ใน user document แทน
-    // (เกิดขึ้นได้ตอนกรอก log รายวันไปก่อนที่จะเข้าไปตั้งเลขต้นรอบของรอบนี้)
-    // รอบเก่าที่ปิดไปแล้วไม่ fallback เพราะจะได้เลขต้นรอบผิดรอบ
+    // ไม่เจอ record ของรอบนี้เลย — ถ้าเป็นรอบปัจจุบัน fallback ไปใช้ค่าต้นรอบล่าสุด
+    // ที่ user ตั้งไว้แทน (เกิดขึ้นได้ตอนกรอก log ก่อนตั้งเลขต้นรอบ) รอบเก่าไม่ fallback เพราะจะได้เลขต้นรอบผิดรอบ
     if (cycleKey == _billingCycleKey) {
       final peak = _userStartPeak;
       final offPeak = _userStartOffPeak;
@@ -475,10 +467,8 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
                 initiallyExpanded: groupIndex == 0,
                 table: ExcelStyleTable(
                   accent: accent,
-                  // TOU: เพิ่มคอลัมน์ On-Peak/Off-Peak "ที่ใช้ไป" (ไม่ใช่เลข
-                  // มิเตอร์สะสม) เข้าไปในตารางหลักเลย เดิมมีแต่เลขสะสมโชว์
-                  // ตอนแตะแถวดู detail เท่านั้น ไม่มีตัวเลข "ใช้ไปเท่าไหร่"
-                  // แยกประเภทให้ดูตรงๆ
+                  // TOU: เพิ่มคอลัมน์ On-Peak/Off-Peak "ที่ใช้ไป" เข้าตารางหลักเลย
+                  // (เดิมมีแต่เลขสะสม โชว์ตอนแตะแถวดู detail เท่านั้น)
                   columns: _isTou
                       ? const [
                           ExcelTableColumn('วันที่',

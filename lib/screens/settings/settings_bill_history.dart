@@ -1,10 +1,7 @@
 part of 'settings_screen.dart';
 
-// สร้างตัวเลือกเดือนโดยอิงวันตัดรอบบิลจริง (billingDay) แทนเดือนปฏิทิน
-// ตรงๆ — ใช้สูตรเดียวกับที่ dashboard_screen.dart ใช้ตอน compileBill()
-// ย้ายออกมาเป็นฟังก์ชันกลางระดับไฟล์ (เดิมเป็น method ส่วนตัวของ
-// _AddHistoricalBillSheetState อย่างเดียว) เพื่อให้ _HistoricalBillListScreen
-// เอาไปใช้เช็คว่า "ครบ 6 เดือนแล้วหรือยัง" ได้ด้วย โดยไม่ต้องก็อปสูตรซ้ำ
+// สร้างตัวเลือก 6 เดือนย้อนหลัง อิงวันตัดรอบบิลจริง (billingDay) ไม่ใช่เดือนปฏิทิน
+// เป็นฟังก์ชันกลาง ให้ _HistoricalBillListScreen เรียกใช้เช็ค "ครบ 6 เดือนหรือยัง" ได้ด้วย
 List<DateTime> _generateHistoricalMonthOptions(int billingDay) {
   final options = <DateTime>[];
   var cursor = EnergyForecaster.getCycleStart(DateTime.now(), billingDay);
@@ -47,45 +44,22 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   final _eCostCtrl = TextEditingController();
   final _wUsedCtrl = TextEditingController();
   final _wCostCtrl = TextEditingController();
-  // TOU เท่านั้น: คู่ On-Peak/Off-Peak ของ "หน่วยที่ใช้เดือนนี้ (ไฟ)" แทน
-  // _eUsedCtrl ตัวเดียว — เดิมฟอร์มนี้ให้ผู้ใช้บวกเลข 2 ยอดจากบิลเองก่อน
-  // กรอก (ดู _showUsageInfoPopup) ตอนนี้แยกช่องแล้วรวมให้อัตโนมัติแทน
+  // TOU เท่านั้น: แยกช่อง On-Peak/Off-Peak แทน _eUsedCtrl ตัวเดียว แล้วรวมให้อัตโนมัติ
   final _ePeakUsedCtrl = TextEditingController();
   final _eOffPeakUsedCtrl = TextEditingController();
-  // debounce ช่องหน่วยที่ใช้ ก่อนยิงคำนวณค่าใช้จ่ายอัตโนมัติตามอัตรา กันไม่
-  // ให้เรียก getFtRate() (อ่าน Firestore) ทุกครั้งที่พิมพ์แต่ละตัวอักษร
+  // debounce ก่อนคำนวณค่าใช้จ่ายอัตโนมัติ กันเรียก getFtRate() (อ่าน Firestore) ทุกตัวอักษรที่พิมพ์
   Timer? _eCostDebounce;
   Timer? _wCostDebounce;
 
-  // ----- ส่วนเสริม: ชวนตั้งค่ามิเตอร์ต้นรอบต่อ (เปิดฟอร์มจริงแยกต่างหาก) -----
-  // โหลด user มาเองอิสระ (ตามแพทเทิร์นเดียวกับ _AddStartMeterSheet) เพื่อรู้
-  // ว่าเป็นมิเตอร์ TOU ไหม และผู้ใช้เคยตั้งค่ามิเตอร์ต้นรอบไปแล้วหรือยัง
-  // (ถ้าตั้งแล้วไม่โชว์ซ้ำ กันการเผลอเขียนทับค่าจริงที่ผู้ใช้บันทึกไปแล้ว)
-  //
-  // เดิมฝังชุด field เลขมิเตอร์สะสม (_meterECtrl ฯลฯ) ไว้ในฟอร์มนี้ตรงๆ
-  // แล้วก็อป logic การเซฟมาเช็คเองอีกชุด — พังตรงที่แค่กรอกครบ 1 ช่องก็
-  // mark startMeterConfigured = true ทันที ทั้งที่ช่องอื่นอาจยังไม่ได้กรอก
-  // (ถูกเซฟเป็น 0 ถาวรโดยไม่ได้ตั้งใจ) เปลี่ยนมาเปิด _AddStartMeterSheet
-  // ตัวจริงแทน ได้ทั้ง validation ที่ครบ (บังคับกรอกค่าใช้จ่ายด้วย) และเลิก
-  // ปนฟอร์ม "บันทึกของเดือนที่ผ่านไปแล้ว" กับ "ตั้งค่าจุดเริ่มของรอบหน้า"
-  // ไว้ในหน้าเดียวกันด้วย — สองเรื่องนี้เป็นคนละแนวคิดกันโดยสิ้นเชิง
+  // ส่วนเสริม: ชวนตั้งค่ามิเตอร์ต้นรอบต่อ — โหลด user เองเพื่อรู้ว่าเป็นมิเตอร์ TOU
+  // ไหมและเคยตั้งค่าไปแล้วหรือยัง (ถ้าตั้งแล้วไม่โชว์ซ้ำ) กดแล้วเปิด _AddStartMeterSheet
+  // ตัวจริงแยกต่างหาก ไม่ฝัง field ซ้ำในฟอร์มนี้ เพราะ "บันทึกของเดือนที่ผ่านไปแล้ว"
+  // กับ "ตั้งค่าจุดเริ่มรอบหน้า" เป็นคนละเรื่องกัน ปนกันแล้ว validation จะไม่ครบ
   UserModel? _user;
 
-  // สร้างตัวเลือกเดือนโดยอิงวันตัดรอบบิลจริง (billingDay) แทนเดือนปฏิทิน
-  // ตรงๆ — ใช้สูตรเดียวกับที่ dashboard_screen.dart ใช้ตอน compileBill()
-  // เพื่อให้ "เดือนของบิล" ที่เลือกในฟอร์มนี้ ตรงกับนิยาม "เดือนของบิล"
-  // ที่ระบบ compile อัตโนมัติใช้จริง ไม่งั้นถ้า billingDay ไม่ใช่ปลายเดือน
-  // (เช่นวันที่ 3, 15) เดือนที่ให้เลือกในฟอร์มนี้กับเดือนที่ระบบ compile
-  // ให้เองอาจไม่ตรงกัน ทำให้กรอกบิลย้อนหลังผิดเดือน/ทับซ้อนกับบิลที่ระบบ
-  // จะ compile ให้ทีหลังโดยไม่รู้ตัว
-  //
-  // ตัดตัวเลือกแรกสุด (รอบปัจจุบัน/รอบที่กำลังจะปิด) ออกไปเลย เหลือ 5 เดือน
-  // — เดิมให้เลือกได้ครบ 6 เดือน รวมรอบปัจจุบันด้วย ซึ่งเป็นรอบเดียวกับที่
-  // หน้า "เลขมิเตอร์ต้นรอบ" ใช้ ทำให้มีทาง "กรอกหน่วยที่ใช้" ปนเข้ามาได้ทั้ง
-  // ที่รอบนั้นเก็บเป็นเลขสะสมเท่านั้น ไม่มีทางรู้ "หน่วยที่ใช้" ที่แม่นจริง
-  // จากฟอร์มนี้ — ตัดออกจาก dropdown ไปเลยดีกว่า ปิดทางกรอกผิดตั้งแต่ต้น
-  // แทนที่จะพึ่ง guard ทีหลัง ส่วนรอบนั้นมีลิงก์แยกไปหน้าเลขมิเตอร์ต้นรอบ
-  // ให้กดแทน (ดู _goSetStartMeter() ด้านล่าง)
+  // ตัดรอบปัจจุบันออกจากตัวเลือก เหลือ 5 เดือนย้อนหลัง เพราะรอบปัจจุบันเก็บเป็น
+  // เลขมิเตอร์สะสม ไม่มีทางรู้ "หน่วยที่ใช้" ที่แม่นจากฟอร์มนี้ — ให้ไปกรอกที่หน้า
+  // เลขมิเตอร์ต้นรอบแทน (ดู _goSetStartMeter() ด้านล่าง)
   List<DateTime> _generateMonthOptions(int billingDay) =>
       _generateHistoricalMonthOptions(billingDay).skip(1).toList();
 
@@ -93,10 +67,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   void initState() {
     super.initState();
     final existing = widget.existingBill;
-    // ใช้ billingDay = 30 (ปลายเดือน) เป็นค่าเริ่มต้นชั่วคราวก่อน จะไปแก้
-    // เป็นค่าจริงของ user อีกทีใน _loadUser() พอโหลดเสร็จ (เห็นผลต่างชัด
-    // เฉพาะกรณี billingDay ไม่ใช่ปลายเดือนเท่านั้น ระหว่างนี้ฟอร์มใช้งาน
-    // ได้ปกติก่อนด้วยค่าประมาณที่ใกล้เคียงที่สุด)
+    // ใช้ billingDay = 30 เป็นค่าเริ่มต้นชั่วคราว จะแก้เป็นค่าจริงของ user ใน _loadUser()
     _monthOptions = _generateMonthOptions(30);
     // ถ้าแก้ไขบิลที่เดือนอยู่นอกช่วง 6 เดือนล่าสุด ให้เพิ่มเดือนนั้นเข้าไปในตัวเลือกด้วย
     if (existing != null &&
@@ -104,12 +75,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
             (m) => m.year == existing.year && m.month == existing.month)) {
       _monthOptions.add(DateTime(existing.year, existing.month, 1));
     }
-    // เดิมตั้ง _selectedMonth = DateTime(existing.year, existing.month, 1)
-    // ตรงๆ แต่ตัวเลือกใน _monthOptions ใช้วันที่ = billingDay จริง (เช่น
-    // 10, 30) ไม่ใช่วันที่ 1 ทำให้สอง DateTime นี้ไม่มีทางเท่ากันเลย
-    // (DateTime เทียบทุกฟิลด์รวมวันที่) ผลคือ DropdownButtonFormField หา
-    // item ที่ตรงกับ value ไม่เจอทุกครั้งที่กด "แก้ไข" จากเมนู 3 จุด —
-    // ต้องหยิบ DateTime ตัวจริงจาก _monthOptions มาใช้แทนการสร้างขึ้นใหม่เอง
+    // ต้องหยิบ DateTime ตัวจริงจาก _monthOptions มาใช้ (ไม่สร้างใหม่เอง) เพราะตัวเลือก
+    // ใช้วันที่ = billingDay จริง (เช่น 10, 30) ไม่ใช่วันที่ 1 ถ้าสร้างเองจะไม่ match กัน
+    // และ DropdownButtonFormField จะหา item ที่ตรงกับ value ไม่เจอ
     _selectedMonth = existing != null
         ? _monthOptions.firstWhere(
             (m) => m.year == existing.year && m.month == existing.month,
@@ -134,10 +102,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
       _wUsedCtrl.text =
           existing.waterUsed == 0 ? '' : existing.waterUsed.toStringAsFixed(2);
     } else {
-      // เพิ่มบิลใหม่ (ยังไม่มีข้อมูลเดิม): เซตค่าใช้จ่ายเป็น "0.00" ตรงๆ ไว้
-      // ก่อนเลยตั้งแต่เปิดฟอร์ม แทนที่จะปล่อยว่าง — ไม่งั้นช่องจะโชว์ว่างเปล่า
-      // ค้างไว้จนกว่าผู้ใช้จะพิมพ์อะไรลงช่องหน่วยก่อนสักครั้ง ทั้งที่ควรเห็น
-      // "0.00" รอไว้ตั้งแต่แรกแล้วค่อยขยับตามหน่วยที่กรอก
+      // เพิ่มบิลใหม่: เซตค่าใช้จ่ายเป็น "0.00" ไว้ก่อนตั้งแต่เปิดฟอร์ม ไม่ปล่อยว่าง
       _eCostCtrl.text = '0.00';
       _wCostCtrl.text = '0.00';
     }
@@ -155,11 +120,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
       c.addListener(() => setState(() {}));
     }
 
-    // คำนวณ "ค่าใช้จ่าย" อัตโนมัติตามอัตรา ทุกครั้งที่ช่อง "หน่วยที่ใช้เดือนนี้"
-    // เปลี่ยน — ต่างจากหน้าเลขมิเตอร์ต้นรอบตรงที่หน้านี้ผู้ใช้กรอก "หน่วยที่
-    // ใช้" ตรงๆ อยู่แล้ว (ไม่ใช่เลขมิเตอร์สะสมที่ต้องหา delta) จึงคำนวณจาก
-    // หน่วยที่กรอกได้ทันทีไม่ต้องพึ่งประวัติ — ผู้ใช้ยังแก้ค่าที่คำนวณได้
-    // เองอยู่ดี เพราะช่อง _eCostCtrl/_wCostCtrl ไม่ได้ถูก disable
+    // คำนวณค่าใช้จ่ายอัตโนมัติทุกครั้งที่ "หน่วยที่ใช้" เปลี่ยน (กรอกหน่วยตรงๆ
+    // ไม่ใช่เลขมิเตอร์สะสม จึงคำนวณได้ทันทีไม่ต้องหา delta) แก้ไขเองทับได้ ช่องไม่ถูก disable
     for (final c in [_eUsedCtrl, _ePeakUsedCtrl, _eOffPeakUsedCtrl]) {
       c.addListener(_scheduleElectricityCostCalc);
     }
@@ -178,9 +140,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
         Timer(const Duration(milliseconds: 400), _autoCalcWaterCost);
   }
 
-  // ยังไม่รู้ user (ยังโหลดไม่เสร็จ) -> ยังคำนวณไม่ได้ ปล่อยผ่านเฉยๆ ไม่แตะ
-  // ค่าใช้จ่ายที่มีอยู่ (กันเคส initState ตั้งค่าเริ่มต้นจากบิลเดิมตอนแก้ไข
-  // แล้วดันโดนคำนวณทับก่อน _user จะโหลดเสร็จ)
+  // ยังไม่รู้ user (โหลดไม่เสร็จ) -> คำนวณไม่ได้ ปล่อยผ่าน ไม่แตะค่าใช้จ่ายเดิม
   Future<void> _autoCalcElectricityCost() async {
     if (_user == null) return;
     final units = _isTou ? 0.0 : parseNumInput(_eUsedCtrl.text);
@@ -203,8 +163,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     setState(() => _eCostCtrl.text = cost.toStringAsFixed(2));
   }
 
-  // เหมือน _autoCalcElectricityCost() แต่ฝั่งน้ำ (calculateWater เป็น sync
-  // function ไม่ต้อง await)
+  // เหมือน _autoCalcElectricityCost() แต่ฝั่งน้ำ (calculateWater เป็น sync ไม่ต้อง await)
   void _autoCalcWaterCost() {
     if (_user == null) return;
     final units = parseNumInput(_wUsedCtrl.text);
@@ -220,10 +179,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     final user = await widget.firestoreService.getUser(widget.uid);
     if (!mounted) return;
 
-    // ถ้า billingDay จริงต่างจาก default ที่ใช้ไปก่อนหน้า (30) ให้สร้าง
-    // ตัวเลือกเดือนใหม่ด้วยค่าจริง แล้วคง selection/แก้ไขเดิมไว้ให้เหมือนเดิม
-    // ที่สุดเท่าที่ทำได้ (ไม่ให้ผู้ใช้เห็นตัวเลือกเปลี่ยนกะทันหันโดยไม่จำเป็น
-    // ถ้า billingDay = 30 อยู่แล้วซึ่งเป็นค่าเริ่มต้นของ user ส่วนใหญ่)
+    // ถ้า billingDay จริงต่างจาก default (30) ให้สร้างตัวเลือกเดือนใหม่ด้วยค่าจริง
     if (user != null && user.billingDay != 30) {
       final existing = widget.existingBill;
       final rebuilt = _generateMonthOptions(user.billingDay);
@@ -232,12 +188,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
               (m) => m.year == existing.year && m.month == existing.month)) {
         rebuilt.add(DateTime(existing.year, existing.month, 1));
       }
-      // ต้องปรับ _selectedMonth ให้ตรงกับ _monthOptions ชุดใหม่ใน setState
-      // เดียวกันนี้เลย ไม่งั้นจะมี 1 เฟรมที่ DropdownButtonFormField ถือค่า
-      // _selectedMonth เดิม (มาจากชุด options เก่าที่คำนวณจาก billingDay=30)
-      // ซึ่งไม่มีอยู่ใน _monthOptions ชุดใหม่ ทำให้ Flutter throw assertion
-      // ("exactly one item with DropdownButton's value") จนเห็นจอแดงแว้ปนึง
-      // ก่อนที่ _loadTakenMonths() ด้านล่างจะ setState แก้ค่าให้ตรงกันอีกที
+      // ต้องปรับ _selectedMonth ให้ตรงกับ _monthOptions ชุดใหม่ใน setState เดียวกันนี้เลย
+      // ไม่งั้น DropdownButtonFormField จะถือค่าเก่าที่ไม่มีใน options ชุดใหม่ แล้ว throw assertion
       final matchInRebuilt = rebuilt.firstWhere(
         (m) => m.year == _selectedMonth.year && m.month == _selectedMonth.month,
         orElse: () => rebuilt.first,
@@ -297,13 +249,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     }
   }
 
-  // เปิดฟอร์มตั้งเลขมิเตอร์ต้นรอบจริง (ตัวเดียวกับที่ปุ่ม FAB ในหน้า
-  // ประวัติมิเตอร์ต้นรอบใช้) — เดิมเปิดซ้อน (push) บน sheet นี้เลย แต่พอมี
-  // 2 sheet ซ้อนกัน backdrop dim ของแต่ละชั้นทับกัน ดูแน่นเกินไป เปลี่ยนมา
-  // "ปิด sheet นี้ก่อนแล้วค่อยเปิดตัวใหม่" แทน (เหลือมองเห็นแค่ชั้นเดียว
-  // เสมอ) แต่ต้องกันข้อมูลบิลที่กรอกค้างไว้หายเงียบๆ — ถ้ายังไม่ได้กรอก
-  // อะไรเลยปิดแล้วเปิดใหม่ได้ทันที ถ้ากรอกมาบ้างแล้ว (มีค่าไฟ/น้ำ) ให้ถาม
-  // ยืนยันก่อนว่าจะทิ้งข้อมูลที่กรอกไว้ไหม
+  // เปิดฟอร์มตั้งเลขมิเตอร์ต้นรอบจริง (ตัวเดียวกับปุ่ม FAB ในหน้าประวัติมิเตอร์ต้นรอบ)
+  // ปิด sheet นี้ก่อนแล้วค่อยเปิดตัวใหม่ (กัน backdrop ซ้อนกัน 2 ชั้น) — ถ้ากรอกข้อมูล
+  // ไว้บ้างแล้ว (มีค่าไฟ/น้ำ) ให้ถามยืนยันก่อนทิ้งข้อมูล
   Future<void> _goSetStartMeter() async {
     if (_user == null) return;
     final hasUnsavedInput = _eUsedCtrl.text.isNotEmpty ||
@@ -338,10 +286,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   double get _eCost => parseNumInput(_eCostCtrl.text);
   double get _wCost => parseNumInput(_wCostCtrl.text);
   bool get _isTou => _user?.meterType == 'tou';
-  // TOU: หน่วยที่ใช้ (ไฟ) มาจากผลรวม On-Peak/Off-Peak ที่กรอกแยก (auto-sum)
-  // แทนช่องเดียวแบบเดิม — ยังคงเก็บลง BillModel.electricityUsed ตัวเดียว
-  // เหมือนเดิม (โมเดลไม่มีฟิลด์แยก peak/offpeak) เพราะจุดใช้งานอื่นๆ ทั้ง
-  // หน้าวิเคราะห์และหน้าแดชบอร์ดอ้างอิงยอดรวมนี้อยู่แล้ว
+  // TOU: หน่วยที่ใช้ (ไฟ) = ผลรวม On-Peak/Off-Peak (auto-sum) แต่ยังเก็บลง
+  // BillModel.electricityUsed ตัวเดียวเหมือนเดิม เพราะหน้าวิเคราะห์/แดชบอร์ดอ้างอิงยอดรวมนี้
   double get _eUsed => _isTou
       ? parseNumInput(_ePeakUsedCtrl.text) + parseNumInput(_eOffPeakUsedCtrl.text)
       : parseNumInput(_eUsedCtrl.text);
@@ -349,20 +295,16 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   // บิลมาหรือยัง (validation) และโชว์ยอดไฟ+น้ำแยกในพรีวิว
   double get _total => _eCost + _wCost;
 
-  // แก้บั๊ก: เดิม totalCost ของบิลย้อนหลังไม่รวมค่าใช้จ่ายคงที่เลย ในขณะที่
-  // บิลที่ระบบ compile ให้เองรวม fixedCost ด้วยเสมอ (ดู compileBill() ใน
-  // firestore_service.dart) ทำให้ totalCost ของสองแหล่งเทียบกันไม่ตรง —
-  // ใช้ user.fixedCost (ค่าคงที่ปัจจุบันที่ตั้งไว้ในแอป) แบบเดียวกับที่
-  // compileBill ใช้ เพื่อให้ยอดรวมที่โชว์ในประวัติสอดคล้องกันทั้งสองแหล่ง
+  // แก้บั๊ก: totalCost ต้องรวม user.fixedCost ด้วย เหมือนที่ compileBill()
+  // (firestore_service.dart) ทำ ไม่งั้นยอดรวมของบิลย้อนหลังกับบิลที่ระบบ compile ให้จะไม่ตรงกัน
   double get _fixedCost => _user?.fixedCost ?? 0;
   double get _totalWithFixedCost => _total + _fixedCost;
 
   bool get _isSelectedMonthTaken =>
       _takenMonths.contains('${_selectedMonth.year}-${_selectedMonth.month}');
 
-  // เดือนของรอบปัจจุบัน (รอบที่กำลังจะปิด) — ตัดออกจาก _monthOptions ไปแล้ว
-  // ด้านบน เก็บไว้แค่โชว์ชื่อเดือนในลิงก์ท้ายฟอร์ม ให้ผู้ใช้กดไปกรอกที่หน้า
-  // เลขมิเตอร์ต้นรอบแทน (ดู _goSetStartMeter())
+  // เดือนของรอบปัจจุบัน — ตัดออกจาก _monthOptions แล้ว เก็บไว้แค่โชว์ในลิงก์ท้ายฟอร์ม
+  // ให้กดไปกรอกที่หน้าเลขมิเตอร์ต้นรอบแทน (ดู _goSetStartMeter())
   DateTime get _currentCycleMonth =>
       _generateHistoricalMonthOptions(_user?.billingDay ?? 30).first;
 
@@ -448,9 +390,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
       );
 
   // แท็บเลือกไฟฟ้า/น้ำ — ใช้ TabChip กลางร่วมกับ StartMeterPairedFields
-  // (widgets/start_meter_fields.dart) ✓ สีเขียวโผล่ข้างชื่อแท็บเมื่อฝั่งนั้น
-  // กรอกค่าใช้จ่ายมาแล้ว (ใช้ cost > 0 เป็นตัวบ่งชี้ "มีข้อมูล" เพราะฟอร์มนี้
-  // ไม่บังคับกรอกครบทั้งคู่เหมือนหน้ามิเตอร์ต้นรอบ)
+  // เครื่องหมาย ✓ ขึ้นเมื่อฝั่งนั้นกรอกค่าใช้จ่ายแล้ว (cost > 0) เพราะฟอร์มนี้ไม่บังคับกรอกครบทั้งคู่
   Widget _buildUtilityTabs() {
     final eHasData = _eCost > 0;
     final wHasData = _wCost > 0;
@@ -481,8 +421,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     );
   }
 
-  // การ์ดสีตามยูทิลิตี้ — สไตล์เดียวกับ _utilityCard ใน StartMeterPairedFields
-  // ให้หน้า "บันทึกบิลย้อนหลัง" กับ "บันทึกมิเตอร์ต้นรอบ" ดูสอดคล้องกันทั้งแอป
+  // การ์ดสีตามยูทิลิตี้ — สไตล์เดียวกับ _utilityCard ใน StartMeterPairedFields ให้ดูสอดคล้องกัน
   Widget _utilityCard({
     required String label,
     required Color accentColor,
@@ -513,10 +452,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
               Text(label,
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 14)),
-              // ปุ่ม info ย้ายมารวมไว้ตรงนี้จุดเดียว (ส่วนร่วมของการ์ด) —
-              // เดิมติดอยู่กับ label ของช่อง "หน่วยที่ใช้" เท่านั้น ทำให้
-              // ตอนเป็นมิเตอร์ TOU (ฝั่งไฟฟ้าใช้ TouPairedUnitsField แทน)
-              // ปุ่ม info ไม่โผล่เลยฝั่งไฟฟ้า เห็นแต่ฝั่งน้ำ ดูไม่สมมาตรกัน
+              // ปุ่ม info ย้ายมารวมไว้ตรงนี้จุดเดียว (เดิมติดกับ label ช่อง "หน่วยที่ใช้"
+              // ทำให้หายไปฝั่งไฟฟ้าตอนเป็น TOU เพราะสลับไปใช้ TouPairedUnitsField แทน)
               if (onInfoTap != null) ...[
                 const SizedBox(width: 4),
                 GestureDetector(
@@ -543,11 +480,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     );
   }
 
-  // อธิบายว่าช่อง "หน่วยที่ใช้" ต้องกรอกอะไร — ปัญหาที่เจอบ่อยคือคนกรอก
-  // "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) มาใส่แทนที่จะเป็นยอดหน่วยที่ใช้
-  // จริงของเดือนนั้น ซึ่งฟอร์มนี้ไม่ได้เอาเลขมิเตอร์ของ 2 เดือนมาลบกันให้
-  // (ต่างจากหน้าบันทึกมิเตอร์ปกติที่ระบบลบให้อัตโนมัติ) เพราะบิลย้อนหลัง
-  // แต่ละเดือนไม่ได้ต่อเนื่องกันเสมอไป จึงให้กรอกยอดหน่วยที่ใช้ตรงๆ จากบิล
+  // อธิบายว่าช่อง "หน่วยที่ใช้" ต้องกรอกยอดหน่วยที่ใช้จริงจากบิล ไม่ใช่เลขมิเตอร์สะสม
+  // (ฟอร์มนี้ไม่ลบเลขมิเตอร์ 2 เดือนให้เหมือนหน้าบันทึกมิเตอร์ปกติ เพราะบิลย้อนหลังไม่ต่อเนื่องกันเสมอไป)
   void _showUsageInfoPopup(String utilityLabel, String unitLabel) {
     showInfoDialog(
       context,
@@ -651,11 +585,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    // ตัดคำอธิบายยาวๆ ใต้หัวข้อออก (เดิม "ไม่บังคับ • สูงสุด
-                    // 6 เดือน • ช่วยให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก")
-                    // ซ้ำกับเนื้อหาใน _showHistoricalBillInfoPopup อยู่แล้ว
-                    // เก็บไว้แค่ไอคอน info กดดูได้ตามต้องการแทน ลดความรก
-                    // หน้าฟอร์มตอนเปิดครั้งแรก
+                    // ตัดคำอธิบายยาวใต้หัวข้อออก (ซ้ำกับ _showHistoricalBillInfoPopup)
+                    // เหลือแค่ไอคอน info กดดูได้แทน ลดความรกตอนเปิดฟอร์มครั้งแรก
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       icon: Icon(Icons.info_outline,
@@ -719,9 +650,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       label: 'ไฟฟ้า',
                       accentColor: DashboardStyles.electricityBorder,
                       icon: Icons.bolt,
-                      // info ย้ายมาไว้ที่หัวการ์ดจุดเดียว ใช้ได้ทั้ง TOU และ
-                      // ไม่ใช่ TOU (เดิมติดอยู่กับ label ช่อง "หน่วยที่ใช้"
-                      // ซึ่งหายไปตอนเป็น TOU เพราะสลับไปใช้ TouPairedUnitsField)
+                      // info ย้ายมาไว้ที่หัวการ์ดจุดเดียว ใช้ได้ทั้ง TOU และไม่ใช่ TOU
                       onInfoTap: () => _showUsageInfoPopup(
                           'หน่วยที่ใช้เดือนนี้ (ไฟ)', 'kWh'),
                       child: _isTou
@@ -733,12 +662,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                                   peakCtrl: _ePeakUsedCtrl,
                                   offPeakCtrl: _eOffPeakUsedCtrl,
                                   iconColor: DashboardStyles.electricityBorder,
-                                  // โน้ตนี้จะเห็นเฉพาะบิลเก่าที่บันทึกไว้ก่อน
-                                  // มีฟิลด์แยก peak/offpeak เท่านั้น (มียอดรวม
-                                  // แต่แยกไม่ได้) — ถ้าบิลนี้เคยกรอกแบบแยกไว้
-                                  // แล้ว ช่องจะ prefill ค่าเดิมให้จากฟิลด์
-                                  // electricityPeakUsed/OffPeakUsed ตรงๆ
-                                  // ไม่ต้องมีโน้ตนี้
+                                  // โน้ตนี้เห็นเฉพาะบิลเก่าก่อนมีฟิลด์แยก peak/offpeak
+                                  // (มียอดรวมแต่แยกไม่ได้) ถ้าเคยกรอกแบบแยกไว้แล้วจะ prefill จาก
+                                  // electricityPeakUsed/OffPeakUsed แทน ไม่ต้องมีโน้ตนี้
                                   helperText: (widget.existingBill != null &&
                                           widget.existingBill!.electricityUsed >
                                               0 &&
@@ -892,13 +818,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       ),
                     ),
                   const SizedBox(height: 14),
-                  // ลิงก์ไปหน้าเลขมิเตอร์ต้นรอบเสมอ — เดือนของรอบปัจจุบัน
-                  // (${_currentCycleMonth}) ตัดออกจาก dropdown ด้านบนไปแล้ว
-                  // (ดูคอมเมนต์ที่ _generateMonthOptions) เพราะเป็นคนละ
-                  // แนวคิดกับฟอร์มนี้โดยสิ้นเชิง โชว์เป็นลิงก์เล็กๆ เสมอแทน
-                  // การ์ดใหญ่แบบมีเงื่อนไข ให้ผู้ใช้กดไปกรอกที่ถูกที่ได้ตลอด
-                  // ไม่ว่าจะเคยตั้งมาก่อนแล้วหรือยัง (กดแล้วไปแก้ไขค่าที่
-                  // ตั้งไว้แล้วก็ได้ ไม่ใช่แค่ตั้งใหม่ครั้งแรก)
+                  // ลิงก์ไปหน้าเลขมิเตอร์ต้นรอบเสมอ — เดือนของรอบปัจจุบันตัดออกจาก
+                  // dropdown แล้ว (คนละแนวคิดกับฟอร์มนี้) โชว์เป็นลิงก์เล็กๆ เสมอ กดแก้ไขได้
+                  // ไม่ว่าจะเคยตั้งมาก่อนแล้วหรือยัง
                   InkWell(
                     onTap: _goSetStartMeter,
                     borderRadius: BorderRadius.circular(8),
@@ -1042,9 +964,7 @@ Widget _infoWarningBox(String text) {
 }
 
 // ==================== รายการบิลย้อนหลัง (แก้ไข/ลบได้) ====================
-// อธิบายภาพรวมของหน้า "บันทึกบิลย้อนหลัง" ไว้ที่ AppBar ของหน้ารายการเลย
-// (ไม่ใช่แค่ในฟอร์มเพิ่ม/แก้ไข) เพราะเดิมผู้ใช้ต้องกดปุ่ม + ก่อนถึงจะเห็น
-// คำอธิบาย ถ้ายังไม่เคยกรอกมาก่อนจะไม่รู้เลยว่าต้องกรอกอะไร
+// อธิบายภาพรวมของหน้าไว้ที่ AppBar ของหน้ารายการเลย ไม่ต้องรอกดปุ่ม + ก่อนถึงจะเห็นคำอธิบาย
 void _showHistoricalBillInfoPopup(BuildContext context) {
   showInfoDialog(
     context,
@@ -1120,8 +1040,7 @@ class _HistoricalBillListScreenState
     final user = await widget.firestoreService.getUser(widget.uid);
     final all = await widget.firestoreService.getBills(widget.uid);
     // โชว์ทั้งบิลที่กรอกเองในหน้านี้ (imported) และบิลที่ auto-create มาจาก
-    // หน้า "เลขมิเตอร์ต้นรอบ" (startMeter) — ตัวหลังยังต้องโชว์ในลิสต์
-    // เหมือนเดิม แค่แก้ไข/ลบตรงนี้ไม่ได้ (ดู _isStartMeterBill + onRowTap)
+    // หน้าเลขมิเตอร์ต้นรอบ (startMeter) — ตัวหลังแก้ไข/ลบตรงนี้ไม่ได้ (ดู _isStartMeterBill + onRowTap)
     final relevant = all
         .where((b) => b.source == 'imported' || b.source == 'startMeter')
         .toList();
@@ -1135,24 +1054,19 @@ class _HistoricalBillListScreenState
     }
   }
 
-  // เดือนของรอบปัจจุบัน (รอบเดียวกับที่หน้า "เลขมิเตอร์ต้นรอบ" ใช้) — บิลของ
-  // เดือนนี้ไม่ได้เกิดจากการกรอกในฟอร์มนี้เลย (ตัด option ออกจาก dropdown
-  // ไปแล้ว) แต่มาจากการตั้งเลขมิเตอร์ต้นรอบแทน ยังโชว์ในลิสต์นี้ตามปกติ
-  // (source ก็ 'imported' เหมือนกัน) แต่กด "แก้ไข" ต้องพาไปฟอร์มที่ถูกต้อง
+  // เดือนของรอบปัจจุบัน (รอบเดียวกับหน้าเลขมิเตอร์ต้นรอบ) — ไม่ได้เกิดจากฟอร์มนี้
+  // แต่โชว์ในลิสต์ตามปกติ กด "แก้ไข" ต้องพาไปฟอร์มที่ถูกต้องแทน
   bool _isCurrentCycleBill(BillModel bill) {
     final m = _generateHistoricalMonthOptions(_billingDay).first;
     return bill.year == m.year && bill.month == m.month;
   }
 
-  // บิลที่มาจากหน้า "เลขมิเตอร์ต้นรอบ" (ไม่ใช่กรอกเองในหน้านี้) — แก้ไข/ลบ
-  // ตรงนี้ไม่ได้ เพราะจะทำให้ BillModel กับ StartMeterRecordModel (เลข
-  // มิเตอร์สะสม) ไม่ตรงกัน ต้องไปจัดการที่หน้าเลขมิเตอร์ต้นรอบแทนเท่านั้น
+  // บิลที่มาจากหน้าเลขมิเตอร์ต้นรอบ แก้ไข/ลบตรงนี้ไม่ได้ เพราะจะทำให้ BillModel
+  // กับ StartMeterRecordModel (เลขมิเตอร์สะสม) ไม่ตรงกัน ต้องไปจัดการที่หน้าเลขมิเตอร์ต้นรอบแทน
   bool _isStartMeterBill(BillModel bill) => bill.source == 'startMeter';
 
-  // พาไปหน้า/ฟอร์มที่ถูกต้องสำหรับแก้ไขบิลที่มาจากเลขมิเตอร์ต้นรอบ — ถ้า
-  // เป็นรอบปัจจุบัน (ยังไม่ปิดรอบ) เปิดฟอร์มแก้ไขตรงๆ ได้เลย ถ้าเป็นรอบเก่า
-  // ที่ปิดไปแล้ว ฟอร์มนั้นแก้ไขรอบเก่าไม่ได้ (คำนวณ delta ใหม่ไม่ถูกต้อง)
-  // พาไปหน้าประวัติเลขมิเตอร์ต้นรอบแทน ให้จัดการที่นั่น (ดู/ลบได้)
+  // พาไปหน้า/ฟอร์มที่ถูกต้องสำหรับแก้ไขบิลที่มาจากเลขมิเตอร์ต้นรอบ — รอบปัจจุบัน
+  // เปิดฟอร์มแก้ไขตรงๆ ได้เลย รอบเก่าที่ปิดไปแล้วคำนวณ delta ใหม่ไม่ถูกต้อง พาไปหน้าประวัติแทน
   Future<void> _goToStartMeterFor(BillModel bill) async {
     if (_isCurrentCycleBill(bill)) {
       await _openStartMeterSheet();
@@ -1167,12 +1081,9 @@ class _HistoricalBillListScreenState
     }
   }
 
-  // หน้านี้มีไว้กรอกบิลย้อนหลัง "ก่อนสมัครใช้แอป" เท่านั้น เหลือขอบเขตแค่ 5
-  // เดือน (เดิม 6 เดือน แต่ตัดเดือนของรอบปัจจุบันออกจาก dropdown ไปแล้ว เพราะ
-  // เป็นรอบเดียวกับเลขมิเตอร์ต้นรอบ ดู _generateMonthOptions) พอกรอกครบทั้ง 5
-  // เดือนแล้ว ปุ่ม (+) ไม่มีที่ให้เพิ่มต่อแล้วจริงๆ (กดไปก็จะเจอแค่ข้อความ
-  // "เดือนนี้มีบิลบันทึกไว้แล้ว" ทุกเดือน) ซ่อนปุ่มไปเลยดีกว่าปล่อยให้กดแล้วงง
-  // — ยังแก้ไข/ลบรายการเดิมได้ตามปกติผ่านการแตะแถวในตาราง
+  // หน้านี้มีไว้กรอกบิลย้อนหลัง "ก่อนสมัครใช้แอป" เท่านั้น ขอบเขตแค่ 5 เดือน
+  // (ตัดเดือนของรอบปัจจุบันออกจาก dropdown แล้ว ดู _generateMonthOptions) พอกรอกครบ
+  // ซ่อนปุ่ม (+) เพราะกดไปก็จะเจอแค่ "เดือนนี้มีบิลบันทึกไว้แล้ว" ทุกเดือน — แก้ไข/ลบเดิมได้ตามปกติ
   bool get _allSixMonthsRecorded {
     final options = _generateHistoricalMonthOptions(_billingDay).skip(1);
     final taken =
@@ -1182,9 +1093,7 @@ class _HistoricalBillListScreenState
   }
 
   Future<void> _openSheet({BillModel? existingBill}) async {
-    // บิลของรอบปัจจุบันไม่ได้เกิดจากฟอร์มนี้ (ตัดออกจาก dropdown ไปแล้ว)
-    // กด "แก้ไข" ต้องพาไปฟอร์มเลขมิเตอร์ต้นรอบตัวจริงแทน ไม่งั้นจะเปิดฟอร์ม
-    // นี้ขึ้นมาเจอช่อง "หน่วยที่ใช้" ที่ไม่มีทางกรอกได้ถูกต้องสำหรับเดือนนี้
+    // บิลของรอบปัจจุบันไม่ได้เกิดจากฟอร์มนี้ กด "แก้ไข" ต้องพาไปฟอร์มเลขมิเตอร์ต้นรอบตัวจริงแทน
     if (existingBill != null && _isCurrentCycleBill(existingBill)) {
       await _openStartMeterSheet();
       return;
@@ -1265,8 +1174,7 @@ final confirmed = await showConfirmDialog(
               child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
           : Column(
               children: [
-                // การ์ดสรุปด้านบน — แยกแสดงตามแท็บที่เลือก (ไฟฟ้า/ประปา)
-                // สไตล์เดียวกับแถบสรุปในหน้าประวัติมิเตอร์ไฟฟ้า/ประปา
+                // การ์ดสรุปด้านบน — สไตล์เดียวกับแถบสรุปในหน้าประวัติมิเตอร์ไฟฟ้า/ประปา
                 Builder(builder: (context) {
                   final isWater = _tabController.index == 1;
                   final accent = isWater ? Colors.blue : Colors.orange;
@@ -1358,8 +1266,7 @@ final confirmed = await showConfirmDialog(
     required IconData emptyIcon,
     required double Function(BillModel) usedOf,
     required double Function(BillModel) costOf,
-    // TOU: โชว์ On-Peak/Off-Peak ที่กรอกไว้แยกกันแทนคอลัมน์ "หน่วยที่ใช้"
-    // เดียว (ใช้เฉพาะแท็บไฟฟ้า แท็บน้ำไม่ส่ง param นี้เข้ามาเลย)
+    // TOU: โชว์ On-Peak/Off-Peak แยกกันแทนคอลัมน์ "หน่วยที่ใช้" เดียว (เฉพาะแท็บไฟฟ้า)
     bool isTouTable = false,
   }) {
     final formatter = NumberFormat('#,##0.00');
@@ -1409,9 +1316,8 @@ final confirmed = await showConfirmDialog(
                     ? formatter.format(b.electricityOffPeakUsed)
                     : '-';
               case 3:
-                // หน่วยที่ใช้ (รวม) = On-Peak + Off-Peak เสมอ (มาจาก
-                // electricityUsed ตรงๆ ซึ่งเป็นค่าเดียวกับที่หน้าวิเคราะห์
-                // ใช้เปรียบเทียบอยู่แล้ว ไม่ใช่ค่าคำนวณใหม่แยกต่างหาก)
+                // หน่วยที่ใช้ (รวม) = On-Peak + Off-Peak เสมอ (มาจาก electricityUsed
+                // ตรงๆ ค่าเดียวกับที่หน้าวิเคราะห์ใช้)
                 return b.electricityUsed > 0
                     ? formatter.format(b.electricityUsed)
                     : '-';
@@ -1432,11 +1338,9 @@ final confirmed = await showConfirmDialog(
         },
         onRowTap: (row) {
           final b = bills[row];
-          // บิลที่มาจากหน้า "เลขมิเตอร์ต้นรอบ" (source == 'startMeter') แก้ไข/
-          // ลบตรงนี้ไม่ได้ (ดู _isStartMeterBill ด้านบน) — เดิม onRowTap ไม่ได้
-          // เช็คจุดนี้เลย ทำให้บิล startMeter ของรอบเก่าที่ปิดไปแล้วยังหลุดเข้า
-          // ไปเปิดฟอร์มบันทึกบิลย้อนหลังได้ (คำนวณ delta ผิด) ตอนนี้ล็อกไว้แทน
-          // แล้วพาไปหน้าที่ถูกต้องผ่าน _goToStartMeterFor
+          // บิลที่มาจากหน้าเลขมิเตอร์ต้นรอบ (source == 'startMeter') แก้ไข/ลบตรงนี้ไม่ได้
+          // (ดู _isStartMeterBill) — ล็อกไว้กันเปิดฟอร์มบันทึกบิลย้อนหลังแล้วคำนวณ delta ผิด
+          // พาไปหน้าที่ถูกต้องผ่าน _goToStartMeterFor แทน
           if (_isStartMeterBill(b)) {
             showTableRowActions(
               context,

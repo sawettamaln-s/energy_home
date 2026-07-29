@@ -28,23 +28,15 @@ import '../../widgets/tab_chip.dart';
 import '../auth/auth_gate.dart';
 import '../dashboard/dashboard_styles.dart';
 
-// ไฟล์นี้เดิมยาว 4,633 บรรทัด รวม 12 คลาสไว้ในไฟล์เดียว (settings หลัก,
-// ประวัติบิลย้อนหลัง, ประวัติไฟฟ้า/น้ำ, ประวัติมิเตอร์ต้นรอบ, Fixed Cost,
-// หน้าอธิบายอัตราค่าไฟ/น้ำ) แก้ไข/หาอะไรทีต้องเลื่อนหาเป็นพันบรรทัด
-//
-// แยกออกเป็นไฟล์ย่อยตามหน้าที่ด้วย part/part of (ไม่ใช้ export คลาสเป็น
-// public เพราะคลาสพวกนี้เป็น implementation detail ของหน้า Settings ล้วนๆ
-// ไม่มีที่อื่นในแอปเรียกใช้ตรงๆ — part ทำให้ยังอ้างอิงกันเหมือนอยู่ไฟล์
-// เดียวได้ปกติ ไม่ต้องเปลี่ยนชื่อคลาสเป็น public หรือ import ซ้ำในแต่ละไฟล์)
+// แยกเป็นไฟล์ย่อยตามหน้าที่ด้วย part/part of แทนคลาส public เพราะเป็น
+// implementation detail ของหน้า Settings ล้วนๆ ไม่มีที่อื่นเรียกใช้ตรงๆ
 part 'settings_bill_history.dart'; // เพิ่ม/แก้ไข/ดูรายการบิลย้อนหลัง
 part 'settings_fixed_cost.dart'; // รายการค่าใช้จ่ายคงที่
 part 'settings_rate_explanation.dart'; // อธิบายอัตราค่าไฟฟ้า/น้ำ (ไฟฟ้า+น้ำ)
 part 'settings_start_meter.dart'; // บันทึก + ประวัติมิเตอร์ต้นรอบ
 part 'settings_utility_log.dart'; // ประวัติมิเตอร์ไฟฟ้า/น้ำที่บันทึกแต่ละวัน
 
-// ทางลัดเปิดหน้าย่อยทันทีตอนเข้าหน้าตั้งค่า (ใช้จากหน้าเช็คลิสหลัง setup —
-// setup_complete_screen.dart — เพื่อให้แตะรายการแล้วพาไปตั้งค่าเรื่องนั้นๆ
-// ตรงๆ แทนที่จะต้องมาไล่หาเองในหน้าตั้งค่า)
+// ทางลัดเปิดหน้าย่อยทันทีตอนเข้าหน้าตั้งค่า (ใช้จากหน้าเช็คลิสหลัง setup)
 enum SettingsQuickAction { billingDay, startMeter, historicalBills }
 
 class SettingsScreen extends StatefulWidget {
@@ -84,11 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     for (final t in NotificationService.notificationTypes) t: true,
   };
 
-  // -------------------------------------------------------------------
-  // สีของหน้าตั้งค่า — ใช้เขียวเดียวกันทุกหมวดเหมือนเดิม (ลองแยกสีตาม
-  // หมวดไปแล้วแต่พอดีอยากได้เขียวเหมือนเดิมมากกว่า) เก็บเป็น constant
-  // ไว้จุดเดียวเผื่ออยากเปลี่ยนสีทีหลัง ไม่ต้องไล่แก้ทีละจุด
-  // -------------------------------------------------------------------
+  // สีของหน้าตั้งค่า — เขียวเดียวกันทุกหมวด เก็บเป็น constant จุดเดียวเผื่อเปลี่ยนทีหลัง
   static const Color _sectionColor = DashboardStyles.primaryGreen;
 
   // กันไม่ให้ auto-open หน้า Fixed Cost ซ้ำ ถ้า _loadUser ถูกเรียกอีกครั้ง
@@ -121,11 +109,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() => _notificationStatus = status);
   }
 
-  // เปิด: ถ้ายังไม่เคยขอสิทธิ์มาก่อนขอผ่าน dialog ของระบบได้เลย แต่ถ้าเคย
-  // กดปฏิเสธถาวรไปแล้ว (permanentlyDenied) ระบบจะไม่ยอมเด้ง dialog ขอซ้ำ
-  // ให้อีก ต้องพาไปหน้าตั้งค่าเครื่องเพื่อเปิดเอง
-  // ปิด: iOS/Android ไม่มี API ให้แอปถอนสิทธิ์ตัวเองได้ ต้องพาไปหน้าตั้งค่า
-  // เครื่องเหมือนกัน (อธิบายให้ผู้ใช้เข้าใจก่อนผ่าน popup กันงง)
+  // เปิด: ขอ permission dialog ได้เลยถ้ายังไม่เคยกดปฏิเสธถาวร ถ้าเคยปฏิเสธถาวร
+  // (permanentlyDenied) ต้องพาไปหน้าตั้งค่าเครื่อง — ปิด: iOS/Android ไม่มี API
+  // ให้แอปถอนสิทธิ์ตัวเองได้ ต้องพาไปหน้าตั้งค่าเครื่องเหมือนกัน
   Future<void> _toggleNotification(bool turnOn) async {
     if (turnOn && _notificationStatus != PermissionStatus.permanentlyDenied) {
       await NotificationService.instance.requestPermission();
@@ -133,9 +119,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    // เปิดไม่ได้จากในแอปแล้ว (เคยปฏิเสธถาวร) หรือกำลังจะปิด — ทั้งสองกรณี
-    // ต้องพาไปหน้าตั้งค่าเครื่องเท่านั้น เลยรวม popup ไว้ด้วยกัน แค่เปลี่ยน
-    // ข้อความอธิบายตามบริบท
+    // เปิดไม่ได้จากในแอปแล้ว หรือกำลังจะปิด — ทั้งสองกรณีต้องพาไปหน้าตั้งค่าเครื่อง
+    // รวม popup ไว้ด้วยกัน แค่เปลี่ยนข้อความตามบริบท
     if (!mounted) return;
     await showDialog(
       context: context,
@@ -204,18 +189,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // เหตุที่ "ออกจากระบบ" เดิมกดแล้วไม่ออก: main.dart มี StreamBuilder
-  // ฟัง authStateChanges() อยู่ที่ root แต่พอเรา Navigator.pushReplacement
-  // ไปหน้าอื่นๆ (Dashboard/Settings/...) มันไปแทนที่ตัว StreamBuilder นั้น
-  // ในสแต็กเลย ทำให้ไม่มีอะไรเหลือคอยฟังว่า user ออกจากระบบแล้ว
-  // วิธีแก้: หลัง signOut ให้ push ไปหน้า Login ตรงๆ พร้อมเคลียร์
-  // ประวัติหน้าจอเก่าทั้งหมดทิ้ง (pushAndRemoveUntil)
-  //
-  // อัปเดต: เดิม push ไปแค่ LoginScreen() เปล่าๆ ทำให้หลัง login ใหม่
-  // ไม่มีตัวฟัง auth state เหลืออยู่เลย (เพราะ push ไปแทนที่ StreamBuilder
-  // จนหลุดจาก tree ไปแล้วตั้งแต่ตอนสลับแท็บ) เป็นเหตุให้ login ใหม่ไม่
-  // พาไป Dashboard ให้ ค้างอยู่หน้า Login เฉยๆ — ต้อง push ไปที่ AuthGate()
-  // แทน เพราะ AuthGate มี StreamBuilder ของตัวเองสดๆติดไปด้วยทุกครั้ง
+  // เดิม "ออกจากระบบ" กดแล้วไม่ออก เพราะ main.dart มี StreamBuilder ฟัง authStateChanges()
+  // อยู่ที่ root แต่พอ push ไปหน้าอื่นมันไปแทนที่ StreamBuilder นั้นในสแต็กเลย เหลือไม่มี
+  // อะไรฟัง auth state — ต้อง push ไปที่ AuthGate() (มี StreamBuilder ของตัวเอง) พร้อมเคลียร์
+  // ประวัติหน้าจอทิ้งทั้งหมด (pushAndRemoveUntil) ไม่ใช่ push ไป LoginScreen() เปล่าๆ
   Future<void> _confirmSignOut() async {
     final confirmed = await showConfirmDialog(
       context,
@@ -234,16 +211,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ==================== ลบบัญชี + ข้อมูลทั้งหมด (PDPA) ====================
-  // ลำดับขั้นตอนตั้งใจเรียงแบบนี้:
-  // 1) ยืนยันครั้งแรก อธิบายผลที่จะเกิดขึ้นให้ชัดว่าลบอะไรบ้าง กู้คืนไม่ได้
-  // 2) ขอรหัสผ่าน reauthenticate — Firebase บังคับ requires-recent-login
-  //    สำหรับ operation อ่อนไหวแบบลบบัญชีอยู่แล้ว ถ้า session login ค้างไว้
-  //    นานจะโดน FirebaseAuthException 'requires-recent-login' ทันทีถ้าข้าม
-  //    ขั้นตอนนี้ไป
-  // 3) ลบข้อมูลใน Firestore ก่อน แล้วค่อยลบบัญชี Auth เป็นลำดับสุดท้าย
-  //    (ถ้าลบบัญชี Auth ก่อนแล้วลบ Firestore ไม่สำเร็จ จะไม่มีทาง sign-in
-  //    กลับมาลบข้อมูลที่เหลือได้อีก เพราะบัญชีหายไปแล้ว กลายเป็นข้อมูล
-  //    กำพร้าค้างอยู่ถาวร)
+  // ลำดับ: 1) ยืนยัน+อธิบายผล 2) ขอรหัสผ่าน reauthenticate (Firebase บังคับ
+  // requires-recent-login สำหรับ operation อ่อนไหวแบบนี้) 3) ลบข้อมูลใน Firestore
+  // ก่อนแล้วค่อยลบบัญชี Auth ทีหลังสุด (สลับลำดับแล้วลบ Firestore ไม่สำเร็จ
+  // จะไม่มีทาง sign-in กลับมาลบข้อมูลที่เหลือได้อีก)
   Future<void> _confirmDeleteAccount() async {
     final confirmed = await showConfirmDialog(
       context,
@@ -394,9 +365,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildDataCard(),
                   const SizedBox(height: 24),
 
-                  // การแจ้งเตือน — เดิมฝังอยู่ท้าย "ตั้งค่าระบบ" ย้ายออกมา
-                  // เป็นหมวดแยกตามที่ขอ เพราะเป็นเรื่องคนละประเภทกับการตั้งค่า
-                  // ตัวเลข/รอบบิล
+                  // การแจ้งเตือน — แยกเป็นหมวดของตัวเอง เพราะคนละเรื่องกับตั้งค่าตัวเลข/รอบบิล
                   _buildSectionHeader('การแจ้งเตือน',
                       icon: Icons.notifications_active_rounded,
                       color: _sectionColor),
@@ -422,9 +391,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // โซนอันตราย — ลบบัญชี+ข้อมูลทั้งหมดถาวร (PDPA: สิทธิ
-                  // ขอให้ลบข้อมูลส่วนบุคคล) แยกเป็นการ์ดขอบแดงต่างหาก
-                  // ไม่ปนกับหมวดอื่น กันกดโดนโดยไม่ตั้งใจ
+                  // โซนอันตราย — ลบบัญชี+ข้อมูลทั้งหมดถาวร (PDPA: สิทธิขอให้ลบข้อมูล
+                  // ส่วนบุคคล) แยกเป็นการ์ดขอบแดงต่างหาก กันกดโดนโดยไม่ตั้งใจ
                   _buildSectionHeader('โซนอันตราย',
                       icon: Icons.warning_amber_rounded, color: Colors.red),
                   _buildDangerZoneCard(),
@@ -440,10 +408,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // -------------------------------------------------------------------
   // บาร์ล่างแบบ floating pill — เหมือนกันทุกหน้า (วางโค้ดนี้ก๊อปไว้ทุกไฟล์)
   // -------------------------------------------------------------------
-  // แต่ละหมวดมีไอคอน + สีประจำหมวดของตัวเอง (เดิมเป็นตัวหนังสือสีเทาล้วน
-  // ทุกหมวดเหมือนกันหมด ดูเรียบไป) สีที่เลือกให้ไปในทิศทางเดียวกับสีที่
-  // ใช้อยู่แล้วในแอป: เขียว = สีหลักของระบบ, ส้ม = โทนเดียวกับมิเตอร์ไฟฟ้า,
-  // ฟ้า = โทนเดียวกับมิเตอร์น้ำ, ม่วง = สีใหม่สำหรับหมวดบัญชีผู้ใช้
+  // แต่ละหมวดมีไอคอน + สีประจำหมวด: เขียว = สีหลักของระบบ, ส้ม = โทนมิเตอร์ไฟฟ้า,
+  // ฟ้า = โทนมิเตอร์น้ำ, ม่วง = หมวดบัญชีผู้ใช้
   Widget _buildSectionHeader(
     String title, {
     required IconData icon,
@@ -638,16 +604,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // -------------------------------------------------------------------
-  // การ์ดการแจ้งเตือน — แยกออกมาจาก _buildSettingsCard เดิม (ก่อนหน้านี้
-  // ฝังเป็น ListTile สุดท้ายของหมวด "ตั้งค่าระบบ") ให้เป็นหมวดของตัวเอง
-  // เพราะเป็นเรื่องสิทธิ์การแจ้งเตือนของเครื่อง คนละประเภทกับตัวเลข/รอบบิล
-  //
-  // สวิตช์บนสุดคุม "สิทธิ์แจ้งเตือนของเครื่อง" (ทั้งหมด) ส่วน 4 toggle ย่อย
-  // ด้านล่างคุมว่าอยากรับแจ้งเตือน "ประเภทไหนบ้าง" — ถ้าสวิตช์บนปิดอยู่
-  // toggle ย่อยจะกดไม่ได้ (เพราะไม่มีสิทธิ์แจ้งเตือนอยู่แล้วไม่ว่าจะตั้ง
-  // ประเภทไหนไว้ก็ไม่มีผล) ให้ดูจางลงกันสับสน
-  // -------------------------------------------------------------------
+  // การ์ดการแจ้งเตือน — แยกเป็นหมวดของตัวเอง เพราะเป็นเรื่องสิทธิ์การแจ้งเตือน
+  // ของเครื่อง คนละประเภทกับตัวเลข/รอบบิล — สวิตช์บนสุดคุมสิทธิ์แจ้งเตือนของเครื่อง
+  // ทั้งหมด ส่วน 4 toggle ย่อยด้านล่างคุมประเภทที่อยากรับ ถ้าสวิตช์บนปิด toggle
+  // ย่อยจะกดไม่ได้ (ไม่มีสิทธิ์แจ้งเตือนอยู่แล้วไม่ว่าตั้งประเภทไหนไว้ก็ไม่มีผล)
   Widget _buildNotificationCard() {
     final granted = _notificationStatus == PermissionStatus.granted;
     return Container(
@@ -800,9 +760,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _showUtilityHistory(),
           ),
           const Divider(height: 1, indent: 56),
-          // ให้ผู้ใช้เข้าใจว่าตัวเลขในบิลที่แอปคำนวณให้มาจากไหน — โชว์
-          // ตารางอัตราขั้นบันได/TOU และคำอธิบาย Ft/VAT/ค่าน้ำขั้นต่ำแบบ
-          // อ่านง่าย ตามเกณฑ์ (พื้นที่ + ประเภทมิเตอร์) ที่ผู้ใช้ตั้งไว้จริง
+          // ให้ผู้ใช้เข้าใจว่าตัวเลขในบิลมาจากไหน — โชว์ตารางอัตราขั้นบันได/TOU
+          // และคำอธิบาย Ft/VAT/ค่าน้ำขั้นต่ำ ตามเกณฑ์ที่ผู้ใช้ตั้งไว้จริง
           _buildSettingsTile(
             icon: Icons.calculate_outlined,
             title: 'อัตราค่าไฟฟ้า / น้ำ คำนวณยังไง',
@@ -815,9 +774,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // โซนอันตราย: ลบบัญชี + ข้อมูลทั้งหมดถาวร
-  // ทำเป็นการ์ดขอบแดงแยกจาก _buildDataCard ตั้งใจ — ไม่ให้ปุ่มทำลายล้าง
-  // แบบนี้ไปปนกับ tile ธรรมดาที่กดแล้วแค่เปิดดูข้อมูล ลดโอกาสกดพลาด
+  // โซนอันตราย: ลบบัญชี + ข้อมูลทั้งหมดถาวร — แยกการ์ดขอบแดงจาก _buildDataCard
+  // ตั้งใจ ไม่ให้ปุ่มทำลายล้างปนกับ tile ธรรมดา ลดโอกาสกดพลาด
   Widget _buildDangerZoneCard() {
     return Container(
       decoration: BoxDecoration(
@@ -919,10 +877,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // -------------------------------------------------------------------
-  // popup อธิบายสั้นๆ แบบ "ห้อย" ใต้หัวข้อ — ใช้ซ้ำได้กับ popup อื่นที่ต้อง
-  // มีคำอธิบายประกอบ (เช่น Fixed Cost ในอนาคต) เลยแยกเป็นฟังก์ชันกลางไว้
-  // -------------------------------------------------------------------
+  // popup อธิบายสั้นๆ แบบ "ห้อย" ใต้หัวข้อ — ฟังก์ชันกลางใช้ซ้ำได้กับ popup อื่น
   void _showInfoPopup(String title, String message) {
     showInfoDialog(context, title: title, message: message);
   }
@@ -1110,11 +1065,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // เดิม Fixed Cost เป็นแค่ช่องกรอกยอดเดียว เปลี่ยนเป็นหน้าแยกที่บันทึก
-  // เป็นรายการย่อยได้ (ค่าแก๊ส, อินเทอร์เน็ต ฯลฯ) — ดู _FixedCostScreen
-  // ด้านล่างของไฟล์ ส่วนยอดรวมยังถูก sync เข้า _user.fixedCost เหมือนเดิม
-  // เลย reload _loadUser() ทุกครั้งที่กลับจากหน้านั้น เพื่อให้ subtitle ในการ์ด
-  // ตั้งค่าอัปเดตตามยอดล่าสุด
+  // เดิม Fixed Cost เป็นช่องกรอกยอดเดียว เปลี่ยนเป็นหน้าแยกที่บันทึกเป็นรายการย่อยได้
+  // (ค่าแก๊ส, อินเทอร์เน็ต ฯลฯ) — ดู _FixedCostScreen ยอดรวมยัง sync เข้า _user.fixedCost
+  // เหมือนเดิม เลย reload _loadUser() ทุกครั้งที่กลับจากหน้านั้น
   Future<void> _showEditFixedCost() async {
     await Navigator.push(
       context,

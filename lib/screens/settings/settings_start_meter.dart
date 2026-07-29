@@ -1,17 +1,14 @@
 part of 'settings_screen.dart';
 
-// ใบแจ้งหนี้ล่าสุดที่ควรใช้เป็นต้นรอบตอนนี้ คำนวณจาก billingDay จริงของ user (ไม่ใช่เดือนปฏิทิน)
-// สูตรเดียวกับ dashboard_screen.dart: bill.month ของรอบที่เพิ่งปิด = getCycleStart(now, billingDay).month
-// (ห้ามใช้ getPreviousCycleStart ซ้อนอีกชั้น จะได้เดือนเก่ากว่าที่ควร 1 รอบ)
+// ใบแจ้งหนี้ล่าสุดที่ควรใช้เป็นต้นรอบตอนนี้ คำนวณจาก billingDay จริงของ user
+// สูตรเดียวกับ dashboard_screen.dart (ห้ามใช้ getPreviousCycleStart ซ้อนอีกชั้น จะได้เดือนเก่ากว่าที่ควร)
 DateTime _expectedInvoiceMonth(int billingDay) {
   final now = DateTime.now();
   return EnergyForecaster.getCycleStart(now, billingDay);
 }
 
-// แถวเดียวของการ์ดสรุป "เดือนก่อน -> ตอนนี้ = ใช้ไปกี่หน่วย" (ดู
-// _eUsageSummary/_wUsageSummary ใน _AddStartMeterSheetState) — label เป็น
-// null สำหรับกรณีปกติที่มีแค่คู่เดียว (น้ำ, ไฟไม่ใช่ TOU) ใช้ label เมื่อ
-// ต้องแยกแสดง On-Peak/Off-Peak เป็นคนละแถว
+// แถวเดียวของการ์ดสรุป "เดือนก่อน -> ตอนนี้ = ใช้ไปกี่หน่วย" — label เป็น null
+// สำหรับกรณีปกติ (คู่เดียว) ใช้ label เมื่อต้องแยกแสดง On-Peak/Off-Peak
 class _MeterDeltaRow {
   final String? label;
   final double prevVal;
@@ -44,9 +41,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   final _offPeakCtrl = TextEditingController();
   final _wCtrl = TextEditingController();
 
-  // ค่าใช้จ่ายของบิลล่าสุด จับคู่กับเลขมิเตอร์ต้นรอบของยูทิลิตี้เดียวกัน
-  // กรอกเลขมิเตอร์ไฟต้องกรอกค่าไฟด้วย (หรือเว้นว่างทั้งคู่) เช่นเดียวกับน้ำ
-  // กติกาอยู่ที่ StartMeterValidation (widgets/start_meter_fields.dart)
+  // ค่าใช้จ่ายของบิลล่าสุด จับคู่กับเลขมิเตอร์ต้นรอบของยูทิลิตี้เดียวกัน (กรอกเลขมิเตอร์
+  // ต้องกรอกค่าใช้จ่ายด้วย หรือเว้นว่างทั้งคู่ — กติกาอยู่ที่ StartMeterValidation)
   final _eCostCtrl = TextEditingController();
   final _wCostCtrl = TextEditingController();
   // ช่อง "หน่วยที่ใช้ไปแล้ว" — โชว์เฉพาะตอนตั้งค่าครั้งแรกสุดของยูทิลิตี้นั้น
@@ -102,11 +98,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       });
     }
 
-    // คำนวณ "ค่าใช้จ่าย" อัตโนมัติตามอัตรา ทุกครั้งที่ช่องหน่วย/เลขมิเตอร์ที่
-    // เกี่ยวข้องเปลี่ยน (ทั้งกรณีครั้งแรกสุด A: กรอกหน่วยที่ใช้ไปแล้วตรงๆ
-    // และกรณีรอบถัดไป B: กรอกแค่เลขมิเตอร์สะสมแล้วคำนวณ delta จากรอบก่อน
-    // หน้า) — ผู้ใช้ยังแก้ค่าที่คำนวณได้เองอยู่ดี เพราะช่อง _eCostCtrl/
-    // _wCostCtrl ไม่ได้ถูก disable แค่ auto-fill ให้เฉยๆ
+    // คำนวณ "ค่าใช้จ่าย" อัตโนมัติทุกครั้งที่ช่องหน่วย/เลขมิเตอร์ที่เกี่ยวข้องเปลี่ยน
+    // (ทั้งกรณีครั้งแรกสุด และรอบถัดไปที่คำนวณ delta) — ผู้ใช้ยังแก้ค่าที่คำนวณได้เอง เพราะช่องไม่ถูก disable
     for (final c in [
       _eCtrl,
       _peakCtrl,
@@ -137,10 +130,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   }
 
   // คำนวณ "ค่าใช้จ่าย" ไฟฟ้าอัตโนมัติตามอัตรา (MEA/PEA ปกติ หรือ TOU)
-  // กรณี A (ครั้งแรกสุดของยูทิลิตี้นี้): ใช้หน่วยที่ผู้ใช้กรอกในช่อง
-  // "หน่วยที่ใช้ไปแล้ว" ตรงๆ (ผลรวม On-Peak/Off-Peak ถ้าเป็น TOU)
-  // กรณี B (มีรอบก่อนหน้าแล้ว): คำนวณหน่วยจาก delta ของเลขมิเตอร์สะสม
-  // (รอบนี้ - รอบก่อนหน้า) เหมือนตอนกด "บันทึก" จริงทุกประการ (ดู _save())
+  // กรณีครั้งแรกสุด: ใช้หน่วยที่กรอกในช่อง "หน่วยที่ใช้ไปแล้ว" ตรงๆ
+  // กรณีมีรอบก่อนหน้าแล้ว: คำนวณจาก delta ของเลขมิเตอร์สะสม เหมือนตอนกด "บันทึก" จริง (ดู _save())
   // ยังไม่กรอกหน่วย (หรือคำนวณ delta ไม่ได้) -> เซตค่าใช้จ่ายเป็น 0.00
   Future<void> _autoCalcElectricityCost() async {
     if (!mounted || _isLoading || _electricityNoBillYet) return;
@@ -249,14 +240,9 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         // หา record ล่าสุดในประวัติ เอา id มาใช้แก้ทับตอนบันทึก แทนการสร้างใหม่
         _editingRecordId = _history.isNotEmpty ? _history.first.id : null;
 
-        // prefill ค่าใช้จ่าย ถ้าเดือน/ปีนี้มีบิลบันทึกไว้แล้ว — ทำเฉพาะโหมด
-        // แก้ไขรอบปัจจุบันเท่านั้น (ตอนกลับมาแก้ไขค่าที่เพิ่งบันทึก) ห้ามรัน
-        // ตอนโหมดตั้งใหม่ ไม่งั้นถ้ามีบิลเก่าค้างของเดือนนี้อยู่ (ถูกสร้างจาก
-        // จุดอื่นโดยไม่มีเลขมิเตอร์ผูกมาด้วย) จะได้ค่าใช้จ่าย > 0 ทั้งที่เลข
-        // มิเตอร์ถูก clear เป็นค่าว่างไปแล้วในโหมดตั้งใหม่ (else ด้านล่าง)
-        // ทำให้ StartMeterValidation มองว่ายูทิลิตี้นั้น "กรอกครึ่งเดียวค้าง
-        // อยู่" (partial) แล้วบล็อกปุ่มบันทึกไปทั้งฟอร์ม แม้อีกยูทิลิตี้ที่
-        // ผู้ใช้กรอกจริงจะครบสมบูรณ์แล้วก็ตาม
+        // prefill ค่าใช้จ่าย เฉพาะโหมดแก้ไขรอบปัจจุบันเท่านั้น ห้ามรันตอนโหมดตั้งใหม่
+        // ไม่งั้นถ้ามีบิลเก่าค้างของเดือนนี้ (สร้างจากจุดอื่นโดยไม่มีเลขมิเตอร์ผูกมา) จะได้ค่าใช้จ่าย
+        // > 0 ทั้งที่เลขมิเตอร์ถูก clear เป็นค่าว่างแล้ว ทำให้ StartMeterValidation มองว่ากรอกค้างไว้ (partial)
         final existingBill = _existingBills.where(
             (b) => b.year == _selectedYear && b.month == _selectedMonth);
         if (existingBill.isNotEmpty) {
@@ -316,14 +302,10 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   bool get _wIsFirstEntry =>
       !_history.any((r) => r.id != _editingRecordId && r.waterValue > 0);
 
-  // หา record ก่อนหน้าที่ใกล้ที่สุด "ที่มีข้อมูลของยูทิลิตี้นั้นจริงๆ" (ไม่นับ
-  // ตัวที่กำลังแก้ไข) เอาไว้คำนวณหน่วยที่ใช้ไปในรอบที่เพิ่งปิด (delta)
-  // สำคัญ: ต้องกรองด้วย hasData ก่อนเสมอ ห้ามแค่หยิบ record ที่เดือนใกล้ที่สุด
-  // เฉยๆ เพราะบางรอบอาจมี record ถูกสร้างไว้ทั้งที่ยูทิลิตี้นี้ไม่มีค่าเลย
-  // (เช่นรอบนั้นกรอกแค่น้ำอย่างเดียว ไม่แตะไฟฟ้าเลย หรือเคยลบข้อมูลไฟฟ้า
-  // ของรอบนั้นทิ้งไปแล้วผ่าน _confirmDelete) ถ้าไม่กรองจะได้ record ที่
-  // electricityValue/peakValue/offPeakValue = 0 มาเป็น baseline ผิดๆ ทำให้
-  // เลขมิเตอร์สะสมทั้งก้อนถูกนับเป็น "หน่วยที่ใช้" แทนที่จะเป็นแค่ส่วนต่าง
+  // หา record ก่อนหน้าที่ใกล้ที่สุด "ที่มีข้อมูลของยูทิลิตี้นั้นจริงๆ" ไว้คำนวณ delta
+  // ต้องกรองด้วย hasData ก่อนเสมอ เพราะบางรอบอาจมี record ที่ยูทิลิตี้นี้ไม่มีค่าเลย
+  // (เช่นกรอกแค่น้ำ ไม่แตะไฟฟ้า หรือเคยลบทิ้งผ่าน _confirmDelete) ถ้าไม่กรองจะได้ค่า 0
+  // มาเป็น baseline ผิดๆ ทำให้เลขมิเตอร์สะสมทั้งก้อนถูกนับเป็น "หน่วยที่ใช้"
   StartMeterRecordModel? _previousRecordWhere(
       bool Function(StartMeterRecordModel r) hasData) {
     final candidates = _history.where((r) =>
@@ -339,8 +321,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     return list.first;
   }
 
-  // ไฟฟ้า: TOU เช็คจากคู่ peak/offPeak (electricityValue ไม่เคยถูกเซ็ตสำหรับ
-  // TOU), ปกติเช็คจาก electricityValue ตรงๆ — ใช้ตัวเดียวกับ _eIsFirstEntry
+  // ไฟฟ้า: TOU เช็คจากคู่ peak/offPeak (electricityValue ไม่เคยถูกเซ็ตสำหรับ TOU) — ใช้ตัวเดียวกับ _eIsFirstEntry
   StartMeterRecordModel? get _previousElectricityRecord =>
       _previousRecordWhere((r) => widget.isTou
           ? (r.peakValue > 0 || r.offPeakValue > 0)
@@ -350,24 +331,16 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       _previousRecordWhere((r) => r.waterValue > 0);
 
   // คำนวณ "หน่วยที่ใช้ไป" แบบ delta เดียวที่ใช้ร่วมกันทั้ง preview (ตอนพิมพ์)
-  // และตอนกด "บันทึก" จริง กันไม่ให้ตัวเลขที่โชว์ให้ผู้ใช้เห็นระหว่างพิมพ์
-  // กับตัวเลขที่ถูกเซฟลง Firestore จริงๆ ไม่ตรงกัน (เคยเป็นจุดบั๊ก: preview
-  // เรียก EnergyCalculator.calculateUsed() ตรงๆ ไม่มี guard แต่ _save() มี
-  // guard "previous > 0" เพิ่มมาอีกชั้น พอ previous เป็น 0 (เช่นจาก record
-  // ที่ไม่มีข้อมูลจริง) preview เลยโชว์หน่วย/ค่าใช้จ่ายพุ่งสูงผิดปกติ ทั้งที่
-  // ตอนเซฟจริงกลับได้ 0 หน่วย เพราะ guard บล็อกไว้ — ค่าที่โชว์กับค่าที่เซฟ
-  // เลยไม่ตรงกัน) previous <= 0 หมายถึง "ไม่มี baseline ที่เชื่อถือได้" จึง
-  // ถือว่ายังคำนวณ delta ไม่ได้ ต้องคืน 0 เสมอ ไม่ใช่เอาเลขสะสมทั้งก้อนมานับ
+  // คำนวณ "หน่วยที่ใช้ไป" แบบ delta เดียวใช้ร่วมกันทั้ง preview และตอนกด "บันทึก" จริง
+  // กันตัวเลขที่โชว์กับที่เซฟไม่ตรงกัน (บั๊กเดิม: preview ไม่มี guard แต่ _save() มี
+  // guard "previous > 0" พอ previous เป็น 0 preview จะโชว์ตัวเลขพุ่งผิดปกติ) previous <= 0
+  // หมายถึงไม่มี baseline ที่เชื่อถือได้ ต้องคืน 0 เสมอ
   double _deltaUsed(double current, double previous) =>
       previous > 0 ? EnergyCalculator.calculateUsed(current, previous) : 0;
 
-  // เช็คว่าเลขมิเตอร์ที่กรอกรอบนี้ "ต่ำกว่า" รอบก่อนหน้าไหม (เลขมิเตอร์สะสม
-  // ต้องเพิ่มขึ้นเรื่อยๆ เท่านั้น ห้ามน้อยกว่ารอบก่อน) — เดิมไม่มีการเช็คแบบนี้
-  // เลย ปล่อยให้ EnergyCalculator.calculateUsed() เงียบๆ ตีความว่าใช้ไป 0
-  // หน่วยถ้ากรอกน้อยกว่ารอบก่อน ซึ่งส่วนใหญ่เป็นการกรอกผิด (เผลอพิมพ์เลข
-  // มิเตอร์เก่า/พิมพ์ตกหลัก) ไม่ใช่ค่าที่ตั้งใจ — ใช้เตือนผู้ใช้แบบ live ใต้
-  // ฟอร์ม และกันไว้อีกชั้นก่อนกด "บันทึก" จริงใน _save()
-  // ไม่เช็คตอน isFirstEntry เพราะยังไม่มี record ก่อนหน้าให้เทียบเลย
+  // เช็คว่าเลขมิเตอร์ที่กรอกรอบนี้ "ต่ำกว่า" รอบก่อนหน้าไหม (เลขมิเตอร์สะสมต้องเพิ่มขึ้นเรื่อยๆ)
+  // ส่วนใหญ่เป็นการกรอกผิด (พิมพ์เลขเก่า/ตกหลัก) — ใช้เตือนแบบ live ใต้ฟอร์ม และกันไว้อีกชั้นใน _save()
+  // ไม่เช็คตอน isFirstEntry เพราะยังไม่มี record ก่อนหน้าให้เทียบ
   bool get _eBelowPrevious {
     final prev = _previousElectricityRecord;
     if (prev == null) return false;
@@ -388,10 +361,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     return wVal > 0 && wVal < prev.waterValue;
   }
 
-  // การ์ดสรุป "เดือนก่อน -> ตอนนี้ = ใช้ไปกี่หน่วย" ให้ผู้ใช้เช็คก่อนบันทึก
-  // จริงว่าหน่วยที่คำนวณได้ถูกไหม — โชว์เฉพาะรอบถัดๆ ไปที่มีรอบก่อนหน้าให้
-  // เทียบจริง (ไม่ใช่ isFirstEntry ซึ่งไม่มี baseline) ใช้ _deltaUsed() ตัว
-  // เดียวกับตอนกด "บันทึก" เป๊ะๆ กันตัวเลขที่โชว์กับที่เซฟไม่ตรงกัน
+  // การ์ดสรุป "เดือนก่อน -> ตอนนี้ = ใช้ไปกี่หน่วย" ให้เช็คก่อนบันทึกจริงว่าถูกไหม —
+  // โชว์เฉพาะรอบถัดๆ ไปที่มีรอบก่อนหน้าให้เทียบ ใช้ _deltaUsed() ตัวเดียวกับตอนกด "บันทึก" เป๊ะๆ
   Widget? get _eUsageSummary {
     if (_eIsFirstEntry) return null;
     final prev = _previousElectricityRecord;
@@ -435,10 +406,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     );
   }
 
-  // แถวที่ยังไม่กรอกเลขมิเตอร์รอบนี้ (currentVal <= 0) โชว์แค่ฝั่ง "เดือน
-  // ก่อน -> รอกรอก..." ค้างไว้ก่อน พอผู้ใช้พิมพ์เลขมิเตอร์ปุ๊บ ตัวเลข
-  // "ตอนนี้" กับ "ใช้ไปกี่หน่วย" จะขึ้นตามมาทันที (ทั้งไฟล์นี้ rebuild ทุก
-  // ครั้งที่คีย์บอร์ดพิมพ์ ผ่าน listener ของ controller ที่ setState อยู่แล้ว)
+  // แถวที่ยังไม่กรอกเลขมิเตอร์รอบนี้ (currentVal <= 0) โชว์แค่ฝั่ง "เดือนก่อน -> รอกรอก..."
+  // พอพิมพ์เลขมิเตอร์ปุ๊บ ตัวเลข "ตอนนี้"/"ใช้ไปกี่หน่วย" จะขึ้นตามทันที (rebuild ผ่าน listener ที่มีอยู่แล้ว)
   Widget _usageSummaryCard({
     required List<_MeterDeltaRow> rows,
     required String unit,
@@ -524,9 +493,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       setState(() => _generalError = true);
       return;
     }
-    // เลขมิเตอร์ต่ำกว่ารอบก่อนหน้า มักเป็นการกรอกผิด (เผลอพิมพ์เลขเก่า/พิมพ์
-    // ตกหลัก) — ไม่บล็อกเด็ดขาด เผื่อกรณีเปลี่ยนมิเตอร์ตัวใหม่จริงๆ ที่เลข
-    // เริ่มนับใหม่ต่ำกว่าตัวเก่าจริงๆ ได้ แต่ต้องให้ผู้ใช้ยืนยันก่อนเสมอ
+    // เลขมิเตอร์ต่ำกว่ารอบก่อนหน้า มักเป็นการกรอกผิด — ไม่บล็อกเด็ดขาด เผื่อเปลี่ยน
+    // มิเตอร์ตัวใหม่จริงๆ ที่เลขเริ่มนับใหม่ต่ำกว่าตัวเก่า แต่ต้องให้ยืนยันก่อนเสมอ
     if (_eBelowPrevious || _wBelowPrevious) {
       final confirm = await showConfirmDialog(
         context,
@@ -623,10 +591,8 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         // ถ้ากรอกค่าใช้จ่ายไว้ บันทึกเป็นบิลของรอบที่เพิ่งปิด ถ้าเดือนนี้มีบิลอยู่แล้วใช้ id เดิมอัปเดตทับ
         // บิลต้องมี electricityUsed/waterUsed ด้วย ไม่ใช่แค่ cost: ถ้ามี record ก่อนหน้าคำนวณ delta อัตโนมัติ
         // ถ้าเป็นครั้งแรกสุดใช้ค่าที่ผู้ใช้กรอกในช่อง "หน่วยที่ใช้ไปแล้ว" ตรงๆ
-        // แยก prev ของไฟฟ้ากับน้ำออกจากกัน (คนละ record ก่อนหน้ากันได้ ถ้ารอบใด
-        // รอบหนึ่งเคยกรอกแค่ยูทิลิตี้เดียว) กันไม่ให้หยิบ record ที่ไม่มีข้อมูล
-        // ของยูทิลิตี้นั้นมาเป็น baseline ผิดๆ (ดู _previousElectricityRecord /
-        // _previousWaterRecord ด้านบน)
+        // แยก prev ของไฟฟ้ากับน้ำออกจากกัน (คนละ record ก่อนหน้ากันได้) กันไม่ให้หยิบ
+        // record ที่ไม่มีข้อมูลของยูทิลิตี้นั้นมาเป็น baseline ผิดๆ (ดู _previousElectricityRecord / _previousWaterRecord)
         final prevE = _previousElectricityRecord;
         final prevW = _previousWaterRecord;
         double wUsed = _wIsFirstEntry ? wUsedInput : 0;
