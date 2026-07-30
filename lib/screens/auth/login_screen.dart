@@ -43,11 +43,8 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // เข้าสู่ระบบสำเร็จ — ต้อง pop กลับไปที่ AuthGate ที่ฐานสุดของ stack
-      // เอง (เมื่อก่อน Login คือเนื้อหาที่ AuthGate render ตรงๆ ไม่ได้ push
-      // เลยแค่รอ authStateChanges() แล้วปล่อยให้ AuthGate build ใหม่ก็พอ
-      // แต่ตอนนี้ Login ถูก push มาจากหน้า Welcome แล้ว ถ้าไม่ pop ออก
-      // หน้า Login จะค้างอยู่ทับ AuthGate ที่อัปเดตอยู่ข้างล่างไปเรื่อยๆ)
+      // เข้าสู่ระบบสำเร็จ — pop กลับไปที่ AuthGate (route แรกสุด) เอง เพราะ
+      // Login ถูก push มาจากหน้า Welcome ถ้าไม่ pop หน้า Login จะค้างทับอยู่
       if (mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
@@ -56,7 +53,8 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         switch (e.code) {
           case 'user-not-found':
-            _errorMessage = 'ไม่พบบัญชีผู้ใช้นี้ในระบบ กรุณาตรวจสอบอีเมลของคุณอีกครั้ง';
+            _errorMessage =
+                'ไม่พบบัญชีผู้ใช้นี้ในระบบ กรุณาตรวจสอบอีเมลของคุณอีกครั้ง';
             break;
           case 'wrong-password':
             _errorMessage = 'รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
@@ -95,8 +93,8 @@ class _LoginScreenState extends State<LoginScreen> {
           'เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     } catch (_) {
       if (!mounted) return;
-      setState(() => _errorMessage =
-          'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง');
+      setState(
+          () => _errorMessage = 'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
     }
@@ -141,7 +139,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (dialogError != null) ...[
                     const SizedBox(height: 8),
                     Text(dialogError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 13)),
+                        style:
+                            const TextStyle(color: Colors.red, fontSize: 13)),
                   ],
                 ],
               ),
@@ -184,13 +183,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               isSending = false;
                               switch (e.code) {
                                 case 'user-not-found':
-                                  dialogError = 'ไม่พบบัญชีผู้ใช้ที่ใช้อีเมลนี้';
+                                  dialogError =
+                                      'ไม่พบบัญชีผู้ใช้ที่ใช้อีเมลนี้';
                                   break;
                                 case 'invalid-email':
                                   dialogError = 'รูปแบบอีเมลไม่ถูกต้อง';
                                   break;
                                 default:
-                                  dialogError = 'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง';
+                                  dialogError =
+                                      'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง';
                               }
                             });
                           }

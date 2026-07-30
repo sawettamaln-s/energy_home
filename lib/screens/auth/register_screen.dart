@@ -42,13 +42,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     // เช็คว่า Password ตรงกันไหม
     if (_passwordController.text != _confirmPasswordController.text) {
-      setState(() => _errorMessage = 'รหัสผ่านที่กรอกไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง');
+      setState(() =>
+          _errorMessage = 'รหัสผ่านที่กรอกไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง');
       return;
     }
 
     // เช็คว่า Password ยาวพอไหม
     if (_passwordController.text.length < 6) {
-      setState(() => _errorMessage = 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+      setState(
+          () => _errorMessage = 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
       return;
     }
 
@@ -68,11 +70,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // บันทึกชื่อผู้ใช้
       await userCredential.user?.updateDisplayName(_nameController.text.trim());
 
-      // สมัครสำเร็จ — ต้องกลับไปให้ถึง AuthGate ที่ฐานสุดของ stack เสมอ
-      // (ไม่ใช่แค่ pop ทีเดียว) เพราะตอนนี้ Register อาจถูก push มาจาก
-      // Welcome ตรงๆ (1 ชั้น) หรือมาจาก Welcome -> Login -> Register (2
-      // ชั้น) ก็ได้ — pop ครั้งเดียวแบบเดิมจะกลับไปแค่หน้า Login เฉยๆ ไม่ถึง
-      // AuthGate ที่ StreamBuilder จะพาไปหน้า Setup ต่อให้อัตโนมัติ
+      // สมัครสำเร็จ — ต้อง popUntil กลับไปถึง AuthGate ที่ฐานสุดของ stack
+      // เพราะ Register อาจถูก push มาจาก Welcome ตรงๆ หรือ Welcome -> Login
+      // -> Register ก็ได้ pop ครั้งเดียวไม่พอ
       if (mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
@@ -87,7 +87,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจสอบอีเมลของคุณ';
             break;
           case 'weak-password':
-            _errorMessage = 'รหัสผ่านนี้ยังไม่ปลอดภัยพอ กรุณาตั้งรหัสผ่านที่คาดเดายากขึ้น';
+            _errorMessage =
+                'รหัสผ่านนี้ยังไม่ปลอดภัยพอ กรุณาตั้งรหัสผ่านที่คาดเดายากขึ้น';
             break;
           default:
             _errorMessage = 'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง';
@@ -120,8 +121,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     } catch (_) {
       if (!mounted) return;
-      setState(() => _errorMessage =
-          'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง');
+      setState(
+          () => _errorMessage = 'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
     }
@@ -204,8 +205,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     icon: Icon(_obscurePassword
                         ? Icons.visibility_off
                         : Icons.visibility),
-                    onPressed: () => setState(
-                        () => _obscurePassword = !_obscurePassword),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
               ),

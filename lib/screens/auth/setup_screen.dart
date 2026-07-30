@@ -28,17 +28,10 @@ class _SetupScreenState extends State<SetupScreen> {
       widget._firestoreService ?? FirestoreService();
 
   int _currentStep = 0;
-  // คงที่ 2 ขั้นตอนเสมอ: พื้นที่+อธิบายสูตรคำนวณ (รวมเป็นขั้นเดียว) /
-  // ประเภทมิเตอร์ (เดิมพื้นที่กับอธิบายสูตรคำนวณแยกกัน 2 ขั้น ตอนนี้รวมเป็น
-  // ขั้นเดียวแบบส่วนที่ 1 / ส่วนที่ 2 ในหน้าเดียว)
-  //
-  // ตัดขั้น "วันตัดรอบบิล" กับ "ค่ามิเตอร์ตามใบแจ้งหนี้" ออกจากเซตอัพแล้ว
-  // (ย้ายไปกรอกที่หน้าตั้งค่าแทน) เพราะสองขั้นนั้นเป็น optional อยู่แล้วใน
-  // ทางปฏิบัติ (ข้ามได้เสมอ) แถมพอเลือกวันตัดรอบบิลไปแล้วแต่เดือนของใบแจ้ง
-  // หนี้ยังต้องมาเดา/แก้เองอีกที ก็ยังรู้สึกไม่ match กับรอบจริงอยู่ดี — ให้
-  // ผู้ใช้ทุกคนเข้าหน้าหลักได้เร็วขึ้น แล้วมีการ์ด/แจ้งเตือนจูงไปตั้งค่า
-  // ทีหลังแทน ตัวแปรสองชุดนี้จึงเหลือไว้เป็นค่าเริ่มต้น (billingDay = null
-  // → fallback 30, start meter = ยังไม่ตั้ง) เหมือน path "ข้ามทุกอย่าง" เดิม
+  // 2 ขั้นตอนเสมอ: เลือกพื้นที่+สูตรคำนวณ / ประเภทมิเตอร์
+  // ขั้น "วันตัดรอบบิล" และ "ค่ามิเตอร์ตามใบแจ้งหนี้" ไม่อยู่ในเซตอัพแล้ว
+  // (ไปกรอกที่หน้าตั้งค่าแทน) ตัวแปรด้านล่างนี้จึงเป็นค่าเริ่มต้นเสมอ
+  // (billingDay = null → fallback 30, start meter = ยังไม่ตั้ง)
   static const int _totalSteps = 2;
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
@@ -54,11 +47,8 @@ class _SetupScreenState extends State<SetupScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser!;
 
-      // ตัดขั้นวันตัดรอบบิล/ค่ามิเตอร์ตามใบแจ้งหนี้ออกจากเซตอัพแล้ว —
-      // ทุกบัญชีใหม่จึงเริ่มแบบ "ยังไม่ตั้ง" เหมือน path เดิมตอนกดข้ามทั้งคู่
-      // เสมอ (billingDay fallback 30, start meter ว่าง) ไปกรอกจริงที่หน้า
-      // ตั้งค่าแทน ไม่มีการสร้าง StartMeterRecordModel/BillModel ย้อนหลัง
-      // ในขั้นตอนนี้อีกต่อไป
+      // วันตัดรอบบิล/ค่ามิเตอร์ตามใบแจ้งหนี้ไม่ได้เก็บในขั้นตอนนี้ —
+      // ทุกบัญชีใหม่เริ่มแบบ "ยังไม่ตั้ง" ไปกรอกจริงที่หน้าตั้งค่าแทน
       final userModel = UserModel(
         uid: user.uid,
         name: user.displayName ?? '',
@@ -73,10 +63,8 @@ class _SetupScreenState extends State<SetupScreen> {
         startMeterConfigured: false,
         electricityStartConfigured: false,
         waterStartConfigured: false,
-        // ขั้นเลือกวันตัดรอบบิลถูกตัดออกจากเซตอัพแล้ว (ดูคอมเมนต์ด้านบน)
-        // _selectedBillingDay เลยเป็น null เสมอในตอนนี้ ทำให้ค่านี้เป็น false
-        // เสมอด้วย — คงเงื่อนไขไว้แบบนี้ (ไม่ hardcode false ตรงๆ) เผื่อมีการ
-        // เอาขั้นเลือกวันตัดรอบบิลกลับมาใส่ในเซตอัพอีกทีในอนาคต
+        // _selectedBillingDay เป็น null เสมอ (ขั้นนี้ไม่อยู่ในเซตอัพแล้ว)
+        // เงื่อนไขนี้จึงเป็น false เสมอ — คงไว้เผื่อเอาขั้นนี้กลับมาใช้อีก
         billingDayConfigured: _selectedBillingDay != null,
         startBillingMonth: _selectedStartMonth,
         startBillingYear: _selectedStartYear,

@@ -7,23 +7,16 @@ import '../main_shell.dart';
 import 'setup_screen.dart';
 import 'welcome_screen.dart';
 
-/// AuthGate = ตัวคอยฟัง auth state แล้วสลับ Login/Setup/Dashboard ให้อัตโนมัติ
+/// AuthGate = ตัวคอยฟัง auth state แล้วสลับ Welcome/Setup/Dashboard ให้อัตโนมัติ
 ///
-/// เดิมโค้ดนี้อยู่ตรงๆใน main.dart (เป็น MaterialApp.home) ทำให้มันมีแค่
-/// "ชุดเดียว" ตลอดทั้งแอป — ถ้าจุดไหนเผลอ Navigator.pushReplacement ทับ
-/// route ที่ครอบ StreamBuilder ตัวนี้อยู่ (เช่นตอนสลับแท็บล่าง) ตัวฟัง
-/// auth state ตัวนี้จะหลุดออกจาก widget tree ไปเลย ทำให้หลัง logout
-/// แล้ว login ใหม่ ไม่มีอะไรคอยรับรู้ว่า login สำเร็จแล้วต้องไปหน้าไหนต่อ
-///
-/// แยกออกมาเป็น widget ของตัวเอง เพื่อให้จุดที่ logout สามารถ
-/// `Navigator.pushAndRemoveUntil` กลับมาที่ AuthGate() ตัวใหม่ (สดๆ มีตัวฟัง
-/// ติดมาด้วยเสมอ) แทนที่จะ push ไปแค่ LoginScreen() เปล่าๆแบบเดิม
+/// ต้องแยกเป็น widget ของตัวเอง (ไม่ใช่ MaterialApp.home ตรงๆ) เพื่อให้จุดที่
+/// logout ทำ Navigator.pushAndRemoveUntil กลับมาที่ AuthGate() ตัวใหม่ได้เสมอ
+/// (มีตัวฟัง authStateChanges ติดมาด้วยทุกครั้ง)
 class AuthGate extends StatelessWidget {
-  // รับ auth/firestoreService แบบ optional เพื่อให้ทดสอบได้ (ฉีด
-  // MockFirebaseAuth + FakeFirebaseFirestore เข้ามาแทน) — ตอนใช้งานจริงไม่ส่ง
-  // param มา ก็ยัง fallback ไปใช้ FirebaseAuth.instance / FirestoreService()
-  // (Firebase จริง) เหมือนเดิมทุกจุดที่เรียก const AuthGate() อยู่แล้ว
-  const AuthGate({super.key, FirebaseAuth? auth, FirestoreService? firestoreService})
+  // รับ auth/firestoreService แบบ optional เพื่อฉีด MockFirebaseAuth +
+  // FakeFirebaseFirestore ตอนเทสได้ — ไม่ส่งมาก็ fallback ไปใช้ของจริง
+  const AuthGate(
+      {super.key, FirebaseAuth? auth, FirestoreService? firestoreService})
       : _auth = auth,
         _firestoreService = firestoreService;
 
