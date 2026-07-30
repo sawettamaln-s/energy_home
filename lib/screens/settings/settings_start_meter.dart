@@ -725,7 +725,6 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
             usedFromStart: usedFromStart,
             usedFromLast: log.usedFromLast,
             cost: cost,
-            isMonthEnd: log.isMonthEnd,
           ),
         );
       }
@@ -747,7 +746,6 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
             usedFromStart: usedFromStart,
             usedFromLast: log.usedFromLast,
             cost: cost,
-            isMonthEnd: log.isMonthEnd,
           ),
         );
       }

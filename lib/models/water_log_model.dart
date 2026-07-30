@@ -6,7 +6,6 @@ class WaterLogModel {
   final double usedFromStart; // ใช้ไปจากต้นรอบ เช่น 30
   final double usedFromLast; // เพิ่มจากครั้งล่าสุด เช่น 11
   final double cost; // ค่าน้ำประมาณการ
-  final bool isMonthEnd; // บันทึกสิ้นเดือนไหม
 
   WaterLogModel({
     required this.id,
@@ -16,7 +15,6 @@ class WaterLogModel {
     this.usedFromStart = 0,
     this.usedFromLast = 0,
     this.cost = 0,
-    this.isMonthEnd = false,
   });
 
   factory WaterLogModel.fromMap(Map<String, dynamic> map) {
@@ -28,7 +26,6 @@ class WaterLogModel {
       usedFromStart: (map['usedFromStart'] ?? 0).toDouble(),
       usedFromLast: (map['usedFromLast'] ?? 0).toDouble(),
       cost: (map['cost'] ?? 0).toDouble(),
-      isMonthEnd: map['isMonthEnd'] ?? false,
     );
   }
 
@@ -41,7 +38,6 @@ class WaterLogModel {
       'usedFromStart': usedFromStart,
       'usedFromLast': usedFromLast,
       'cost': cost,
-      'isMonthEnd': isMonthEnd,
     };
   }
 }

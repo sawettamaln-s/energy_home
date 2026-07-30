@@ -5,7 +5,6 @@ class UserModel {
   final String area; // 'bangkok' = เขต MEA, 'province' = เขต PEA
   final String meterType; // 'normal' หรือ 'tou'
   final int billingDay;
-  final String dailyCutoffTime;
   final double fixedCost;
 
   // หน่วยตั้งต้นของรอบบิลปัจจุบัน
@@ -35,7 +34,6 @@ class UserModel {
     this.area = 'bangkok',
     this.meterType = 'normal',
     this.billingDay = 30,
-    this.dailyCutoffTime = '00:00',
     this.fixedCost = 0,
     this.startElectricityValue = 0,
     this.startPeakValue = 0,
@@ -57,7 +55,6 @@ class UserModel {
       area: map['area'] ?? 'bangkok',
       meterType: map['meterType'] ?? 'normal',
       billingDay: map['billingDay'] ?? 30,
-      dailyCutoffTime: map['dailyCutoffTime'] ?? '00:00',
       fixedCost: (map['fixedCost'] ?? 0).toDouble(),
       startElectricityValue: (map['startElectricityValue'] ?? 0).toDouble(),
       startWaterValue: (map['startWaterValue'] ?? 0).toDouble(),
@@ -86,7 +83,6 @@ class UserModel {
       'area': area,
       'meterType': meterType,
       'billingDay': billingDay,
-      'dailyCutoffTime': dailyCutoffTime,
       'fixedCost': fixedCost,
       'startElectricityValue': startElectricityValue,
       'startWaterValue': startWaterValue,
