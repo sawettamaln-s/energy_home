@@ -159,12 +159,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     title: 'ค่าไฟฟ้า',
                     label: 'ค่าไฟ',
                     accentColor: DashboardStyles.electricityBorder,
-                    // พาเลตใหม่: ใช้สีน้ำตาล-ส้ม #C98A4B เดียวกับกรอบการ์ด
-                    // มิเตอร์ไฟฟ้าที่หน้า Dashboard/ปุ่มสลับมุมมองด้านบนอยู่
-                    // แล้ว (เดิมเป็นแดง #D0311E ซึ่งเป็นคนละโทนกับปุ่มสลับ
-                    // ที่ใช้สีน้ำตาล-ส้ม ทำให้ดูไม่เป็นชุดเดียวกัน) หน่วย
-                    // ใช้เฉดทองอ่อนกว่าในตระกูลสีเดียวกัน, Off-Peak อ่อน
-                    // กว่านั้นอีกขั้น ให้ไล่โทนอุ่นเดียวกันตลอดทั้งกราฟ
+                    // สีน้ำตาล-ส้ม #C98A4B ให้ตรงกับกรอบการ์ดมิเตอร์ไฟฟ้าที่
+                    // หน้า Dashboard/ปุ่มสลับมุมมองด้านบน หน่วยใช้เฉดทอง
+                    // อ่อนกว่าในตระกูลสีเดียวกัน, Off-Peak อ่อนกว่านั้นอีกขั้น
                     costColor: const Color(0xFFC98A4B),
                     unitColor: const Color(0xFFE8B86D),
                     touOffPeakColor: const Color(0xFFF3D9B1),
@@ -183,10 +180,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     title: 'ค่าน้ำ',
                     label: 'ค่าน้ำ',
                     accentColor: DashboardStyles.waterBorder,
-                    // พาเลตใหม่: ใช้สีฟ้า #1E76C7 เดียวกับกรอบการ์ดมิเตอร์น้ำ/
-                    // ปุ่มสลับมุมมองด้านบน (เดิมเป็นฟ้าคนละเฉด #4274D9 ทำให้
-                    // ดูไม่ใช่ชุดสีเดียวกันเป๊ะๆ) หน่วยใช้น้ำเงินเข้มกว่าใน
-                    // ตระกูลเดียวกันแทนโทนที่ออกม่วง
+                    // สีฟ้า #1E76C7 ให้ตรงกับกรอบการ์ดมิเตอร์น้ำ/ปุ่มสลับ
+                    // มุมมองด้านบน หน่วยใช้น้ำเงินเข้มกว่าในตระกูลเดียวกัน
                     costColor: const Color(0xFF1E76C7),
                     unitColor: const Color(0xFF123F6D),
                     currentCycle: _currentCycle?['water'],
