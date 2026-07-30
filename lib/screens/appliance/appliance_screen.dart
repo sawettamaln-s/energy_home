@@ -30,9 +30,8 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   List<ApplianceModel> _appliances = [];
   bool _isLoading = true;
 
-  // เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
-  // (เดิมไม่เก็บไว้เลย ทำให้ setState ถูกเรียกหลัง widget dispose ไปแล้ว
-  // ตอนสลับแท็บบ่อยๆ เกิด memory leak / error "setState() called after dispose()")
+// เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
+// ป้องกัน setState หลัง widget dispose ไปแล้ว (memory leak / error ตอนสลับแท็บบ่อยๆ)
   StreamSubscription<List<ApplianceModel>>? _applianceSub;
 
   @override
