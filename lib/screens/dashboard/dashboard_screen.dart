@@ -332,13 +332,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final remainingDays =
         EnergyForecaster.getRemainingDays(now, _user?.billingDay ?? 30);
 
-    // ----- ค่าเฉลี่ย "บาท/วัน" จริง (แก้จุดที่หน่วยไม่ตรงกัน) -----
-    // เดิม: เอา dailyUsage (หน่วย/วัน) ไปบวกกับ currentTotal (บาท) ตรง ๆ
-    // ผ่าน EnergyForecaster.forecastCurrentMonth ทำให้ยอดพยากรณ์ค่าใช้จ่าย
-    // ไม่ใช่ "บาท" จริง แค่บังเอิญดูสมเหตุสมผลเพราะ ratio หน่วย/บาทใกล้ 1
-    // แก้โดยคำนวณผลต่างของ cost สะสม (field `cost` ใน log เป็นค่าสะสมจาก
-    // ต้นรอบเหมือน usedFromStart) ระหว่างแต่ละครั้งที่บันทึก ให้ได้ "บาทที่
-    // เพิ่มขึ้นต่อช่วง" จริง ๆ แล้วค่อยป้อนเข้า movingAverage
+    // ----- ค่าเฉลี่ย "บาท/วัน" จริง -----
+    // ห้ามเอา dailyUsage (หน่วย/วัน) ไปบวกกับ currentTotal (บาท) ตรง ๆ ผ่าน
+    // EnergyForecaster.forecastCurrentMonth เพราะยอดพยากรณ์จะไม่ใช่ "บาท"
+    // จริง (หน่วยคนละอย่างกัน) ต้องคำนวณผลต่างของ cost สะสม (field `cost`
+    // ใน log เป็นค่าสะสมจากต้นรอบเหมือน usedFromStart) ระหว่างแต่ละครั้งที่
+    // บันทึก ให้ได้ "บาทที่เพิ่มขึ้นต่อช่วง" จริง ๆ ก่อนป้อนเข้า movingAverage
     final dailyElectricityCost =
         _dailyCostDeltas(_electricityLogs.map((l) => l.cost).toList());
     final dailyWaterCost =
@@ -400,9 +399,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (isTOU) {
       final peakEmpty = _electricityPeakController.text.trim().isEmpty;
       final offPeakEmpty = _electricityOffPeakController.text.trim().isEmpty;
-      // เดิมบังคับกรอกครบทั้ง Peak และ Off-Peak — เปลี่ยนให้กรอกแค่ช่อง
-      // เดียวก็คำนวณได้เลย เหมือนแบบฟอร์มประมาณการของเว็บ กฟภ/กฟน (ช่องที่
-      // เว้นว่างไว้ = ช่วงนั้นไม่ได้ใช้เพิ่ม จะใช้ค่าล่าสุดเดิมแทน)
+      // กรอกแค่ช่องเดียวก็คำนวณได้ เหมือนแบบฟอร์มประมาณการของเว็บ กฟภ/กฟน
+      // (ช่องที่เว้นว่างไว้ = ช่วงนั้นไม่ได้ใช้เพิ่ม ใช้ค่าล่าสุดแทน)
       if (peakEmpty && offPeakEmpty) {
         setState(() => _electricityError =
             'กรุณากรอกหน่วย Peak หรือ Off-Peak อย่างน้อย 1 ช่องค่ะ');
@@ -662,7 +660,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 18),
 
                       // -------------------------------------------------
-                      // (3) การ์ดค่าใช้จ่ายเดือนนี้
+                      // (2) การ์ดค่าใช้จ่ายเดือนนี้
                       // เพิ่ม: สัญลักษณ์พุ่งขึ้น + บรรทัดยอดคาดการณ์แยกไฟฟ้า/น้ำ
                       // -------------------------------------------------
                       _buildCostSummaryCard(formatter),
@@ -670,34 +668,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 20),
 
                       // -------------------------------------------------
-                      // (2) บันทึกมิเตอร์วันนี้
+                      // (3) บันทึกมิเตอร์วันนี้
                       // -------------------------------------------------
                       const Text('บันทึกมิเตอร์วันนี้',
                           style: DashboardStyles.sectionTitle),
                       const SizedBox(height: 10),
 
                       // -------------------------------------------------
-                      // ตัวเตือนวันตัดรอบบิล — ย้ายมาจากตำแหน่งใต้ Header เดิม
-                      // มาไว้ตรงนี้แทน เพราะเป็นเรื่องที่เกี่ยวข้องกับขั้นตอน
-                      // "บันทึกมิเตอร์วันนี้ / ตั้งค่ามิเตอร์ต้นรอบ" มากกว่า
+                      // ตัวเตือนวันตัดรอบบิล — วางไว้ตรงนี้เพราะเกี่ยวข้องกับ
+                      // ขั้นตอน "บันทึกมิเตอร์วันนี้ / ตั้งค่ามิเตอร์ต้นรอบ"
                       // (ทั้งคู่คือสิ่งที่ user ใหม่ต้องตั้งค่าก่อนใช้งานจริง)
-                      // เงื่อนไขเดิมไม่เปลี่ยน — โชว์เฉพาะบัญชีที่ยังไม่เคย
-                      // กดเลือกวันตัดรอบบิลเอง (billingDayConfigured == false)
+                      // โชว์เฉพาะบัญชีที่ยังไม่เคยกดเลือกวันตัดรอบบิลเอง
+                      // (billingDayConfigured == false)
                       // -------------------------------------------------
                       if (_user?.billingDayConfigured == false) ...[
                         _buildBillingDayReminderBanner(),
                         const SizedBox(height: 10),
                       ],
 
-                      // การ์ดไฟฟ้ากับน้ำอยู่คู่กันแบบ Row ซ้าย-ขวา (กลับมา
-                      // ใช้เลย์เอาต์นี้ตามที่ขอ เพราะแบบซ้อน Column เต็ม
-                      // ความกว้างเมื่อก่อนดูใหญ่คับจอไป) ใช้ IntrinsicHeight
-                      // ให้การ์ด TOU (2 ฟิลด์) กับการ์ดน้ำ (1 ฟิลด์) สูงเท่ากัน
-                      // เดิมเช็ค startMeterConfigured รวมอันเดียว (ครอบทั้ง
-                      // ไฟ+น้ำ) พอแยก flag เป็นรายยูทิลิตี้แล้ว (ดูที่
-                      // UserModel) เปลี่ยนมาเช็คแยกแต่ละฝั่งแทน — ถ้ายังไม่
-                      // ได้ตั้งเลยสักอย่าง (startMeterConfigured == false)
-                      // ยังคงโชว์การ์ดเต็มความกว้างแบบเดิม แต่ถ้าตั้งไปแล้ว
+                      // การ์ดไฟฟ้ากับน้ำอยู่คู่กันแบบ Row ซ้าย-ขวา ใช้
+                      // IntrinsicHeight ให้การ์ด TOU (2 ฟิลด์) กับการ์ดน้ำ
+                      // (1 ฟิลด์) สูงเท่ากัน — เช็ค startMeterConfigured
+                      // ของแต่ละฝั่งแยกกัน (ดู UserModel) ถ้ายังไม่ได้ตั้ง
+                      // เลยสักอย่าง โชว์การ์ดเต็มความกว้าง แต่ถ้าตั้งไปแล้ว
                       // อย่างน้อย 1 ฝั่ง ให้ใช้งานฝั่งที่พร้อมได้ก่อนเลย ส่วน
                       // ฝั่งที่ยังไม่พร้อมโชว์การ์ดล็อกแยกแทนที่จะบล็อกทั้งคู่
                       _user?.startMeterConfigured == false
@@ -797,7 +790,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                       const SizedBox(height: 16),
 
-                      // ยอดรวม (เดิม)
                       _buildSummaryCard(formatter),
                     ],
                   ),
@@ -920,7 +912,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(width: 8),
         // -------------------------------------------------------------
-        // (2) ปุ่ม notification -> เปิดหน้า Notification Center จริง
+        // ปุ่ม notification -> เปิดหน้า Notification Center จริง
         // พร้อม badge ตัวเลขแจ้งจำนวนรายการที่ยังไม่อ่าน
         // -------------------------------------------------------------
         IconButton(
@@ -962,7 +954,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // =====================================================================
-  // (3) การ์ดค่าใช้จ่ายเดือนนี้
+  // (2) การ์ดค่าใช้จ่ายเดือนนี้
   // พาร์ทนี้ทำหน้าที่: การ์ดเขียวบนสุด โชว์ยอดไฟฟ้า/น้ำปัจจุบัน 2 ช่อง
   // ซ้าย-ขวา และแถบยอดคาดการณ์สิ้นเดือน (รวมไฟฟ้า+น้ำ) ต่อท้ายด้านล่าง
   // =====================================================================
@@ -1060,9 +1052,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // =====================================================================
   // ดีไซน์ช่องกรอกมิเตอร์ที่ใช้ร่วมกันทั้งฟิลด์ปกติและฟิลด์ TOU
-  // ของเดิมเป็นกล่องสีพื้นเรียบๆไม่มีกรอบเลย ไม่มีสถานะ focus ให้เห็น
-  // ของใหม่: มีกรอบบางๆตอนปกติ เด่นขึ้นตอน focus ด้วยสีของแต่ละมิเตอร์
-  // และตัวเลขหน่วยท้ายช่องดูเป็น label มากกว่า placeholder ลอยๆ
+  // มีกรอบบางๆตอนปกติ เด่นขึ้นตอน focus ด้วยสีของแต่ละมิเตอร์ และตัวเลข
+  // หน่วยท้ายช่องทำเป็น label แทน placeholder
   // =====================================================================
   InputDecoration _meterFieldDecoration({
     required String hint,
@@ -1198,9 +1189,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          // เดิมเขียนว่า "ตอนสมัครคุณข้ามขั้นตอนนี้ไว้" ซึ่งไม่จริงเสมอไป
-          // (เช่นกดเข้าใช้งานจากเช็คลิสต์หลังเซตอัพ ไม่ได้ข้ามอะไร) เปลี่ยน
-          // มาโฟกัสที่ "ผลลัพธ์ที่ยังทำไม่ได้" แทนสาเหตุที่มาไม่ตรงเคสเสมอไป
+          // โฟกัสที่ "ผลลัพธ์ที่ยังทำไม่ได้" แทนการเดาสาเหตุที่มา (ผู้ใช้
+          // อาจมาจากหลายทาง ไม่ใช่แค่ข้ามขั้นตอนตอนสมัครเสมอไป)
           const Text(
             'ระบบยังคำนวณค่าไฟ/ค่าน้ำให้ไม่ได้ เพราะยังไม่มีเลขมิเตอร์ตั้งต้น',
             style: TextStyle(fontSize: 12.5, color: Colors.grey, height: 1.5),
@@ -1238,17 +1228,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   // การ์ดล็อก — โชว์แทนการ์ดกรอกมิเตอร์ปกติ เฉพาะฝั่งที่ยังไม่ได้ตั้งเลข
   // มิเตอร์ต้นรอบ (electricityStartConfigured / waterStartConfigured เป็น
-  // false) ในขณะที่อีกฝั่งตั้งไปแล้ว — เดิมถ้ายังไม่ครบทั้ง 2 ฝั่งจะบล็อก
-  // ทั้งคู่ด้วย _buildStartMeterRequiredCard() ทั้งที่ฝั่งที่กรอกครบแล้ว
-  // ควรใช้งานได้เลย ไม่ต้องรอรอบอีกฝั่งด้วย (เคสมีบิลแค่ใบเดียวในมือ)
-  // ขนาด/โครงให้ใกล้เคียง _buildMeterCard ให้สูงเท่ากันตอนอยู่ใน Row เดียวกัน
+  // false) ในขณะที่อีกฝั่งตั้งไปแล้ว ไม่ใช้ _buildStartMeterRequiredCard()
+  // บล็อกทั้งคู่ เพราะฝั่งที่กรอกครบแล้วควรใช้งานได้เลย ไม่ต้องรอรอบอีกฝั่ง
+  // (เคสมีบิลแค่ใบเดียวในมือ) ขนาด/โครงให้ใกล้เคียง _buildMeterCard
+  // เพื่อให้สูงเท่ากันตอนอยู่ใน Row เดียวกัน
   // =====================================================================
   Widget _buildMeterLockedCard({
     required String title,
     required IconData icon,
     required Color accent,
     required Color borderColor,
-    // null = ยังไม่เคยตั้งค่าฝั่งนี้เลย (ข้อความเดิม) ไม่ null = เคยตั้งแล้ว
+    // null = ยังไม่เคยตั้งค่าฝั่งนี้เลย, ไม่ null = เคยตั้งแล้ว
     // แต่รอบบิลเลื่อนไปแล้ว ต้องตั้งค่าต้นรอบใหม่ (ดู _staleCycleMessage)
     String? message,
   }) {
@@ -1353,8 +1343,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          // ล่าสุด/ต้นรอบ กลับไปแยกคนละบรรทัดแบบเดิม (บรรทัดเดียวทำให้
-          // ล้นช่องแคบเวลาวางการ์ดคู่กันแบบ Row)
+          // ล่าสุด/ต้นรอบ แยกคนละบรรทัด (รวมบรรทัดเดียวจะล้นช่องแคบเวลา
+          // วางการ์ดคู่กันแบบ Row)
           if (lastValue != null)
             Text('หน่วยสะสม : ${formatter.format(lastValue)} $unit',
                 style: DashboardStyles.lastValueStyle),
@@ -1471,7 +1461,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // -------------------------------------------------------------------
-  // การ์ดยอดรวม — พื้นขาว กรอบครีม (เดิม)
+  // การ์ดยอดรวม — พื้นขาว กรอบครีม
   // -------------------------------------------------------------------
   Widget _buildSummaryCard(NumberFormat formatter) {
     final cycleEnd =
@@ -1532,7 +1522,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const Divider(height: 1, color: DashboardStyles.creamBorder),
           const SizedBox(height: 16),
           // แถบ "รวมทั้งสิ้น" — แยกเป็นกล่องไฮไลต์ ให้รู้สึกเป็นยอดสุดท้ายจริง ๆ
-          // (เลขที่คำนวณเหมือนเดิมทุกอย่าง แค่ดีไซน์ให้เด่นขึ้น)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
