@@ -1031,16 +1031,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () async {
+                          // ครั้งแรกสุดที่ user ตั้งวันตัดรอบเอง (เดิมยังไม่เคย
+                          // ตั้ง) เช็คไว้ก่อน updateUser() ด้านล่างจะเขียนทับค่านี้
+                          final wasUnconfigured =
+                              _user?.billingDayConfigured == false;
+
+                          final updates = <String, dynamic>{
+                            'billingDay': selectedDay,
+                            // ผู้ใช้กดเลือกวันเองจริงแล้วตรงนี้ (ไม่ว่าจะ
+                            // เป็นครั้งแรกหรือมาแก้ทีหลัง) ใช้ปิดตัวเตือน
+                            // "ยังไม่ได้ตั้งวันตัดรอบบิล" บนหน้าหลัก
+                            'billingDayConfigured': true,
+                          };
+
+                          // ถ้าก่อนหน้านี้ยังไม่เคยตั้งวันตัดรอบ (billingDay ที่ใช้
+                          // คำนวณตอนบันทึกมิเตอร์ต้นรอบเป็นค่า default 30 เสมอ) แต่
+                          // เคยบันทึกมิเตอร์ต้นรอบไปแล้ว เดือนที่คำนวณไว้ตอนนั้นอาจ
+                          // ผิดไปจากวันตัดรอบจริงที่เพิ่งเลือก — แก้ให้อัตโนมัติ
+                          // แทนที่จะให้ user ต้องกลับมากรอกมิเตอร์ต้นรอบใหม่เอง
+                          // จำกัดเฉพาะ record แรกสุดจริงๆ (ประวัติมีแค่ 1 รายการ)
+                          // เท่านั้น กันไม่ให้ไปย้อนแก้ประวัติเก่าตอน user มาปรับวัน
+                          // ตัดรอบทีหลังจากใช้แอปผ่านไปหลายรอบบิลแล้ว (เคสนั้นคือ
+                          // เปลี่ยนวันตัดรอบจริงๆ ไม่ใช่แก้ค่าที่ผิดจาก default)
+                          if (wasUnconfigured && _user!.startMeterConfigured) {
+                            final history = await _firestoreService
+                                .getStartMeterHistory(_user!.uid);
+                            if (history.length == 1) {
+                              final record = history.first;
+                              // ใช้เวลาที่กดบันทึกมิเตอร์จริง (recordedAt) ไม่ใช่
+                              // เวลาปัจจุบัน กันเดือนเพี้ยนซ้ำถ้ามาตั้งวันตัดรอบ
+                              // ทีหลังจากวันที่กรอกมิเตอร์ไปแล้วหลายวัน
+                              final corrected = EnergyForecaster.getCycleStart(
+                                  record.recordedAt, selectedDay);
+                              if (corrected.month != record.billingMonth ||
+                                  corrected.year != record.billingYear) {
+                                updates['startBillingMonth'] = corrected.month;
+                                updates['startBillingYear'] = corrected.year;
+
+                                await _firestoreService.saveStartMeterRecord(
+                                  StartMeterRecordModel(
+                                    id: record.id,
+                                    uid: record.uid,
+                                    electricityValue: record.electricityValue,
+                                    waterValue: record.waterValue,
+                                    peakValue: record.peakValue,
+                                    offPeakValue: record.offPeakValue,
+                                    billingMonth: corrected.month,
+                                    billingYear: corrected.year,
+                                    recordedAt: record.recordedAt,
+                                  ),
+                                );
+
+                                // ย้ายบิลที่ผูกกับเดือนเดิม (ถ้ามี กรอกค่าใช้จ่าย
+                                // ไว้พร้อมกันตอนบันทึกมิเตอร์ต้นรอบครั้งแรก) ไป
+                                // เดือนที่แก้แล้วด้วย ไม่งั้นบิลกับมิเตอร์ต้นรอบจะ
+                                // ค้างอยู่คนละเดือนกัน — ข้ามถ้าเดือนใหม่ดันมีบิล
+                                // อยู่แล้ว (ชนกัน แทบเป็นไปไม่ได้ตอน history มีแค่
+                                // 1 รายการ แต่กันไว้เผื่อ)
+                                final bills = await _firestoreService
+                                    .getBills(_user!.uid);
+                                final oldBillMatches = bills.where((b) =>
+                                    b.year == record.billingYear &&
+                                    b.month == record.billingMonth);
+                                final targetTaken = bills.any((b) =>
+                                    b.year == corrected.year &&
+                                    b.month == corrected.month);
+                                if (oldBillMatches.isNotEmpty &&
+                                    !targetTaken) {
+                                  final oldBill = oldBillMatches.first;
+                                  await _firestoreService.saveBill(
+                                    BillModel(
+                                      id: oldBill.id,
+                                      uid: oldBill.uid,
+                                      year: corrected.year,
+                                      month: corrected.month,
+                                      electricityUsed: oldBill.electricityUsed,
+                                      electricityPeakUsed:
+                                          oldBill.electricityPeakUsed,
+                                      electricityOffPeakUsed:
+                                          oldBill.electricityOffPeakUsed,
+                                      waterUsed: oldBill.waterUsed,
+                                      electricityCost: oldBill.electricityCost,
+                                      waterCost: oldBill.waterCost,
+                                      fixedCost: oldBill.fixedCost,
+                                      totalCost: oldBill.totalCost,
+                                      forecastElectricity:
+                                          oldBill.forecastElectricity,
+                                      forecastWater: oldBill.forecastWater,
+                                      forecastTotal: oldBill.forecastTotal,
+                                      source: oldBill.source,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                          }
+
                           await _firestoreService.updateUser(
-                            _user!.uid,
-                            {
-                              'billingDay': selectedDay,
-                              // ผู้ใช้กดเลือกวันเองจริงแล้วตรงนี้ (ไม่ว่าจะ
-                              // เป็นครั้งแรกหรือมาแก้ทีหลัง) ใช้ปิดตัวเตือน
-                              // "ยังไม่ได้ตั้งวันตัดรอบบิล" บนหน้าหลัก
-                              'billingDayConfigured': true,
-                            },
-                          );
+                              _user!.uid, updates);
                           await _loadUser();
                           if (context.mounted) Navigator.pop(context);
                         },

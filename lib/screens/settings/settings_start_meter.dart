@@ -1495,8 +1495,18 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
         },
         onRowTap: (row) {
           final r = records[row];
-          final isCurrentCycleRow =
-              _currentCycleConfigured && r.id == latestId;
+          // เดิมเช็คด้วย _currentCycleConfigured (เทียบกับ "รอบที่ควรจะเป็นตอนนี้"
+          // ตามวันที่ปัจจุบัน + billingDay) ซึ่งเป็นคนละเรื่องกับ "record นี้คือ
+          // record ที่ค่า start ใน user document อ้างอิงอยู่จริงไหม" — ถ้าจังหวะกดลบ
+          // ดันไม่ตรงกับรอบตามปฏิทินพอดี (เช่น billingDay เพิ่งเปลี่ยน) การรีเซ็ตค่า
+          // ใน user document ตอนลบจะถูกข้ามไปทั้งที่ record ถูกลบไปแล้วจริง เหลือ
+          // startMeterConfigured/startElectricityValue ฯลฯ ค้างอยู่แบบไม่มี record
+          // รองรับ ทำให้ปุ่ม (+) ไม่โผล่ทั้งที่ไม่มีประวัติเหลือแล้ว — เช็คตรงกับ
+          // billingMonth/Year ของ record กับ user.startBillingMonth/Year ตรงๆ แทน
+          // ถึงจะสะท้อนว่า "นี่คือ record ที่ค่า cache อยู่จริง" ไม่ผูกกับวันปฏิทิน
+          final isCurrentCycleRow = _user != null &&
+              r.billingMonth == _user!.startBillingMonth &&
+              r.billingYear == _user!.startBillingYear;
           showTableRowActions(
             context,
             title: 'ต้นรอบ ${thaiMonths[r.billingMonth - 1]} ${r.billingYear}',
