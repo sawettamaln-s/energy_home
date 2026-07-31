@@ -913,7 +913,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: DashboardStyles.primaryGreen,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 20),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
