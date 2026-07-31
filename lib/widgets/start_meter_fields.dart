@@ -530,8 +530,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             enabled: !noBillYet,
           ),
           const SizedBox(height: 10),
-          // toggle "ยังไม่มีบิลตอนนี้" — ย้ายมาไว้ในการ์ดของฝั่งนี้โดยเฉพาะ
-          // แล้ว (เดิมเป็นตัวเดียวรวมทั้งไฟและน้ำ) กดแล้วกระทบแค่ฝั่งนี้
+          // toggle "ยังไม่มีบิลตอนนี้" ของฝั่งนี้โดยเฉพาะ กดแล้วกระทบแค่ฝั่งนี้
           // ใช้ checkbox วงกลมแทนสวิตช์วงรี ให้กดทั้งแถวได้ ไม่ต้องเล็งตัวสวิตช์
           InkWell(
             borderRadius: BorderRadius.circular(8),

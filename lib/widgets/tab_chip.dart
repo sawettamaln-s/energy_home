@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 /// แท็บสลับไฟฟ้า/น้ำ พร้อมไอคอน check เมื่อกรอกข้อมูลครบ — ใช้ร่วมกันระหว่าง
 /// หน้าบันทึกบิลย้อนหลังกับหน้าตั้งค่ามิเตอร์ต้นรอบให้หน้าตาตรงกันทั้งแอป
-/// (เดิมเป็นฟังก์ชัน private แยกก๊อปปี้ในสองไฟล์ รวมมาไว้ที่เดียว)
 class TabChip extends StatelessWidget {
   const TabChip({
     super.key,

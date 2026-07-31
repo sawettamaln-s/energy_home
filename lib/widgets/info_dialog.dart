@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../screens/dashboard/dashboard_styles.dart';
 
 /// Dialog แบบ "ไอคอน info + หัวข้อ + ข้อความ + ปุ่มเข้าใจแล้ว" ที่ใช้ซ้ำ
-/// ทั่วแอป (เดิมก็อปวางโครงเดิมซ้ำอยู่ ~14 ที่ กระจายอยู่ใน setup_screen.dart,
-/// settings_screen.dart (9 จุด), dashboard_screen.dart, appliance_screen.dart,
-/// analysis_utility_tab.dart) — คู่กับ showConfirmDialog ใน confirm_dialog.dart
+/// ทั่วแอป — คู่กับ showConfirmDialog ใน confirm_dialog.dart
 ///
 /// ใช้ได้ 2 แบบ:
 /// 1) ข้อความล้วน: ส่ง `message` (แบบเดิมส่วนใหญ่ในแอป)
@@ -53,7 +51,7 @@ void showInfoDialog(
 }
 
 /// Popup อธิบายที่มาของตัวเลขประมาณการค่าไฟอุปกรณ์ — ใช้ร่วมกันระหว่าง
-/// appliance_screen.dart และ analysis_appliance_tab.dart (เดิมมีโค้ดซ้ำกันทั้งสองที่)
+/// appliance_screen.dart และ analysis_appliance_tab.dart
 void showApplianceEstimateInfoDialog(BuildContext context) {
   showDialog(
     context: context,

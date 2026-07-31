@@ -13,11 +13,10 @@ import '../utils/data_refresh_bus.dart';
 import '../utils/forecaster.dart';
 
 class FirestoreService {
-  // เดิม _db ผูกกับ FirebaseFirestore.instance ตรงๆ ทำให้เทสอัตโนมัติ
-  // (flutter test) พังทันทีเพราะไม่มี Firebase.initializeApp() ในสภาพแวดล้อม
-  // เทส — เปิดช่องให้ฉีด instance ปลอม (เช่น FakeFirebaseFirestore) เข้ามา
-  // แทนได้ โดยโค้ดที่เรียกใช้งานจริงไม่ต้องแก้อะไรเลย (ไม่ส่ง param ก็ยังคง
-  // ใช้ FirebaseFirestore.instance เหมือนเดิมทุกประการ)
+  // รับ FirebaseFirestore instance ผ่าน constructor ได้ (optional) เพื่อให้
+  // เทสอัตโนมัติ (flutter test) ฉีด instance ปลอม (เช่น FakeFirebaseFirestore)
+  // เข้ามาแทนได้ โดยไม่ต้องมี Firebase.initializeApp() ในสภาพแวดล้อมเทส
+  // ถ้าไม่ส่ง param จะใช้ FirebaseFirestore.instance ตามปกติ
   FirestoreService({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
@@ -47,10 +46,9 @@ class FirestoreService {
 
   // ==================== FIXED COST ITEMS ====================
   // เก็บ Fixed Cost เป็นรายการย่อยๆ (ค่าแก๊ส, อินเทอร์เน็ต, ส่วนกลาง ฯลฯ)
-  // แทนยอดเดียวแบบเดิม ทุกครั้งที่เพิ่ม/แก้/ลบรายการ จะคำนวณยอดรวมใหม่แล้ว
-  // เก็บ cache ไว้ที่ users/{uid}.fixedCost ด้วย (ดู _recalcFixedCostTotal)
-  // เพื่อให้ Dashboard และ compileBill() ที่อ่าน user.fixedCost อยู่แล้ว
-  // ทำงานถูกต้องต่อไปโดยไม่ต้องแก้โค้ดจุดอื่นเลย
+  // ทุกครั้งที่เพิ่ม/แก้/ลบรายการ จะคำนวณยอดรวมใหม่แล้วเก็บ cache ไว้ที่
+  // users/{uid}.fixedCost ด้วย (ดู _recalcFixedCostTotal) เพื่อให้ Dashboard
+  // และ compileBill() ที่อ่าน user.fixedCost ใช้งานได้เลย
 
   Future<void> saveFixedCostItem(FixedCostItemModel item) async {
     await _db
@@ -185,29 +183,17 @@ class FirestoreService {
       double usedElec = eLogs.isNotEmpty ? eLogs.first.usedFromStart : 0;
       double usedWater = wLogs.isNotEmpty ? wLogs.first.usedFromStart : 0;
 
-      // แก้บั๊ก: มิเตอร์ TOU เดิมไม่เคยเซ็ต electricityPeakUsed/
-      // electricityOffPeakUsed ตอน auto-compile บิลตอนปิดรอบเลย (มีแต่
-      // usedElec ยอดรวม) ทำให้หน้าวิเคราะห์ (analysis_screen.dart ใช้
-      // peakUsedSelector/offPeakUsedSelector วาดกราฟแยก On-Peak/Off-Peak)
-      // เห็นบิลที่ compile อัตโนมัติ (ซึ่งเป็นบิลส่วนใหญ่ที่เกิดขึ้นจริงในแอป)
-      // เป็น 0 ทั้งคู่เสมอ ทั้งที่ log รายวันมี peakMeterValue/offPeakMeterValue
-      // เก็บไว้อยู่แล้ว — คำนวณ delta จากค่ามิเตอร์ต้นรอบเพื่อให้บิล 'compiled'
-      // ได้ค่าแยกที่ถูกต้องเหมือนบิล 'imported'/'startMeter'
+      // สำหรับมิเตอร์ TOU: คำนวณ electricityPeakUsed/electricityOffPeakUsed
+      // แยกจากค่ามิเตอร์ต้นรอบ เพื่อให้บิลที่ compile อัตโนมัติมีค่าแยก
+      // On-Peak/Off-Peak ถูกต้อง (หน้าวิเคราะห์ analysis_screen.dart ใช้ค่านี้
+      // วาดกราฟแยกสองเส้น) เหมือนกับบิลที่มาจาก 'imported'/'startMeter'
       //
-      // แก้บั๊กซ้อน: ตอนแรกใช้ user.startPeakValue/startOffPeakValue (ค่า
-      // เดียวบน user document) เป็นฐานลบ แต่ค่านี้คือ "ค่าล่าสุดที่ user ตั้ง
-      // ไว้ ณ ตอนนี้" เท่านั้น พอ user ไป re-setup ค่ามิเตอร์ใหม่ (เช่นเปลี่ยน
-      // มิเตอร์/ตั้งค่าใหม่กลางทาง) ค่านี้จะถูกเขียนทับเป็นของรอบล่าสุด แต่
-      // compileBill() ที่ auto-generate บิลของรอบเก่าที่ยังไม่ปิด (ถึงกำหนด
-      // แต่ user ยังไม่เข้าไป set) ดันเอาค่าล่าสุดนี้ไปลบกับ
-      // eLogs.first.peakMeterValue ที่เป็นเลขสะสมของรอบเก่า (คนละช่วงเวลากับ
-      // ค่าต้นรอบที่ใช้) ทำให้ delta เพี้ยนไปเป็นหมื่น (เช่น
-      // peakUsed/offPeakUsed รวมกันได้หลักหมื่นทั้งที่ electricityUsed มีแค่
-      // หลักหน่วย) เหมือนที่ _ElectricityLogTabState ใน
-      // settings_utility_log.dart เคยเจอและแก้ไปแล้วด้วย _startValuesFor() —
-      // เปลี่ยนมาใช้ pattern เดียวกัน คือ query start_meter_history หา
-      // record ที่ billingMonth/billingYear ตรงกับรอบที่กำลัง compile
-      // (year, month ที่รับเข้ามา) แทนการอิง user.startPeakValue ตรงๆ
+      // ค่าฐานลบใช้ query start_meter_history หา record ที่
+      // billingMonth/billingYear ตรงกับรอบที่กำลัง compile (year, month
+      // ที่รับเข้ามา) — ไม่ใช้ user.startPeakValue/startOffPeakValue ตรงๆ
+      // เพราะค่านั้นคือค่าล่าสุดที่ user ตั้งไว้ ณ ตอนนี้เท่านั้น ถ้า user
+      // ไป re-setup มิเตอร์ใหม่กลางทาง ค่านี้จะถูกเขียนทับ และไม่ตรงกับรอบ
+      // เก่าที่ยังไม่ปิดที่กำลังจะ compile ทำให้ delta เพี้ยนได้
       double peakUsedElec = 0;
       double offPeakUsedElec = 0;
       if (user.meterType == 'tou' && eLogs.isNotEmpty) {
@@ -235,21 +221,11 @@ class FirestoreService {
             eLogs.first.offPeakMeterValue ?? 0, cycleStartOffPeak);
       }
 
-      // สร้าง Bill
-      //
-      // แก้บั๊ก: เดิมใช้ id = Uuid().v4() (สุ่มใหม่ทุกครั้ง) ทำให้ถ้า
-      // compileBill() ถูกเรียกซ้อนกันหลายครั้งในเวลาไล่เลี่ยกันสำหรับ
-      // เดือน/ปีเดียวกัน (เช่น เปิดแอปซ้ำๆ/pull-to-refresh รัวๆ ตอนใกล้วัน
-      // ตัดรอบบิล) แต่ละครั้งจะเช็ค billExistsForMonth() แล้วเจอ false
-      // เหมือนกันหมด เพราะครั้งก่อนหน้ายังเขียนไม่เสร็จ (race condition แบบ
-      // check-then-write ที่ไม่มี lock/transaction คั่น) ผลคือได้บิลซ้ำกัน
-      // หลายใบสำหรับรอบเดียวกัน ยอดรวม/ประวัติบิลเพี้ยน
-      //
-      // เปลี่ยนมาใช้ id แบบตายตัวผูกกับ (year, month) แทน — saveBill() เขียน
-      // ด้วย .doc(bill.id).set() อยู่แล้ว (ไม่ใช่ .add()) เพราะงั้นต่อให้
-      // compileBill() ถูกเรียกซ้อนกันกี่ครั้งก็ตาม ทุกครั้งจะเขียนทับเอกสาร
-      // เดียวกันเสมอ (idempotent) ไม่มีทางสร้างซ้ำได้อีกต่อไป ไม่ต้องพึ่งการ
-      // เช็ค billExistsForMonth() ให้แม่นเป๊ะแบบเดิม
+      // สร้าง Bill โดยใช้ id แบบตายตัวผูกกับ (year, month) — saveBill()
+      // เขียนด้วย .doc(bill.id).set() (ไม่ใช่ .add()) ต่อให้ compileBill()
+      // ถูกเรียกซ้อนกันหลายครั้งพร้อมกัน (เช่น เปิดแอปซ้ำๆ/pull-to-refresh
+      // รัวๆ) ทุกครั้งจะเขียนทับเอกสารเดียวกันเสมอ (idempotent) จึงไม่มีทาง
+      // ได้บิลซ้ำกันสำหรับเดือน/ปีเดียวกัน
       final bill = BillModel(
         id: 'compiled_${year}_${month.toString().padLeft(2, '0')}',
         uid: uid,
@@ -550,7 +526,7 @@ class FirestoreService {
         .toList();
 
     // ฐานตั้งต้นของรอบแรกสุด: ใช้ start_meter_history ตัวที่เก่าแก่สุด
-    final history = await getStartMeterHistory(uid); // ฟังก์ชันเดิมคืน desc
+    final history = await getStartMeterHistory(uid); // คืนค่าเรียง desc (ใหม่ -> เก่า)
     final earliestRecord = history.isEmpty
         ? null
         : history.reduce((a, b) => a.recordedAt.isBefore(b.recordedAt) ? a : b);

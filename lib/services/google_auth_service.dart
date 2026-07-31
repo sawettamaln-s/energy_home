@@ -7,9 +7,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 /// สมัครมาก่อน Firebase จะสร้าง user ให้อัตโนมัติ แล้ว AuthGate ที่ฟัง
 /// authStateChanges() อยู่แล้วจะพาไปหน้า Setup ต่อเองเหมือนสมัครด้วยอีเมล)
 ///
-/// ใช้ package google_sign_in เวอร์ชัน 7.x ซึ่ง API เปลี่ยนจากเวอร์ชันเก่า
-/// (ไม่มี GoogleSignIn().signIn() แบบเดิมแล้ว) ต้อง initialize() ก่อนครั้งแรก
-/// แล้วค่อยเรียก authenticate()
+/// ใช้ package google_sign_in เวอร์ชัน 7.x — ต้องเรียก initialize() ก่อน
+/// ครั้งแรก แล้วค่อยเรียก authenticate() (ไม่มีเมธอด signIn() ตรงๆ)
 class GoogleAuthService {
   GoogleAuthService._();
 

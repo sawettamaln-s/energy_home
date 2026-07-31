@@ -5,8 +5,7 @@ import '../screens/dashboard/dashboard_styles.dart';
 /// ชุดสี/สไตล์กลางสำหรับหน้า Welcome / Login / Register / Setup
 ///
 /// รวมไว้ที่เดียวเพื่อให้ทุกหน้าในกลุ่ม auth ใช้ปุ่ม, ช่องกรอก, ระยะห่าง,
-/// และมุมโค้งชุดเดียวกันทั้งหมด (ก่อนหน้านี้แต่ละหน้า copy สไตล์ตัวเองแยกกัน
-/// ทำให้ radius/ความสูงปุ่มไม่ตรงกันเป๊ะระหว่างหน้า)
+/// และมุมโค้งชุดเดียวกันทั้งหมด
 class AuthStyle {
   AuthStyle._();
 
@@ -262,8 +261,7 @@ class AuthFieldLabel extends StatelessWidget {
   }
 }
 
-/// กล่องข้อความ error สีแดงอ่อน — ใช้เหมือนกันทุกหน้า (เดิม login กับ
-/// register copy โค้ดชุดนี้แยกกัน)
+/// กล่องข้อความ error สีแดงอ่อน — ใช้เหมือนกันทุกหน้า
 class AuthErrorBox extends StatelessWidget {
   const AuthErrorBox(this.message, {super.key});
 
