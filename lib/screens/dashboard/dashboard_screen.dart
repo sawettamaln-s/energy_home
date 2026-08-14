@@ -183,6 +183,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bool silentThisLoad = widget.justCompletedSetup && _isFirstLoad;
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
+      // sync ยอด fixed cost ให้ตรงกับเดือนปัจจุบันก่อนอ่าน user เพราะรายการที่
+      // ตั้ง endDate ไว้อาจ "หมดอายุ" ไปแล้วโดยไม่มี save/delete มา trigger recalc
+      await _firestoreService.recalcFixedCostTotalForToday(uid);
       _user = await _firestoreService.getUser(uid);
 
       _latestElectricityLog =

@@ -758,14 +758,29 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       context,
       title: 'ล้างเลขมิเตอร์ต้นรอบ',
       content: 'เลขมิเตอร์ต้นรอบทั้งหมดจะถูกล้าง ต้องตั้งค่าใหม่ก่อนถึงจะ'
-          'บันทึกมิเตอร์รายวันต่อได้\n\nประวัติมิเตอร์ที่บันทึกไว้ในรอบนี้'
-          'จะยังอยู่ แต่จะคำนวณอ้างอิงกับต้นรอบเดิมไม่ได้แล้ว จนกว่าจะตั้ง'
-          'ค่าต้นรอบใหม่อีกครั้ง ต้องการดำเนินการต่อใช่ไหมคะ?',
+          'บันทึกมิเตอร์รายวันต่อได้ รายการต้นรอบของรอบนี้ในหน้าประวัติ '
+          '(และบิลที่สร้างอัตโนมัติ ถ้ามี) จะถูกลบไปด้วย\n\nประวัติมิเตอร์'
+          'รายวันที่บันทึกไว้ในรอบนี้จะยังอยู่ แต่จะคำนวณอ้างอิงกับต้นรอบ'
+          'เดิมไม่ได้แล้ว จนกว่าจะตั้งค่าต้นรอบใหม่อีกครั้ง ต้องการดำเนินการ'
+          'ต่อใช่ไหมคะ?',
     );
     if (confirm != true) return;
 
     setState(() => _isSaving = true);
     try {
+      // ล้างทั้งไฟและน้ำพร้อมกัน จึงลบทั้งแถวประวัติ/บิลคู่กันได้เลย ไม่ต้องเช็คว่าอีก
+      // ยูทิลิตี้ยังมีข้อมูลเหลือไหมเหมือน _confirmDelete (ที่ลบแยกทีละยูทิลิตี้)
+      if (_editingRecordId != null) {
+        await widget.firestoreService
+            .deleteStartMeterRecord(widget.uid, _editingRecordId!);
+        final pairedBill = _existingBills.where(
+            (b) => b.year == _selectedYear && b.month == _selectedMonth);
+        if (pairedBill.isNotEmpty && pairedBill.first.source == 'startMeter') {
+          await widget.firestoreService
+              .deleteBill(widget.uid, pairedBill.first.id);
+        }
+      }
+
       await widget.firestoreService.updateUser(widget.uid, {
         'startElectricityValue': 0,
         'startPeakValue': 0,

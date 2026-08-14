@@ -1,8 +1,9 @@
 part of 'settings_screen.dart';
 
 // ==================== Fixed Cost (รายการแยก) ====================
-// รายการตัวเลือกหมวดหมู่ค่าใช้จ่ายคงที่ที่พบบ่อย — เลือกแล้วชื่อ/ไอคอนจะเติม
-// ให้อัตโนมัติ แต่ผู้ใช้ยังแก้ชื่อเองได้เสมอ (เผื่อมีรายการที่ไม่ตรงกับหมวดนี้)
+// รายการตัวเลือกหมวดหมู่ค่าใช้จ่ายคงที่ที่พบบ่อย — เลือกแล้วชื่อจะถูกล็อกตาม
+// label ของหมวดนั้นทันที แก้ไขเองไม่ได้ ยกเว้นหมวด "อื่นๆ" ที่พิมพ์ชื่อเองได้
+// (เผื่อมีรายการที่ไม่ตรงกับหมวดสำเร็จรูปเหล่านี้)
 const List<({String key, String label, IconData icon})> _fixedCostCategories =
     [
   (key: 'gas', label: 'ค่าแก๊สหุงต้ม', icon: Icons.local_fire_department),
@@ -50,6 +51,51 @@ void _showFixedCostInfoPopup(BuildContext context) {
   );
 }
 
+// ช่องแสดง/เลือกวันที่แบบกดแล้วเปิด date picker — ใช้ทั้งช่องเริ่มและสิ้นสุด
+// ในส่วน "ช่วงเวลา" ของ dialog เพิ่ม/แก้ไขรายการ
+class _DateField extends StatelessWidget {
+  final String label;
+  final DateTime? date;
+  final VoidCallback? onTap;
+  final bool enabled;
+
+  const _DateField({
+    required this.label,
+    required this.date,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          filled: !enabled,
+          fillColor: Colors.grey.shade100,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        ),
+        child: Text(
+          date != null ? DateFormat('d MMM yyyy').format(date!) : '—',
+          style: TextStyle(
+            fontSize: 13,
+            color: enabled ? Colors.black87 : Colors.grey.shade500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FixedCostScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
@@ -84,17 +130,31 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
     }
   }
 
-  double get _total => _items.fold(0, (sum, item) => sum + item.amount);
+  // รวมเฉพาะรายการที่ "แอคทีฟ" ในเดือนปัจจุบัน — รายการที่หมดอายุ (endDate
+  // ผ่านไปแล้ว) หรือยังไม่ถึงวันเริ่ม จะไม่ถูกนับในยอดนี้ แต่ยังโชว์ในลิสต์ด้านล่าง
+  double get _total => _items
+      .where((item) => item.isActiveInMonth(DateTime.now()))
+      .fold(0, (sum, item) => sum + item.amount);
 
   // เปิด popup เพิ่ม/แก้ไขรายการ — ถ้าส่ง existing มาคือแก้ไข ไม่ส่งคือเพิ่มใหม่
   Future<void> _showAddEditItem({FixedCostItemModel? existing}) async {
     String selectedCategory = existing?.category ?? _fixedCostCategories.first.key;
-    final nameController =
-        TextEditingController(text: existing?.name ?? _fixedCostCategories.first.label);
+    // ชื่อรายการ: ถ้าหมวดหมู่ไม่ใช่ "อื่นๆ" ชื่อจะถูกล็อกตาม label ของหมวดนั้นเสมอ
+    // (ครอบคลุมกรณีแก้ไขรายการเก่าที่ชื่ออาจไม่ตรงกับ label ปัจจุบันด้วย)
+    final nameController = TextEditingController(
+      text: selectedCategory == 'other'
+          ? (existing?.name ?? '')
+          : _labelForFixedCostCategory(selectedCategory),
+    );
     final amountController = TextEditingController(
       text: existing != null ? existing.amount.toStringAsFixed(0) : '',
     );
     String? errorText;
+    // ช่วงเวลา: startDate เริ่มนับตั้งแต่เดือนนี้เป็น default, endDate = null
+    // หมายถึงต่อเนื่องไม่มีกำหนด (พฤติกรรมเดิมของรายการที่ไม่มีวันสิ้นสุด)
+    DateTime startDate = existing?.startDate ?? DateTime.now();
+    DateTime? endDate = existing?.endDate;
+    bool hasEndDate = endDate != null;
 
     await showDialog(
       context: context,
@@ -126,12 +186,17 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                           color: selected ? Colors.white : Colors.black87),
                       onSelected: (_) => setDialogState(() {
                         selectedCategory = c.key;
-                        // เปลี่ยนหมวดแล้วเติมชื่ออัตโนมัติให้ ถ้า user ยังไม่ได้
-                        // พิมพ์ชื่อเองมาก่อน (กันเขียนทับชื่อที่ user ตั้งเองไว้)
-                        if (nameController.text.isEmpty ||
-                            _fixedCostCategories
-                                .map((e) => e.label)
-                                .contains(nameController.text)) {
+                        if (c.key == 'other') {
+                          // สลับมา "อื่นๆ" ให้พิมพ์ชื่อเองได้ — เคลียร์ช่องออก
+                          // เฉพาะตอนที่ข้อความเดิมเป็น label ที่ล็อกไว้จากหมวดก่อนหน้า
+                          // (กันเขียนทับชื่อที่ user เคยพิมพ์เองไว้ก่อนสลับหมวดไปมา)
+                          if (_fixedCostCategories
+                              .map((e) => e.label)
+                              .contains(nameController.text)) {
+                            nameController.text = '';
+                          }
+                        } else {
+                          // หมวดสำเร็จรูป: ล็อกชื่อให้ตรงกับ label เสมอ แก้ไขเองไม่ได้
                           nameController.text = c.label;
                         }
                       }),
@@ -141,11 +206,19 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: nameController,
+                  // แก้ไขได้เฉพาะหมวด "อื่นๆ" — หมวดสำเร็จรูปอื่นชื่อถูกล็อกไว้
+                  enabled: selectedCategory == 'other',
                   decoration: InputDecoration(
                     labelText: 'ชื่อรายการ',
-                    hintText: 'เช่น ค่าแก๊สหุงต้ม',
+                    hintText: 'เช่น ค่าที่จอดรถรายเดือน',
+                    filled: selectedCategory != 'other',
+                    fillColor: Colors.grey.shade100,
                     border:
                         OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    disabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 14),
                   ),
@@ -161,6 +234,86 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                         OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                const Text('ช่วงเวลา',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _DateField(
+                        label: 'เริ่ม',
+                        date: startDate,
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: startDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setDialogState(() => startDate = picked);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _DateField(
+                        label: 'สิ้นสุด',
+                        date: endDate,
+                        enabled: hasEndDate,
+                        onTap: !hasEndDate
+                            ? null
+                            : () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: endDate ?? startDate,
+                                  firstDate: startDate,
+                                  lastDate: DateTime(2100),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() => endDate = picked);
+                                }
+                              },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                CheckboxListTile(
+                  value: hasEndDate,
+                  onChanged: (v) => setDialogState(() {
+                    hasEndDate = v ?? false;
+                    if (hasEndDate) {
+                      endDate ??= startDate;
+                    } else {
+                      endDate = null;
+                    }
+                  }),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  activeColor: DashboardStyles.primaryGreen,
+                  title: const Text('มีวันสิ้นสุด', style: TextStyle(fontSize: 13)),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    hasEndDate
+                        ? 'จะไม่ถูกนับรวมในยอด Fixed Cost หลังวันที่สิ้นสุด'
+                        : 'นับรวมทุกเดือนต่อเนื่อง ไม่มีกำหนดสิ้นสุด',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ),
                 if (errorText != null) ...[
@@ -188,6 +341,11 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                   setDialogState(() => errorText = 'กรอกยอดเงินให้ถูกต้องด้วยค่ะ');
                   return;
                 }
+                if (hasEndDate && endDate!.isBefore(startDate)) {
+                  setDialogState(
+                      () => errorText = 'วันสิ้นสุดต้องไม่มาก่อนวันเริ่มค่ะ');
+                  return;
+                }
 
                 final item = FixedCostItemModel(
                   id: existing?.id ?? const Uuid().v4(),
@@ -196,6 +354,8 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                   category: selectedCategory,
                   amount: amount,
                   createdAt: existing?.createdAt ?? DateTime.now(),
+                  startDate: startDate,
+                  endDate: hasEndDate ? endDate : null,
                 );
                 await widget.firestoreService.saveFixedCostItem(item);
                 if (context.mounted) Navigator.pop(context);
@@ -324,6 +484,13 @@ final confirmed = await showConfirmDialog(
                             final isLatest = index == 0;
                             final isLast = index == _items.length - 1;
                             const accent = DashboardStyles.primaryGreen;
+                            // รายการที่หมดอายุแล้วไม่ถูกนับในยอดรวมด้านบนแล้ว
+                            // การ์ดจะจางลงพร้อม badge ให้เห็นชัดว่าทำไมยอดถึงลด
+                            final isExpired = item.endDate != null &&
+                                item.endDate!.isBefore(DateTime.now());
+                            final periodLabel = item.endDate == null
+                                ? null
+                                : 'ถึง ${DateFormat('d MMM yyyy').format(item.endDate!)}';
 
                             return IntrinsicHeight(
                               child: Row(
@@ -369,7 +536,9 @@ final confirmed = await showConfirmDialog(
                                     child: Padding(
                                       padding:
                                           const EdgeInsets.only(bottom: 8),
-                                      child: Container(
+                                      child: Opacity(
+                                        opacity: isExpired ? 0.55 : 1,
+                                        child: Container(
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
@@ -432,6 +601,39 @@ final confirmed = await showConfirmDialog(
                                                         color: Colors
                                                             .grey.shade500),
                                                   ),
+                                                  if (isExpired) ...[
+                                                    const SizedBox(height: 4),
+                                                    Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 7,
+                                                          vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors
+                                                            .red.shade50,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(6),
+                                                      ),
+                                                      child: Text(
+                                                        'หมดอายุแล้ว',
+                                                        style: TextStyle(
+                                                            fontSize: 10.5,
+                                                            color: Colors
+                                                                .red.shade400),
+                                                      ),
+                                                    ),
+                                                  ] else if (periodLabel !=
+                                                      null) ...[
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      periodLabel,
+                                                      style: TextStyle(
+                                                          fontSize: 10.5,
+                                                          color: Colors.grey
+                                                              .shade400),
+                                                    ),
+                                                  ],
                                                 ],
                                               ),
                                             ),
@@ -471,6 +673,7 @@ final confirmed = await showConfirmDialog(
                                               ],
                                             ),
                                           ],
+                                        ),
                                         ),
                                       ),
                                     ),

@@ -22,7 +22,6 @@ import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/excel_style_table.dart';
 import '../../widgets/info_dialog.dart';
-import '../../widgets/onboarding_guide.dart';
 import '../../widgets/start_meter_fields.dart';
 import '../../widgets/tab_chip.dart';
 import '../auth/auth_gate.dart';
@@ -587,17 +586,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: 'เพิ่ม แก้ไข หรือลบบิลในอดีต',
             color: _sectionColor,
             onTap: () => _showHistoricalBillList(),
-          ),
-          const Divider(height: 1, indent: 56),
-          // จุดเดียวในแอปที่เรียก OnboardingGuide.showAgain() — เปิดคู่มือ
-          // เริ่มต้นใช้งานซ้ำได้ทุกเมื่อ ไม่เช็ค flag เหมือน showIfFirstTime
-          // ที่เรียกอัตโนมัติครั้งแรกตอนเข้า Dashboard
-          _buildSettingsTile(
-            icon: Icons.help_outline_rounded,
-            title: 'คู่มือการใช้งาน',
-            subtitle: 'ดูคำแนะนำเริ่มต้นใช้งานอีกครั้ง',
-            color: _sectionColor,
-            onTap: () => OnboardingGuide.showAgain(context),
           ),
         ],
       ),

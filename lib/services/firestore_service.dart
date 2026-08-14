@@ -82,11 +82,36 @@ class FirestoreService {
     await _recalcFixedCostTotal(uid);
   }
 
-  // รวมยอด fixed cost ทุกรายการแล้วอัปเดต cache ที่ users/{uid}.fixedCost
-  Future<void> _recalcFixedCostTotal(String uid) async {
+  // รวมยอด fixed cost เฉพาะรายการที่ "แอคทีฟ" ในเดือนที่ระบุ (ดูตามช่วง
+  // startDate/endDate ของแต่ละรายการ) แล้วอัปเดต cache ที่ users/{uid}.fixedCost
+  //
+  // หมายเหตุ: cache นี้ trigger จากการ save/delete เท่านั้น แต่ endDate จะ
+  // "หมดอายุ" ไปเองตามเวลาที่ผ่านไปโดยไม่มี write event ใดๆ มาสั่ง recalc ให้
+  // ดังนั้นหน้าจอที่ต้องการยอดล่าสุดจริงๆ (เช่น dashboard ตอนเปิดแอป) ควรเรียก
+  // recalcFixedCostTotalForToday() ซ้ำตอน init ด้วย ไม่ใช่พึ่งพา cache เฉยๆ
+  Future<void> _recalcFixedCostTotal(String uid, {DateTime? forMonth}) async {
     final items = await getFixedCostItems(uid);
-    final total = items.fold<double>(0, (acc, item) => acc + item.amount);
+    final month = forMonth ?? DateTime.now();
+    final total = items
+        .where((item) => item.isActiveInMonth(month))
+        .fold<double>(0, (acc, item) => acc + item.amount);
+
+    // เขียนเฉพาะตอนยอดเปลี่ยนจริงๆ เท่านั้น — updateUser() broadcast ผ่าน
+    // DataRefreshBus ทุกครั้งที่เขียน ถ้าเขียนทั้งที่ยอดเท่าเดิม (เช่นตอนถูก
+    // เรียกจาก dashboard ทุกครั้งที่เปิดหน้า) จะกลายเป็น loop ไม่จบ:
+    // เขียน → broadcast → dashboard/analysis ฟังแล้วโหลดใหม่ → เรียก recalc
+    // อีกรอบ → เขียนอีก → broadcast อีก → ... (จอหมุนๆ ไม่หยุด)
+    final current = await getUser(uid);
+    final currentTotal = current?.fixedCost ?? 0;
+    if ((currentTotal - total).abs() < 0.01) return;
+
     await updateUser(uid, {'fixedCost': total});
+  }
+
+  // เรียกจากภายนอก (เช่น dashboard ตอนโหลดหน้า) เพื่อ refresh cache ยอด fixed
+  // cost ให้ตรงกับเดือนปัจจุบัน เผื่อมีรายการหมดอายุไปโดยไม่มีการ save/delete ใดๆ
+  Future<void> recalcFixedCostTotalForToday(String uid) async {
+    await _recalcFixedCostTotal(uid, forMonth: DateTime.now());
   }
 
   // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
