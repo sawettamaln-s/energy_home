@@ -22,6 +22,12 @@ const List<({String key, String label, IconData icon})> _fixedCostCategories =
   (key: 'other', label: 'อื่นๆ', icon: Icons.receipt_long),
 ];
 
+// หมายเหตุ: ใช้ thaiMonths ที่มาจาก lib/utils/thai_date_utils.dart (import
+// ผ่าน settings_screen.dart อยู่แล้ว) ไม่ประกาศซ้ำที่นี่ เพราะ Dart จะฟ้อง
+// "imported from both ... " ทันทีถ้ามีสอง const ชื่อเดียวกันจากคนละไฟล์
+// ในสโคปเดียวกัน — ของใน thai_date_utils.dart เป็นชื่อเดือนเต็ม (เช่น
+// "ตุลาคม") ซึ่งตรงกับที่ dashboard_screen.dart ใช้แสดงชื่อรอบบิลอยู่แล้วด้วย
+
 IconData _iconForFixedCostCategory(String key) {
   for (final c in _fixedCostCategories) {
     if (c.key == key) return c.icon;
@@ -51,47 +57,60 @@ void _showFixedCostInfoPopup(BuildContext context) {
   );
 }
 
-// ช่องแสดง/เลือกวันที่แบบกดแล้วเปิด date picker — ใช้ทั้งช่องเริ่มและสิ้นสุด
-// ในส่วน "ช่วงเวลา" ของ dialog เพิ่ม/แก้ไขรายการ
-class _DateField extends StatelessWidget {
+// สร้างรายการตัวเลือกเดือน/ปีให้เลือก (ตั้งแต่ 2 ปีที่แล้ว ถึง 5 ปีข้างหน้า
+// ครอบคลุมเคสของที่มีกำหนดระยะยาว เช่น ค่าประกัน 1 ปี) — เก็บเป็นวันที่ 1
+// ของเดือนนั้นเสมอ เพราะ isActiveInMonth() เทียบแค่ระดับเดือน ไม่สนวันที่จริง
+List<DateTime> _fixedCostMonthOptions() {
+  final now = DateTime.now();
+  final start = DateTime(now.year - 2, 1);
+  return List.generate(
+    7 * 12,
+    (i) => DateTime(start.year, start.month + i, 1),
+  );
+}
+
+// ช่องเลือกเดือน/ปีแบบ dropdown — ใช้ทั้งช่องเริ่มและสิ้นสุดในส่วน "ช่วงเวลา"
+// ของ dialog เพิ่ม/แก้ไขรายการ (รูปแบบเดียวกับตัวเลือกเดือนใน settings_bill_history.dart)
+class _MonthYearField extends StatelessWidget {
   final String label;
-  final DateTime? date;
-  final VoidCallback? onTap;
+  final DateTime? value;
+  final List<DateTime> options;
+  final ValueChanged<DateTime?>? onChanged;
   final bool enabled;
 
-  const _DateField({
+  const _MonthYearField({
     required this.label,
-    required this.date,
-    required this.onTap,
+    required this.value,
+    required this.options,
+    required this.onChanged,
     this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          filled: !enabled,
-          fillColor: Colors.grey.shade100,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          disabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        ),
-        child: Text(
-          date != null ? DateFormat('d MMM yyyy').format(date!) : '—',
-          style: TextStyle(
-            fontSize: 13,
-            color: enabled ? Colors.black87 : Colors.grey.shade500,
-          ),
-        ),
+    return DropdownButtonFormField<DateTime>(
+      initialValue: value,
+      isExpanded: true,
+      icon: const Icon(Icons.expand_more, size: 18),
+      decoration: InputDecoration(
+        labelText: label,
+        filled: !enabled,
+        fillColor: Colors.grey.shade100,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
+      items: options
+          .map((d) => DropdownMenuItem(
+                value: d,
+                child: Text(
+                  '${thaiMonths[d.month - 1]} ${d.year}',
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ))
+          .toList(),
+      onChanged: enabled ? onChanged : null,
     );
   }
 }
@@ -150,10 +169,19 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
       text: existing != null ? existing.amount.toStringAsFixed(0) : '',
     );
     String? errorText;
+    // ตัวเลือกเดือน/ปีทั้งหมดที่เลือกได้ — ต้อง snap startDate/endDate ของรายการ
+    // เดิมให้ตรงกับ entry ในลิสต์นี้เป๊ะๆ (เทียบแค่ปี/เดือน) ไม่งั้น
+    // DropdownButtonFormField จะหา item ที่ตรงกับ initialValue ไม่เจอแล้ว throw
+    final monthOptions = _fixedCostMonthOptions();
+    DateTime snapToMonth(DateTime d) => monthOptions.firstWhere(
+          (m) => m.year == d.year && m.month == d.month,
+          orElse: () => DateTime(d.year, d.month, 1),
+        );
     // ช่วงเวลา: startDate เริ่มนับตั้งแต่เดือนนี้เป็น default, endDate = null
     // หมายถึงต่อเนื่องไม่มีกำหนด (พฤติกรรมเดิมของรายการที่ไม่มีวันสิ้นสุด)
-    DateTime startDate = existing?.startDate ?? DateTime.now();
-    DateTime? endDate = existing?.endDate;
+    DateTime startDate = snapToMonth(existing?.startDate ?? DateTime.now());
+    DateTime? endDate =
+        existing?.endDate == null ? null : snapToMonth(existing!.endDate!);
     bool hasEndDate = endDate != null;
 
     await showDialog(
@@ -246,41 +274,34 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: _DateField(
+                      child: _MonthYearField(
                         label: 'เริ่ม',
-                        date: startDate,
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: startDate,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) {
-                            setDialogState(() => startDate = picked);
-                          }
+                        value: startDate,
+                        options: monthOptions,
+                        onChanged: (picked) {
+                          if (picked == null) return;
+                          setDialogState(() {
+                            startDate = picked;
+                            // ถ้าเดือนสิ้นสุดที่ตั้งไว้ดันมาก่อนเดือนเริ่มใหม่
+                            // (เพราะ user ย้ายเดือนเริ่มมาทีหลัง) ดันตามไปด้วย
+                            if (endDate != null && endDate!.isBefore(startDate)) {
+                              endDate = startDate;
+                            }
+                          });
                         },
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: _DateField(
+                      child: _MonthYearField(
                         label: 'สิ้นสุด',
-                        date: endDate,
+                        value: endDate,
                         enabled: hasEndDate,
-                        onTap: !hasEndDate
-                            ? null
-                            : () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: endDate ?? startDate,
-                                  firstDate: startDate,
-                                  lastDate: DateTime(2100),
-                                );
-                                if (picked != null) {
-                                  setDialogState(() => endDate = picked);
-                                }
-                              },
+                        options: monthOptions
+                            .where((m) => !m.isBefore(startDate))
+                            .toList(),
+                        onChanged: (picked) =>
+                            setDialogState(() => endDate = picked),
                       ),
                     ),
                   ],
@@ -486,11 +507,13 @@ final confirmed = await showConfirmDialog(
                             const accent = DashboardStyles.primaryGreen;
                             // รายการที่หมดอายุแล้วไม่ถูกนับในยอดรวมด้านบนแล้ว
                             // การ์ดจะจางลงพร้อม badge ให้เห็นชัดว่าทำไมยอดถึงลด
+                            // เช็คแบบเดือน (ไม่ใช่วัน) ให้ตรงกับ isActiveInMonth()
+                            // ที่ใช้คำนวณยอดรวมจริง — กันไม่ให้ badge กับยอดขัดกัน
                             final isExpired = item.endDate != null &&
-                                item.endDate!.isBefore(DateTime.now());
+                                !item.isActiveInMonth(DateTime.now());
                             final periodLabel = item.endDate == null
                                 ? null
-                                : 'ถึง ${DateFormat('d MMM yyyy').format(item.endDate!)}';
+                                : 'ถึง ${thaiMonths[item.endDate!.month - 1]} ${item.endDate!.year}';
 
                             return IntrinsicHeight(
                               child: Row(
