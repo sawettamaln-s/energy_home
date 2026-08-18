@@ -1,14 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../models/electricity_log_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
-import '../../utils/calculator.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../utils/forecaster.dart';
 import '../../utils/thai_date_utils.dart';
@@ -18,6 +16,7 @@ import '../../widgets/onboarding_guide.dart';
 import '../settings/settings_screen.dart';
 import 'dashboard_styles.dart';
 import 'notification_screen.dart';
+import 'record_meter_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   // true เฉพาะตอนเพิ่ง push มาจาก setup_screen/setup_complete_screen หลัง
@@ -42,12 +41,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  final _electricityController = TextEditingController(); // normal
-  final _electricityPeakController = TextEditingController(); // TOU peak
-  final _electricityOffPeakController = TextEditingController(); // TOU off-peak
-  final _waterController = TextEditingController();
-
-
 
   UserModel? _user;
   ElectricityLogModel? _latestElectricityLog;
@@ -70,18 +63,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double _lastMonthWaterCost = 0;
 
   bool _isLoading = true;
-  bool _isSavingElectricity = false;
-  bool _isSavingWater = false;
-  String _electricityError = '';
-  String _waterError = '';
   int _unreadNotifications =
       0; // จำนวนแจ้งเตือนที่ยังไม่อ่าน (badge ที่ปุ่มกระดิ่ง)
-
-  // การ์ด TOU: สลับโชว์ทีละช่วง (0 = On-Peak, 1 = Off-Peak) แทนที่จะโชว์
-  // ทั้ง 2 ฟิลด์พร้อมกัน — ทำให้การ์ดสูงพอๆ กับการ์ดน้ำ (ฟิลด์เดียว) บนจอ
-  // มือถือ ค่าที่กรอกไว้ในแต่ละช่วงยังอยู่ครบแม้จะสลับแท็บ (ผูกกับ
-  // controller เดิม ไม่ได้ล้างตอนสลับ)
-  int _touPeriod = 0;
 
   // เช็คแค่ "ครั้งแรก" ที่ _loadData() รัน (ไม่ใช่ทุกครั้งที่ pull-to-refresh)
   // ใช้คู่กับ widget.justCompletedSetup เพื่อทำให้แจ้งเตือนเงียบแค่รอบเดียว
@@ -98,11 +81,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // หน้านี้จะโหลดข้อมูลใหม่ให้เองโดยไม่ต้องรอผู้ใช้ pull-to-refresh
     DataRefreshBus.instance.version.addListener(_onDataChangedElsewhere);
 
-    // อัปเดตจุดสถานะ "กรอกแล้ว" บนปุ่มสลับ On-Peak/Off-Peak แบบเรียลไทม์
-    // ระหว่างพิมพ์ (ไม่งั้นพอสลับแท็บไปมาจะไม่รู้ว่าอีกช่วงกรอกไปหรือยัง)
-    _electricityPeakController.addListener(_onTouFieldChanged);
-    _electricityOffPeakController.addListener(_onTouFieldChanged);
-
     // โชว์คู่มือเริ่มต้นใช้งาน (เฉพาะครั้งแรกที่เข้า Dashboard เท่านั้น)
     // ใช้ addPostFrameCallback เพื่อรอให้ widget tree พร้อมก่อนเปิด dialog
     //
@@ -114,10 +92,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OnboardingGuide.showIfFirstTime(context);
     });
-  }
-
-  void _onTouFieldChanged() {
-    if (mounted) setState(() {});
   }
 
   void _onDataChangedElsewhere() {
@@ -150,8 +124,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // พร้อมบันทึก log รายวันไหม (แยกรายยูทิลิตี้) = เคยตั้งค่ามาก่อน AND
-  // ค่านั้นยังตรงกับรอบปัจจุบัน — ใช้ทั้งใน build() (โชว์การ์ดไหน) และซ้ำ
-  // อีกชั้นใน _saveElectricityLog/_saveWaterLog (กันเผื่อ state ไม่ตรงกัน)
+  // ค่านั้นยังตรงกับรอบปัจจุบัน — ใช้ใน build() ตัดสินใจว่าโชว์การ์ดสรุป
+  // (กดแล้วไปหน้า RecordMeterScreen) หรือการ์ดล็อกเตือนให้ตั้งมิเตอร์ต้นรอบ
+  // ก่อน (ดู _buildMeterLockedCard)
   bool get _electricityMeterReady =>
       (_user?.electricityStartConfigured ?? true) &&
       _startMeterMatchesCurrentCycle;
@@ -164,12 +139,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     DataRefreshBus.instance.version.removeListener(_onDataChangedElsewhere);
-    _electricityPeakController.removeListener(_onTouFieldChanged);
-    _electricityOffPeakController.removeListener(_onTouFieldChanged);
-    _electricityController.dispose();
-    _electricityPeakController.dispose();
-    _electricityOffPeakController.dispose();
-    _waterController.dispose();
     super.dispose();
   }
 
@@ -377,247 +346,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return deltas;
   }
 
-  // บันทึกค่ามิเตอร์ไฟฟ้า
-  Future<void> _saveElectricityLog() async {
-    // gate: ถ้ายังไม่ได้ตั้งมิเตอร์ต้นรอบไฟฟ้าของรอบปัจจุบัน ห้ามบันทึก log
-    // รายวัน (การ์ดฝั่ง UI ล็อกไว้อยู่แล้วปกติ เช็คซ้ำตรงนี้กันเผื่อ state
-    // ยังไม่ทันอัปเดตหรือมีทางเรียกฟังก์ชันนี้ทางอื่นในอนาคต)
-    if (!_electricityMeterReady) {
-      setState(() => _electricityError =
-          'กรุณาตั้งค่ามิเตอร์ต้นรอบไฟฟ้าของรอบนี้ก่อนค่ะ');
-      return;
-    }
-
-    final isTOU = _user?.meterType == 'tou';
-
-    // ค่าต้นรอบ/ล่าสุดของ TOU เตรียมไว้ใช้ทั้งตอน validate และตอนเติมให้
-    // อัตโนมัติเวลาผู้ใช้กรอกแค่ช่องเดียว (คำนวณล่วงหน้าตรงนี้เพราะต้องใช้
-    // ทั้งก่อนและหลัง setState _isSavingElectricity)
-    final startPeak = _user?.startPeakValue ?? 0;
-    final startOffPeak = _user?.startOffPeakValue ?? 0;
-    final lastPeak = _latestElectricityLog?.peakMeterValue ?? startPeak;
-    final lastOffPeak =
-        _latestElectricityLog?.offPeakMeterValue ?? startOffPeak;
-
-    if (isTOU) {
-      final peakEmpty = _electricityPeakController.text.trim().isEmpty;
-      final offPeakEmpty = _electricityOffPeakController.text.trim().isEmpty;
-      // กรอกแค่ช่องเดียวก็คำนวณได้ เหมือนแบบฟอร์มประมาณการของเว็บ กฟภ/กฟน
-      // (ช่องที่เว้นว่างไว้ = ช่วงนั้นไม่ได้ใช้เพิ่ม ใช้ค่าล่าสุดแทน)
-      if (peakEmpty && offPeakEmpty) {
-        setState(() => _electricityError =
-            'กรุณากรอกหน่วย Peak หรือ Off-Peak อย่างน้อย 1 ช่องค่ะ');
-        return;
-      }
-    } else {
-      if (_electricityController.text.isEmpty) {
-        setState(() => _electricityError = 'กรุณากรอกค่ามิเตอร์ไฟฟ้าก่อนค่ะ');
-        return;
-      }
-    }
-
-    double peakValue = 0;
-    double offPeakValue = 0;
-    double normalValue = 0;
-
-    try {
-      if (isTOU) {
-        // ช่องไหนเว้นว่างไว้ -> ใช้ค่าล่าสุดเดิม (เท่ากับหน่วยที่ใช้เพิ่ม
-        // ในช่วงนั้น = 0)
-        peakValue = _electricityPeakController.text.trim().isEmpty
-            ? lastPeak
-            : double.parse(_electricityPeakController.text);
-        offPeakValue = _electricityOffPeakController.text.trim().isEmpty
-            ? lastOffPeak
-            : double.parse(_electricityOffPeakController.text);
-      } else {
-        normalValue = double.parse(_electricityController.text);
-      }
-    } catch (e) {
-      setState(() => _electricityError = 'กรุณากรอกเป็นตัวเลขเท่านั้นค่ะ');
-      return;
-    }
-
-    setState(() {
-      _electricityError = '';
-      _isSavingElectricity = true;
-    });
-
-    try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
-      double usedFromStart;
-      double usedFromLast;
-      double cost;
-      double peakUnits = 0;
-      double offPeakUnits = 0;
-
-      if (isTOU) {
-        if (peakValue < startPeak || offPeakValue < startOffPeak) {
-          setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบค่ะ');
-          setState(() => _isSavingElectricity = false);
-          return;
-        }
-        if (peakValue < lastPeak || offPeakValue < lastOffPeak) {
-          setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุดค่ะ');
-          setState(() => _isSavingElectricity = false);
-          return;
-        }
-
-        peakUnits = EnergyCalculator.calculateUsed(peakValue, startPeak);
-        offPeakUnits =
-            EnergyCalculator.calculateUsed(offPeakValue, startOffPeak);
-        usedFromStart = peakUnits + offPeakUnits;
-        usedFromLast = EnergyCalculator.calculateUsed(peakValue, lastPeak) +
-            EnergyCalculator.calculateUsed(offPeakValue, lastOffPeak);
-
-        cost = await EnergyCalculator.calculateElectricityByType(
-          units: 0,
-          meterType: 'tou',
-          area: _user?.area ?? 'bangkok',
-          peakUnits: peakUnits,
-          offPeakUnits: offPeakUnits,
-        );
-      } else {
-        final startE = _user?.startElectricityValue ?? 0;
-        final lastE = _latestElectricityLog?.meterValue ?? startE;
-
-        if (normalValue < startE) {
-          setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startE) ค่ะ');
-          setState(() => _isSavingElectricity = false);
-          return;
-        }
-        if (normalValue < lastE) {
-          setState(
-              () => _electricityError = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุด ($lastE) ค่ะ');
-          setState(() => _isSavingElectricity = false);
-          return;
-        }
-
-        usedFromStart = EnergyCalculator.calculateUsed(normalValue, startE);
-        usedFromLast = EnergyCalculator.calculateUsed(normalValue, lastE);
-
-        cost = await EnergyCalculator.calculateElectricityByType(
-          units: usedFromStart,
-          meterType: 'normal',
-          area: _user?.area ?? 'bangkok',
-        );
-      }
-
-      final log = ElectricityLogModel(
-        id: const Uuid().v4(),
-        uid: uid,
-        date: DateTime.now(),
-        meterValue: isTOU ? usedFromStart : normalValue,
-        peakMeterValue: isTOU ? peakValue : null,
-        offPeakMeterValue: isTOU ? offPeakValue : null,
-        usedFromStart: usedFromStart,
-        usedFromLast: usedFromLast,
-        cost: cost,
-      );
-
-      await _firestoreService.saveElectricityLog(log);
-      _electricityController.clear();
-      _electricityPeakController.clear();
-      _electricityOffPeakController.clear();
-      await _loadData();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('บันทึกค่ามิเตอร์ไฟฟ้าเรียบร้อยแล้วค่ะ'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() => _electricityError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
-    } finally {
-      if (mounted) setState(() => _isSavingElectricity = false);
-    }
-  }
-
-  // บันทึกค่ามิเตอร์น้ำ
-  Future<void> _saveWaterLog() async {
-    // gate: เหมือน _saveElectricityLog — ห้ามบันทึก log น้ำถ้ายังไม่ได้ตั้ง
-    // มิเตอร์ต้นรอบน้ำของรอบปัจจุบัน
-    if (!_waterMeterReady) {
-      setState(
-          () => _waterError = 'กรุณาตั้งค่ามิเตอร์ต้นรอบน้ำของรอบนี้ก่อนค่ะ');
-      return;
-    }
-
-    if (_waterController.text.isEmpty) {
-      setState(() => _waterError = 'กรุณากรอกค่ามิเตอร์น้ำก่อนค่ะ');
-      return;
-    }
-
-    double value;
-    try {
-      value = double.parse(_waterController.text);
-    } catch (e) {
-      setState(() => _waterError = 'กรุณากรอกเป็นตัวเลขเท่านั้นค่ะ');
-      return;
-    }
-
-    final startW = _user?.startWaterValue ?? 0;
-    final lastW = _latestWaterLog?.meterValue ?? startW;
-
-    if (value < startW) {
-      setState(() => _waterError = 'ต้องไม่น้อยกว่าหน่วยต้นรอบ ($startW) ค่ะ');
-      return;
-    }
-    if (value < lastW) {
-      setState(() => _waterError = 'ต้องไม่น้อยกว่าครั้งล่าสุด ($lastW) ค่ะ');
-      return;
-    }
-
-    setState(() {
-      _waterError = '';
-      _isSavingWater = true;
-    });
-
-    try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
-      final usedFromStart = EnergyCalculator.calculateUsed(value, startW);
-      final usedFromLast = EnergyCalculator.calculateUsed(value, lastW);
-
-      final cost = EnergyCalculator.calculateWater(
-        usedFromStart,
-        _user?.area ?? 'bangkok',
-      );
-
-      final log = WaterLogModel(
-        id: const Uuid().v4(),
-        uid: uid,
-        date: DateTime.now(),
-        meterValue: value,
-        usedFromStart: usedFromStart,
-        usedFromLast: usedFromLast,
-        cost: cost,
-      );
-
-      await _firestoreService.saveWaterLog(log);
-      _waterController.clear();
-      await _loadData();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('บันทึกค่ามิเตอร์น้ำเรียบร้อยแล้วค่ะ'),
-            backgroundColor: Colors.blue,
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() => _waterError = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
-    } finally {
-      if (mounted) setState(() => _isSavingWater = false);
-    }
-  }
-
   // กดปุ่ม notification ตรงหัวบาร์ -> เปิดหน้า Notification Center
   // พอกลับมาจากหน้านั้น (เผื่อมีการอ่าน/ลบ) ให้รีเฟรชจำนวนที่ยังไม่อ่านใหม่
   Future<void> _onNotificationTap() async {
@@ -689,13 +417,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 10),
                       ],
 
-                      // การ์ดไฟฟ้ากับน้ำอยู่คู่กันแบบ Row ซ้าย-ขวา ใช้
-                      // IntrinsicHeight ให้การ์ด TOU (2 ฟิลด์) กับการ์ดน้ำ
-                      // (1 ฟิลด์) สูงเท่ากัน — เช็ค startMeterConfigured
-                      // ของแต่ละฝั่งแยกกัน (ดู UserModel) ถ้ายังไม่ได้ตั้ง
-                      // เลยสักอย่าง โชว์การ์ดเต็มความกว้าง แต่ถ้าตั้งไปแล้ว
-                      // อย่างน้อย 1 ฝั่ง ให้ใช้งานฝั่งที่พร้อมได้ก่อนเลย ส่วน
-                      // ฝั่งที่ยังไม่พร้อมโชว์การ์ดล็อกแยกแทนที่จะบล็อกทั้งคู่
+                      // การ์ดไฟฟ้ากับน้ำอยู่คู่กันแบบ Row ซ้าย-ขวา — ไม่มีช่อง
+                      // กรอกอยู่ในการ์ดเองแล้ว (ย้ายไปหน้าเต็มจอ
+                      // RecordMeterScreen หมด) การ์ดตรงนี้เหลือแค่โชว์สรุป
+                      // ค่าล่าสุด/ต้นรอบ + ปุ่มเดียวพาไปหน้าบันทึก ใช้
+                      // IntrinsicHeight ให้การ์ดไฟ (TOU โชว์ 2 บรรทัดสรุป)
+                      // กับการ์ดน้ำ (1 บรรทัด) สูงเท่ากัน — เช็ค
+                      // startMeterConfigured ของแต่ละฝั่งแยกกัน (ดู
+                      // UserModel) ถ้ายังไม่ได้ตั้งเลยสักอย่าง โชว์การ์ดเต็ม
+                      // ความกว้าง แต่ถ้าตั้งไปแล้วอย่างน้อย 1 ฝั่ง ให้ใช้งาน
+                      // ฝั่งที่พร้อมได้ก่อนเลย ส่วนฝั่งที่ยังไม่พร้อมโชว์
+                      // การ์ดล็อกแยกแทนที่จะบล็อกทั้งคู่
                       _user?.startMeterConfigured == false
                           ? _buildStartMeterRequiredCard()
                           : IntrinsicHeight(
@@ -704,32 +436,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 children: [
                                   Expanded(
                                     child: _electricityMeterReady
-                                        ? (_user?.meterType == 'tou'
-                                            ? _buildTOUMeterCard()
-                                            : _buildMeterCard(
-                                                title: 'ไฟฟ้า',
-                                                icon: Icons.bolt,
-                                                accent: DashboardStyles
-                                                    .electricityAccent,
-                                                borderColor: DashboardStyles
-                                                    .electricityBorder,
-                                                fieldBg: DashboardStyles
-                                                    .electricityFieldBg,
-                                                controller:
-                                                    _electricityController,
-                                                hint: 'เช่น 01234',
-                                                lastValue:
-                                                    _latestElectricityLog
-                                                            ?.meterValue ??
-                                                        _user
-                                                            ?.startElectricityValue,
-                                                startValue: _user
-                                                    ?.startElectricityValue,
-                                                error: _electricityError,
-                                                isSaving: _isSavingElectricity,
-                                                onSave: _saveElectricityLog,
-                                                unit: 'หน่วย',
-                                              ))
+                                        ? _buildMeterSummaryCard(
+                                            kind: MeterKind.electricity,
+                                            isTou: _user?.meterType == 'tou',
+                                          )
                                         : _buildMeterLockedCard(
                                             title: 'ไฟฟ้า',
                                             icon: Icons.bolt,
@@ -747,25 +457,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _waterMeterReady
-                                        ? _buildMeterCard(
-                                            title: 'น้ำ',
-                                            icon: Icons.water_drop,
-                                            accent:
-                                                DashboardStyles.waterAccent,
-                                            borderColor:
-                                                DashboardStyles.waterBorder,
-                                            fieldBg:
-                                                DashboardStyles.waterFieldBg,
-                                            controller: _waterController,
-                                            hint: 'เช่น 01234',
-                                            lastValue:
-                                                _latestWaterLog?.meterValue ??
-                                                    _user?.startWaterValue,
-                                            startValue: _user?.startWaterValue,
-                                            error: _waterError,
-                                            isSaving: _isSavingWater,
-                                            onSave: _saveWaterLog,
-                                            unit: 'ลบ.ม.',
+                                        ? _buildMeterSummaryCard(
+                                            kind: MeterKind.water,
                                           )
                                         : _buildMeterLockedCard(
                                             title: 'น้ำ',
@@ -1054,46 +747,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // -------------------------------------------------------------------
 
   // =====================================================================
-  // ดีไซน์ช่องกรอกมิเตอร์ที่ใช้ร่วมกันทั้งฟิลด์ปกติและฟิลด์ TOU
-  // มีกรอบบางๆตอนปกติ เด่นขึ้นตอน focus ด้วยสีของแต่ละมิเตอร์ และตัวเลข
-  // หน่วยท้ายช่องทำเป็น label แทน placeholder
-  // =====================================================================
-  InputDecoration _meterFieldDecoration({
-    required String hint,
-    required String unit,
-    required Color accent,
-    required Color fieldBg,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: DashboardStyles.hintStyle,
-      suffixText: unit,
-      suffixStyle: TextStyle(
-        color: accent,
-        fontSize: 12.5,
-        fontWeight: FontWeight.w700,
-      ),
-      isDense: true,
-      filled: true,
-      fillColor: fieldBg,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: accent, width: 1.6),
-      ),
-    );
-  }
-
-  // =====================================================================
   // แบนเนอร์เล็กเตือนให้ตั้งวันตัดรอบบิล — ต่างจาก
   // _buildStartMeterRequiredCard() ตรงที่ไม่บล็อกการใช้งานอะไรเลย (ระบบยัง
   // ใช้ default 30 คำนวณให้ได้อยู่) จึงออกแบบให้เด่นน้อยกว่า เป็นแถบบางๆ
@@ -1229,11 +882,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // =====================================================================
-  // การ์ดล็อก — โชว์แทนการ์ดกรอกมิเตอร์ปกติ เฉพาะฝั่งที่ยังไม่ได้ตั้งเลข
+  // การ์ดล็อก — โชว์แทนการ์ดสรุปมิเตอร์ปกติ เฉพาะฝั่งที่ยังไม่ได้ตั้งเลข
   // มิเตอร์ต้นรอบ (electricityStartConfigured / waterStartConfigured เป็น
   // false) ในขณะที่อีกฝั่งตั้งไปแล้ว ไม่ใช้ _buildStartMeterRequiredCard()
   // บล็อกทั้งคู่ เพราะฝั่งที่กรอกครบแล้วควรใช้งานได้เลย ไม่ต้องรอรอบอีกฝั่ง
-  // (เคสมีบิลแค่ใบเดียวในมือ) ขนาด/โครงให้ใกล้เคียง _buildMeterCard
+  // (เคสมีบิลแค่ใบเดียวในมือ) ขนาด/โครงให้ใกล้เคียง _buildMeterSummaryCard
   // เพื่อให้สูงเท่ากันตอนอยู่ใน Row เดียวกัน
   // =====================================================================
   Widget _buildMeterLockedCard({
@@ -1296,108 +949,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icon(isStaleCycle ? Icons.refresh : Icons.add, size: 16),
               label: Text(isStaleCycle ? 'ตั้งรอบใหม่' : 'ตั้งเลย',
                   style: const TextStyle(fontSize: 12.5)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // =====================================================================
-  // การ์ดบันทึกมิเตอร์ (ไฟฟ้า/น้ำ) — ใช้กับมิเตอร์ปกติ (ไม่ใช่ TOU)
-  // พาร์ทนี้ทำหน้าที่: ให้ผู้ใช้กรอกเลขมิเตอร์วันนี้ พร้อมโชว์ค่าล่าสุด/
-  // ต้นรอบเป็นตัวอย่างจาง ๆ ไว้เทียบ
-  // =====================================================================
-  Widget _buildMeterCard({
-    required String title,
-    required IconData icon,
-    required Color accent,
-    required Color fieldBg,
-    required TextEditingController controller,
-    required String hint,
-    required String error,
-    required bool isSaving,
-    required VoidCallback onSave,
-    required String unit,
-    double? lastValue,
-    double? startValue,
-    Color? borderColor,
-  }) {
-    final formatter = NumberFormat('#,##0.##');
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: DashboardStyles.accentCard(borderColor ?? accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: accent, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  color: accent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          // ล่าสุด/ต้นรอบ แยกคนละบรรทัด (รวมบรรทัดเดียวจะล้นช่องแคบเวลา
-          // วางการ์ดคู่กันแบบ Row)
-          if (lastValue != null)
-            Text('หน่วยสะสม : ${formatter.format(lastValue)} $unit',
-                style: DashboardStyles.lastValueStyle),
-          if (startValue != null)
-            Text('หน่วยต้นรอบ : ${formatter.format(startValue)} $unit',
-                style: DashboardStyles.lastValueStyle),
-          const SizedBox(height: 8),
-          TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: DashboardStyles.textDark,
-            ),
-            decoration: _meterFieldDecoration(
-              hint: hint,
-              unit: unit,
-              accent: accent,
-              fieldBg: fieldBg,
-            ),
-          ),
-          if (error.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(error,
-                  style: const TextStyle(color: Colors.red, fontSize: 11)),
-            ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: isSaving ? null : onSave,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              icon: isSaving
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.menu, size: 16),
-              label:
-                  const Text('บันทึกมิเตอร์', style: TextStyle(fontSize: 13)),
             ),
           ),
         ],
@@ -1639,154 +1190,106 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildTOUMeterCard() {
+  // =====================================================================
+  // การ์ดสรุปมิเตอร์ (ไฟฟ้า/น้ำ) — แทนที่การ์ดกรอกเลขเดิมทั้งหมด (ทั้ง
+  // มิเตอร์ปกติและ TOU) ตัวการ์ดเองไม่มีช่องกรอกแล้ว มีแค่โชว์ค่าล่าสุด/
+  // ต้นรอบ แล้วกดปุ่มเดียวพาไปหน้าเต็มจอ RecordMeterScreen แทน (ดูเหตุผล
+  // ที่ย้ายออกมาที่ท้ายไฟล์ record_meter_screen.dart)
+  // =====================================================================
+  Widget _buildMeterSummaryCard({
+    required MeterKind kind,
+    bool isTou = false,
+  }) {
     final formatter = NumberFormat('#,##0.##');
-    final lastPeak =
-        _latestElectricityLog?.peakMeterValue ?? _user?.startPeakValue;
-    final startPeak = _user?.startPeakValue;
-    final lastOffPeak =
-        _latestElectricityLog?.offPeakMeterValue ?? _user?.startOffPeakValue;
-    final startOffPeak = _user?.startOffPeakValue;
+    final isElectricity = kind == MeterKind.electricity;
+    final borderColor =
+        isElectricity ? DashboardStyles.electricityBorder : DashboardStyles.waterBorder;
+    final badgeBg =
+        isElectricity ? DashboardStyles.electricityFieldBg : DashboardStyles.waterFieldBg;
+    final unit = isElectricity ? 'หน่วย' : 'ลบ.ม.';
+    final title = isElectricity ? (isTou ? 'ไฟฟ้า (TOU)' : 'ไฟฟ้า') : 'น้ำ';
+    final icon = isElectricity ? Icons.bolt : Icons.water_drop;
 
-    final peakFilled = _electricityPeakController.text.trim().isNotEmpty;
-    final offPeakFilled =
-        _electricityOffPeakController.text.trim().isNotEmpty;
-    final isPeakTab = _touPeriod == 0;
+    final double? lastValue = isTou
+        ? null
+        : (isElectricity
+            ? (_latestElectricityLog?.meterValue ?? _user?.startElectricityValue)
+            : (_latestWaterLog?.meterValue ?? _user?.startWaterValue));
+    final double? startValue = isTou
+        ? null
+        : (isElectricity ? _user?.startElectricityValue : _user?.startWaterValue);
+    final double? lastPeak =
+        isTou ? (_latestElectricityLog?.peakMeterValue ?? _user?.startPeakValue) : null;
+    final double? lastOffPeak = isTou
+        ? (_latestElectricityLog?.offPeakMeterValue ?? _user?.startOffPeakValue)
+        : null;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
-      decoration: DashboardStyles.accentCard(DashboardStyles.electricityBorder),
+      decoration: DashboardStyles.accentCard(borderColor),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.bolt, color: Colors.orange, size: 18),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'ไฟฟ้า (TOU)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              GestureDetector(
-                onTap: _showTOUInfoPopup,
-                child: Icon(Icons.info_outline,
-                    size: 16, color: Colors.grey.shade500),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // ปุ่มสลับ On-Peak / Off-Peak — โชว์ทีละช่วงแทนที่จะยัดทั้ง 2
-          // ฟิลด์พร้อมกัน ทำให้การ์ดสูงพอๆ กับการ์ดน้ำ (ฟิลด์เดียว) บนจอ
-          // มือถือ จุดเขียวข้างชื่อช่วง = กรอกไว้แล้ว กันลืมว่าเหลืออีก
-          // ช่วงที่ยังไม่ได้กรอก
-          Row(
-            children: [
-              Expanded(
-                child: _buildTouTabButton(
-                  label: 'On-Peak (T1)',
-                  selected: isPeakTab,
-                  filled: peakFilled,
-                  onTap: () => setState(() => _touPeriod = 0),
-                ),
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(color: badgeBg, shape: BoxShape.circle),
+                child: Icon(icon, color: borderColor, size: 16),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildTouTabButton(
-                  label: 'Off-Peak (T2)',
-                  selected: !isPeakTab,
-                  filled: offPeakFilled,
-                  onTap: () => setState(() => _touPeriod = 1),
-                ),
+                child: Text(title,
+                    style: TextStyle(color: borderColor, fontWeight: FontWeight.w600, fontSize: 13.5),
+                    overflow: TextOverflow.ellipsis),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-
-          // เนื้อหาของช่วงที่เลือกอยู่ — ล่าสุด/ต้นรอบ + ช่องกรอก ของช่วง
-          // นั้นเท่านั้น (ค่าที่กรอกไว้ในอีกช่วงยังอยู่ครบ ไม่หายตอนสลับ
-          // เพราะผูกกับ controller เดิม)
-          if (isPeakTab) ...[
-            if (lastPeak != null)
-              Text('หน่วยสะสม : ${formatter.format(lastPeak)} หน่วย',
-                  style: DashboardStyles.lastValueStyle),
-            if (startPeak != null)
-              Text('หน่วยต้นรอบ : ${formatter.format(startPeak)} หน่วย',
-                  style: DashboardStyles.lastValueStyle),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _electricityPeakController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: DashboardStyles.textDark,
-              ),
-              decoration: _meterFieldDecoration(
-                hint: 'เช่น 012345',
-                unit: 'หน่วย',
-                accent: Colors.orange,
-                fieldBg: DashboardStyles.electricityFieldBg,
-              ),
-            ),
-          ] else ...[
-            if (lastOffPeak != null)
-              Text('หน่วยสะสม: ${formatter.format(lastOffPeak)} หน่วย',
-                  style: DashboardStyles.lastValueStyle),
-            if (startOffPeak != null)
-              Text('หน่วยต้นรอบ: ${formatter.format(startOffPeak)} หน่วย',
-                  style: DashboardStyles.lastValueStyle),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _electricityOffPeakController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: DashboardStyles.textDark,
-              ),
-              decoration: _meterFieldDecoration(
-                hint: 'เช่น 012345',
-                unit: 'หน่วย',
-                accent: Colors.deepOrange,
-                fieldBg: DashboardStyles.electricityFieldBg,
-              ),
-            ),
-          ],
-
-          if (_electricityError.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(_electricityError,
-                  style: const TextStyle(color: Colors.red, fontSize: 12)),
-            ),
-
           const SizedBox(height: 12),
-
+          if (isTou) ...[
+            Text('On-Peak สะสม: ${formatter.format(lastPeak ?? 0)} $unit',
+                style: DashboardStyles.lastValueStyle),
+            const SizedBox(height: 2),
+            Text('Off-Peak สะสม: ${formatter.format(lastOffPeak ?? 0)} $unit',
+                style: DashboardStyles.lastValueStyle),
+          ] else ...[
+            if (lastValue != null)
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(color: DashboardStyles.textDark),
+                  children: [
+                    TextSpan(
+                        text: formatter.format(lastValue),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                    TextSpan(
+                        text: ' $unit',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  ],
+                ),
+              ),
+            if (startValue != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('ต้นรอบ ${formatter.format(startValue)} $unit',
+                    style: DashboardStyles.lastValueStyle),
+              ),
+          ],
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _isSavingElectricity ? null : _saveElectricityLog,
+              onPressed: () => _openRecordMeter(kind, isTou: isTou),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                backgroundColor: badgeBg,
+                foregroundColor: borderColor,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              icon: _isSavingElectricity
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.menu, size: 18),
-              label: const Text('บันทึกมิเตอร์'),
+              icon: const Icon(Icons.edit_note, size: 16),
+              label: const Text('บันทึกมิเตอร์', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -1794,53 +1297,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // =====================================================================
-  // ปุ่มแท็บสลับ On-Peak/Off-Peak ในการ์ด TOU — โชว์จุดเขียวเล็กๆ ถ้าช่วง
-  // นั้นกรอกเลขไว้แล้ว กันลืมว่าเหลืออีกช่วงที่ยังไม่ได้กรอกก่อนกดบันทึก
-  // =====================================================================
-  Widget _buildTouTabButton({
-    required String label,
-    required bool selected,
-    required bool filled,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-        decoration: BoxDecoration(
-          color: selected ? Colors.orange.withValues(alpha: 0.12) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? Colors.orange : Colors.grey.shade300,
-            width: selected ? 1.4 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: selected
-                      ? Colors.orange.shade800
-                      : Colors.grey.shade600,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (filled) ...[
-              const SizedBox(width: 4),
-              Icon(Icons.check_circle,
-                  size: 13, color: Colors.green.shade600),
-            ],
-          ],
+  // แปลง log ของรอบนี้เป็น MeterHistoryEntry ให้ RecordMeterScreen ใช้โชว์
+  // ประวัติในหน้าสำเร็จ — _electricityLogs/_waterLogs มาจาก
+  // getCurrentMonthElectricityLogs/getCurrentMonthWaterLogs ซึ่ง query แบบ
+  // orderBy('date', descending: true) อยู่แล้ว (ใหม่สุดอยู่บนสุด) จึงส่งต่อ
+  // ตรงๆ ไม่ต้อง reverse
+  List<MeterHistoryEntry> _historyFor(MeterKind kind) {
+    if (kind == MeterKind.electricity) {
+      return _electricityLogs
+          .map((log) => MeterHistoryEntry(
+              date: log.date, usedFromLast: log.usedFromLast, cost: log.cost))
+          .toList();
+    }
+    return _waterLogs
+        .map((log) => MeterHistoryEntry(
+            date: log.date, usedFromLast: log.usedFromLast, cost: log.cost))
+        .toList();
+  }
+
+  // เปิดหน้าบันทึกมิเตอร์เต็มจอ — ส่งค่าต้นรอบ/ล่าสุดของยูทิลิตี้นั้นๆ ไปให้
+  // ครบ พอปิดหน้ากลับมาแล้วมีการบันทึกสำเร็จ (result.saved) ค่อยโหลดข้อมูล
+  // ใหม่ทั้งหน้า
+  Future<void> _openRecordMeter(MeterKind kind, {bool isTou = false}) async {
+    final isElectricity = kind == MeterKind.electricity;
+    final result = await Navigator.push<RecordMeterResult>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RecordMeterScreen(
+          kind: kind,
+          isTou: isTou,
+          uid: _user!.uid,
+          firestoreService: _firestoreService,
+          area: _user?.area ?? 'bangkok',
+          startValue: isElectricity ? (_user?.startElectricityValue ?? 0) : (_user?.startWaterValue ?? 0),
+          lastValue: isElectricity
+              ? (_latestElectricityLog?.meterValue ?? _user?.startElectricityValue ?? 0)
+              : (_latestWaterLog?.meterValue ?? _user?.startWaterValue ?? 0),
+          startPeak: _user?.startPeakValue ?? 0,
+          lastPeak: _latestElectricityLog?.peakMeterValue ?? _user?.startPeakValue ?? 0,
+          startOffPeak: _user?.startOffPeakValue ?? 0,
+          lastOffPeak: _latestElectricityLog?.offPeakMeterValue ?? _user?.startOffPeakValue ?? 0,
+          recentLogs: _historyFor(kind),
         ),
       ),
     );
+
+    if (result == null) return;
+    if (result.saved) await _loadData();
   }
 }
