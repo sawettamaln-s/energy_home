@@ -1,6 +1,6 @@
 class EnergyForecaster {
   // ==================== Moving Average ====================
-  // ใช้พยากรณ์ยอดบิลก่อนสิ้นรอบเดือนปัจจุบัน
+  // ใช้คาดการณ์ยอดบิลก่อนสิ้นรอบเดือนปัจจุบัน
   // โดยคำนวณอัตราการใช้เฉลี่ยต่อวัน แล้วประมาณวันที่เหลือ
 
   static double movingAverage({
@@ -15,7 +15,7 @@ class EnergyForecaster {
     double sum = dailyUsage.reduce((a, b) => a + b);
     double avgPerDay = sum / dailyUsage.length;
 
-    // พยากรณ์ยอดรวมสิ้นเดือน
+    // คาดการณ์ยอดรวมสิ้นเดือน
     // = ยอดที่ใช้จริงแล้ว + (ค่าเฉลี่ยต่อวัน × วันที่เหลือ)
     double forecast = currentTotal + (avgPerDay * remainingDays);
 
@@ -23,12 +23,12 @@ class EnergyForecaster {
   }
 
   // ==================== Linear Regression ====================
-  // ใช้พยากรณ์แนวโน้มค่าใช้จ่ายในเดือนถัดไป
+  // ใช้คาดการณ์แนวโน้มค่าใช้จ่ายในเดือนถัดไป
   // โดยใช้ข้อมูลย้อนหลังหลายเดือนเป็น training data
 
   static double linearRegression({
     required List<double> monthlyValues, // ค่าใช้จ่ายย้อนหลังรายเดือน
-    required int forecastMonth, // เดือนที่ต้องการพยากรณ์
+    required int forecastMonth, // เดือนที่ต้องการคาดการณ์
   }) {
     if (monthlyValues.isEmpty) return 0;
     if (monthlyValues.length == 1) return monthlyValues[0];
@@ -60,7 +60,7 @@ class EnergyForecaster {
     // a = (ΣY - b × ΣX) / n
     double a = (sumY - b * sumX) / n;
 
-    // พยากรณ์ค่าในเดือนที่ต้องการ
+    // คาดการณ์ค่าในเดือนที่ต้องการ
     // Y = a + b × X
     double forecast = a + b * forecastMonth;
 

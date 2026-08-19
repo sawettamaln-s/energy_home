@@ -38,8 +38,8 @@ class ComparisonResult {
   bool get isUnchanged => diff == 0;
 }
 
-/// ผลพยากรณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่ยังไม่ปิด) ด้วย Moving Average
-/// ต่างจาก forecastNextMonth ที่พยากรณ์ "เดือนถัดไปทั้งเดือน" ด้วย Linear Regression
+/// ผลคาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่ยังไม่ปิด) ด้วย Moving Average
+/// ต่างจาก forecastNextMonth ที่คาดการณ์ "เดือนถัดไปทั้งเดือน" ด้วย Linear Regression
 /// อันนี้ตอบคำถามว่า "ถ้าใช้ในอัตรานี้ต่อไปจนสิ้นรอบบิล จะจบที่เท่าไหร่"
 class CurrentCycleForecast {
   final double currentCost; // ใช้ไปแล้วเท่าไหร่ (บาท) ตั้งแต่ต้นรอบจนถึงวันนี้
@@ -209,7 +209,7 @@ class AnalysisService {
     );
   }
 
-  /// พยากรณ์ "แนวโน้มระยะยาว" ของเดือนถัดไป ด้วย Linear Regression (Least Squares)
+  /// คาดการณ์ "แนวโน้มระยะยาว" ของเดือนถัดไป ด้วย Linear Regression (Least Squares)
   /// ใช้ข้อมูลบิลที่ปิดรอบแล้วทั้งหมดเป็น training data (bills ในระบบมีแต่
   /// บิลที่ปิดรอบแล้วเท่านั้น เพราะ compileBill() ใน dashboard ถูกเรียก
   /// เฉพาะรอบก่อนหน้าที่ปิดไปแล้ว ไม่เคย compile รอบที่ยังไม่จบ)
@@ -225,9 +225,30 @@ class AnalysisService {
     );
   }
 
-  /// พยากรณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่กำลังดำเนินอยู่ ยังไม่ปิด) ด้วย
+  /// คาดการณ์แนวโน้มหลายเดือนล่วงหน้า ต่อยอดจาก forecastNextMonth — ใช้เส้น
+  /// Linear Regression เส้นเดียวกัน เพียงขยับจุด X ที่ทำนายออกไปทีละเดือน
+  /// (n+1, n+2, ... n+months) ไม่ใช่การ fit โมเดลใหม่ต่อเดือน จึงเป็นแค่การ
+  /// ลากเส้นเดิมยาวออกไป ยิ่งเดือนไกลยิ่งมีความไม่แน่นอนสูงขึ้นเรื่อยๆ
+  /// เพราะไม่ได้จับ seasonality หรือปรับตามข้อมูลที่ยังไม่เกิดขึ้นจริง
+  List<double> forecastNextMonths(
+    List<BillModel> bills, {
+    required double Function(BillModel) selector,
+    int months = 3,
+  }) {
+    if (bills.isEmpty) return List.filled(months, 0);
+    final monthlyValues = bills.map(selector).toList();
+    return List.generate(
+      months,
+      (i) => EnergyForecaster.linearRegression(
+        monthlyValues: monthlyValues,
+        forecastMonth: monthlyValues.length + i + 1,
+      ),
+    );
+  }
+
+  /// คาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่กำลังดำเนินอยู่ ยังไม่ปิด) ด้วย
   /// Moving Average — ใช้ logic เดียวกับที่ dashboard_screen.dart ใช้คำนวณ
-  /// การ์ดพยากรณ์สิ้นเดือน เพื่อให้ตัวเลขตรงกันทั้งแอป
+  /// การ์ดคาดการณ์สิ้นเดือน เพื่อให้ตัวเลขตรงกันทั้งแอป
   ///
   /// คืนผลลัพธ์เป็น Map ที่มี key 'electricity' และ 'water'
   Future<Map<String, CurrentCycleForecast>> forecastCurrentCycle({
@@ -378,7 +399,7 @@ class AnalysisService {
   }) {
     final insights = <AnalysisInsight>[];
 
-    // ----- 1. พยากรณ์ยอดรอบปัจจุบัน เทียบกับเดือนก่อน -----
+    // ----- 1. คาดการณ์ยอดรอบปัจจุบัน เทียบกับเดือนก่อน -----
     if (currentCycle != null && currentCycle.hasData && bills.isNotEmpty) {
       final lastActual = selector(bills.last);
       if (lastActual > 0) {

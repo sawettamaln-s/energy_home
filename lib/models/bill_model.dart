@@ -11,9 +11,9 @@ class BillModel {
   final double waterCost; // ค่าน้ำรวมทั้งเดือน
   final double fixedCost; // ค่าใช้จ่ายคงที่
   final double totalCost; // ยอดรวมทั้งหมด
-  final double forecastElectricity; // พยากรณ์ค่าไฟสิ้นเดือน (Moving Average)
-  final double forecastWater; // พยากรณ์ค่าน้ำสิ้นเดือน (Moving Average)
-  final double forecastTotal; // พยากรณ์ยอดรวมสิ้นเดือน
+  final double forecastElectricity; // คาดการณ์ค่าไฟสิ้นเดือน (Moving Average)
+  final double forecastWater; // คาดการณ์ค่าน้ำสิ้นเดือน (Moving Average)
+  final double forecastTotal; // คาดการณ์ยอดรวมสิ้นเดือน
   final String source; // 'compiled' = ระบบสรุปจาก log อัตโนมัติ, 'imported' = กรอกย้อนหลังเอง
 
   BillModel({

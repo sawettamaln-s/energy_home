@@ -72,6 +72,8 @@ class _UtilityTab extends StatelessWidget {
     final avg6 = analysisService.compareToAverage(bills, selector: selector);
     final forecast =
         analysisService.forecastNextMonth(bills, selector: selector);
+    final multiMonthForecast = analysisService.forecastNextMonths(
+        bills, selector: selector, months: 3);
 
     final insights = analysisService.generateUtilityInsights(
       label: label,
@@ -176,7 +178,7 @@ class _UtilityTab extends StatelessWidget {
               'ค่าเฉลี่ย คูณ 100 จะได้เป็น% ที่เพิ่มขึ้นหรือลดลง '
               '(ถ้าเดือนไหนไม่มีบิลก็จะไม่ถูกนับรวมในค่าเฉลี่ย)',
         ),
-        // ไม่มีบิลเลยสักเดือน = พยากรณ์ไม่มีความหมายอะไรทั้งสิ้น (ไม่ใช่แค่
+        // ไม่มีบิลเลยสักเดือน = คาดการณ์ไม่มีความหมายอะไรทั้งสิ้น (ไม่ใช่แค่
         // "ความมั่นใจต่ำ") ซ่อนการ์ดนี้ไปเลยดีกว่าโชว์ "0.00 บาท" ซึ่งดู
         // เหมือนระบบฟันธงว่าเดือนหน้าจะไม่มีค่าใช้จ่าย ทั้งที่จริงคือยังไม่มี
         // ข้อมูลให้คำนวณ — กราฟเทรนด์ด้านบนมี empty-state อธิบายเรื่องนี้
@@ -184,6 +186,9 @@ class _UtilityTab extends StatelessWidget {
         if (bills.isNotEmpty) ...[
           const SizedBox(height: 10),
           _forecastCard(context, forecast,
+              lowConfidence: forecastLowConfidence),
+          const SizedBox(height: 10),
+          _multiMonthForecastCard(context, multiMonthForecast,
               lowConfidence: forecastLowConfidence),
         ],
         if (insights.isNotEmpty) ...[
@@ -262,7 +267,7 @@ class _UtilityTab extends StatelessWidget {
     );
   }
 
-  // ----- การ์ดพยากรณ์ยอดบิลรอบปัจจุบัน (Moving Average ถึงวันตัดรอบ) -----
+  // ----- การ์ดคาดการณ์ยอดบิลรอบปัจจุบัน (Moving Average ถึงวันตัดรอบ) -----
   Widget _currentCycleCard(BuildContext context) {
     final c = currentCycle!;
     final progressPercent = (c.progress * 100).toStringAsFixed(0);
@@ -283,7 +288,7 @@ class _UtilityTab extends StatelessWidget {
             children: [
               const Icon(Icons.timelapse, color: _green, size: 18),
               const SizedBox(width: 6),
-              const Text('พยากรณ์ยอดบิลรอบนี้',
+              const Text('คาดการณ์ยอดบิลรอบนี้',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const Spacer(),
               Text('ผ่านมาแล้ว $progressPercent%',
@@ -415,7 +420,7 @@ class _UtilityTab extends StatelessWidget {
                         TextStyle(fontSize: 11, color: Colors.grey.shade600)),
               ),
               // ปุ่ม (i) ใช้ showInfoDialog ตัวเดียวกับที่ใช้ทั่วแอป (ดู
-              // การ์ดพยากรณ์รอบปัจจุบันด้านบน) ใส่ให้ครบทุกการ์ดเทียบเพื่อ
+              // การ์ดคาดการณ์รอบปัจจุบันด้านบน) ใส่ให้ครบทุกการ์ดเทียบเพื่อ
               // ความสม่ำเสมอ แทนที่จะมีแค่การ์ดเดียวที่อธิบายวิธีคำนวณ
               GestureDetector(
                 onTap: () => showInfoDialog(
@@ -515,7 +520,7 @@ class _UtilityTab extends StatelessWidget {
     );
   }
 
-  // ----- การ์ดพยากรณ์ "เดือนถัดไป" ด้วย Linear Regression จากบิลย้อนหลัง
+  // ----- การ์ดคาดการณ์ "เดือนถัดไป" ด้วย Linear Regression จากบิลย้อนหลัง
   // ทั้งหมด (ชื่อเทคนิคเก็บไว้แค่ในคอมเมนต์นี้กับ thesis report เท่านั้น —
   // ฝั่ง UI ใช้ภาษาคนล้วน ให้ผู้ใช้ทั่วไปเข้าใจได้โดยไม่ต้องรู้จักศัพท์สถิติ) -----
   Widget _forecastCard(
@@ -627,6 +632,225 @@ class _UtilityTab extends StatelessWidget {
               ),
               child: Text(
                 'ประมาณการเบื้องต้น (มีข้อมูล ${bills.length} เดือน)',
+                style: TextStyle(
+                    fontSize: 10.5,
+                    color: Colors.orange.shade900,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ----- การ์ดคาดการณ์หลายเดือนล่วงหน้า ต่อยอดจากการ์ดคาดการณ์เดือนหน้า
+  // ด้านบน ใช้เส้น Linear Regression เส้นเดียวกัน เพียงลากยาวออกไปหลายเดือน
+  // (ดู forecastNextMonths ใน analysis_service.dart) โชว์ทั้งกราฟเส้นและ
+  // รายการตัวเลขรายเดือน เพื่อให้เห็นทั้งภาพรวมและตัวเลขที่แน่นอน -----
+  Widget _multiMonthForecastCard(
+    BuildContext context,
+    List<double> forecasts, {
+    required bool lowConfidence,
+  }) {
+    if (bills.isEmpty || forecasts.isEmpty) return const SizedBox.shrink();
+
+    final lastBill = bills.last;
+    final historyValues = bills.map(selector).toList();
+    // โชว์ประวัติแค่ 6 เดือนล่าสุดพอ ให้กราฟไม่ยาวเกินไปและยังเห็นเทรนด์
+    // ต่อเนื่องกับเส้นคาดการณ์ได้ชัดเจน
+    final historyStart =
+        historyValues.length > 6 ? historyValues.length - 6 : 0;
+    final historySlice = historyValues.sublist(historyStart);
+
+    final historySpots = List.generate(
+      historySlice.length,
+      (i) => FlSpot(i.toDouble(), historySlice[i]),
+    );
+    // จุดแรกของเส้นคาดการณ์ซ้ำกับจุดสุดท้ายของเส้นประวัติ เพื่อให้เส้นต่อกัน
+    // สนิท ไม่มีช่องว่างระหว่างสองเส้นบนกราฟ
+    final forecastSpots = [
+      FlSpot((historySlice.length - 1).toDouble(), historySlice.last),
+      ...List.generate(
+        forecasts.length,
+        (i) => FlSpot((historySlice.length + i).toDouble(), forecasts[i]),
+      ),
+    ];
+
+    final allValues = [...historySlice, ...forecasts];
+    final maxVal = allValues.reduce((a, b) => a > b ? a : b);
+    final maxY = maxVal <= 0 ? 10.0 : maxVal * 1.2;
+
+    final labels = <String>[
+      for (int i = 0; i < historySlice.length; i++)
+        '${bills[historyStart + i].month}/${bills[historyStart + i].year % 100}',
+      for (int i = 0; i < forecasts.length; i++)
+        () {
+          final d = DateTime(lastBill.year, lastBill.month + i + 1, 1);
+          return '${d.month}/${d.year % 100}';
+        }(),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.trending_up, color: _green, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('คาดการณ์ ${forecasts.length} เดือนข้างหน้า',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13.5)),
+              ),
+              GestureDetector(
+                onTap: () => showInfoDialog(
+                  context,
+                  title: 'ตัวเลขนี้คำนวณอย่างไร?',
+                  message:
+                      'ใช้เส้นแนวโน้มเส้นเดียวกับการ์ด "คาดการณ์เดือนหน้า" '
+                      'ด้านบน เพียงลากเส้นนั้นต่อไปอีกหลายเดือน\n\n'
+                      'ยิ่งคาดการณ์ไกลจากปัจจุบันเท่าไร ความไม่แน่นอนยิ่งสูง'
+                      'ขึ้นเรื่อยๆ เพราะไม่ได้ปรับตามฤดูกาลหรือเหตุการณ์ที่'
+                      'ยังไม่เกิดขึ้นจริง เหมาะสำหรับดูแนวโน้มคร่าวๆ '
+                      'มากกว่าใช้เป็นตัวเลขที่แม่นยำ',
+                ),
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _green.withValues(alpha: 0.15),
+                  ),
+                  child: const Text('!',
+                      style: TextStyle(
+                          color: _green,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 140,
+            child: LineChart(
+              LineChartData(
+                minY: 0,
+                maxY: maxY,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (v) =>
+                      FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 22,
+                      getTitlesWidget: (value, meta) {
+                        final i = value.toInt();
+                        if (i < 0 || i >= labels.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final isForecast = i >= historySlice.length;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            labels[i],
+                            style: TextStyle(
+                              fontSize: 9,
+                              color:
+                                  isForecast ? _green : Colors.grey.shade600,
+                              fontWeight: isForecast
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineTouchData: const LineTouchData(enabled: false),
+                lineBarsData: [
+                  // เส้นประวัติ (ทึบ สีเทา)
+                  LineChartBarData(
+                    spots: historySpots,
+                    isCurved: false,
+                    color: Colors.grey.shade500,
+                    barWidth: 2,
+                    dotData: const FlDotData(show: false),
+                  ),
+                  // เส้นคาดการณ์ (เส้นประ สีเขียว)
+                  LineChartBarData(
+                    spots: forecastSpots,
+                    isCurved: false,
+                    color: _green,
+                    barWidth: 2,
+                    dashArray: const [6, 4],
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, bar, index) =>
+                          FlDotCirclePainter(
+                        radius: index == 0 ? 0 : 3,
+                        color: _green,
+                        strokeWidth: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...List.generate(forecasts.length, (i) {
+            final d = DateTime(lastBill.year, lastBill.month + i + 1, 1);
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('เดือน ${d.month}/${d.year}',
+                      style: TextStyle(
+                          fontSize: 12.5, color: Colors.grey.shade700)),
+                  Text('${_fmt.format(forecasts[i])} บาท',
+                      style: const TextStyle(
+                          fontSize: 12.5, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            );
+          }),
+          if (lowConfidence) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'ประมาณการเบื้องต้น (มีข้อมูล ${bills.length} เดือน) '
+                'ยิ่งเดือนไกลยิ่งไม่แน่นอน',
                 style: TextStyle(
                     fontSize: 10.5,
                     color: Colors.orange.shade900,

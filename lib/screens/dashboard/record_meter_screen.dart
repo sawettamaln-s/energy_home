@@ -250,7 +250,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
         setState(() {
           _isCalculating = false;
           _previewValid = false;
-          _error = showEmptyError ? 'กรุณากรอกค่ามิเตอร์${_utilityLabel}ก่อนค่ะ' : '';
+          _error = showEmptyError ? 'กรุณากรอกค่ามิเตอร์$_utilityLabelก่อนค่ะ' : '';
         });
       }
       return;
@@ -785,7 +785,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
           ),
           if (_historyAfterSave.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text('ประวัติการบันทึกรอบนี้', style: DashboardStyles.sectionTitle),
+            const Text('ประวัติการบันทึกรอบนี้', style: DashboardStyles.sectionTitle),
             const SizedBox(height: 8),
             ..._historyAfterSave.take(5).map((e) {
               final isLatest = e == _historyAfterSave.first;

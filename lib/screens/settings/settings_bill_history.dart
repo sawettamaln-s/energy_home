@@ -340,7 +340,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
         waterCost: _wCost,
         fixedCost: _fixedCost,
         totalCost: _totalWithFixedCost,
-        // บิลย้อนหลังคือของจริงที่เกิดขึ้นแล้ว ไม่ใช่ค่าพยากรณ์
+        // บิลย้อนหลังคือของจริงที่เกิดขึ้นแล้ว ไม่ใช่ค่าคาดการณ์
         forecastElectricity: _eCost,
         forecastWater: _wCost,
         forecastTotal: _totalWithFixedCost,

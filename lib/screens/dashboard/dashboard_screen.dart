@@ -11,7 +11,6 @@ import '../../utils/data_refresh_bus.dart';
 import '../../utils/forecaster.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
-import '../../widgets/info_dialog.dart';
 import '../../widgets/onboarding_guide.dart';
 import '../settings/settings_screen.dart';
 import 'dashboard_styles.dart';
@@ -259,7 +258,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // หรือยัง ถ้าถึงแล้วจะถูกบันทึกเข้า history ให้เห็นในหน้า Notification
       await NotificationService.instance.syncDeliveredScheduledNotifications();
 
-      // (Instant) เตือนล่วงหน้าถ้าพยากรณ์สิ้นเดือนจะสูงกว่าเดือนก่อน
+      // (Instant) เตือนล่วงหน้าถ้าคาดการณ์สิ้นเดือนจะสูงกว่าเดือนก่อน
       await NotificationService.instance.checkForecastHigherThanLastMonth(
         forecastTotal: _forecastTotal,
         lastMonthTotal: _lastMonthElectricityCost + _lastMonthWaterCost,
@@ -279,7 +278,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // =====================================================================
-  // คำนวณยอดใช้งาน/ค่าใช้จ่ายเดือนนี้ + พยากรณ์สิ้นเดือน (แยกไฟฟ้า/น้ำ)
+  // คำนวณยอดใช้งาน/ค่าใช้จ่ายเดือนนี้ + คาดการณ์สิ้นเดือน (แยกไฟฟ้า/น้ำ)
   // =====================================================================
   Future<void> _calculateCurrentMonth() async {
     if (_electricityLogs.isNotEmpty) {
@@ -306,7 +305,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // ----- ค่าเฉลี่ย "บาท/วัน" จริง -----
     // ห้ามเอา dailyUsage (หน่วย/วัน) ไปบวกกับ currentTotal (บาท) ตรง ๆ ผ่าน
-    // EnergyForecaster.forecastCurrentMonth เพราะยอดพยากรณ์จะไม่ใช่ "บาท"
+    // EnergyForecaster.forecastCurrentMonth เพราะยอดคาดการณ์จะไม่ใช่ "บาท"
     // จริง (หน่วยคนละอย่างกัน) ต้องคำนวณผลต่างของ cost สะสม (field `cost`
     // ใน log เป็นค่าสะสมจากต้นรอบเหมือน usedFromStart) ระหว่างแต่ละครั้งที่
     // บันทึก ให้ได้ "บาทที่เพิ่มขึ้นต่อช่วง" จริง ๆ ก่อนป้อนเข้า movingAverage
@@ -566,7 +565,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Text('บัญชีใหม่', style: DashboardStyles.subGreeting),
                       Text(' • ', style: DashboardStyles.subGreeting),
-                      Text('รอดำเนินการเปิดระบบพยากรณ์',
+                      Text('รอดำเนินการเปิดระบบคาดการณ์',
                           style: DashboardStyles.subGreeting),
                     ],
                   ),
@@ -803,7 +802,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // _buildMeterLockedCard() แยกเฉพาะฝั่งที่ยังไม่ได้ตั้งแทน (ดูจุดเรียกใช้
   // ใน build()) เพราะถ้าปล่อยให้กรอกเลย ระบบจะเอาเลขมิเตอร์สะสมจริงทั้งก้อน
   // (เช่น 15,234 หน่วย) ไปคำนวณเป็น "หน่วยที่ใช้เดือนนี้" ทันที ทำให้ค่าไฟ/
-  // น้ำรอบแรกเพี้ยนมหาศาล และไปกระทบข้อมูลพยากรณ์ในหน้าวิเคราะห์ด้วย
+  // น้ำรอบแรกเพี้ยนมหาศาล และไปกระทบข้อมูลคาดการณ์ในหน้าวิเคราะห์ด้วย
   // =====================================================================
   Widget _buildStartMeterRequiredCard() {
     return Container(
@@ -1143,31 +1142,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // อธิบายมิเตอร์ TOU ตอนกำลังจะกรอกค่าจริง — เนื้อหาคล้ายตอน setup แต่เน้น
-  // ว่าช่องไหนคือช่องไหน เผื่อผู้ใช้ลืมความหมายไปแล้วตั้งแต่ตอนสมัคร
-  void _showTOUInfoPopup() {
-    showInfoDialog(
-      context,
-      title: 'On-Peak / Off-Peak คืออะไร?',
-      iconColor: DashboardStyles.primaryGreen,
-      message: 'มิเตอร์ TOU แยกคิดค่าไฟตามช่วงเวลาที่ใช้ แทนที่จะคิดรวมทั้งเดือน '
-          'เหมือนมิเตอร์ปกติ:\n\n'
-          '• On-Peak (T1) — จ-ศ 09:00-22:00: ช่วงเวลาที่ความต้องการใช้ไฟฟ้า '
-          'ของประเทศสูง อัตราต่อหน่วยจะแพงกว่า\n\n'
-          '• Off-Peak (T2) — จ-ศ 22:00-09:00 และวันหยุด/นักขัตฤกษ์ทั้งวัน: '
-          'ช่วงที่ความต้องการใช้ไฟต่ำ อัตราต่อหน่วยจะถูกกว่า\n\n'
-          'กรอกเลขที่อ่านได้จากมิเตอร์จริงของแต่ละช่วง หากมิเตอร์ '
-          'TOU มีจอแสดงแยก 2 ค่า มักดูได้จากรหัส T1/T2 บนจอ '
-          '(บางรุ่นแสดงเป็นรหัสตัวเลขแทน เช่น 11/12 แล้วแต่ยี่ห้อมิเตอร์) '
-          'กรอกตามค่านั้นได้ทันที หากมีจอแสดง "ยอดรวม" แยกต่างหากด้วย '
-          'ค่านั้นเป็นผลบวกของ T1+T2 สำหรับดูภาพรวมเท่านั้น ไม่ต้องนำมากรอกในแอป\n\n'
-          'ระดับแรงดันไฟฟ้า: อัตรา TOU แบ่งราคาตามระดับแรงดัน '
-          'ที่มิเตอร์ต่อเข้าระบบด้วย (เช่น ต่ำกว่า 22 กิโลโวลต์, 22-33 '
-          'กิโลโวลต์ ฯลฯ) แต่บ้านพักอาศัยทั่วไปแทบทั้งหมดต่อที่แรงดัน '
-          'ต่ำกว่า 22 กิโลโวลต์ แอปจึงใช้อัตราของระดับนี้คำนวณให้'
-          'โดยอัตโนมัติ',
-    );
-  }
 
   Widget _buildSummaryRow(String label, String value,
       {bool isBold = false, Color? color}) {
