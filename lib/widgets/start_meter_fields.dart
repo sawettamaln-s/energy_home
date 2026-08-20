@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/dashboard/dashboard_styles.dart';
+import 'bill_mockup_card.dart';
 import 'info_dialog.dart';
 import 'tab_chip.dart';
 
@@ -219,6 +220,9 @@ class StartMeterValidation {
 /// UI state ล้วนๆ ไม่กระทบข้อมูลจริงที่หน้าเรียกใช้ต้องรู้
 class StartMeterPairedFields extends StatefulWidget {
   final bool isTou;
+  // ใช้เลือกโครงมอคอัพบิลใน popup "กรอกตรงไหนของบิล?" ให้ตรงกับผู้ให้บริการ
+  // ของผู้ใช้ ('bangkok' -> MEA/MWA, 'province' -> PEA/PWA) — ไม่ใช้คำนวณจริง
+  final String area;
   final TextEditingController electricityCtrl;
   final TextEditingController peakCtrl;
   final TextEditingController offPeakCtrl;
@@ -266,6 +270,7 @@ class StartMeterPairedFields extends StatefulWidget {
   const StartMeterPairedFields({
     super.key,
     required this.isTou,
+    this.area = 'bangkok',
     required this.electricityCtrl,
     required this.peakCtrl,
     required this.offPeakCtrl,
@@ -341,6 +346,20 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'ตัวอย่างบิล${_selectedTab == 0 ? "ไฟฟ้า" : "น้ำ"} (มอคอัพ)',
+            style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 8),
+          BillMockupCard(
+            isElectricity: _selectedTab == 0,
+            area: widget.area,
+            isTou: widget.isTou,
           ),
         ],
       ),

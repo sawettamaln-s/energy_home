@@ -977,6 +977,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                         // ใช้ widget กลาง StartMeterPairedFields (widgets/start_meter_fields.dart) — เดิมใช้ร่วมกับ setup_screen.dart แต่ขั้นตอนนั้นถูกตัดออกจากเซตอัพแล้ว ปัจจุบันเรียกใช้จากที่นี่ที่เดียว
                         StartMeterPairedFields(
                           isTou: widget.isTou,
+                          area: _user?.area ?? 'bangkok',
                           electricityCtrl: _eCtrl,
                           peakCtrl: _peakCtrl,
                           offPeakCtrl: _offPeakCtrl,
