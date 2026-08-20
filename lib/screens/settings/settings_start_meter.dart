@@ -831,7 +831,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'บันทึกมิเตอร์ต้นรอบ',
+                        'บันทึกเลขมิเตอร์ประจำเดือน',
                         style:
                             TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
@@ -1332,7 +1332,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
     return Scaffold(
       backgroundColor: DashboardStyles.background,
       appBar: AppBar(
-        title: const Text('บันทึกมิเตอร์ต้นรอบ'),
+        title: const Text('บันทึกเลขมิเตอร์ประจำเดือน'),
         backgroundColor: DashboardStyles.primaryGreen,
         foregroundColor: Colors.white,
         elevation: 0,

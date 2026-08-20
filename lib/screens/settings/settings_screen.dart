@@ -562,7 +562,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(height: 1, indent: 56),
           _buildSettingsTile(
             icon: Icons.calendar_today,
-            title: 'กำหนดวันบันทึกบิล',
+            title: 'กำหนดวันจดใบแจ้งบิล',
             subtitle: 'รอบแจ้งเตือนเริ่มต้น ทุกวันที่ ${_user?.billingDay ?? 30} ของเดือน',
             color: _sectionColor,
             onTap: () => _showEditBillingDay(),
@@ -572,8 +572,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // เป็นหน้าเดียวแล้ว (มีปุ่ม + ในหน้านั้นสำหรับเพิ่มค่าใหม่)
           _buildSettingsTile(
             icon: Icons.history,
-            title: 'บันทึกมิเตอร์ต้นรอบ',
-            subtitle: 'ระบุเลขมิเตอร์เริ่มต้นเพื่อใช้คำนวณ',
+            title: 'บันทึกเลขมิเตอร์ประจำเดือน',
+            subtitle: 'กรอกเลขมิเตอร์ทุกเดือนที่บิลมา เพื่อใช้คำนวณ',
             color: _sectionColor,
             onTap: () => _showStartMeterHistory(),
           ),
@@ -582,7 +582,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ต้นรอบ" ที่ย้ายไปอยู่หมวดนั้นแทน
           _buildSettingsTile(
             icon: Icons.receipt_long,
-            title: 'บันทึกบิลย้อนหลัง',
+            title: 'เพิ่มบิลเดือนเก่าเข้าระบบ',
             subtitle: 'เพิ่ม แก้ไข หรือลบบิลในอดีต',
             color: _sectionColor,
             onTap: () => _showHistoricalBillList(),
@@ -943,7 +943,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     const Expanded(
                       child: Text(
-                        'กำหนดวันบันทึกบิล',
+                        'กำหนดวันจดใบแจ้งบิล',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 17,

@@ -390,7 +390,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
         ),
         const SizedBox(height: 4),
         Text(
-          'กรอกจากใบแจ้งหนี้ใบเดียวกับเลขมิเตอร์สะสมด้านบน',
+          'กรอกจากใบแจ้งหนี้ใบเดียวกับเลขมิเตอร์ด้านบน',
           style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
         ),
       ],
@@ -624,7 +624,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
               final narrow = constraints.maxWidth < 340;
               final peakField = _field(
                 controller: widget.peakCtrl,
-                label: 'เลขมิเตอร์ On-Peak',
+                label: 'เลขอ่านครั้งหลัง On-Peak',
                 hint: 'เช่น 0123456',
                 suffixText: 'หน่วย',
                 icon: Icons.bolt,
@@ -632,7 +632,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
               );
               final offPeakField = _field(
                 controller: widget.offPeakCtrl,
-                label: 'เลขมิเตอร์ Off-Peak',
+                label: 'เลขอ่านครั้งหลัง Off-Peak',
                 hint: 'เช่น 0123456',
                 suffixText: 'หน่วย',
                 icon: Icons.bolt_outlined,
@@ -657,7 +657,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
           )
         : _field(
             controller: widget.electricityCtrl,
-            label: 'เลขมิเตอร์สะสม',
+            label: 'เลขอ่านครั้งหลัง',
             hint: 'เช่น 14,009',
             suffixText: 'หน่วย',
             icon: Icons.speed,
@@ -713,7 +713,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                         offPeakCtrl: widget.eUsedOffPeakCtrl!,
                         iconColor: DashboardStyles.electricityBorder,
                         helperText: 'กรอกจากใบแจ้งหนี้ใบเดียวกับ'
-                            'เลขมิเตอร์สะสมด้านบน',
+                            'เลขอ่านครั้งหลังด้านบน',
                       )
                     : _usedField(
                         controller: widget.eUsedCtrl,
@@ -731,7 +731,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             accentColor: DashboardStyles.waterBorder,
             meterFields: _field(
               controller: widget.waterCtrl,
-              label: 'เลขมิเตอร์สะสม',
+              label: 'เลขในมาตร',
               hint: 'เช่น 01234',
               suffixText: 'ลบ.ม.',
               icon: Icons.speed,

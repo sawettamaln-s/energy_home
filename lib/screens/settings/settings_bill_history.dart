@@ -580,8 +580,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                   children: [
                     Text(
                       widget.existingBill != null
-                          ? 'แก้ไขบันทึกบิลย้อนหลัง'
-                          : 'เพิ่มบันทึกบิลย้อนหลัง',
+                          ? 'แก้ไขบิลเดือนเก่าเข้าระบบ'
+                          : 'เพิ่มบิลเดือนเก่าเข้าระบบ',
                       style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.bold),
                     ),
@@ -1147,7 +1147,7 @@ final confirmed = await showConfirmDialog(
     return Scaffold(
       backgroundColor: DashboardStyles.background,
       appBar: AppBar(
-        title: const Text('บันทึกบิลย้อนหลัง'),
+        title: const Text('เพิ่มบิลเดือนเก่าเข้าระบบ'),
         backgroundColor: DashboardStyles.primaryGreen,
         foregroundColor: Colors.white,
         elevation: 0,
