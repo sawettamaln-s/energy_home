@@ -304,7 +304,17 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
 
   double _num(TextEditingController c) => parseNumInput(c.text);
 
+  // ตัด callout ข้อความอธิบาย "เลขมิเตอร์สะสม/ค่าใช้จ่าย" ออก เหลือแค่ภาพ
+  // มอคอัพบิลล้อมกรอบแดง พร้อมคำโปรยสั้นๆ บอกตรงๆ ว่ากรอบแดงคือเลขอะไร
+  // (ปรับข้อความตามว่ากำลังดูไฟฟ้า/น้ำ และมีกรอบเดียวหรือ 2 กรอบ)
   void _showWhatIsThisPopup(BuildContext context) {
+    final isFirstEntry =
+        _selectedTab == 0 ? widget.eIsFirstEntry : widget.wIsFirstEntry;
+    final unitWord = _selectedTab == 0 ? 'หน่วย' : 'น้ำ';
+    final caption = isFirstEntry
+        ? 'กรอบแดงคือ 2 เลขที่ต้องกรอก: เลขอ่านมิเตอร์ล่าสุด '
+            'และจำนวน$unitWordที่ใช้ไปแล้ว'
+        : 'กรอบแดงคือเลขอ่านมิเตอร์ล่าสุด คัดลอกตัวเลขนี้มากรอกในแอป';
     showInfoDialog(
       context,
       title: 'กรอกตรงไหนของบิล?',
@@ -312,44 +322,8 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'เลขมิเตอร์สะสม: ดูจากช่อง "เลขอ่านครั้งหลัง" หรือ "Last Meter '
-            'Reading" ในใบแจ้งหนี้ (ไม่ใช่ "เลขอ่านครั้งก่อน" ซึ่งเป็นเลข'
-            'ของรอบก่อนหน้า)',
-            style: TextStyle(fontSize: 13.5, height: 1.6),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'ค่าใช้จ่าย: ยอดที่ต้องจ่ายของบิลใบเดียวกัน กรอกคู่กับเลขมิเตอร์'
-            'เสมอ ฝั่งไหนยังไม่มีบิลให้เว้นว่างทั้งคู่',
-            style: TextStyle(fontSize: 13.5, height: 1.6),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.straighten, size: 16, color: Colors.blue.shade700),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'มิเตอร์เพิ่งเปลี่ยน/ขอใหม่ เลขสะสมเริ่มจากตัวเลขน้อยๆ '
-                    'ได้ตามปกติ',
-                    style: TextStyle(
-                        fontSize: 12.5, height: 1.5, color: Colors.blue.shade900),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
           Text(
-            'ตัวอย่างบิล${_selectedTab == 0 ? "ไฟฟ้า" : "น้ำ"} (มอคอัพ)',
+            caption,
             style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
@@ -360,6 +334,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             isElectricity: _selectedTab == 0,
             area: widget.area,
             isTou: widget.isTou,
+            highlightUsed: isFirstEntry,
           ),
         ],
       ),
@@ -392,6 +367,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
   // ต้องกรอกเพิ่ม ไม่งั้นจะดูเหมือนระบบขอข้อมูลซ้ำซ้อนกับ "เลขมิเตอร์สะสม"
   Widget _usedField({
     required TextEditingController controller,
+    required String label,
     required String hint,
     required String suffixText,
     required Color iconColor,
@@ -401,7 +377,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
       children: [
         _field(
           controller: controller,
-          label: 'หน่วยที่ใช้ไปแล้ว (ครั้งแรกเท่านั้น)',
+          label: label,
           hint: hint,
           suffixText: suffixText,
           icon: Icons.bar_chart,
@@ -727,7 +703,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                 ? (widget.isTou && widget.eUsedPeakCtrl != null &&
                         widget.eUsedOffPeakCtrl != null
                     ? TouPairedUnitsField(
-                        title: 'หน่วยที่ใช้ไปแล้ว (ครั้งแรกเท่านั้น)',
+                        title: 'จำนวนหน่วย (ครั้งแรกเท่านั้น)',
                         peakCtrl: widget.eUsedPeakCtrl!,
                         offPeakCtrl: widget.eUsedOffPeakCtrl!,
                         iconColor: DashboardStyles.electricityBorder,
@@ -736,6 +712,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                       )
                     : _usedField(
                         controller: widget.eUsedCtrl,
+                        label: 'จำนวนหน่วย (ครั้งแรกเท่านั้น)',
                         hint: 'เช่น 2,655',
                         suffixText: 'หน่วย',
                         iconColor: DashboardStyles.electricityBorder,
@@ -765,6 +742,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             usedField: widget.wIsFirstEntry
                 ? _usedField(
                     controller: widget.wUsedCtrl,
+                    label: 'จำนวนน้ำใช้ (ครั้งแรกเท่านั้น)',
                     hint: 'เช่น 0123',
                     suffixText: 'ลบ.ม.',
                     iconColor: DashboardStyles.waterBorder,
