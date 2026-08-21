@@ -7,7 +7,7 @@ import '../../services/notification_service.dart';
 import '../../widgets/auth_widgets.dart';
 import '../../widgets/info_dialog.dart';
 import '../dashboard/dashboard_styles.dart';
-import 'setup_complete_screen.dart';
+import '../main_shell.dart';
 
 class SetupScreen extends StatefulWidget {
   // รับ firestoreService แบบ optional เพื่อให้ AuthGate ส่ง instance ปลอมมา
@@ -86,18 +86,15 @@ class _SetupScreenState extends State<SetupScreen> {
       // กดข้ามทั้งคู่)
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (context) => SetupCompleteScreen(
-            billingDayConfigured: _selectedBillingDay != null,
-            startMeterConfigured: userModel.startMeterConfigured,
-            startElectricityValue: userModel.startElectricityValue,
-          ),
+          builder: (context) => const MainShell(justCompletedSetup: true),
         ),
         (route) => false,
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง')),
+          const SnackBar(
+              content: Text('เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง')),
         );
       }
     } finally {
@@ -274,7 +271,6 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-
   // popup อธิบายข้อมูล — ใช้ widget กลาง showInfoDialog (เดิมมีโค้ดซ้ำในนี้)
   void _showInfoPopup(String title, String message) {
     showInfoDialog(context, title: title, message: message);
@@ -361,7 +357,9 @@ class _SetupScreenState extends State<SetupScreen> {
               : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? DashboardStyles.primaryGreen : Colors.grey.shade200,
+            color: isSelected
+                ? DashboardStyles.primaryGreen
+                : Colors.grey.shade200,
             width: 2,
           ),
         ),
@@ -370,8 +368,9 @@ class _SetupScreenState extends State<SetupScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color:
-                    isSelected ? DashboardStyles.primaryGreen : Colors.grey.shade200,
+                color: isSelected
+                    ? DashboardStyles.primaryGreen
+                    : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -388,8 +387,9 @@ class _SetupScreenState extends State<SetupScreen> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color:
-                          isSelected ? DashboardStyles.primaryGreen : Colors.black,
+                      color: isSelected
+                          ? DashboardStyles.primaryGreen
+                          : Colors.black,
                     ),
                   ),
                   Text(
@@ -400,7 +400,8 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle, color: DashboardStyles.primaryGreen),
+              const Icon(Icons.check_circle,
+                  color: DashboardStyles.primaryGreen),
           ],
         ),
       ),
