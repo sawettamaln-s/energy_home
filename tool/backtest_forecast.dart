@@ -1,3 +1,7 @@
+// ignore_for_file: avoid_print
+// สคริปต์นี้เป็น standalone script รันด้วย dart run เพื่อ print ผลลัพธ์ทาง
+// console จึงปิด lint avoid_print เฉพาะไฟล์นี้ (ไม่กระทบ production code ใน lib/)
+//
 // สคริปต์ทดสอบความแม่นยำของ "คาดการณ์เดือนถัดไป" (Linear Regression)
 // ด้วยวิธี walk-forward backtesting — ใช้สูตรเดียวกับที่แอปใช้จริงเป๊ะ ๆ
 // (import EnergyForecaster.linearRegression ตรงจาก lib/utils/forecaster.dart
