@@ -305,16 +305,22 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
   double _num(TextEditingController c) => parseNumInput(c.text);
 
   // ตัด callout ข้อความอธิบาย "เลขมิเตอร์สะสม/ค่าใช้จ่าย" ออก เหลือแค่ภาพ
-  // มอคอัพบิลล้อมกรอบแดง พร้อมคำโปรยสั้นๆ บอกตรงๆ ว่ากรอบแดงคือเลขอะไร
-  // (ปรับข้อความตามว่ากำลังดูไฟฟ้า/น้ำ และมีกรอบเดียวหรือ 2 กรอบ)
+  // มอคอัพบิลล้อมกรอบแดง พร้อมกล่องคำอธิบายสั้นๆ บอกตรงๆ ว่ากรอบแดงคือเลขอะไร
+  // (ปรับข้อความตามว่ากำลังดูไฟฟ้า/น้ำ และมีกรอบเดียวหรือ 2 กรอบ) — ใช้ฟังก์ชัน
+  // เดียวกันนี้ทั้งมิเตอร์ปกติและ TOU (นครหลวง/ภูมิภาค ทั้งไฟและน้ำ) เพราะ
+  // BillMockupCard เลือกมอคอัพบิลที่ตรงกันให้เองอยู่แล้วจาก area/isTou/
+  // isElectricity จึงไม่ต้องแยกโค้ดเป็นรายผู้ให้บริการ
   void _showWhatIsThisPopup(BuildContext context) {
     final isFirstEntry =
         _selectedTab == 0 ? widget.eIsFirstEntry : widget.wIsFirstEntry;
-    final unitWord = _selectedTab == 0 ? 'หน่วย' : 'น้ำ';
+    final accent =
+        _selectedTab == 0 ? DashboardStyles.electricityBorder : DashboardStyles.waterBorder;
+    final readingLabel =
+        _selectedTab == 0 ? 'เลขอ่านครั้งหลัง (last meter reading)' : 'เลขในมาตร (Current reading)';
+    final unitLabel = _selectedTab == 0 ? 'จำนวนหน่วย (kWh)' : 'จำนวนน้ำใช้ (Consumption)';
     final caption = isFirstEntry
-        ? 'กรอบแดงคือ 2 เลขที่ต้องกรอก: เลขอ่านมิเตอร์ล่าสุด '
-            'และจำนวน$unitWordที่ใช้ไปแล้ว'
-        : 'กรอบแดงคือเลขอ่านมิเตอร์ล่าสุด คัดลอกตัวเลขนี้มากรอกในแอป';
+        ? 'ดูที่ $readingLabel และ $unitLabel'
+        : 'ดูที่ $readingLabel';
     showInfoDialog(
       context,
       title: 'กรอกตรงไหนของบิล?',
@@ -322,14 +328,37 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            caption,
-            style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.receipt_long, size: 16, color: accent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                          fontSize: 12.5, height: 1.5, color: Colors.grey.shade800),
+                      children: [
+                        const TextSpan(
+                            text: 'ข้อมูลที่ใช้กรอก ดูจากใบแจ้งหนี้ที่คุณมี '
+                                'เทียบตำแหน่งกับภาพตัวอย่างด้านล่าง\n'),
+                        TextSpan(
+                            text: caption,
+                            style: TextStyle(fontWeight: FontWeight.w700, color: accent)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           BillMockupCard(
             isElectricity: _selectedTab == 0,
             area: widget.area,
@@ -652,7 +681,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
           )
         : _field(
             controller: widget.electricityCtrl,
-            label: 'เลขอ่านครั้งหลัง',
+            label: 'เลขอ่านครั้งหลัง (last meter reading)',
             hint: 'เช่น 14,009',
             suffixText: 'หน่วย',
             icon: Icons.speed,
@@ -703,7 +732,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                 ? (widget.isTou && widget.eUsedPeakCtrl != null &&
                         widget.eUsedOffPeakCtrl != null
                     ? TouPairedUnitsField(
-                        title: 'จำนวนหน่วย (ครั้งแรกเท่านั้น)',
+                        title: 'จำนวนหน่วย (kWh)',
                         peakCtrl: widget.eUsedPeakCtrl!,
                         offPeakCtrl: widget.eUsedOffPeakCtrl!,
                         iconColor: DashboardStyles.electricityBorder,
@@ -712,7 +741,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                       )
                     : _usedField(
                         controller: widget.eUsedCtrl,
-                        label: 'จำนวนหน่วย (ครั้งแรกเท่านั้น)',
+                        label: 'จำนวนหน่วย (kWh)',
                         hint: 'เช่น 2,655',
                         suffixText: 'หน่วย',
                         iconColor: DashboardStyles.electricityBorder,
@@ -727,7 +756,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             accentColor: DashboardStyles.waterBorder,
             meterFields: _field(
               controller: widget.waterCtrl,
-              label: 'เลขในมาตร',
+              label: 'เลขในมาตร (Current reading)',
               hint: 'เช่น 01234',
               suffixText: 'ลบ.ม.',
               icon: Icons.speed,
@@ -742,7 +771,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             usedField: widget.wIsFirstEntry
                 ? _usedField(
                     controller: widget.wUsedCtrl,
-                    label: 'จำนวนน้ำใช้ (ครั้งแรกเท่านั้น)',
+                    label: 'จำนวนน้ำใช้ (Consumption)',
                     hint: 'เช่น 0123',
                     suffixText: 'ลบ.ม.',
                     iconColor: DashboardStyles.waterBorder,

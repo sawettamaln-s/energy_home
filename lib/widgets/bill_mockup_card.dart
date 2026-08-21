@@ -240,10 +240,10 @@ class BillMockupCard extends StatelessWidget {
         ],
         accountRow: const ['1122334455', 'ME00789', 'MOCK-000004', '1.2'],
         meterHeader: const [
-          'เลขอ่านครั้งหลัง',
-          'เลขอ่านครั้งก่อน',
-          'จำนวนหน่วย',
-          'ตัวคูณ',
+          'เลขอ่านครั้งหลัง (Last Meter Reading)',
+          'เลขอ่านครั้งก่อน (Previous Meter Reading)',
+          'จำนวนหน่วย (kWh)',
+          'ตัวคูณ (Multiplier)',
         ],
         meterRows: const [
           ['3,593', '3,493', '100', '1'],
@@ -276,10 +276,10 @@ class BillMockupCard extends StatelessWidget {
         ],
         accountRow: const ['1234567890', '0098765', 'MOCK-000001', '1.2'],
         meterHeader: const [
-          'เลขอ่านครั้งหลัง',
-          'เลขอ่านครั้งก่อน',
-          'จำนวนหน่วย',
-          'ตัวคูณ',
+          'เลขอ่านครั้งหลัง (Last Meter Reading)',
+          'เลขอ่านครั้งก่อน (Previous Meter Reading)',
+          'จำนวนหน่วย (kWh)',
+          'ตัวคูณ (Multiplier)',
         ],
         meterRows: const [
           ['4,120', '3,950', '170', '1'],
@@ -313,10 +313,10 @@ class BillMockupCard extends StatelessWidget {
         accountRow: const ['1122334455', 'ME00790', 'MOCK-TOU-000002', '1.2'],
         meterHeader: const [
           'ช่วงเวลา',
-          'เลขอ่านครั้งหลัง',
-          'เลขอ่านครั้งก่อน',
-          'หน่วย',
-          'ตัวคูณ',
+          'เลขอ่านครั้งหลัง (Last Meter Reading)',
+          'เลขอ่านครั้งก่อน (Previous Meter Reading)',
+          'หน่วย (kWh)',
+          'ตัวคูณ (Multiplier)',
         ],
         meterRows: const [
           ['On-Peak', '2,140', '2,080', '60', '1'],
@@ -355,10 +355,10 @@ class BillMockupCard extends StatelessWidget {
         accountRow: const ['1234567890', '0098766', 'MOCK-TOU-000003', '1.2'],
         meterHeader: const [
           'ช่วงเวลา',
-          'เลขอ่านครั้งหลัง',
-          'เลขอ่านครั้งก่อน',
-          'หน่วย',
-          'ตัวคูณ',
+          'เลขอ่านครั้งหลัง (Last Meter Reading)',
+          'เลขอ่านครั้งก่อน (Previous Meter Reading)',
+          'หน่วย (kWh)',
+          'ตัวคูณ (Multiplier)',
         ],
         meterRows: const [
           ['On-Peak', '1,860', '1,795', '65', '1'],
