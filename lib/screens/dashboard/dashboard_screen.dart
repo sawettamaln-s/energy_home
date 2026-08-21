@@ -1170,6 +1170,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ต้นรอบ แล้วกดปุ่มเดียวพาไปหน้าเต็มจอ RecordMeterScreen แทน (ดูเหตุผล
   // ที่ย้ายออกมาที่ท้ายไฟล์ record_meter_screen.dart)
   // =====================================================================
+  // แถวเดียวของการ์ด TOU: ป้าย On-Peak/Off-Peak ทางซ้าย ค่าล่าสุดตัวหนา
+  // ตามด้วยต้นรอบสีจางแบบ "/ต้นรอบ" ทางขวา — ให้เห็นต้นรอบเทียบเคียงค่า
+  // ล่าสุดได้ทันทีในหน้าแดชบอร์ด ไม่ต้องกดเข้าไปในฟอร์มบันทึกมิเตอร์
+  Widget _touMeterRow(
+      String label, double? current, double? start, NumberFormat formatter) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(label,
+            style: const TextStyle(fontSize: 13, color: DashboardStyles.textDark)),
+        const Spacer(),
+        RichText(
+          text: TextSpan(
+            style: const TextStyle(color: DashboardStyles.textDark),
+            children: [
+              TextSpan(
+                  text: formatter.format(current ?? 0),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600)),
+              TextSpan(
+                  text: ' /${formatter.format(start ?? 0)}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMeterSummaryCard({
     required MeterKind kind,
     bool isTou = false,
@@ -1223,11 +1252,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 12),
           if (isTou) ...[
-            Text('On-Peak สะสม: ${formatter.format(lastPeak ?? 0)} $unit',
-                style: DashboardStyles.lastValueStyle),
-            const SizedBox(height: 2),
-            Text('Off-Peak สะสม: ${formatter.format(lastOffPeak ?? 0)} $unit',
-                style: DashboardStyles.lastValueStyle),
+            _touMeterRow('On-Peak', lastPeak, _user?.startPeakValue, formatter),
+            const SizedBox(height: 6),
+            _touMeterRow('Off-Peak', lastOffPeak, _user?.startOffPeakValue, formatter),
           ] else ...[
             if (lastValue != null)
               RichText(

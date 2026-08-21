@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/notification_item_model.dart';
@@ -136,14 +137,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
+      // บาร์บนปรับให้เข้าธีมเดียวกับหน้าอื่นในแอป (เช่นหน้าตั้งค่า) — พื้น
+      // primaryGreen, ชื่อหน้าอยู่กึ่งกลาง ตัวหนา สีขาว
       appBar: AppBar(
-        title: const Text('การแจ้งเตือน'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF333333),
+        backgroundColor: DashboardStyles.primaryGreen,
         elevation: 0,
+        centerTitle: true,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        foregroundColor: Colors.white,
+        title: const Text(
+          'การแจ้งเตือน',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         actions: [
           if (hasItems)
             PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
               onSelected: (value) {
                 if (value == 'read_all') _onMarkAllRead();
                 if (value == 'clear_all') _onClearAll();
@@ -190,11 +199,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                   ),
                                 ),
                               ),
-                              for (final item in sectionItems)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: _buildNotificationTile(item),
-                                ),
+                              _buildDateGroupCard(sectionItems),
                             ],
                           );
                         },
@@ -202,6 +207,35 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     },
                   ),
                 ),
+    );
+  }
+
+  // การ์ดรวมของแต่ละกลุ่มวันที่ — แทนที่การ์ดลอยแยกทีละรายการแบบเดิม
+  // (ที่มีเงาซ้อนกันทุกใบจนดูรก) ด้วยการ์ดเดียวมีกรอบบางๆ คั่นแต่ละแถวด้วย
+  // เส้นบาง ให้ดูเรียบและเป็นระบบมากขึ้น
+  Widget _buildDateGroupCard(List<NotificationItem> items) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          children: [
+            for (int i = 0; i < items.length; i++) ...[
+              _buildNotificationRow(items[i]),
+              if (i != items.length - 1)
+                Padding(
+                  padding: const EdgeInsets.only(left: 54),
+                  child: Divider(
+                      height: 1, thickness: 0.5, color: Colors.grey.shade200),
+                ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -220,50 +254,43 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  Widget _buildNotificationTile(NotificationItem item) {
+  // แถวเดียวของรายการแจ้งเตือน อยู่ภายในการ์ดกลุ่มวันที่ (ดู
+  // _buildDateGroupCard) — รายการที่ยังไม่อ่านมีพื้นหลังเขียวจางไฮไลต์
+  // แทนจุดแดงเดิม ให้เห็นชัดตั้งแต่แวบแรกโดยไม่ต้องมีเงาต่อใบ
+  Widget _buildNotificationRow(NotificationItem item) {
     final style = _styleForType(item.type);
+    final unread = !item.isRead;
 
     return Dismissible(
       key: ValueKey(item.id),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => _onDeleteItem(item),
       background: Container(
-        decoration: BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(14),
-        ),
+        color: Colors.red,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
         onTap: () => _onTapItem(item),
         child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withValues(alpha: 0.08),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
+          padding: const EdgeInsets.all(12),
+          color: unread
+              ? DashboardStyles.primaryGreen.withValues(alpha: 0.05)
+              : Colors.white,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: style.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  shape: BoxShape.circle,
                 ),
-                child: Icon(style.icon, color: style.color, size: 20),
+                child: Icon(style.icon, color: style.color, size: 16),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,37 +301,25 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           child: Text(
                             item.title,
                             style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: item.isRead
-                                  ? FontWeight.w500
-                                  : FontWeight.bold,
+                              fontSize: 13,
+                              fontWeight:
+                                  unread ? FontWeight.bold : FontWeight.w500,
                               color: const Color(0xFF333333),
                             ),
                           ),
                         ),
-                        if (!item.isRead)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(left: 6, top: 4),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+                        Text(
+                          _timeAgo(item.timestamp),
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade400),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       item.body,
                       style: TextStyle(
-                          fontSize: 12.5, color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _timeAgo(item.timestamp),
-                      style:
-                          TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                          fontSize: 12, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
