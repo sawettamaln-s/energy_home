@@ -482,7 +482,16 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
 
   // อธิบายว่าช่อง "หน่วยที่ใช้" ต้องกรอกยอดหน่วยที่ใช้จริงจากบิล ไม่ใช่เลขมิเตอร์สะสม
   // (ฟอร์มนี้ไม่ลบเลขมิเตอร์ 2 เดือนให้เหมือนหน้าบันทึกมิเตอร์ปกติ เพราะบิลย้อนหลังไม่ต่อเนื่องกันเสมอไป)
-  void _showUsageInfoPopup(String utilityLabel, String unitLabel) {
+  // แนบ BillMockupCard (แบบเดียวกับ popup หน้าบันทึกมิเตอร์ประจำเดือน) แต่ตั้ง
+  // highlightReading: false เพื่อล้อมกรอบเฉพาะช่อง "จำนวนหน่วยที่ใช้" อย่างเดียว
+  // ไม่ล้อมช่องเลขอ่านครั้งหลัง เพราะฟอร์มนี้ห้ามกรอกเลขนั้นตามคำเตือนด้านล่าง
+  // ถ้า _user ยังโหลดไม่เสร็จ (ไม่รู้ area/isTou จริง) จะไม่โชว์การ์ดมอคอัพ
+  void _showUsageInfoPopup(
+    String utilityLabel,
+    String unitLabel, {
+    required bool isElectricity,
+  }) {
+    final user = _user;
     showInfoDialog(
       context,
       title: 'กรอก "$utilityLabel" ตรงไหนของบิล?',
@@ -523,6 +532,16 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
               ],
             ),
           ),
+          if (user != null) ...[
+            const SizedBox(height: 12),
+            BillMockupCard(
+              isElectricity: isElectricity,
+              area: user.area,
+              isTou: isElectricity && _isTou,
+              highlightUsed: true,
+              highlightReading: false,
+            ),
+          ],
         ],
       ),
     );
@@ -652,7 +671,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       icon: Icons.bolt,
                       // info ย้ายมาไว้ที่หัวการ์ดจุดเดียว ใช้ได้ทั้ง TOU และไม่ใช่ TOU
                       onInfoTap: () => _showUsageInfoPopup(
-                          'หน่วยที่ใช้เดือนนี้ (ไฟ)', 'kWh'),
+                          'หน่วยที่ใช้เดือนนี้ (ไฟ)', 'kWh',
+                          isElectricity: true),
                       child: _isTou
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -759,7 +779,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       accentColor: DashboardStyles.waterBorder,
                       icon: Icons.water_drop,
                       onInfoTap: () => _showUsageInfoPopup(
-                          'หน่วยที่ใช้เดือนนี้ (น้ำ)', 'ลบ.ม.'),
+                          'หน่วยที่ใช้เดือนนี้ (น้ำ)', 'ลบ.ม.',
+                          isElectricity: false),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final narrow = constraints.maxWidth < 340;

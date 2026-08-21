@@ -29,12 +29,20 @@ class BillMockupCard extends StatelessWidget {
   // ให้ผู้ใช้เห็นว่าต้องเทียบกรอกทั้ง 2 ช่องบนบิลจริง ไม่ใช่แค่ช่องเดียว
   final bool highlightUsed;
 
+  // เมื่อ false จะไม่ล้อมกรอบสีแดงที่ช่อง "เลขอ่านครั้งหลัง" (ค่า default คือ
+  // true เพื่อคงพฤติกรรมเดิมของ popup หน้าบันทึกมิเตอร์ประจำเดือน) — ใช้ตอน
+  // popup ต้องการชี้เฉพาะช่อง "จำนวนหน่วยที่ใช้" อย่างเดียว เช่นฟอร์มเพิ่ม/
+  // แก้ไขบิลเดือนเก่า ที่ไม่รับกรอกเลขมิเตอร์สะสมเลย การล้อมกรอบเลขอ่านครั้ง
+  // หลังไว้ด้วยจะชี้ผิดจุดและขัดกับคำเตือนในฟอร์มนั้น
+  final bool highlightReading;
+
   const BillMockupCard({
     super.key,
     required this.isElectricity,
     required this.area,
     this.isTou = false,
     this.highlightUsed = false,
+    this.highlightReading = true,
   });
 
   bool get _isBangkok => area == 'bangkok';
@@ -105,7 +113,7 @@ class BillMockupCard extends StatelessWidget {
             data.meterRows,
             headerRow: data.meterHeader,
             highlightCols: {
-              data.readingColIndex,
+              if (highlightReading) data.readingColIndex,
               if (highlightUsed) data.usedColIndex,
             },
           ),
