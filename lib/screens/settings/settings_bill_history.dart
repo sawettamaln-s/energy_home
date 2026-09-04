@@ -1167,12 +1167,8 @@ final confirmed = await showConfirmDialog(
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppBar(
-        title: const Text('เพิ่มบิลเดือนเก่าเข้าระบบ'),
-        backgroundColor: DashboardStyles.primaryGreen,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+      appBar: AppTopBar(
+        title: 'เพิ่มบิลเดือนเก่าเข้าระบบ',
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),

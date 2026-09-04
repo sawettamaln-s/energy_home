@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/notification_item_model.dart';
 import '../../services/notification_service.dart';
 import '../../utils/thai_date_utils.dart';
+import '../../widgets/app_top_bar.dart';
 import '../../widgets/confirm_dialog.dart';
 import 'dashboard_styles.dart';
 
@@ -137,18 +137,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      // บาร์บนปรับให้เข้าธีมเดียวกับหน้าอื่นในแอป (เช่นหน้าตั้งค่า) — พื้น
-      // primaryGreen, ชื่อหน้าอยู่กึ่งกลาง ตัวหนา สีขาว
-      appBar: AppBar(
-        backgroundColor: DashboardStyles.primaryGreen,
-        elevation: 0,
-        centerTitle: true,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        foregroundColor: Colors.white,
-        title: const Text(
-          'การแจ้งเตือน',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+      // บาร์บนใช้ widget ร่วม AppTopBar เหมือนหน้าอื่นในแอป (ดู
+      // lib/widgets/app_top_bar.dart) — ชื่อหน้ากึ่งกลาง ฟอนต์เดียวกันทั้งระบบ
+      appBar: AppTopBar(
+        title: 'การแจ้งเตือน',
         actions: [
           if (hasItems)
             PopupMenuButton<String>(

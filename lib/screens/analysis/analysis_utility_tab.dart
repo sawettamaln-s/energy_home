@@ -286,8 +286,17 @@ class _UtilityTab extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.timelapse, color: _green, size: 18),
-              const SizedBox(width: 6),
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(Icons.timelapse, color: accentColor, size: 15),
+              ),
+              const SizedBox(width: 8),
               const Text('คาดการณ์ยอดบิลรอบนี้',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const Spacer(),
@@ -445,11 +454,21 @@ class _UtilityTab extends StatelessWidget {
               children: [
                 Expanded(
                   child: r.isUnchanged
-                      ? const Row(
+                      ? Row(
                           children: [
-                            Icon(Icons.remove, size: 16, color: Colors.grey),
-                            SizedBox(width: 4),
-                            Text('ไม่เปลี่ยนแปลง',
+                            Container(
+                              width: 26,
+                              height: 26,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.grey.withValues(alpha: 0.12),
+                              ),
+                              child: const Icon(Icons.remove,
+                                  size: 15, color: Colors.grey),
+                            ),
+                            const SizedBox(width: 6),
+                            const Text('ไม่เปลี่ยนแปลง',
                                 style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
@@ -461,16 +480,28 @@ class _UtilityTab extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Icon(
-                                  r.isIncrease
-                                      ? Icons.arrow_upward
-                                      : Icons.arrow_downward,
-                                  size: 16,
-                                  color: r.isIncrease
-                                      ? DashboardStyles.spikeUp
-                                      : DashboardStyles.spikeDown,
+                                Container(
+                                  width: 26,
+                                  height: 26,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: (r.isIncrease
+                                            ? DashboardStyles.spikeUp
+                                            : DashboardStyles.spikeDown)
+                                        .withValues(alpha: 0.12),
+                                  ),
+                                  child: Icon(
+                                    r.isIncrease
+                                        ? Icons.arrow_upward
+                                        : Icons.arrow_downward,
+                                    size: 15,
+                                    color: r.isIncrease
+                                        ? DashboardStyles.spikeUp
+                                        : DashboardStyles.spikeDown,
+                                  ),
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 6),
                                 // ตัวเลขหลัก: % ถ้าคำนวณได้ ไม่งั้นค่อย fallback
                                 // เป็นบาท (กรณีค่าที่เทียบเป็น 0 หารไม่ได้)
                                 Text(
@@ -877,33 +908,55 @@ class _UtilityTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.lightbulb_outline, size: 16, color: _green),
-              SizedBox(width: 6),
-              Text('ข้อสังเกต',
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _green.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(Icons.lightbulb_outline,
+                    size: 15, color: _green),
+              ),
+              const SizedBox(width: 8),
+              const Text('ข้อสังเกต',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ],
           ),
           const SizedBox(height: 10),
           ...insights.map((i) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      _insightIcon(i.level),
-                      size: 16,
-                      color: _insightColor(i.level),
+                    Container(
+                      width: 26,
+                      height: 26,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _insightColor(i.level).withValues(alpha: 0.12),
+                      ),
+                      child: Icon(
+                        _insightIcon(i.level),
+                        size: 14,
+                        color: _insightColor(i.level),
+                      ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 9),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(i.text,
-                              style: const TextStyle(
-                                  fontSize: 12.5, height: 1.4)),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(i.text,
+                                style: const TextStyle(
+                                    fontSize: 12.5, height: 1.4)),
+                          ),
                           if (i.showApplianceCta &&
                               onViewAppliances != null)
                             Padding(

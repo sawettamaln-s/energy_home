@@ -366,7 +366,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      body: _isLoading
+      body: Container(
+        decoration: DashboardStyles.pageHighlight(),
+        child: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
                   color: DashboardStyles.primaryGreen))
@@ -491,6 +493,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+      ),
       bottomNavigationBar:
           AppBottomNavBar(currentIndex: 0, onTap: widget.onNavTap),
     );
@@ -556,8 +559,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color:
-                        DashboardStyles.primaryGreen.withValues(alpha: 0.08),
+                    color: DashboardStyles.primaryGreen.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(
@@ -575,8 +577,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color:
-                        DashboardStyles.primaryGreen.withValues(alpha: 0.08),
+                    color: DashboardStyles.primaryGreen.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(

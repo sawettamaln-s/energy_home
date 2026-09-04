@@ -35,12 +35,8 @@ class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppBar(
-        title: const Text('ประวัติการบันทึกมิเตอร์'),
-        backgroundColor: _green,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+      appBar: AppTopBar(
+        title: 'ประวัติการบันทึกมิเตอร์',
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,

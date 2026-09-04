@@ -8,10 +8,37 @@ import 'package:flutter/material.dart';
 /// ===========================================================
 class DashboardStyles {
   // ---------- สีหลักของแอป ----------
-  static const Color background = Color(0xFFF5F5F5);
-  static const Color primaryGreen = Color(0xFF2E7D32);
+  // ปรับโทนใหม่ (ส.ค. 2026): เขียวป่าเข้มขึ้น + พื้นครีมอุ่นแทนเทาแบน
+  // primaryGreen ถูกอ้างอิงเป็น AppBar/ปุ่ม/ไอคอนหลักทั่วทั้งแอปอยู่แล้ว
+  // (dashboard, วิเคราะห์, อุปกรณ์, ตั้งค่า) แก้ค่าที่นี่ที่เดียวจึงไล่สี
+  // ใหม่ไปทั้งระบบพร้อมกันโดยไม่ต้องแก้ทีละหน้า
+  static const Color background = Color(0xFFF7F5EC);
+  static const Color primaryGreen = Color(0xFF2B4E24);
   static const Color textDark = Color(0xFF333333);
   static const Color creamBorder = Color(0xFFE9DCC5);
+
+  // ---------- พื้นหลังไฮไลท์ของหน้าเนื้อหา (ธีมใหม่) ----------
+  // ไล่เฉดเขียว-เหลืองอ่อนจากกึ่งกลางด้านบน จางลงมาเป็นพื้นครีม `background`
+  // ใช้ RadialGradient วงกว้าง (แทนวงรีแบนแบบ CSS) เพื่อให้ดูเป็นแถบ
+  // ไม่ใช่จุดแหลม — center อยู่เหนือกรอบจอ, radius ใหญ่พอให้ขอบจางกลืนกับ
+  // background ก่อนถึงครึ่งล่างของจอ
+  static const List<Color> _pageHighlightColors = [
+    Color(0xFFD7DE94),
+    Color(0xFFC9DBA0),
+    Color(0xFFDCE9C4),
+    Color(0xFFF3F1E0),
+    background,
+  ];
+  static const List<double> _pageHighlightStops = [0.0, 0.22, 0.42, 0.66, 1.0];
+
+  static BoxDecoration pageHighlight() => const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(0.0, -1.2),
+          radius: 1.6,
+          colors: _pageHighlightColors,
+          stops: _pageHighlightStops,
+        ),
+      );
 
   // ---------- สีเฉพาะมิเตอร์ไฟฟ้า/น้ำ ----------
   static const Color electricityAccent = Colors.orange;
@@ -35,7 +62,9 @@ class DashboardStyles {
 
   // ---------- Text style ที่ใช้บ่อย ----------
   static const TextStyle greeting = TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: textDark);
-  static const TextStyle subGreeting = TextStyle(fontSize: 12, color: Colors.grey);
+  // ฟอนต์ขาวแบบเดิม อ่านออกได้เพราะ chip พื้นหลังทึบขึ้น (ดู pageHighlight
+  // header chip ใน dashboard_screen.dart) — ไม่ต้องพึ่งสีตัวอักษรเข้ม
+  static const TextStyle subGreeting = TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500);
   static const TextStyle sectionTitle = TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark);
 
   // ---------- กล่อง/เงา ที่ใช้ซ้ำกันหลายการ์ด ----------

@@ -1332,12 +1332,8 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppBar(
-        title: const Text('บันทึกเลขมิเตอร์ประจำเดือน'),
-        backgroundColor: DashboardStyles.primaryGreen,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+      appBar: AppTopBar(
+        title: 'บันทึกเลขมิเตอร์ประจำเดือน',
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),

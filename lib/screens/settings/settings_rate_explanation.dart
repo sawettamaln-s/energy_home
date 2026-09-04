@@ -38,12 +38,8 @@ class _RateExplanationScreenState extends State<_RateExplanationScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppBar(
-        title: const Text('อัตราค่าไฟฟ้า / น้ำ'),
-        backgroundColor: _green,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+      appBar: AppTopBar(
+        title: 'อัตราค่าไฟฟ้า / น้ำ',
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,

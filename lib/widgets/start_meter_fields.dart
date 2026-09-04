@@ -682,7 +682,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
         : _field(
             controller: widget.electricityCtrl,
             label: 'เลขอ่านครั้งหลัง (last meter reading)',
-            hint: 'เช่น 14,009',
+            hint: 'เช่น 0123456',
             suffixText: 'หน่วย',
             icon: Icons.speed,
             iconColor: DashboardStyles.electricityBorder,

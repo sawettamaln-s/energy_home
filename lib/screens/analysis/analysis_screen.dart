@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/appliance_model.dart';
@@ -13,6 +12,7 @@ import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
+import '../../widgets/app_top_bar.dart';
 import '../../widgets/info_dialog.dart';
 import '../dashboard/dashboard_styles.dart';
 
@@ -122,14 +122,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppBar(
-        backgroundColor: _green,
-        elevation: 0,
-        centerTitle: true,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: const Text('วิเคราะห์',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        automaticallyImplyLeading: false,
+      appBar: AppTopBar(
+        title: 'วิเคราะห์',
+        showBack: false,
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,

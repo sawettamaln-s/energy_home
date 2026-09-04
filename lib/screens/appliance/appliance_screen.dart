@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
@@ -11,6 +10,7 @@ import '../../services/firestore_service.dart';
 import '../../utils/default_appliances.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
+import '../../widgets/app_top_bar.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/info_dialog.dart';
 import '../dashboard/dashboard_styles.dart';
@@ -156,15 +156,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppBar(
-        backgroundColor: DashboardStyles.primaryGreen,
-        elevation: 0,
-        centerTitle: true,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: const Text('อุปกรณ์',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        automaticallyImplyLeading: false,
-      ),
+      appBar: const AppTopBar(title: 'อุปกรณ์', showBack: false),
       floatingActionButton: FloatingActionButton(
         backgroundColor: DashboardStyles.primaryGreen,
         onPressed: _showAddApplianceSheet,

@@ -155,6 +155,17 @@ class _TrendChartCardState extends State<_TrendChartCard> {
         children: [
           Row(
             children: [
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: widget.accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(Icons.show_chart, color: widget.accentColor, size: 15),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text('ประวัติการใช้${widget.title}',
                     style: const TextStyle(

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
@@ -19,6 +18,7 @@ import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
+import '../../widgets/app_top_bar.dart';
 import '../../widgets/bill_mockup_card.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/excel_style_table.dart';
@@ -325,20 +325,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppBar(
-        backgroundColor: DashboardStyles.primaryGreen,
-        elevation: 0,
-        centerTitle: true,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: const Text(
-          'ตั้งค่า',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        automaticallyImplyLeading: false,
-      ),
+      appBar: const AppTopBar(title: 'ตั้งค่า', showBack: false),
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
