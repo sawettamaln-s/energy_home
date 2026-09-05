@@ -491,7 +491,12 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
           ),
         );
 
-    Widget lastValueChips(double last, double start) {
+    // lastIsPlaceholder = true เมื่อยังไม่เคยบันทึกมิเตอร์เลยในรอบนี้ (เพิ่งตั้ง
+    // ต้นรอบใหม่ผ่านหน้าตั้งค่า) — ตอนนั้น "ค่าล่าสุด" ที่โชว์จริงๆ คือค่าต้นรอบ
+    // เอง (fallback) ไม่ใช่ค่าที่กรอกจริง จึงทำให้จางลงกันสับสนว่าเป็นค่าจริง
+    // พอบันทึกมิเตอร์ครั้งแรกของรอบนี้แล้ว (recentLogs ไม่ว่าง) ค่อยกลับมาเข้มปกติ
+    Widget lastValueChips(double last, double start, {bool lastIsPlaceholder = false}) {
+      final lastTextColor = lastIsPlaceholder ? Colors.grey.shade400 : null;
       return Row(
         children: [
           Expanded(
@@ -513,7 +518,10 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text('${formatter.format(last)} $_unit',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: lastIsPlaceholder ? FontWeight.w400 : FontWeight.w600,
+                          color: lastTextColor)),
                 ],
               ),
             ),
@@ -538,7 +546,10 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text('${formatter.format(start)} $_unit',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: lastIsPlaceholder ? FontWeight.w600 : FontWeight.w400,
+                          color: lastIsPlaceholder ? null : Colors.grey.shade400)),
                 ],
               ),
             ),
@@ -555,6 +566,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
       required double start,
       bool autofocus = false,
       double fontSize = 22,
+      bool lastIsPlaceholder = false,
     }) {
       return Container(
         width: double.infinity,
@@ -593,7 +605,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               decoration: decoration('เช่น 12,345'),
             ),
             const SizedBox(height: 8),
-            lastValueChips(last, start),
+            lastValueChips(last, start, lastIsPlaceholder: lastIsPlaceholder),
           ],
         ),
       );
@@ -717,6 +729,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               last: widget.lastPeak,
               start: widget.startPeak,
               autofocus: true,
+              lastIsPlaceholder: widget.recentLogs.isEmpty,
             ),
             const SizedBox(height: 10),
             fieldCard(
@@ -725,6 +738,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               controller: _offPeakCtrl,
               last: widget.lastOffPeak,
               start: widget.startOffPeak,
+              lastIsPlaceholder: widget.recentLogs.isEmpty,
             ),
             const SizedBox(height: 8),
             Row(
@@ -746,6 +760,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               start: widget.startValue,
               autofocus: true,
               fontSize: 26,
+              lastIsPlaceholder: widget.recentLogs.isEmpty,
             ),
           ],
           const SizedBox(height: 14),
