@@ -19,7 +19,6 @@ class _RateExplanationScreen extends StatefulWidget {
 
 class _RateExplanationScreenState extends State<_RateExplanationScreen>
     with SingleTickerProviderStateMixin {
-  static const _green = DashboardStyles.primaryGreen;
   late TabController _tabController;
 
   @override
@@ -303,62 +302,62 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
               if (isTou) ...[
                 _tierRow(
                     range: 'ช่วง Peak (จ.-ศ. 09:00-22:00 น.)',
-                    pricePerUnit: '5.7982 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.touPeakRate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: false,
                     color: _green),
                 _tierRow(
                     range: 'ช่วง Off-Peak (นอกเวลาข้างต้น)',
-                    pricePerUnit: '2.6369 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.touOffPeakRate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: true,
                     color: _green),
                 const Divider(height: 20),
                 _tierRow(
                     range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '24.62 บาท',
+                    pricePerUnit: '${EnergyCalculator.electricityServiceFee.toStringAsFixed(2)} บาท',
                     isAlt: false,
                     color: _green),
               ] else if (isBangkok) ...[
                 _tierRow(
                     range: '1 - 150 หน่วย',
-                    pricePerUnit: '3.2484 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.electricityTier1Rate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: false,
                     color: _green),
                 _tierRow(
                     range: '151 - 400 หน่วย',
-                    pricePerUnit: '4.2218 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.electricityTier2Rate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: true,
                     color: _green),
                 _tierRow(
                     range: '401 หน่วยขึ้นไป',
-                    pricePerUnit: '4.4217 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.electricityTier3Rate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: false,
                     color: _green),
                 const Divider(height: 20),
                 _tierRow(
                     range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '24.62 บาท',
+                    pricePerUnit: '${EnergyCalculator.electricityServiceFee.toStringAsFixed(2)} บาท',
                     isAlt: true,
                     color: _green),
               ] else ...[
                 _tierRow(
                     range: '1 - 150 หน่วย',
-                    pricePerUnit: '3.2484 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.electricityTier1Rate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: false,
                     color: _green),
                 _tierRow(
                     range: '151 - 400 หน่วย',
-                    pricePerUnit: '4.2218 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.electricityTier2Rate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: true,
                     color: _green),
                 _tierRow(
                     range: '401 หน่วยขึ้นไป',
-                    pricePerUnit: '4.4217 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.electricityTier3Rate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: false,
                     color: _green),
                 const Divider(height: 20),
                 _tierRow(
                     range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '24.62 บาท',
+                    pricePerUnit: '${EnergyCalculator.electricityServiceFee.toStringAsFixed(2)} บาท',
                     isAlt: true,
                     color: _green),
               ],
@@ -479,73 +478,73 @@ class _WaterRateTab extends StatelessWidget {
               if (isBangkok) ...[
                 _tierRow(
                     range: '1 - 30 หน่วย',
-                    pricePerUnit: '8.50 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier1.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '31 - 40 หน่วย',
-                    pricePerUnit: '10.03 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier2.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 _tierRow(
                     range: '41 - 50 หน่วย',
-                    pricePerUnit: '10.35 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier3.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '51 - 60 หน่วย',
-                    pricePerUnit: '10.68 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier4.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 _tierRow(
                     range: '61 - 70 หน่วย',
-                    pricePerUnit: '11.00 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier5.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '71 - 80 หน่วย',
-                    pricePerUnit: '11.33 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier6.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 _tierRow(
                     range: '81 - 90 หน่วย',
-                    pricePerUnit: '12.50 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier7.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '91 - 100 หน่วย',
-                    pricePerUnit: '12.82 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier8.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 _tierRow(
                     range: '101 - 120 หน่วย',
-                    pricePerUnit: '13.15 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier9.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '121 - 160 หน่วย',
-                    pricePerUnit: '13.47 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier10.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 _tierRow(
                     range: '161 - 200 หน่วย',
-                    pricePerUnit: '13.80 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier11.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '201 หน่วยขึ้นไป',
-                    pricePerUnit: '14.45 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaTier12.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 const Divider(height: 20),
                 _tierRow(
                     range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '25.00 บาท',
+                    pricePerUnit: '${EnergyCalculator.waterMwaServiceFee.toStringAsFixed(2)} บาท',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: 'ค่าน้ำดิบ',
-                    pricePerUnit: '0.15 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterMwaRawWaterFee.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
               ] else ...[
@@ -556,22 +555,22 @@ class _WaterRateTab extends StatelessWidget {
                         color: Colors.grey.shade700)),
                 _tierRow(
                     range: '1 - 10 หน่วยแรก',
-                    pricePerUnit: '10.20 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier1.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '11 - 20 หน่วย',
-                    pricePerUnit: '16.00 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier2.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 _tierRow(
                     range: '21 - 30 หน่วย',
-                    pricePerUnit: '19.00 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier3.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '31 - 50 หน่วย',
-                    pricePerUnit: '21.20 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier4.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 const Divider(height: 20),
@@ -582,43 +581,43 @@ class _WaterRateTab extends StatelessWidget {
                         color: Colors.grey.shade700)),
                 _tierRow(
                     range: '51 - 80 หน่วย',
-                    pricePerUnit: '21.60 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier5.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '81 - 100 หน่วย',
-                    pricePerUnit: '21.65 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier6.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 _tierRow(
                     range: '101 - 300 หน่วย',
-                    pricePerUnit: '21.70 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier7.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '301 - 1,000 หน่วย',
-                    pricePerUnit: '21.75 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier8.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 _tierRow(
                     range: '1,001 - 2,000 หน่วย',
-                    pricePerUnit: '21.80 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier9.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 _tierRow(
                     range: '2,001 - 3,000 หน่วย',
-                    pricePerUnit: '21.85 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier10.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: true,
                     color: blue),
                 _tierRow(
                     range: '3,001 หน่วยขึ้นไป',
-                    pricePerUnit: '21.90 บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.waterPwaTier11.toStringAsFixed(2)} บาท/หน่วย',
                     isAlt: false,
                     color: blue),
                 const Divider(height: 20),
                 _tierRow(
                     range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '30.00 บาท',
+                    pricePerUnit: '${EnergyCalculator.waterPwaServiceFee.toStringAsFixed(2)} บาท',
                     isAlt: true,
                     color: blue),
               ],

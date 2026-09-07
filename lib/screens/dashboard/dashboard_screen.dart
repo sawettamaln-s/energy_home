@@ -116,10 +116,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool get _startMeterMatchesCurrentCycle {
     final user = _user;
     if (user == null) return false;
-    final expected =
-        EnergyForecaster.getCycleStart(DateTime.now(), user.billingDay);
-    return user.startBillingMonth == expected.month &&
-        user.startBillingYear == expected.year;
+    return EnergyForecaster.matchesCurrentCycle(
+      billingMonth: user.startBillingMonth,
+      billingYear: user.startBillingYear,
+      billingDay: user.billingDay,
+    );
   }
 
   // พร้อมบันทึก log รายวันไหม (แยกรายยูทิลิตี้) = เคยตั้งค่ามาก่อน AND

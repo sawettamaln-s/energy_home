@@ -16,7 +16,6 @@ class _UtilityHistoryScreen extends StatefulWidget {
 
 class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
     with SingleTickerProviderStateMixin {
-  static const _green = DashboardStyles.primaryGreen;
   late TabController _tabController;
 
   @override

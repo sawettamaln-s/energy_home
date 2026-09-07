@@ -23,6 +23,7 @@ import '../../widgets/bill_mockup_card.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/excel_style_table.dart';
 import '../../widgets/info_dialog.dart';
+import '../../widgets/onboarding_guide.dart';
 import '../../widgets/start_meter_fields.dart';
 import '../../widgets/tab_chip.dart';
 import '../auth/auth_gate.dart';
@@ -574,6 +575,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: 'เพิ่ม แก้ไข หรือลบบิลในอดีต',
             color: _sectionColor,
             onTap: () => _showHistoricalBillList(),
+          ),
+          const Divider(height: 1, indent: 56),
+          // เปิดคู่มือใช้งานซ้ำได้เสมอ ไม่เช็ค flag เหมือน showIfFirstTime
+          // ที่เด้งอัตโนมัติตอนเข้า Dashboard ครั้งแรก
+          _buildSettingsTile(
+            icon: Icons.help_outline,
+            title: 'คู่มือการใช้งาน',
+            subtitle: 'ดูวิธีใช้งานระบบรอบบิลและการบันทึกมิเตอร์อีกครั้ง',
+            color: _sectionColor,
+            onTap: () => OnboardingGuide.showAgain(context),
           ),
         ],
       ),

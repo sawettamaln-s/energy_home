@@ -376,7 +376,7 @@ class _MonthYearSpinner extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.expand_more,
+                  const Icon(Icons.expand_more,
                       size: 15, color: DashboardStyles.primaryGreen),
                 ],
               ),
@@ -394,8 +394,8 @@ class _MonthYearSpinner extends StatelessWidget {
               InkWell(
                 onTap: onUp,
                 borderRadius: BorderRadius.circular(20),
-                child: Padding(
-                  padding: const EdgeInsets.all(1),
+                child: const Padding(
+                  padding: EdgeInsets.all(1),
                   child: Icon(Icons.keyboard_arrow_up,
                       size: 14, color: DashboardStyles.primaryGreen),
                 ),
@@ -403,8 +403,8 @@ class _MonthYearSpinner extends StatelessWidget {
               InkWell(
                 onTap: onDown,
                 borderRadius: BorderRadius.circular(20),
-                child: Padding(
-                  padding: const EdgeInsets.all(1),
+                child: const Padding(
+                  padding: EdgeInsets.all(1),
                   child: Icon(Icons.keyboard_arrow_down,
                       size: 14, color: DashboardStyles.primaryGreen),
                 ),

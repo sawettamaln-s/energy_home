@@ -219,8 +219,11 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     if (user != null && mounted) {
       final expected = _expectedInvoiceMonth(user.billingDay);
       final matchesCurrentCycle = user.startMeterConfigured &&
-          user.startBillingMonth == expected.month &&
-          user.startBillingYear == expected.year;
+          EnergyForecaster.matchesCurrentCycle(
+            billingMonth: user.startBillingMonth,
+            billingYear: user.startBillingYear,
+            billingDay: user.billingDay,
+          );
 
       if (matchesCurrentCycle) {
         // โหมดแก้ไข: ค่าที่ตั้งไว้ล่าสุดตรงกับรอบที่ควรตั้งตอนนี้พอดี
@@ -1184,14 +1187,17 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
     }
   }
 
-  // เช็คว่าตั้งค่าของรอบปัจจุบันครบแล้วไหม สูตรเดียวกับ _AddStartMeterSheetState — ใช้ซ่อนปุ่ม (+) เมื่อครบแล้ว
+  // เช็คว่าตั้งค่าของรอบปัจจุบันครบแล้วไหม ใช้ตัวเดียวกับ _AddStartMeterSheetState
+  // (ผ่าน EnergyForecaster.matchesCurrentCycle) — ใช้ซ่อนปุ่ม (+) เมื่อครบแล้ว
   bool get _currentCycleConfigured {
     final user = _user;
     if (user == null) return false;
-    final expected = _expectedInvoiceMonth(user.billingDay);
     return user.startMeterConfigured &&
-        user.startBillingMonth == expected.month &&
-        user.startBillingYear == expected.year;
+        EnergyForecaster.matchesCurrentCycle(
+          billingMonth: user.startBillingMonth,
+          billingYear: user.startBillingYear,
+          billingDay: user.billingDay,
+        );
   }
 
   BillModel? _billFor(int month, int year) {

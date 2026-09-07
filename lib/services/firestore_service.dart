@@ -562,7 +562,8 @@ class FirestoreService {
     final results = <TouBillMigrationPreview>[];
 
     for (final bill in compiledBills) {
-      final endDate = _cutoffDate(bill.year, bill.month, billingDay);
+      final endDate =
+          EnergyForecaster.safeBillingDate(bill.year, bill.month, billingDay);
       final startDate =
           EnergyForecaster.getPreviousCycleStart(endDate, billingDay);
 
@@ -642,14 +643,6 @@ class FirestoreService {
     return results;
   }
 
-  // คัดลอกมาจาก EnergyForecaster._safeBillingDate (private เรียกจากนอกไฟล์
-  // ไม่ได้) — ต้องเหมือนต้นฉบับเป๊ะเพื่อ reconstruct ขอบเขตรอบเก่าให้ตรงกับ
-  // ที่แอปใช้จริงตอน compileBill()
-  DateTime _cutoffDate(int year, int month, int billingDay) {
-    final lastDayOfMonth = DateTime(year, month + 1, 0).day;
-    final safeDay = billingDay > lastDayOfMonth ? lastDayOfMonth : billingDay;
-    return DateTime(year, month, safeDay);
-  }
 }
 
 /// ผลลัพธ์ของการ migrate บิล TOU แต่ละใบ — ใช้โชว์ preview ให้ตรวจก่อน
