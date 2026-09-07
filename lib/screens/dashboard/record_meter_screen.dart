@@ -445,7 +445,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                     Text('บันทึกมิเตอร์$_utilityLabel',
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
                   ],

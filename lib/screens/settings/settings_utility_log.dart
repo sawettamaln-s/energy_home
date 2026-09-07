@@ -61,116 +61,82 @@ class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
   }
 }
 
-// แถวสถิติด้านบนของแต่ละแท็บ — การ์ด 2 ช่อง "รอบปัจจุบัน" กับ "รวมทั้งหมดที่มี"
-// แทนแถบสรุปยาวๆ แบบเดิม อ่านค่าได้เร็วกว่าแบบ dashboard
-Widget _historyStatCards({
+// การ์ดสรุปด้านบนของแต่ละแท็บ — รวมสถิติ "รอบปัจจุบัน"/"รวมทั้งหมดที่มี" กับ
+// ตัวเลือกปี (พ.ศ.) + เดือน ไว้ในกรอบเดียวกัน (เดิมแยก 2 การ์ดขาวซ้อนกัน ดูรก
+// และเปลืองพื้นที่แนวตั้งโดยไม่จำเป็น) คั่นด้วยเส้น Divider บางๆ แทน
+Widget _historySummaryCard({
   required Color accent,
   required double currentCycleCost,
   required double allTimeCost,
   required NumberFormat formatter,
+  required List<int> years,
+  required List<int> months,
+  required int selectedYear,
+  required int selectedMonth,
+  required ValueChanged<int> onYearChanged,
+  required ValueChanged<int> onMonthChanged,
 }) {
-  Widget statCard({
+  Widget statItem({
     required IconData icon,
     required String label,
     required double value,
   }) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 15, color: accent),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-            ),
-            const SizedBox(height: 1),
-            RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: formatter.format(value),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
+            child: Icon(icon, size: 15, color: accent),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+                ),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: formatter.format(value),
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' บาท',
+                        style:
+                            TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+                      ),
+                    ],
                   ),
-                  TextSpan(
-                    text: ' บาท',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-    child: Row(
-      children: [
-        statCard(
-          icon: Icons.schedule,
-          label: 'รอบปัจจุบัน',
-          value: currentCycleCost,
-        ),
-        const SizedBox(width: 10),
-        statCard(
-          icon: Icons.account_balance_wallet_outlined,
-          label: 'รวมทั้งหมดที่มี',
-          value: allTimeCost,
-        ),
-      ],
-    ),
-  );
-}
-
-// ตัวเลือกปี (พ.ศ.) + เดือน — แทนการเลื่อนหาการ์ดเดือนทีละใบ ปีค่าเริ่มต้น
-// เป็นปีปัจจุบันเสมอ ส่วนเดือนจะกรองให้เหลือแค่เดือนที่มีข้อมูลจริงของปีนั้น
-class _YearMonthPicker extends StatelessWidget {
-  final Color accent;
-  final List<int> years;
-  final List<int> months;
-  final int selectedYear;
-  final int selectedMonth;
-  final ValueChanged<int> onYearChanged;
-  final ValueChanged<int> onMonthChanged;
-
-  const _YearMonthPicker({
-    required this.accent,
-    required this.years,
-    required this.months,
-    required this.selectedYear,
-    required this.selectedMonth,
-    required this.onYearChanged,
-    required this.onMonthChanged,
-  });
-
-  InputDecoration _decoration() {
+  InputDecoration fieldDecoration() {
     return InputDecoration(
       isDense: true,
       filled: true,
       fillColor: const Color(0xFFFAF9F4),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(9),
         borderSide: const BorderSide(color: Color(0xFFD8D5C8)),
@@ -186,96 +152,97 @@ class _YearMonthPicker extends StatelessWidget {
     );
   }
 
-  Widget _fieldLabel(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 5, left: 2),
-        child: Text(
-          text,
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+  return Container(
+    margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: Colors.grey.shade200),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            statItem(
+              icon: Icons.schedule,
+              label: 'รอบปัจจุบัน',
+              value: currentCycleCost,
+            ),
+            const SizedBox(width: 12),
+            statItem(
+              icon: Icons.account_balance_wallet_outlined,
+              label: 'รวมทั้งหมดที่มี',
+              value: allTimeCost,
+            ),
+          ],
         ),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 4,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _fieldLabel('ปี (พ.ศ.)'),
-                DropdownButtonFormField<int>(
-                  key: ValueKey('year-$selectedYear'),
-                  initialValue: selectedYear,
-                  isDense: true,
-                  dropdownColor: Colors.white,
-                  icon: Icon(Icons.keyboard_arrow_down,
-                      size: 18, color: Colors.grey.shade500),
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                  decoration: _decoration(),
-                  items: [
-                    for (final y in years)
-                      DropdownMenuItem(value: y, child: Text('${y + 543}')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) onYearChanged(v);
-                  },
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Divider(height: 1, color: Colors.grey.shade200),
+        ),
+        Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: DropdownButtonFormField<int>(
+                key: ValueKey('year-$selectedYear'),
+                initialValue: selectedYear,
+                isDense: true,
+                dropdownColor: Colors.white,
+                icon: Icon(Icons.keyboard_arrow_down,
+                    size: 18, color: Colors.grey.shade500),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
-              ],
+                decoration: fieldDecoration(),
+                items: [
+                  for (final y in years)
+                    DropdownMenuItem(value: y, child: Text('${y + 543}')),
+                ],
+                onChanged: (v) {
+                  if (v != null) onYearChanged(v);
+                },
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 5,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _fieldLabel('เดือน'),
-                DropdownButtonFormField<int>(
-                  key: ValueKey('month-$selectedYear-$selectedMonth'),
-                  initialValue: selectedMonth,
-                  isDense: true,
-                  dropdownColor: Colors.white,
-                  icon: Icon(Icons.keyboard_arrow_down,
-                      size: 18, color: Colors.grey.shade500),
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                  decoration: _decoration(),
-                  items: [
-                    for (final m in months)
-                      DropdownMenuItem(value: m, child: Text(thaiMonths[m - 1])),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) onMonthChanged(v);
-                  },
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 5,
+              child: DropdownButtonFormField<int>(
+                key: ValueKey('month-$selectedYear-$selectedMonth'),
+                initialValue: selectedMonth,
+                isDense: true,
+                dropdownColor: Colors.white,
+                icon: Icon(Icons.keyboard_arrow_down,
+                    size: 18, color: Colors.grey.shade500),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
-              ],
+                decoration: fieldDecoration(),
+                items: [
+                  for (final m in months)
+                    DropdownMenuItem(value: m, child: Text(thaiMonths[m - 1])),
+                ],
+                onChanged: (v) {
+                  if (v != null) onMonthChanged(v);
+                },
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
-// การ์ดพับ/กางได้ของประวัติแต่ละเดือน (1 การ์ด = 1 รอบบิล)
-class _MonthGroupCard extends StatefulWidget {
+// สรุปเดือนที่กำลังดูอยู่ + ตาราง (1 การ์ด = 1 รอบบิล) — ไม่ต้องพับ/กางแล้ว
+// เพราะตัวเลือกปี-เดือนด้านบนกรองเหลือรอบเดียวอยู่แล้ว ไม่มีประโยชน์ที่จะซ่อนตาราง
+class _MonthGroupCard extends StatelessWidget {
   final String monthLabel;
   final bool isCurrent;
   final int count;
@@ -283,7 +250,6 @@ class _MonthGroupCard extends StatefulWidget {
   final Color accent;
   final NumberFormat formatter;
   final Widget table;
-  final bool initiallyExpanded;
 
   const _MonthGroupCard({
     required this.monthLabel,
@@ -293,137 +259,97 @@ class _MonthGroupCard extends StatefulWidget {
     required this.accent,
     required this.formatter,
     required this.table,
-    this.initiallyExpanded = false,
   });
 
   @override
-  State<_MonthGroupCard> createState() => _MonthGroupCardState();
-}
-
-class _MonthGroupCardState extends State<_MonthGroupCard> {
-  late bool _expanded = widget.initiallyExpanded;
-
-  @override
   Widget build(BuildContext context) {
-    final accent = widget.accent;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: widget.isCurrent
-              ? accent.withValues(alpha: 0.35)
-              : Colors.grey.shade200,
-          width: widget.isCurrent ? 1.3 : 1,
+          color:
+              isCurrent ? accent.withValues(alpha: 0.35) : Colors.grey.shade200,
+          width: isCurrent ? 1.3 : 1,
         ),
-        boxShadow: widget.isCurrent
-            ? [
-                BoxShadow(
-                  color: accent.withValues(alpha: 0.12),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ]
-            : null,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(13),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            InkWell(
-              onTap: () => setState(() => _expanded = !_expanded),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                color: widget.isCurrent
-                    ? accent.withValues(alpha: 0.07)
-                    : Colors.grey.shade50,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: accent.withValues(
-                            alpha: widget.isCurrent ? 0.16 : 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child:
-                          Icon(Icons.calendar_month, size: 18, color: accent),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              color:
+                  isCurrent ? accent.withValues(alpha: 0.07) : Colors.grey.shade50,
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: isCurrent ? 0.16 : 0.08),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  widget.monthLabel,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: Colors.black87,
+                    child: Icon(Icons.calendar_month, size: 18, color: accent),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                monthLabel,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                            if (isCurrent) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: accent,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'กำลังสะสมยอด',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                              if (widget.isCurrent) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 7, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: accent,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Text(
-                                    'กำลังสะสมยอด',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.isCurrent
-                                ? '${widget.count} รายการที่บันทึกแล้ว' // รอบปัจจุบันโชว์แค่จำนวนรายการพอ ไม่ต้องโชว์บาทซ้ำ
-                                : '${widget.count} รายการ · สรุปยอดรวม ${widget.formatter.format(widget.totalCost)} บาท', // รอบเก่าโชว์ยอดเงินจริง
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isCurrent
+                              ? '$count รายการที่บันทึกแล้ว' // รอบปัจจุบันโชว์แค่จำนวนรายการพอ ไม่ต้องโชว์บาทซ้ำ
+                              : '$count รายการ · สรุปยอดรวม ${formatter.format(totalCost)} บาท', // รอบเก่าโชว์ยอดเงินจริง
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ],
                     ),
-                    AnimatedRotation(
-                      turns: _expanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(Icons.keyboard_arrow_down,
-                          color: Colors.grey.shade500),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            AnimatedCrossFade(
-              firstChild: const SizedBox(width: double.infinity, height: 0),
-              secondChild: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                child: widget.table,
-              ),
-              crossFadeState: _expanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 200),
-              sizeCurve: Curves.easeInOut,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              child: table,
             ),
           ],
         ),
@@ -633,28 +559,25 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
     final isSelectedCurrent = selectedGroup.key == _billingCycleKey;
     final isMostRecentGroup = groups.first.key == selectedGroup.key;
 
-    return Column(
-      children: [
-        _historyStatCards(
-          accent: accent,
-          currentCycleCost: currentCycleCost,
-          allTimeCost: allTimeCost,
-          formatter: formatter,
-        ),
-        _YearMonthPicker(
-          accent: accent,
-          years: years,
-          months: monthsForYear,
-          selectedYear: _selYear!,
-          selectedMonth: _selMonth!,
-          onYearChanged: (y) => setState(() {
-            _selYear = y;
-            _selMonth = null;
-          }),
-          onMonthChanged: (m) => setState(() => _selMonth = m),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _historySummaryCard(
+            accent: accent,
+            currentCycleCost: currentCycleCost,
+            allTimeCost: allTimeCost,
+            formatter: formatter,
+            years: years,
+            months: monthsForYear,
+            selectedYear: _selYear!,
+            selectedMonth: _selMonth!,
+            onYearChanged: (y) => setState(() {
+              _selYear = y;
+              _selMonth = null;
+            }),
+            onMonthChanged: (m) => setState(() => _selMonth = m),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: _MonthGroupCard(
               monthLabel: _cycleMonthLabel(selectedGroup.key),
@@ -663,7 +586,6 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
               totalCost: selectedCost,
               accent: accent,
               formatter: formatter,
-              initiallyExpanded: true,
               table: ExcelStyleTable(
                 accent: accent,
                 // TOU: เพิ่มคอลัมน์ On-Peak/Off-Peak "ที่ใช้ไป" เข้าตารางหลักเลย
@@ -731,8 +653,8 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -861,28 +783,25 @@ class _WaterLogTabState extends State<_WaterLogTab> {
     final isSelectedCurrent = selectedGroup.key == _billingCycleKey;
     final isMostRecentGroup = groups.first.key == selectedGroup.key;
 
-    return Column(
-      children: [
-        _historyStatCards(
-          accent: accent,
-          currentCycleCost: currentCycleCost,
-          allTimeCost: allTimeCost,
-          formatter: formatter,
-        ),
-        _YearMonthPicker(
-          accent: accent,
-          years: years,
-          months: monthsForYear,
-          selectedYear: _selYear!,
-          selectedMonth: _selMonth!,
-          onYearChanged: (y) => setState(() {
-            _selYear = y;
-            _selMonth = null;
-          }),
-          onMonthChanged: (m) => setState(() => _selMonth = m),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _historySummaryCard(
+            accent: accent,
+            currentCycleCost: currentCycleCost,
+            allTimeCost: allTimeCost,
+            formatter: formatter,
+            years: years,
+            months: monthsForYear,
+            selectedYear: _selYear!,
+            selectedMonth: _selMonth!,
+            onYearChanged: (y) => setState(() {
+              _selYear = y;
+              _selMonth = null;
+            }),
+            onMonthChanged: (m) => setState(() => _selMonth = m),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: _MonthGroupCard(
               monthLabel: _cycleMonthLabel(selectedGroup.key),
@@ -891,7 +810,6 @@ class _WaterLogTabState extends State<_WaterLogTab> {
               totalCost: selectedCost,
               accent: accent,
               formatter: formatter,
-              initiallyExpanded: true,
               table: ExcelStyleTable(
                 accent: accent,
                 columns: const [
@@ -927,8 +845,8 @@ class _WaterLogTabState extends State<_WaterLogTab> {
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

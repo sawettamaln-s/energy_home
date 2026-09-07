@@ -57,60 +57,362 @@ void _showFixedCostInfoPopup(BuildContext context) {
   );
 }
 
-// สร้างรายการตัวเลือกเดือน/ปีให้เลือก (ตั้งแต่ 2 ปีที่แล้ว ถึง 5 ปีข้างหน้า
-// ครอบคลุมเคสของที่มีกำหนดระยะยาว เช่น ค่าประกัน 1 ปี) — เก็บเป็นวันที่ 1
-// ของเดือนนั้นเสมอ เพราะ isActiveInMonth() เทียบแค่ระดับเดือน ไม่สนวันที่จริง
-List<DateTime> _fixedCostMonthOptions() {
-  final now = DateTime.now();
-  final start = DateTime(now.year - 2, 1);
-  return List.generate(
-    7 * 12,
-    (i) => DateTime(start.year, start.month + i, 1),
-  );
+// ปีเริ่มต้นที่เลือกได้ — ปกติเริ่มจากปีปัจจุบันเลย (ไม่ต้องมีปีย้อนหลังให้
+// เกะกะ) ยกเว้นตอนแก้ไขรายการเก่าที่ startDate เดิมย้อนไปก่อนปีนี้ ค่อยขยับ
+// ขอบเขตให้ครอบคลุมปีนั้นด้วย ไม่งั้นค่าที่เคยบันทึกไว้จะไม่มีในตัวเลือก
+DateTime _fixedCostMinDate([DateTime? anchor]) {
+  final base = DateTime(DateTime.now().year, 1);
+  if (anchor != null && anchor.isBefore(base)) {
+    return DateTime(anchor.year, 1);
+  }
+  return base;
 }
 
-// ช่องเลือกเดือน/ปีแบบ dropdown — ใช้ทั้งช่องเริ่มและสิ้นสุดในส่วน "ช่วงเวลา"
-// ของ dialog เพิ่ม/แก้ไขรายการ (รูปแบบเดียวกับตัวเลือกเดือนใน settings_bill_history.dart)
+// ปีสิ้นสุดที่เลือกได้ไกลสุด (4 ปีข้างหน้า ครอบคลุมเคสของที่มีกำหนดระยะยาว
+// เช่น ค่าประกัน 1 ปี)
+DateTime _fixedCostMaxDate() {
+  final now = DateTime.now();
+  return DateTime(now.year + 4, 12);
+}
+
+// ตัดวันที่ให้อยู่ในช่วง [min, max] เทียบแค่ระดับเดือน — ใช้เก็บวันที่ 1
+// ของเดือนนั้นเสมอ เพราะ isActiveInMonth() เทียบแค่ระดับเดือน ไม่สนวันที่จริง
+DateTime _clampToMonthRange(DateTime d, DateTime min, DateTime max) {
+  final asMonth = DateTime(d.year, d.month, 1);
+  if (asMonth.isBefore(min)) return min;
+  if (asMonth.isAfter(max)) return max;
+  return asMonth;
+}
+
+// ช่องเลือกเดือน/ปีแบบกดเปิด dialog กลางจอทีเดียว — เปิดแล้วเจอการ์ดปฏิทินมี
+// สปินเนอร์เดือน/ปีแบบลูกศรขึ้น-ลง กดเลือกแล้วกด "เลือก" เพื่อยืนยัน
 class _MonthYearField extends StatelessWidget {
   final String label;
   final DateTime? value;
-  final List<DateTime> options;
+  final DateTime minDate;
+  final DateTime maxDate;
   final ValueChanged<DateTime?>? onChanged;
   final bool enabled;
 
   const _MonthYearField({
     required this.label,
     required this.value,
-    required this.options,
+    required this.minDate,
+    required this.maxDate,
     required this.onChanged,
     this.enabled = true,
   });
 
+  Future<void> _openPicker(BuildContext context) async {
+    final picked = await showDialog<DateTime>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: _MonthYearPickerSheet(
+          label: label,
+          initialValue: value,
+          minDate: minDate,
+          maxDate: maxDate,
+        ),
+      ),
+    );
+    if (picked != null) onChanged?.call(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<DateTime>(
-      initialValue: value,
-      isExpanded: true,
-      icon: const Icon(Icons.expand_more, size: 18),
-      decoration: InputDecoration(
-        labelText: label,
-        filled: !enabled,
-        fillColor: Colors.grey.shade100,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    final text = value != null
+        ? '${thaiMonths[value!.month - 1]} ${value!.year + 543}'
+        : 'เลือก';
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: enabled ? () => _openPicker(context) : null,
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          filled: !enabled,
+          fillColor: Colors.grey.shade100,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          suffixIcon: Icon(Icons.expand_more,
+              size: 18, color: enabled ? Colors.black54 : Colors.grey),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 13),
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
-      items: options
-          .map((d) => DropdownMenuItem(
-                value: d,
-                child: Text(
-                  '${thaiMonths[d.month - 1]} ${d.year}',
-                  style: const TextStyle(fontSize: 13),
-                  overflow: TextOverflow.ellipsis,
+    );
+  }
+}
+
+// เนื้อหา dialog เลือกปี+เดือน — การ์ดปฏิทินโครงตามภาพเรฟที่ส่งมา (ช่องเดือน/ปีคู่
+// ทรงแคปซูลมีลูกศรขึ้น-ลงกดปรับทีละสเต็ป) แต่ปรับสีจากส้ม-แดงในเรฟให้เป็นธีม
+// เขียวของแอป และตัดกริดวันในเดือนออกเพราะระบบเก็บข้อมูลแค่ระดับเดือน-ปี
+// ไม่ได้ลงถึงวันที่จริง ปีที่แสดงเป็น พ.ศ. ให้ตรงกับส่วนอื่นของแอป (เก็บเป็น
+// ค.ศ. ภายในเหมือนเดิม)
+// แสดงผลผ่าน showDialog เป็นการ์ดลอยกลางจอ (ไม่ใช่ bottom sheet) จึงไม่ต้องมี
+// หูจับลากหรือ SafeArea แบบที่ bottom sheet ต้องการ
+class _MonthYearPickerSheet extends StatefulWidget {
+  final String label;
+  final DateTime? initialValue;
+  final DateTime minDate;
+  final DateTime maxDate;
+
+  const _MonthYearPickerSheet({
+    required this.label,
+    required this.initialValue,
+    required this.minDate,
+    required this.maxDate,
+  });
+
+  @override
+  State<_MonthYearPickerSheet> createState() => _MonthYearPickerSheetState();
+}
+
+class _MonthYearPickerSheetState extends State<_MonthYearPickerSheet> {
+  late int _year;
+  late int _month;
+
+  @override
+  void initState() {
+    super.initState();
+    final v = widget.initialValue ?? DateTime.now();
+    _year = v.year.clamp(widget.minDate.year, widget.maxDate.year);
+    _month = v.month;
+    _clampMonth();
+  }
+
+  List<int> _monthsForYear(int year) {
+    final lo = year == widget.minDate.year ? widget.minDate.month : 1;
+    final hi = year == widget.maxDate.year ? widget.maxDate.month : 12;
+    return [for (var m = lo; m <= hi; m++) m];
+  }
+
+  // ถ้าเดือนที่เลือกอยู่หลุดขอบเขตของปีใหม่ (โดนตัดจาก minDate/maxDate) ปัด
+  // ไปเดือนแรก/เดือนสุดท้ายที่ยังเลือกได้ของปีนั้นแทน
+  void _clampMonth() {
+    final months = _monthsForYear(_year);
+    if (_month < months.first) _month = months.first;
+    if (_month > months.last) _month = months.last;
+  }
+
+  void _stepMonth(int delta) {
+    setState(() {
+      var m = _month + delta;
+      var y = _year;
+      if (m < 1) {
+        m = 12;
+        y -= 1;
+      } else if (m > 12) {
+        m = 1;
+        y += 1;
+      }
+      if (y < widget.minDate.year || y > widget.maxDate.year) return;
+      _year = y;
+      _month = m;
+      _clampMonth();
+    });
+  }
+
+  void _stepYear(int delta) {
+    setState(() {
+      final y = _year + delta;
+      if (y < widget.minDate.year || y > widget.maxDate.year) return;
+      _year = y;
+      _clampMonth();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final months = _monthsForYear(_year);
+    final years = [
+      for (var y = widget.minDate.year; y <= widget.maxDate.year; y++) y
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text('เลือก${widget.label}',
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 140,
+                child: _MonthYearSpinner(
+                  text: thaiMonths[_month - 1],
+                  options: [for (final m in months) thaiMonths[m - 1]],
+                  selectedIndex: months.indexOf(_month),
+                  onSelectIndex: (i) =>
+                      setState(() => _month = months[i]),
+                  onUp: () => _stepMonth(1),
+                  onDown: () => _stepMonth(-1),
                 ),
-              ))
-          .toList(),
-      onChanged: enabled ? onChanged : null,
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 140,
+                child: _MonthYearSpinner(
+                  text: '${_year + 543}',
+                  options: [for (final y in years) '${y + 543}'],
+                  selectedIndex: years.indexOf(_year),
+                  onSelectIndex: (i) => setState(() {
+                    _year = years[i];
+                    _clampMonth();
+                  }),
+                  onUp: () => _stepYear(1),
+                  onDown: () => _stepYear(-1),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: 292,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DashboardStyles.primaryGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              onPressed: () =>
+                  Navigator.pop(context, DateTime(_year, _month, 1)),
+              child: const Text('เลือก',
+                  style:
+                      TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ช่องแคปซูลโค้งมนแบบในภาพเรฟ แบ่ง 2 โซนคั่นด้วยเส้นบางๆ:
+// - โซนซ้าย (ข้อความ + ไอคอน ▾) กดแล้วเด้ง dropdown ให้เลือกตรงได้เลย
+// - โซนขวา (▲▼) กดปรับทีละสเต็ปแบบเดิม แยกจากโซนซ้ายชัดเจน
+class _MonthYearSpinner extends StatelessWidget {
+  final String text;
+  final List<String> options;
+  final int selectedIndex;
+  final ValueChanged<int> onSelectIndex;
+  final VoidCallback onUp;
+  final VoidCallback onDown;
+
+  const _MonthYearSpinner({
+    required this.text,
+    required this.options,
+    required this.selectedIndex,
+    required this.onSelectIndex,
+    required this.onUp,
+    required this.onDown,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = DashboardStyles.primaryGreen.withValues(alpha: 0.25);
+    return Container(
+      padding: const EdgeInsets.only(left: 14, right: 4, top: 5, bottom: 5),
+      decoration: BoxDecoration(
+        color: DashboardStyles.primaryGreen.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Expanded(
+            child: PopupMenuButton<int>(
+              padding: EdgeInsets.zero,
+              position: PopupMenuPosition.under,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              itemBuilder: (context) => [
+                for (var i = 0; i < options.length; i++)
+                  PopupMenuItem(
+                    value: i,
+                    height: 36,
+                    child: Text(
+                      options[i],
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: i == selectedIndex
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                        color: i == selectedIndex
+                            ? DashboardStyles.primaryGreen
+                            : Colors.black87,
+                      ),
+                    ),
+                  ),
+              ],
+              onSelected: onSelectIndex,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      text,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                          letterSpacing: 0.3),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.expand_more,
+                      size: 15, color: DashboardStyles.primaryGreen),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 18,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            color: borderColor,
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: onUp,
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.all(1),
+                  child: Icon(Icons.keyboard_arrow_up,
+                      size: 14, color: DashboardStyles.primaryGreen),
+                ),
+              ),
+              InkWell(
+                onTap: onDown,
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.all(1),
+                  child: Icon(Icons.keyboard_arrow_down,
+                      size: 14, color: DashboardStyles.primaryGreen),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -169,19 +471,17 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
       text: existing != null ? existing.amount.toStringAsFixed(0) : '',
     );
     String? errorText;
-    // ตัวเลือกเดือน/ปีทั้งหมดที่เลือกได้ — ต้อง snap startDate/endDate ของรายการ
-    // เดิมให้ตรงกับ entry ในลิสต์นี้เป๊ะๆ (เทียบแค่ปี/เดือน) ไม่งั้น
-    // DropdownButtonFormField จะหา item ที่ตรงกับ initialValue ไม่เจอแล้ว throw
-    final monthOptions = _fixedCostMonthOptions();
-    DateTime snapToMonth(DateTime d) => monthOptions.firstWhere(
-          (m) => m.year == d.year && m.month == d.month,
-          orElse: () => DateTime(d.year, d.month, 1),
-        );
+    // ขอบเขตปี/เดือนที่เลือกได้ — ต้อง clamp startDate/endDate ของรายการเดิม
+    // ให้อยู่ในช่วงนี้เสมอ ไม่งั้นปี/เดือนอาจไม่มีในดรอปดาวน์
+    final minDate = _fixedCostMinDate(existing?.startDate);
+    final maxDate = _fixedCostMaxDate();
     // ช่วงเวลา: startDate เริ่มนับตั้งแต่เดือนนี้เป็น default, endDate = null
     // หมายถึงต่อเนื่องไม่มีกำหนด (พฤติกรรมเดิมของรายการที่ไม่มีวันสิ้นสุด)
-    DateTime startDate = snapToMonth(existing?.startDate ?? DateTime.now());
-    DateTime? endDate =
-        existing?.endDate == null ? null : snapToMonth(existing!.endDate!);
+    DateTime startDate = _clampToMonthRange(
+        existing?.startDate ?? DateTime.now(), minDate, maxDate);
+    DateTime? endDate = existing?.endDate == null
+        ? null
+        : _clampToMonthRange(existing!.endDate!, minDate, maxDate);
     bool hasEndDate = endDate != null;
 
     await showDialog(
@@ -277,7 +577,8 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                       child: _MonthYearField(
                         label: 'เริ่ม',
                         value: startDate,
-                        options: monthOptions,
+                        minDate: minDate,
+                        maxDate: maxDate,
                         onChanged: (picked) {
                           if (picked == null) return;
                           setDialogState(() {
@@ -297,9 +598,8 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                         label: 'สิ้นสุด',
                         value: endDate,
                         enabled: hasEndDate,
-                        options: monthOptions
-                            .where((m) => !m.isBefore(startDate))
-                            .toList(),
+                        minDate: startDate,
+                        maxDate: maxDate,
                         onChanged: (picked) =>
                             setDialogState(() => endDate = picked),
                       ),
