@@ -463,7 +463,7 @@ class AnalysisService {
       }
     }
 
-    // ----- 4. เทียบเดือนก่อนแบบพุ่งขึ้นกะทันหัน -----
+    // ----- 4. เทียบเดือนก่อนแบบพุ่งขึ้น -----
 if (mom != null && mom.percentChange != null) {
   if (mom.isIncrease && mom.percentChange! >= 30) {
     insights.add(AnalysisInsight(
