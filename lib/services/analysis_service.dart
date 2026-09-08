@@ -464,15 +464,15 @@ class AnalysisService {
     }
 
     // ----- 4. เทียบเดือนก่อนแบบพุ่งขึ้นกะทันหัน -----
-    if (mom != null && mom.percentChange != null) {
-      if (mom.isIncrease && mom.percentChange! >= 30) {
-        insights.add(AnalysisInsight(
-          '$labelเดือนนี้พุ่งขึ้นจากเดือนก่อน ${mom.percentChange!.toStringAsFixed(0)}% '
-          'แบบกะทันหัน ลองเช็กว่ามีอุปกรณ์ตัวไหนใช้งานนานขึ้นผิดปกติ',
-          InsightLevel.warning,
-        ));
-      }
-    }
+if (mom != null && mom.percentChange != null) {
+  if (mom.isIncrease && mom.percentChange! >= 30) {
+    insights.add(AnalysisInsight(
+      '$labelเดือนนี้สูงกว่าเดือนก่อน ${mom.percentChange!.toStringAsFixed(0)}% '
+      'ลองเช็กดูว่ามีอุปกรณ์ตัวไหนใช้งานนานขึ้นหรือเปล่า',
+      InsightLevel.warning,
+    ));
+  }
+}
 
     // ----- 5. เดือนที่ใช้สูงสุดในข้อมูลที่เก็บไว้ (ช่วยสังเกตรูปแบบ) -----
     if (bills.length >= 3) {

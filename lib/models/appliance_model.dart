@@ -2,7 +2,6 @@ class ApplianceModel {
   final String id;
   final String uid;
   final String name; // ชื่ออุปกรณ์ เช่น แอร์ห้องนอน
-  final String icon; // ไอคอนอุปกรณ์ (เก็บไว้ใน Firestore แต่ยังไม่ถูกใช้แสดงผลจริง — หน้าจอใช้ Icons.electrical_services คงที่แทน)
   final double watt; // กำลังไฟ (วัตต์)
   final List<ScheduleModel> schedules; // ตารางการใช้งาน
 
@@ -10,7 +9,6 @@ class ApplianceModel {
     required this.id,
     required this.uid,
     required this.name,
-    this.icon = 'devices',
     required this.watt,
     this.schedules = const [],
   });
@@ -21,7 +19,6 @@ class ApplianceModel {
       id: map['id'] ?? '',
       uid: map['uid'] ?? '',
       name: map['name'] ?? '',
-      icon: map['icon'] ?? 'devices',
       watt: (map['watt'] ?? 0).toDouble(),
       schedules: (map['schedules'] as List<dynamic>? ?? [])
           .map((s) => ScheduleModel.fromMap(s))
@@ -35,7 +32,6 @@ class ApplianceModel {
       'id': id,
       'uid': uid,
       'name': name,
-      'icon': icon,
       'watt': watt,
       'schedules': schedules.map((s) => s.toMap()).toList(),
     };

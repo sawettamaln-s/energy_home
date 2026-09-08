@@ -15,6 +15,38 @@ import '../../widgets/confirm_dialog.dart';
 import '../../widgets/info_dialog.dart';
 import '../dashboard/dashboard_styles.dart';
 
+// แปลง DefaultAppliance.icon (string ที่เก็บไว้ในโมเดล เช่น 'shower', 'iron')
+// เป็น IconData จริงเพื่อใช้ในลิสต์ "เลือกจากรายการสามัญประจำบ้าน" — เดิมทุก
+// แถวใช้ Icons.electrical_services เหมือนกันหมด ทำให้แยกเครื่องใช้ไฟฟ้าแต่ละ
+// ชนิดในลิสต์ไม่ออกจากไอคอนเลย ต้องอ่านชื่อเท่านั้น
+//
+// เลือกแมปเฉพาะ key ที่มั่นใจว่ามีไอคอนนี้จริงในชุด Icons มาตรฐานของ Flutter
+// เท่านั้น — 'hair_dryer' ยังไม่แมป (ไม่มั่นใจว่ามีไอคอนนี้แน่ๆ ในทุกเวอร์ชัน
+// SDK) เลยปล่อยให้ตกไปใช้ default ด้านล่างแทนการเดาชื่อ Icons.* ที่อาจไม่มี
+// จริงแล้วคอมไพล์ไม่ผ่าน
+IconData _defaultApplianceIcon(String key) {
+  switch (key) {
+    case 'shower':
+      return Icons.shower;
+    case 'iron':
+      return Icons.iron;
+    case 'ac_unit':
+      return Icons.ac_unit;
+    case 'local_laundry_service':
+      return Icons.local_laundry_service;
+    case 'kitchen':
+      return Icons.kitchen;
+    case 'rice_bowl':
+      return Icons.rice_bowl;
+    case 'microwave':
+      return Icons.microwave;
+    case 'mode_fan_off':
+      return Icons.mode_fan_off;
+    default:
+      return Icons.electrical_services;
+  }
+}
+
 class ApplianceScreen extends StatefulWidget {
   // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
   final ValueChanged<int>? onNavTap;
@@ -789,7 +821,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            leading: const Icon(Icons.electrical_services,
+                            leading: Icon(_defaultApplianceIcon(d.icon),
                                 color: DashboardStyles.primaryGreen),
                             title: Text(d.name,
                                 style: const TextStyle(fontSize: 14)),
