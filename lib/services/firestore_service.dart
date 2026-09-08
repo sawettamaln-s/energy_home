@@ -291,6 +291,28 @@ class FirestoreService {
     return snapshot.docs.isNotEmpty;
   }
 
+  // ดึงเฉพาะบิลล่าสุด (เดือน/ปีล่าสุด) — ใช้แทน getBills() ในจุดที่ต้องการ
+  // แค่บิลล่าสุดตัวเดียว (เช่น dashboard ที่ต้องเอาไปเทียบ "พุ่งขึ้น/ลดลง")
+  // orderBy ฟิลด์เดียว (yearMonth) จึงไม่ต้องสร้าง composite index เหมือน
+  // การ orderBy('year').orderBy('month') สองฟิลด์พร้อมกัน
+  //
+  // ข้อควรรู้: บิลเก่าที่ถูกสร้างก่อนมี field นี้ (ก่อน migrate) จะไม่มีค่า
+  // yearMonth ใน Firestore ทำให้ query นี้มองไม่เห็นบิลนั้น — ไม่กระทบ flow
+  // ปกติเพราะบิลใหม่ทุกตัว (ทั้ง compileBill และเพิ่มเองในหน้าประวัติบิล)
+  // จะมี field นี้ครบตั้งแต่ตอนนี้เป็นต้นไป
+  Future<BillModel?> getLatestBill(String uid) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('bills')
+        .orderBy('yearMonth', descending: true)
+        .limit(1)
+        .get();
+    if (snapshot.docs.isEmpty) return null;
+    final doc = snapshot.docs.first;
+    return BillModel.fromMap({...doc.data(), 'id': doc.id});
+  }
+
   // ดึงบิลทั้งหมด
   Future<List<BillModel>> getBills(String uid) async {
     final snapshot =

@@ -57,6 +57,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double _forecastElectricityCost = 0;
   double _forecastWaterCost = 0;
 
+  // true = มี log อย่างน้อย 2 ครั้งในรอบนี้ (ทั้งไฟหรือน้ำอย่างใดอย่างหนึ่ง)
+  // พอจะคำนวณ "บาท/วัน" จริงได้แล้ว ถ้า false แปลว่า movingAverage() คืน
+  // ค่าเท่ากับ currentTotal เป๊ะๆ (ดู EnergyForecaster.movingAverage เคส
+  // dailyUsage.isEmpty) ซึ่งไม่ใช่ "คาดการณ์" จริง แค่ยอดที่ใช้ไปแล้วเฉยๆ
+  // ใช้บอก UI ว่าควรเตือนผู้ใช้ว่ายังไม่มีข้อมูลพอ แทนที่จะโชว์เป็นยอด
+  // คาดการณ์จริงจังทั้งที่ยังไม่มีอัตราการใช้มาคำนวณเลย
+  bool _hasForecastData = true;
+
   // ----- ยอดเดือนก่อน (ใช้เทียบ "พุ่งขึ้น") -----
   double _lastMonthElectricityCost = 0;
   double _lastMonthWaterCost = 0;
@@ -184,25 +192,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       // ดึงยอดบิลเดือนก่อน (ที่ปิดไปแล้ว) มาเทียบ "พุ่งขึ้น/ลดลง"
-      // FirestoreService ไม่มี getBillForMonth ตรง ๆ จึงใช้ getBills() ที่คืนมา
-      // เรียงล่าสุดมาก่อนแล้ว แล้วหยิบตัวแรกซึ่งคือบิลที่ปิดล่าสุด
+      // ใช้ getLatestBill() ที่ query เฉพาะบิลล่าสุดตัวเดียวจาก Firestore
+      // โดยตรง (orderBy yearMonth + limit 1) แทนการโหลดบิลทั้งหมดมาเรียง
+      // เองฝั่ง client แบบเดิม — ยิ่งมีบิลสะสมมากขึ้นเรื่อยๆ ยิ่งประหยัดขึ้น
       try {
-        final allBills = await _firestoreService.getBills(uid);
-        if (allBills.isNotEmpty) {
-          _lastMonthElectricityCost = allBills.first.electricityCost;
-          _lastMonthWaterCost = allBills.first.waterCost;
+        final latestBill = await _firestoreService.getLatestBill(uid);
+        if (latestBill != null) {
+          _lastMonthElectricityCost = latestBill.electricityCost;
+          _lastMonthWaterCost = latestBill.waterCost;
 
           // ----- แจ้งเตือนสรุปจบรอบบิล -----
           // ยิงเฉพาะตอนที่บิลของรอบก่อนหน้านี้ "ถูกสร้างใหม่" ในการโหลดครั้งนี้
           // (กันไม่ให้เตือนซ้ำทุกครั้งที่เปิดแอป เพราะ key กันซ้ำผูกกับ billId)
           if (billJustCreated &&
-              allBills.first.year == prevCycleEnd.year &&
-              allBills.first.month == prevCycleEnd.month) {
+              latestBill.year == prevCycleEnd.year &&
+              latestBill.month == prevCycleEnd.month) {
             await NotificationService.instance.notifyCycleSummary(
-              billId: allBills.first.id,
-              totalCost: allBills.first.totalCost,
-              year: allBills.first.year,
-              month: allBills.first.month,
+              billId: latestBill.id,
+              totalCost: latestBill.totalCost,
+              year: latestBill.year,
+              month: latestBill.month,
               silent: silentThisLoad,
             );
           }
@@ -260,12 +269,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await NotificationService.instance.syncDeliveredScheduledNotifications();
 
       // (Instant) เตือนล่วงหน้าถ้าคาดการณ์สิ้นเดือนจะสูงกว่าเดือนก่อน
-      await NotificationService.instance.checkForecastHigherThanLastMonth(
-        forecastTotal: _forecastTotal,
-        lastMonthTotal: _lastMonthElectricityCost + _lastMonthWaterCost,
-        cycleStart: startDate,
-        silent: silentThisLoad,
-      );
+      // ข้ามถ้ายังไม่มีข้อมูลพอ (_hasForecastData == false) เพราะ _forecastTotal
+      // ตอนนั้นคือยอดที่ใช้ไปแล้วเฉยๆ (มักต่ำมากตอนต้นรอบ) เทียบกับเดือนก่อน
+      // ไปก็จะไม่มีทาง "สูงกว่า" อยู่แล้วโดยไม่มีความหมายอะไร
+      if (_hasForecastData) {
+        await NotificationService.instance.checkForecastHigherThanLastMonth(
+          forecastTotal: _forecastTotal,
+          lastMonthTotal: _lastMonthElectricityCost + _lastMonthWaterCost,
+          cycleStart: startDate,
+          silent: silentThisLoad,
+        );
+      }
 
       // อัปเดตจำนวนแจ้งเตือนที่ยังไม่อ่าน เพื่อโชว์ badge ตัวเลขที่ปุ่มกระดิ่ง
       _unreadNotifications =
@@ -314,6 +328,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _dailyCostDeltas(_electricityLogs.map((l) => l.cost).toList());
     final dailyWaterCost =
         _dailyCostDeltas(_waterLogs.map((l) => l.cost).toList());
+
+    _hasForecastData =
+        dailyElectricityCost.isNotEmpty || dailyWaterCost.isNotEmpty;
 
     _forecastElectricityCost = EnergyForecaster.movingAverage(
       dailyUsage: dailyElectricityCost,
@@ -712,6 +729,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 14),
           // ยอดคาดการณ์สิ้นเดือน — รวมไฟฟ้า+น้ำ แปะเป็น pill จางๆ บนพื้น
           // เขียวเดิม ให้เห็นตัวเลขปลายทางไม่ต้องรอเลื่อนไปหน้าวิเคราะห์
+          // ถ้ายังไม่มีข้อมูลพอคำนวณอัตรา (_hasForecastData == false) ไม่โชว์
+          // เป็นตัวเลขคาดการณ์เป๊ะๆ (จะเท่ากับยอดปัจจุบันพอดีซึ่งดูเหมือน
+          // ระบบฟันธงว่าใช้เท่านี้พอ ทั้งที่จริงยังไม่มีอัตราการใช้มาคำนวณ)
+          // เปลี่ยนเป็นข้อความจางๆ บอกตรงๆ ว่าต้องบันทึกอีกอย่างน้อย 1 ครั้ง
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -721,14 +742,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.trending_up, color: Colors.white, size: 15),
+                Icon(
+                  _hasForecastData ? Icons.trending_up : Icons.info_outline,
+                  color: Colors.white.withValues(alpha: _hasForecastData ? 1 : 0.75),
+                  size: 15,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'ยอดคาดการณ์สิ้นเดือน: '
-                    '${formatter.format(_forecastTotal)} บาท',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    _hasForecastData
+                        ? 'ยอดคาดการณ์สิ้นเดือน: '
+                            '${formatter.format(_forecastTotal)} บาท'
+                        : 'บันทึกมิเตอร์อีกอย่างน้อย 1 ครั้งเพื่อเริ่มคาดการณ์',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: _hasForecastData ? 1 : 0.75),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),

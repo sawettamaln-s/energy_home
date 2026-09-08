@@ -16,6 +16,12 @@ class BillModel {
   final double forecastTotal; // คาดการณ์ยอดรวมสิ้นเดือน
   final String source; // 'compiled' = ระบบสรุปจาก log อัตโนมัติ, 'imported' = กรอกย้อนหลังเอง
 
+  // ฟิลด์ derived สำหรับ query หา "บิลล่าสุด" ด้วย orderBy ฟิลด์เดียว
+  // (year*100+month) แทนที่จะต้อง orderBy 2 ฟิลด์ (year, month) ซึ่ง
+  // Firestore ต้องใช้ composite index — คำนวณเองในตัว constructor เสมอ
+  // ผู้เรียกไม่ต้องส่งเข้ามา กันลืมและกันค่าไม่ตรงกับ year/month จริง
+  final int yearMonth;
+
   BillModel({
     required this.id,
     required this.uid,
@@ -33,7 +39,7 @@ class BillModel {
     this.forecastWater = 0,
     this.forecastTotal = 0,
     this.source = 'compiled',
-  });
+  }) : yearMonth = year * 100 + month;
 
   // แปลงจาก Firestore เป็น Model
   factory BillModel.fromMap(Map<String, dynamic> map) {
@@ -76,6 +82,7 @@ class BillModel {
       'forecastWater': forecastWater,
       'forecastTotal': forecastTotal,
       'source': source,
+      'yearMonth': yearMonth,
     };
   }
 }
