@@ -1208,7 +1208,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(label,
-            style: const TextStyle(fontSize: 13, color: DashboardStyles.textDark)),
+            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
         const Spacer(),
         RichText(
           text: TextSpan(
@@ -1217,10 +1217,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               TextSpan(
                   text: formatter.format(current ?? 0),
                   style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+                      fontSize: 17, fontWeight: FontWeight.w600)),
               TextSpan(
                   text: ' /${formatter.format(start ?? 0)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
             ],
           ),
         ),

@@ -310,9 +310,9 @@ class NotificationService {
           !await _alreadyNotifiedThisCycle('spike_electricity', cycleStart)) {
         await _showAndLog(
           pluginId: idSpikeElectricity,
-          title: 'ค่าไฟพุ่งขึ้นค่ะ',
+          title: 'ค่าไฟเดือนนี้สูงขึ้นค่ะ',
           body:
-              'ค่าไฟเดือนนี้ของคุณสูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะคะ',
+              'ค่าไฟเดือนนี้ของคุณสูงกว่าเดือนก่อน ${percentChange.toStringAsFixed(0)}% ลองดูรายละเอียดการใช้งานได้นะคะ',
           type: 'spike',
           silent: silent,
         );
@@ -327,9 +327,9 @@ class NotificationService {
           !await _alreadyNotifiedThisCycle('spike_water', cycleStart)) {
         await _showAndLog(
           pluginId: idSpikeWater,
-          title: 'ค่าน้ำพุ่งขึ้นค่ะ',
+          title: 'ค่าน้ำเดือนนี้สูงขึ้นค่ะ',
           body:
-              'ค่าน้ำเดือนนี้ของคุณสูงกว่าเดือนก่อนแล้ว ${percentChange.toStringAsFixed(0)}% ลองเช็คการใช้งานดูนะคะ',
+              'ค่าน้ำเดือนนี้ของคุณสูงกว่าเดือนก่อน ${percentChange.toStringAsFixed(0)}% ลองดูรายละเอียดการใช้งานได้นะคะ',
           type: 'spike',
           silent: silent,
         );
