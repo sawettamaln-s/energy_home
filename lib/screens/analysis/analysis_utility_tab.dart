@@ -31,6 +31,15 @@ class _UtilityTab extends StatelessWidget {
   final double Function(BillModel)? peakUsedSelector;
   final double Function(BillModel)? offPeakUsedSelector;
 
+  // area/meterType ของ user คนนี้ ('bangkok'/'province', 'normal'/'tou') —
+  // ส่งต่อให้ analysisService เลือก seasonal curve ให้ตรงเคส ถ้าเป็น null
+  // (เช่น ยังโหลด user ไม่เสร็จ) analysisService จะ fallback ไปใช้ linear
+  // regression เดิมเองโดยอัตโนมัติ (ดู _resolveCurve ใน analysis_service.dart)
+  final String? area;
+  final String? meterType;
+  // true เฉพาะแท็บน้ำ — ใช้เลือก SeasonalCurves.water แทน .elec
+  final bool isWater;
+
   // เรียกตอนกดปุ่ม "ดูอุปกรณ์" ในการ์ดข้อสังเกต (เดือนที่ใช้สูงสุด) — ให้
   // AnalysisScreen สลับ TabController ไปแท็บอุปกรณ์ (index 2) แทนที่จะบอก
   // ข้อสังเกตเฉยๆ แล้วจบ ผู้ใช้กดต่อไปดูได้เลยว่าเครื่องไหนกินไฟเยอะสุด
@@ -63,6 +72,9 @@ class _UtilityTab extends StatelessWidget {
     this.isTou = false,
     this.peakUsedSelector,
     this.offPeakUsedSelector,
+    this.area,
+    this.meterType,
+    this.isWater = false,
   });
 
   @override
@@ -70,10 +82,21 @@ class _UtilityTab extends StatelessWidget {
     final mom = analysisService.compareMoM(bills, selector: selector);
     final yoy = analysisService.compareYoY(bills, selector: selector);
     final avg6 = analysisService.compareToAverage(bills, selector: selector);
-    final forecast =
-        analysisService.forecastNextMonth(bills, selector: selector);
+    final forecast = analysisService.forecastNextMonth(
+      bills,
+      selector: selector,
+      area: area,
+      meterType: meterType,
+      isWater: isWater,
+    );
     final multiMonthForecast = analysisService.forecastNextMonths(
-        bills, selector: selector, months: 3);
+      bills,
+      selector: selector,
+      months: 3,
+      area: area,
+      meterType: meterType,
+      isWater: isWater,
+    );
 
     final insights = analysisService.generateUtilityInsights(
       label: label,
@@ -90,6 +113,11 @@ class _UtilityTab extends StatelessWidget {
     // (linear regression บนจุดข้อมูล 1-2 จุด ก็แค่ทาบเส้นผ่านจุดที่มีเท่านั้น)
     // ใช้กำกับความมั่นใจของตัวเลข ไม่ให้ผู้ใช้เข้าใจว่าแม่นยำร้อยเปอร์เซ็นต์
     final forecastLowConfidence = bills.length < 3;
+
+    // true เมื่อรู้ area+meterType ของ user คนนี้แล้ว (เงื่อนไขเดียวกับ
+    // _resolveCurve ใน analysis_service.dart) — ใช้ตัดสินว่าจะโชว์ badge
+    // "ปรับตามฤดูกาล" และเปลี่ยนข้อความอธิบายในการ์ดคาดการณ์ไหม
+    final usesSeasonalCurve = area != null && meterType != null;
 
     final overviewSummary = _overviewSummary(mom, avg6);
 
@@ -140,23 +168,29 @@ class _UtilityTab extends StatelessWidget {
                     'เพราะหารด้วย 0 ไม่ได้)',
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _comparisonCard(
-                context,
-                'เทียบปีก่อน (เดือนเดียวกัน)',
-                yoy,
-                emptyHint:
-                    'ยังไม่มีบิลเดือนเดียวกันของปีก่อน เก็บข้อมูลต่อให้ครบ 1 ปีจะเริ่มเทียบได้',
-                infoTitle: 'เทียบปีก่อนคืออะไร?',
-                infoMessage:
-                    'เทียบยอด$labelเดือนนี้กับเดือนเดียวกันของปีที่แล้ว '
-                    'ช่วยให้เห็นแนวโน้มตามฤดูกาล เช่น หน้าร้อนมักใช้ไฟมากกว่าหน้าฝน\n\n'
-                    'คำนวณอย่างไร?\n'
-                    'เอายอด$labelเดือนนี้ ลบด้วยยอดเดือนเดียวกันของปีก่อน '
-                    'แล้วหารด้วยยอดปีก่อน คูณ 100 จะได้เป็น% ที่เพิ่มขึ้นหรือลดลง',
+            // ซ่อนการ์ด "เทียบปีก่อน" ไปเลยถ้ายังไม่มีข้อมูลเดือนเดียวกันของ
+            // ปีก่อน (แทนที่จะโชว์การ์างเปล่าพร้อม emptyHint) เพราะยังไม่มี
+            // ผู้ใช้คนไหนสะสมข้อมูลถึง 1 ปีจริงๆ ตอนนี้ การโชว์การ์ดเปล่า
+            // ทุกคนจะดูเหมือนฟีเจอร์เสีย/ยังไม่เสร็จมากกว่าดูเหมือนฟีเจอร์ที่
+            // "รอข้อมูล" — พอมีข้อมูลจริงจะโผล่มาเองอัตโนมัติ (yoy != null)
+            if (yoy != null) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                child: _comparisonCard(
+                  context,
+                  'เทียบปีก่อน (เดือนเดียวกัน)',
+                  yoy,
+                  emptyHint: '',
+                  infoTitle: 'เทียบปีก่อนคืออะไร?',
+                  infoMessage:
+                      'เทียบยอด$labelเดือนนี้กับเดือนเดียวกันของปีที่แล้ว '
+                      'ช่วยให้เห็นแนวโน้มตามฤดูกาล เช่น หน้าร้อนมักใช้ไฟมากกว่าหน้าฝน\n\n'
+                      'คำนวณอย่างไร?\n'
+                      'เอายอด$labelเดือนนี้ ลบด้วยยอดเดือนเดียวกันของปีก่อน '
+                      'แล้วหารด้วยยอดปีก่อน คูณ 100 จะได้เป็น% ที่เพิ่มขึ้นหรือลดลง',
+                ),
               ),
-            ),
+            ],
           ],
         ),
         const SizedBox(height: 10),
@@ -186,10 +220,12 @@ class _UtilityTab extends StatelessWidget {
         if (bills.isNotEmpty) ...[
           const SizedBox(height: 10),
           _forecastCard(context, forecast,
-              lowConfidence: forecastLowConfidence),
+              lowConfidence: forecastLowConfidence,
+              usesSeasonalCurve: usesSeasonalCurve),
           const SizedBox(height: 10),
           _multiMonthForecastCard(context, multiMonthForecast,
-              lowConfidence: forecastLowConfidence),
+              lowConfidence: forecastLowConfidence,
+              usesSeasonalCurve: usesSeasonalCurve),
         ],
         if (insights.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -558,6 +594,7 @@ class _UtilityTab extends StatelessWidget {
     BuildContext context,
     double forecast, {
     required bool lowConfidence,
+    required bool usesSeasonalCurve,
   }) {
     // เทียบกับยอดบิลจริงเดือนล่าสุด เพื่อบอกเป็นประโยคปกติว่าเดือนหน้า
     // "คาดว่าจะสูง/ต่ำกว่าเดือนนี้" แทนที่จะโชว์ตัวเลขลอยๆ ให้ผู้ใช้ไปตีความเอง
@@ -585,8 +622,32 @@ class _UtilityTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('คาดการณ์เดือนหน้า',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Row(
+                      children: [
+                        const Text('คาดการณ์เดือนหน้า',
+                            style:
+                                TextStyle(fontSize: 12, color: Colors.grey)),
+                        // badge เล็กๆ บอกว่าตัวเลขนี้ปรับตามฤดูกาลแล้ว (ไม่ใช่
+                        // แค่ลากเส้นตรงจากแนวโน้มเดิม) — โชว์เฉพาะตอนรู้
+                        // area+meterType ของ user แล้วเท่านั้น (usesSeasonalCurve)
+                        if (usesSeasonalCurve) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: _green.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text('ปรับตามฤดูกาล',
+                                style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: _green)),
+                          ),
+                        ],
+                      ],
+                    ),
                     Text('${_fmt.format(forecast)} บาท',
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
@@ -599,10 +660,17 @@ class _UtilityTab extends StatelessWidget {
                 onTap: () => showInfoDialog(
                   context,
                   title: 'ตัวเลขนี้คำนวณอย่างไร?',
-                  message:
-                      'ประมาณแนวโน้มจากยอด$labelย้อนหลังทั้งหมดที่บันทึกไว้ '
-                      'แล้วลากเส้นแนวโน้มนั้นต่อไปยังเดือนถัดไป\n\n'
-                      'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขนี้จะยิ่งแม่นยำขึ้น',
+                  message: usesSeasonalCurve
+                      ? 'เอาค่าเฉลี่ย$labelย้อนหลังไม่กี่เดือนล่าสุดของคุณ '
+                          'มาปรับด้วยรูปแบบฤดูกาล (เช่น เดือนร้อนมักใช้ไฟ'
+                          'มากกว่าเดือนหนาว) เพื่อทายเดือนถัดไปให้ใกล้เคียง'
+                          'ความจริงมากกว่าการลากเส้นแนวโน้มตรงๆ\n\n'
+                          'รูปแบบฤดูกาลนี้ผสมจากข้อมูลจำลองกับข้อมูลผู้ใช้จริง'
+                          'เท่าที่มี ยิ่งมีผู้ใช้จริงสะสมข้อมูลมากขึ้น ตัวเลข'
+                          'นี้จะยิ่งแม่นยำขึ้นเรื่อยๆ'
+                      : 'ประมาณแนวโน้มจากยอด$labelย้อนหลังทั้งหมดที่บันทึกไว้ '
+                          'แล้วลากเส้นแนวโน้มนั้นต่อไปยังเดือนถัดไป\n\n'
+                          'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขนี้จะยิ่งแม่นยำขึ้น',
                 ),
                 child: Container(
                   width: 18,
@@ -683,6 +751,7 @@ class _UtilityTab extends StatelessWidget {
     BuildContext context,
     List<double> forecasts, {
     required bool lowConfidence,
+    required bool usesSeasonalCurve,
   }) {
     if (bills.isEmpty || forecasts.isEmpty) return const SizedBox.shrink();
 
@@ -747,13 +816,21 @@ class _UtilityTab extends StatelessWidget {
                 onTap: () => showInfoDialog(
                   context,
                   title: 'ตัวเลขนี้คำนวณอย่างไร?',
-                  message:
-                      'ใช้เส้นแนวโน้มเส้นเดียวกับการ์ด "คาดการณ์เดือนหน้า" '
-                      'ด้านบน เพียงลากเส้นนั้นต่อไปอีกหลายเดือน\n\n'
-                      'ยิ่งคาดการณ์ไกลจากปัจจุบันเท่าไร ความไม่แน่นอนยิ่งสูง'
-                      'ขึ้นเรื่อยๆ เพราะไม่ได้ปรับตามฤดูกาลหรือเหตุการณ์ที่'
-                      'ยังไม่เกิดขึ้นจริง เหมาะสำหรับดูแนวโน้มคร่าวๆ '
-                      'มากกว่าใช้เป็นตัวเลขที่แม่นยำ',
+                  message: usesSeasonalCurve
+                      ? 'ใช้วิธีเดียวกับการ์ด "คาดการณ์เดือนหน้า" ด้านบน '
+                          'คือปรับค่าเฉลี่ยล่าสุดของคุณตามรูปแบบฤดูกาลของ'
+                          'แต่ละเดือนที่คาดการณ์ ไม่ใช่ลากเส้นตรงเดียวยาว'
+                          'ออกไปเรื่อยๆ\n\n'
+                          'ยิ่งคาดการณ์ไกลจากปัจจุบันเท่าไร ความไม่แน่นอนก็'
+                          'ยังสูงขึ้นอยู่ดี (เหตุการณ์ที่ยังไม่เกิดขึ้นจริง'
+                          'ย่อมทายได้ไม่แม่นร้อยเปอร์เซ็นต์) แต่จะแม่นกว่า'
+                          'การไม่ปรับตามฤดูกาลเลย'
+                      : 'ใช้เส้นแนวโน้มเส้นเดียวกับการ์ด "คาดการณ์เดือนหน้า" '
+                          'ด้านบน เพียงลากเส้นนั้นต่อไปอีกหลายเดือน\n\n'
+                          'ยิ่งคาดการณ์ไกลจากปัจจุบันเท่าไร ความไม่แน่นอนยิ่งสูง'
+                          'ขึ้นเรื่อยๆ เพราะไม่ได้ปรับตามฤดูกาลหรือเหตุการณ์ที่'
+                          'ยังไม่เกิดขึ้นจริง เหมาะสำหรับดูแนวโน้มคร่าวๆ '
+                          'มากกว่าใช้เป็นตัวเลขที่แม่นยำ',
                 ),
                 child: Container(
                   width: 18,

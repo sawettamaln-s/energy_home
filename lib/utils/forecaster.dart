@@ -69,6 +69,29 @@ class EnergyForecaster {
 
     return double.parse(forecast.toStringAsFixed(2));
   }
+    // ==================== Seasonal Curve (synthetic + จริงผสมกัน) ====================
+  // ใช้คาดการณ์เดือนถัดไป โดยเอาค่าเฉลี่ยล่าสุดของ user คูณกับ "ตัวคูณตามฤดูกาล"
+  // ของเคสนั้น (ดู lib/utils/seasonal_curves.dart ที่ generate มาจาก
+  // tool/forecast_synth/ — ผสมข้อมูลสมมติกับข้อมูลจริงเท่าที่มี)
+
+  static double seasonalForecast({
+    required List<double> recentMonthlyValues, // ค่าใช้จ่ายย้อนหลังไม่กี่เดือนล่าสุดของ user คนนี้
+    required List<double> curve, // 12 ค่า จาก SeasonalCurves (index 0 = ม.ค.)
+    required int forecastMonth, // เดือนที่จะทาย (1-12)
+  }) {
+    if (recentMonthlyValues.isEmpty) return 0;
+    if (curve.length != 12) {
+      throw ArgumentError('curve ต้องมี 12 ค่า (ม.ค.-ธ.ค.)');
+    }
+
+    double sum = recentMonthlyValues.reduce((a, b) => a + b);
+    double avg = sum / recentMonthlyValues.length;
+
+    double factor = curve[forecastMonth - 1];
+    double forecast = avg * factor;
+
+    return double.parse(forecast.toStringAsFixed(2));
+  }
 
   // =====================================================================
   // ขอบเขตรอบบิล — แหล่งความจริงเดียว (single source of truth)

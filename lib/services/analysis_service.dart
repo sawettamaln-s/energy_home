@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
 import '../utils/forecaster.dart';
+import '../utils/seasonal_curves.dart';
 import 'firestore_service.dart';
 
 /// สรุปสัดส่วนการใช้พลังงานของอุปกรณ์ 1 ชิ้น ในช่วงเวลาที่กำหนด
@@ -209,34 +210,75 @@ class AnalysisService {
     );
   }
 
-  /// คาดการณ์ "แนวโน้มระยะยาว" ของเดือนถัดไป ด้วย Linear Regression (Least Squares)
-  /// ใช้ข้อมูลบิลที่ปิดรอบแล้วทั้งหมดเป็น training data (bills ในระบบมีแต่
-  /// บิลที่ปิดรอบแล้วเท่านั้น เพราะ compileBill() ใน dashboard ถูกเรียก
-  /// เฉพาะรอบก่อนหน้าที่ปิดไปแล้ว ไม่เคย compile รอบที่ยังไม่จบ)
+  /// คาดการณ์ "แนวโน้มระยะยาว" ของเดือนถัดไป
+  ///
+  /// ถ้าใส่ area+meterType มา (รู้ area/meterType ของ user คนนี้) จะใช้วิธีใหม่
+  /// "seasonal curve" (ผสมข้อมูลสมมติ+จริง จาก tool/forecast_synth/) แทน
+  /// linear regression เดิม เพราะจับรูปแบบฤดูกาลได้ ซึ่ง linear regression เดิม
+  /// จับไม่ได้ (ดู comment เดิมของ forecastNextMonths ด้านล่าง)
+  ///
+  /// ถ้าไม่ใส่ area/meterType มา (เช่นเรียกจากที่เก่าที่ยังไม่ได้แก้) จะ fallback
+  /// ไปใช้ linear regression เดิมเป๊ะๆ เหมือนก่อนหน้านี้ทุกอย่าง
   double forecastNextMonth(
     List<BillModel> bills, {
     required double Function(BillModel) selector,
+    String? area,
+    String? meterType,
+    bool isWater = false,
   }) {
     if (bills.isEmpty) return 0;
     final monthlyValues = bills.map(selector).toList();
+
+    final curve = _resolveCurve(area: area, meterType: meterType, isWater: isWater);
+    if (curve != null) {
+      final current = bills.last;
+      final targetMonth = DateTime(current.year, current.month + 1, 1).month;
+      return EnergyForecaster.seasonalForecast(
+        recentMonthlyValues: _recentWindow(monthlyValues),
+        curve: curve,
+        forecastMonth: targetMonth,
+      );
+    }
+
     return EnergyForecaster.linearRegression(
       monthlyValues: monthlyValues,
       forecastMonth: monthlyValues.length + 1,
     );
   }
 
-  /// คาดการณ์แนวโน้มหลายเดือนล่วงหน้า ต่อยอดจาก forecastNextMonth — ใช้เส้น
-  /// Linear Regression เส้นเดียวกัน เพียงขยับจุด X ที่ทำนายออกไปทีละเดือน
-  /// (n+1, n+2, ... n+months) ไม่ใช่การ fit โมเดลใหม่ต่อเดือน จึงเป็นแค่การ
-  /// ลากเส้นเดิมยาวออกไป ยิ่งเดือนไกลยิ่งมีความไม่แน่นอนสูงขึ้นเรื่อยๆ
-  /// เพราะไม่ได้จับ seasonality หรือปรับตามข้อมูลที่ยังไม่เกิดขึ้นจริง
+  /// คาดการณ์แนวโน้มหลายเดือนล่วงหน้า
+  ///
+  /// ถ้าใส่ area+meterType มา ใช้ seasonal curve เดือนต่อเดือน (แต่ละเดือน
+  /// ในอนาคตมีตัวคูณฤดูกาลของตัวเอง ไม่ใช่ลากเส้นตรงเดิมยาวออกไปแบบ
+  /// linear regression) ถ้าไม่ใส่มา fallback เป็น linear regression เดิม
+  /// (ลากเส้น Linear Regression เส้นเดียวกัน เพียงขยับจุด X ที่ทำนายออกไป
+  /// ทีละเดือน ยิ่งเดือนไกลยิ่งไม่แน่นอนสูง เพราะไม่จับ seasonality)
   List<double> forecastNextMonths(
     List<BillModel> bills, {
     required double Function(BillModel) selector,
     int months = 3,
+    String? area,
+    String? meterType,
+    bool isWater = false,
   }) {
     if (bills.isEmpty) return List.filled(months, 0);
     final monthlyValues = bills.map(selector).toList();
+
+    final curve = _resolveCurve(area: area, meterType: meterType, isWater: isWater);
+    if (curve != null) {
+      final current = bills.last;
+      final recent = _recentWindow(monthlyValues);
+      return List.generate(months, (i) {
+        final targetMonth =
+            DateTime(current.year, current.month + i + 1, 1).month;
+        return EnergyForecaster.seasonalForecast(
+          recentMonthlyValues: recent,
+          curve: curve,
+          forecastMonth: targetMonth,
+        );
+      });
+    }
+
     return List.generate(
       months,
       (i) => EnergyForecaster.linearRegression(
@@ -244,6 +286,26 @@ class AnalysisService {
         forecastMonth: monthlyValues.length + i + 1,
       ),
     );
+  }
+
+  /// หา seasonal curve ที่ตรงกับ area+meterType — คืน null ถ้าไม่ครบ/ไม่รู้จัก
+  /// เคส (ตัวเรียกจะ fallback ไป linear regression เอง)
+  List<double>? _resolveCurve({
+    required String? area,
+    required String? meterType,
+    required bool isWater,
+  }) {
+    if (area == null || meterType == null) return null;
+    final caseKey = SeasonalCurves.caseKeyFor(area: area, meterType: meterType);
+    final curveMap = isWater ? SeasonalCurves.water : SeasonalCurves.elec;
+    return curveMap[caseKey];
+  }
+
+  /// ใช้ 3 เดือนล่าสุดเป็นตัวแทน "ระดับการใช้ปัจจุบัน" ของ user คนนี้
+  /// (ถ้ามีน้อยกว่า 3 เดือน ใช้เท่าที่มี)
+  List<double> _recentWindow(List<double> monthlyValues, {int months = 3}) {
+    if (monthlyValues.length <= months) return monthlyValues;
+    return monthlyValues.sublist(monthlyValues.length - months);
   }
 
   /// คาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่กำลังดำเนินอยู่ ยังไม่ปิด) ด้วย
@@ -463,12 +525,12 @@ class AnalysisService {
       }
     }
 
-    // ----- 4. เทียบเดือนก่อนแบบพุ่งขึ้น -----
+    // ----- 4. เทียบเดือนก่อนแบบพุ่งขึ้นกะทันหัน -----
     if (mom != null && mom.percentChange != null) {
       if (mom.isIncrease && mom.percentChange! >= 30) {
         insights.add(AnalysisInsight(
-          '$labelเดือนนี้สูงกว่าเดือนก่อน ${mom.percentChange!.toStringAsFixed(0)}% '
-          'ลองเช็กดูว่ามีอุปกรณ์ตัวไหนใช้งานนานขึ้นหรือเปล่า',
+          '$labelเดือนนี้พุ่งขึ้นจากเดือนก่อน ${mom.percentChange!.toStringAsFixed(0)}% '
+          'แบบกะทันหัน ลองเช็กว่ามีอุปกรณ์ตัวไหนใช้งานนานขึ้นผิดปกติ',
           InsightLevel.warning,
         ));
       }

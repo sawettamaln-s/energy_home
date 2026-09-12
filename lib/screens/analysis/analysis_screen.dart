@@ -43,6 +43,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   // ใช้ตัดสินว่าแท็บไฟฟ้าควรโชว์กราฟแท่งซ้อน On-Peak/Off-Peak หรือแท่งเดียว
   // ปกติ — เฉพาะแท็บไฟฟ้าเท่านั้น แท็บน้ำไม่มี TOU จึงไม่ต้องส่งไปเลย
   bool _isTou = false;
+  // area ของ user คนนี้ ('bangkok'/'province') — ส่งต่อให้ analysisService
+  // เลือก seasonal curve ให้ตรงเคส (ดู forecastNextMonth/forecastNextMonths)
+  String? _userArea;
 
   // เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
   // (เดิมไม่เก็บไว้เลย ทำให้ setState ถูกเรียกหลัง widget dispose ไปแล้ว
@@ -107,6 +110,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         _bills = bills;
         _currentCycle = currentCycle;
         _isTou = isTou;
+        _userArea = user?.area;
         _isLoading = false;
       });
     } catch (e) {
@@ -165,6 +169,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     isTou: _isTou,
                     peakUsedSelector: (b) => b.electricityPeakUsed,
                     offPeakUsedSelector: (b) => b.electricityOffPeakUsed,
+                    area: _userArea,
+                    meterType: _isTou ? 'tou' : 'normal',
                   ),
                   _UtilityTab(
                     bills: _bills,
@@ -182,6 +188,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     currentCycle: _currentCycle?['water'],
                     onViewAppliances: () => _tabController.animateTo(2),
                     trackAppliances: false,
+                    area: _userArea,
+                    meterType: _isTou ? 'tou' : 'normal',
+                    isWater: true,
                   ),
                   _ApplianceTab(
                     appliances: _appliances,
