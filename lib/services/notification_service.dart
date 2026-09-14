@@ -40,6 +40,7 @@ class NotificationService {
   static const int idCycleSummary = 1005;
   static const int idWelcome = 1006;
   static const int idForecastHigher = 1007;
+  static const int idMissedCycle = 1008;
 
   // ----- Channel สำหรับ Android -----
   static const String _channelId = 'energy_home_channel';
@@ -398,6 +399,46 @@ class NotificationService {
       silent: silent,
     );
     await prefs.setBool(key, true);
+  }
+
+  // =====================================================================
+  // (Instant) แจ้งเตือนรอบบิลที่ "ขาดหาย" — ไม่มี log บันทึกเลยในรอบนั้น
+  // เรียกจาก dashboard_screen.dart หลังไล่ backfill ย้อนหลังแล้วพบว่ามีบาง
+  // รอบที่ไม่มีข้อมูลให้ compile จริงๆ (user ไม่ได้เปิดแอปหลายรอบบิลติดกัน)
+  // dedup เป็นรายเดือน (ไม่ใช่ทั้งก้อน) เพื่อไม่ให้แจ้งซ้ำเดือนที่เคยแจ้งไปแล้ว
+  // แต่ยังแจ้งเดือนใหม่ที่เพิ่งพบเพิ่มได้ ถ้ามาพบทีหลังอีกที
+  // =====================================================================
+  Future<void> notifyMissedCycles({
+    required List<String> months, // format 'M/YYYY' เช่น '7/2026'
+    bool silent = false,
+  }) async {
+    if (months.isEmpty) return;
+    if (!await isTypeEnabled('meter')) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final notYetNotified = <String>[];
+    for (final m in months) {
+      final key = _scopedKey('missed_cycle_$m');
+      if (!(prefs.getBool(key) ?? false)) {
+        notYetNotified.add(m);
+      }
+    }
+    if (notYetNotified.isEmpty) return;
+
+    final label = notYetNotified.join(', ');
+    await _showAndLog(
+      pluginId: idMissedCycle,
+      title: 'มีรอบบิลที่ไม่มีข้อมูลบันทึกค่ะ',
+      body:
+          'ช่วง $label ไม่มีการบันทึกมิเตอร์เลย ระบบเลยไม่สามารถสร้างบิลเดือน'
+          'นั้นให้ได้ค่ะ ถ้าจำค่ามิเตอร์ตอนนั้นได้ ลองไปเพิ่มย้อนหลังในหน้า'
+          'ประวัติบิลได้นะคะ',
+      type: 'meter',
+      silent: silent,
+    );
+    for (final m in notYetNotified) {
+      await prefs.setBool(_scopedKey('missed_cycle_$m'), true);
+    }
   }
 
   // =====================================================================

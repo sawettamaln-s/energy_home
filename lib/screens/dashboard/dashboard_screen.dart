@@ -191,6 +191,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
 
+      // ----- Backfill รอบบิลที่ขาดหายไปก่อนหน้า prevCycleStart -----
+      // เดิมโค้ดเช็ค/compile แค่ "รอบก่อนหน้าล่าสุด" รอบเดียว ถ้า user ไม่ได้
+      // เปิดแอปข้าม 2-3 รอบบิลติดกัน รอบที่อยู่ตรงกลางจะไม่มีใครไป compile ให้
+      // เลย เพราะฟังก์ชันนี้ไม่เคยถูกเรียกระหว่างช่วงนั้น ไล่ย้อนต่อจาก
+      // prevCycleStart ไปเรื่อยๆ จนกว่าจะ (1) เจอบิลที่ compile ไว้แล้ว
+      // (แปลว่าตามทันประวัติแล้ว) หรือ (2) ย้อนไปถึงเดือนที่ user เริ่มตั้งค่า
+      // ระบบครั้งแรก (startBillingMonth/Year) หรือ (3) ชนเพดานความปลอดภัย
+      // รอบไหนไล่ compile แล้วไม่มี log เลย (user ไม่ได้บันทึกจริงๆ ในรอบนั้น)
+      // จะถูกเก็บไว้แจ้งเตือน ไม่ใช่ปล่อยให้หายไปเงียบๆ
+      final missedCycles = <String>[];
+      DateTime backfillCycleEnd = prevCycleStart;
+      const maxBackfillLookback = 24; // กันลูปยาวเกินไปถ้าข้อมูล user ผิดปกติ
+      for (var i = 0; i < maxBackfillLookback; i++) {
+        final backfillCycleStart =
+            EnergyForecaster.getPreviousCycleStart(backfillCycleEnd, billingDay);
+
+        final startY = _user?.startBillingYear ?? 0;
+        final startM = _user?.startBillingMonth ?? 0;
+        if (startY != 0 &&
+            (backfillCycleEnd.year < startY ||
+                (backfillCycleEnd.year == startY &&
+                    backfillCycleEnd.month < startM))) {
+          break;
+        }
+
+        final alreadyExists = await _firestoreService.billExistsForMonth(
+            uid, backfillCycleEnd.year, backfillCycleEnd.month);
+        if (alreadyExists) break; // ตามทันประวัติที่ compile ไปก่อนหน้านี้แล้ว
+
+        await _firestoreService.compileBill(
+          uid,
+          backfillCycleEnd.year,
+          backfillCycleEnd.month,
+          _user?.fixedCost ?? 0,
+          backfillCycleStart,
+          backfillCycleEnd,
+        );
+
+        final createdNow = await _firestoreService.billExistsForMonth(
+            uid, backfillCycleEnd.year, backfillCycleEnd.month);
+        if (!createdNow) {
+          // ไม่มี log เลยในรอบนี้ = รอบที่ user ไม่ได้บันทึกจริงๆ
+          missedCycles
+              .add('${backfillCycleEnd.month}/${backfillCycleEnd.year}');
+        }
+
+        backfillCycleEnd = backfillCycleStart;
+      }
+      if (missedCycles.isNotEmpty) {
+        await NotificationService.instance.notifyMissedCycles(
+          months: missedCycles,
+          silent: silentThisLoad,
+        );
+      }
+
       // ดึงยอดบิลเดือนก่อน (ที่ปิดไปแล้ว) มาเทียบ "พุ่งขึ้น/ลดลง"
       // ใช้ getLatestBill() ที่ query เฉพาะบิลล่าสุดตัวเดียวจาก Firestore
       // โดยตรง (orderBy yearMonth + limit 1) แทนการโหลดบิลทั้งหมดมาเรียง
