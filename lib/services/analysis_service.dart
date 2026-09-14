@@ -288,6 +288,24 @@ class AnalysisService {
     );
   }
 
+  /// คืนตัวคูณฤดูกาลของเดือนที่ระบุ (1 = ม.ค. ... 12 = ธ.ค.) ตาม area+meterType
+  /// ที่ส่งมา ใช้ประกอบคำอธิบายเหตุผลในการ์ดคาดการณ์ (ดู _seasonReasonText ใน
+  /// analysis_utility_tab.dart) — ไม่ได้ใช้คำนวณตัวเลขคาดการณ์เอง (ตัวเลขนั้น
+  /// คำนวณผ่าน forecastNextMonth/forecastNextMonths ที่เรียก curve ตรงๆ อยู่แล้ว)
+  ///
+  /// คืน 1.0 (ไม่มีผลปรับ) ถ้ายังไม่รู้ area/meterType ของ user คนนี้ หรือไม่มี
+  /// เคสตรงกับ curve ที่มี
+  double seasonalFactorForMonth({
+    required int month,
+    required String? area,
+    required String? meterType,
+    required bool isWater,
+  }) {
+    final curve = _resolveCurve(area: area, meterType: meterType, isWater: isWater);
+    if (curve == null) return 1.0;
+    return curve[month - 1];
+  }
+
   /// หา seasonal curve ที่ตรงกับ area+meterType — คืน null ถ้าไม่ครบ/ไม่รู้จัก
   /// เคส (ตัวเรียกจะ fallback ไป linear regression เอง)
   List<double>? _resolveCurve({
