@@ -14,6 +14,7 @@
 // ตามแพทเทิร์นเดียวกับ test/widget_test.dart
 import 'package:energy_home/models/bill_model.dart';
 import 'package:energy_home/models/electricity_log_model.dart';
+import 'package:energy_home/models/fixed_cost_item_model.dart';
 import 'package:energy_home/models/user_model.dart';
 import 'package:energy_home/services/firestore_service.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -29,7 +30,7 @@ void main() {
     FirestoreService service,
     String uid,
   ) async {
-    await service.compileBill(uid, 2026, 6, 0, startDate, endDate);
+    await service.compileBill(uid, 2026, 6, startDate, endDate);
     final bills = await service.getBills(uid);
     expect(bills, isNotEmpty, reason: 'compileBill ควรสร้างบิลสำเร็จ');
     return bills.first;
@@ -130,5 +131,64 @@ void main() {
 
     expect(bill.electricityPeakUsed, 0);
     expect(bill.electricityOffPeakUsed, 0);
+  });
+
+  test(
+      'compileBill คำนวณ fixedCost จากรายการที่ active จริงในรอบบิลที่กำลัง '
+      'compile (มิ.ย. 2026) ไม่ใช่ยอด fixedCost ของ "วันนี้" ที่ cache ไว้บน '
+      'user (regression test กันบั๊ก backfill ใช้ยอดปัจจุบันผิดรอบ)',
+      () async {
+    final firestore = FakeFirebaseFirestore();
+    final service = FirestoreService(firestore: firestore);
+    const uid = 'fixedcost-user';
+
+    await service.createUser(UserModel(
+      uid: uid,
+      name: 'Fixed Cost User',
+      email: 'fixedcost@example.com',
+      meterType: 'normal',
+    ));
+
+    // รายการที่ active เฉพาะช่วง มิ.ย. 2026 (รอบที่กำลัง compile) เท่านั้น —
+    // สิ้นสุดก่อนเดือนปัจจุบันจริง (วันที่รันเทส) จึงไม่ถูกนับใน
+    // _user.fixedCost ที่ cache ไว้แบบเดิมถ้ายังอิงเดือนปัจจุบัน
+    await service.saveFixedCostItem(FixedCostItemModel(
+      id: 'item-june-only',
+      uid: uid,
+      name: 'ค่าอินเทอร์เน็ต (ยกเลิกแล้ว)',
+      category: 'internet',
+      amount: 590,
+      createdAt: DateTime(2026, 6, 1),
+      startDate: DateTime(2026, 6, 1),
+      endDate: DateTime(2026, 6, 30),
+    ));
+
+    // รายการที่เพิ่งเริ่มหลังรอบ มิ.ย. 2026 ไปแล้ว (เช่น สมัครวันนี้) —
+    // ต้อง "ไม่" ถูกนับย้อนไปใส่บิลของรอบ มิ.ย. 2026 ที่ compile ย้อนหลัง
+    await service.saveFixedCostItem(FixedCostItemModel(
+      id: 'item-future-only',
+      uid: uid,
+      name: 'สมาชิกฟิตเนส (สมัครใหม่)',
+      category: 'other',
+      amount: 999,
+      createdAt: DateTime.now(),
+      startDate: DateTime.now(),
+    ));
+
+    await service.saveElectricityLog(ElectricityLogModel(
+      id: 'log-1',
+      uid: uid,
+      date: logDate,
+      meterValue: 14150,
+      usedFromStart: 150,
+      cost: 888,
+    ));
+
+    final bill = await compileAndFetch(service, uid);
+
+    expect(bill.fixedCost, 590,
+        reason: 'ต้องนับเฉพาะรายการที่ active ในรอบ มิ.ย. 2026 (590) '
+            'ไม่รวมรายการที่เพิ่งเริ่มวันนี้ (999)');
+    expect(bill.totalCost, 888 + 590);
   });
 }

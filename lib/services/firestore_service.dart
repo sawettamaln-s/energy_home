@@ -48,7 +48,11 @@ class FirestoreService {
   // เก็บ Fixed Cost เป็นรายการย่อยๆ (ค่าแก๊ส, อินเทอร์เน็ต, ส่วนกลาง ฯลฯ)
   // ทุกครั้งที่เพิ่ม/แก้/ลบรายการ จะคำนวณยอดรวมใหม่แล้วเก็บ cache ไว้ที่
   // users/{uid}.fixedCost ด้วย (ดู _recalcFixedCostTotal) เพื่อให้ Dashboard
-  // และ compileBill() ที่อ่าน user.fixedCost ใช้งานได้เลย
+  // ใช้ค่านี้แสดงผลได้เลยโดยไม่ต้อง query รายการย่อยซ้ำทุกครั้ง
+  // หมายเหตุ: compileBill() "ไม่" ใช้ cache นี้ — คำนวณ fixedCost ของตัวเอง
+  // แยกต่างหากจาก _calcFixedCostForMonth() ตาม (year, month) ของรอบบิลที่
+  // กำลัง compile เพราะ cache นี้สะท้อนแค่เดือนปัจจุบันเท่านั้น ใช้กับรอบ
+  // บิลเก่า/backfill ไม่ได้ (ดูคอมเมนต์ที่ compileBill())
 
   Future<void> saveFixedCostItem(FixedCostItemModel item) async {
     await _db
@@ -90,11 +94,8 @@ class FirestoreService {
   // ดังนั้นหน้าจอที่ต้องการยอดล่าสุดจริงๆ (เช่น dashboard ตอนเปิดแอป) ควรเรียก
   // recalcFixedCostTotalForToday() ซ้ำตอน init ด้วย ไม่ใช่พึ่งพา cache เฉยๆ
   Future<void> _recalcFixedCostTotal(String uid, {DateTime? forMonth}) async {
-    final items = await getFixedCostItems(uid);
     final month = forMonth ?? DateTime.now();
-    final total = items
-        .where((item) => item.isActiveInMonth(month))
-        .fold<double>(0, (acc, item) => acc + item.amount);
+    final total = await _calcFixedCostForMonth(uid, month);
 
     // เขียนเฉพาะตอนยอดเปลี่ยนจริงๆ เท่านั้น — updateUser() broadcast ผ่าน
     // DataRefreshBus ทุกครั้งที่เขียน ถ้าเขียนทั้งที่ยอดเท่าเดิม (เช่นตอนถูก
@@ -112,6 +113,25 @@ class FirestoreService {
   // cost ให้ตรงกับเดือนปัจจุบัน เผื่อมีรายการหมดอายุไปโดยไม่มีการ save/delete ใดๆ
   Future<void> recalcFixedCostTotalForToday(String uid) async {
     await _recalcFixedCostTotal(uid, forMonth: DateTime.now());
+  }
+
+  // รวมยอด fixed cost เฉพาะรายการที่ active ใน "เดือนปฏิทิน" ที่ระบุ (ไม่ผูก
+  // กับ cache ของ user.fixedCost เลย) — ใช้ทั้งจาก _recalcFixedCostTotal
+  // (สำหรับเดือนปัจจุบัน) และจาก compileBill() (สำหรับรอบบิลเก่า/backfill)
+  // ที่ต้องคำนวณยอด fixed cost ที่ "active จริงตอนนั้น" ไม่ใช่ยอดวันนี้
+  Future<double> _calcFixedCostForMonth(String uid, DateTime month) async {
+    final items = await getFixedCostItems(uid);
+    return items
+        .where((item) => item.isActiveInMonth(month))
+        .fold<double>(0, (acc, item) => acc + item.amount);
+  }
+
+  // เวอร์ชัน public ของ _calcFixedCostForMonth — ให้หน้าจออื่นๆ ที่ต้องกรอก/แก้
+  // บิลของเดือนใดเดือนหนึ่งโดยเฉพาะ (เช่น settings_bill_history.dart ตอนเพิ่ม
+  // บิลย้อนหลังเอง) เรียกใช้ได้ตรงๆ แทนที่จะพึ่ง user.fixedCost ซึ่งเป็น cache
+  // ของ "เดือนปัจจุบัน" เท่านั้น (เจอบั๊กเดียวกับที่แก้ใน compileBill() มาก่อน)
+  Future<double> calcFixedCostForMonth(String uid, DateTime month) {
+    return _calcFixedCostForMonth(uid, month);
   }
 
   // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
@@ -182,11 +202,16 @@ class FirestoreService {
   /// รวม logs ของรอบบิลที่ปิดแล้ว (startDate -> endDate) → สร้าง Bill
   /// หมายเหตุ: startDate/endDate ต้องเป็นช่วงของรอบบิลที่ "ปิดไปแล้ว"
   /// ไม่ใช่รอบที่กำลังดำเนินอยู่ตอนนี้ (ผู้เรียกเป็นคนคำนวณช่วงมาให้)
+  ///
+  /// แก้บั๊ก: เดิมรับ fixedCost เป็น parameter จากผู้เรียก (dashboard_screen
+  /// ส่ง user.fixedCost ซึ่งเป็น cache ของ "เดือนปัจจุบัน" เท่านั้น) ทำให้บิล
+  /// ย้อนหลังที่ compile ตอน backfill (ได้ถึง 24 รอบ) ทุกใบใช้ยอด fixed cost
+  /// ของวันนี้ผิดๆ แทนที่จะเป็นยอดที่ active จริงในรอบนั้น — ตอนนี้คำนวณเองจาก
+  /// isActiveInMonth(year, month) ของรอบบิลที่กำลัง compile โดยตรง
   Future<void> compileBill(
     String uid,
     int year,
     int month,
-    double fixedCost,
     DateTime startDate,
     DateTime endDate,
   ) async {
@@ -201,6 +226,9 @@ class FirestoreService {
 
       // ไม่มี log เลยในรอบนี้ → ไม่ต้องสร้างบิลเปล่า
       if (eLogs.isEmpty && wLogs.isEmpty) return;
+
+      final fixedCost =
+          await _calcFixedCostForMonth(uid, DateTime(year, month, 1));
 
       // รวมค่า
       double totalElec = eLogs.isNotEmpty ? eLogs.first.cost : 0;

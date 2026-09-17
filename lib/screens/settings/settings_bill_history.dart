@@ -71,6 +71,10 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   Set<String> _takenMonths = {}; // เก็บ 'year-month' ของเดือนที่มีบิลแล้ว
   bool _isLoadingTaken = true;
   bool _isSaving = false;
+  // ยอด fixed cost ที่ active จริงของ _selectedMonth (ไม่ใช่ยอดวันนี้ที่ cache
+  // ไว้ที่ user.fixedCost) — โหลดใหม่ทุกครั้งที่ _selectedMonth เปลี่ยน ดู
+  // _loadFixedCostForSelectedMonth()
+  double _fixedCostForSelectedMonth = 0;
 
   final _eUsedCtrl = TextEditingController();
   final _eCostCtrl = TextEditingController();
@@ -140,6 +144,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     }
     _loadTakenMonths();
     _loadUser();
+    _loadFixedCostForSelectedMonth();
 
     for (final c in [
       _eUsedCtrl,
@@ -233,6 +238,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
       });
       // ตัวเลือกเปลี่ยนไปแล้ว ต้องคำนวณเดือนที่ยังว่างใหม่จากชุดตัวเลือกใหม่
       await _loadTakenMonths();
+      // _selectedMonth อาจเปลี่ยนไปจากค่า default ตอน initState (billingDay=30)
+      // มาเป็นค่าจริงแล้ว ต้องคำนวณ fixedCost ของเดือนนี้ใหม่ให้ตรง
+      await _loadFixedCostForSelectedMonth();
     } else {
       setState(() => _user = user);
     }
@@ -278,7 +286,20 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
         _selectedMonth = initialSelection;
         _isLoadingTaken = false;
       });
+      // initialSelection อาจต่างจาก _selectedMonth เดิม (เลื่อนไปเดือนว่างแรก)
+      // ต้องคำนวณ fixedCost ของเดือนที่เลือกจริงใหม่เสมอ
+      await _loadFixedCostForSelectedMonth();
     }
+  }
+
+  // คำนวณยอด fixed cost ที่ active จริงใน _selectedMonth (ไม่ใช่ user.fixedCost
+  // ที่เป็น cache ของ "วันนี้" เท่านั้น) — เรียกใหม่ทุกครั้งที่ _selectedMonth
+  // เปลี่ยน (เลือกเดือนใหม่จาก dropdown, หรือถูกปรับโดย _loadUser/_loadTakenMonths)
+  Future<void> _loadFixedCostForSelectedMonth() async {
+    final amount = await widget.firestoreService
+        .calcFixedCostForMonth(widget.uid, _selectedMonth);
+    if (!mounted) return;
+    setState(() => _fixedCostForSelectedMonth = amount);
   }
 
   // เปิดฟอร์มตั้งเลขมิเตอร์ต้นรอบจริง (ตัวเดียวกับปุ่ม FAB ในหน้าประวัติมิเตอร์ต้นรอบ)
@@ -327,9 +348,11 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   // บิลมาหรือยัง (validation) และโชว์ยอดไฟ+น้ำแยกในพรีวิว
   double get _total => _eCost + _wCost;
 
-  // แก้บั๊ก: totalCost ต้องรวม user.fixedCost ด้วย เหมือนที่ compileBill()
-  // (firestore_service.dart) ทำ ไม่งั้นยอดรวมของบิลย้อนหลังกับบิลที่ระบบ compile ให้จะไม่ตรงกัน
-  double get _fixedCost => _user?.fixedCost ?? 0;
+  // แก้บั๊ก: totalCost ต้องรวม fixedCost ที่ active จริงในเดือนที่กำลังกรอก
+  // (ไม่ใช่ user.fixedCost ซึ่งเป็น cache ของ "วันนี้" เท่านั้น) เดิมใช้ค่านั้น
+  // ตรงๆ ทำให้บิลย้อนหลังได้ fixedCost ผิดถ้ารายการ fixed cost เปลี่ยน/หมดอายุ
+  // ไปตั้งแต่เดือนนั้น — ตอนนี้โหลดจาก _loadFixedCostForSelectedMonth() แทน
+  double get _fixedCost => _fixedCostForSelectedMonth;
   double get _totalWithFixedCost => _total + _fixedCost;
 
   bool get _isSelectedMonthTaken =>
@@ -690,8 +713,10 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                               ),
                             );
                           }).toList(),
-                          onChanged: (val) =>
-                              setState(() => _selectedMonth = val!),
+                          onChanged: (val) {
+                            setState(() => _selectedMonth = val!);
+                            _loadFixedCostForSelectedMonth();
+                          },
                         ),
                   const SizedBox(height: 16),
                   _buildUtilityTabs(),

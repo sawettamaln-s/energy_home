@@ -185,7 +185,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           uid,
           prevCycleEnd.year,
           prevCycleEnd.month,
-          _user?.fixedCost ?? 0,
           prevCycleStart,
           prevCycleEnd,
         );
@@ -237,7 +236,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           uid,
           backfillCycleEnd.year,
           backfillCycleEnd.month,
-          _user?.fixedCost ?? 0,
           backfillCycleStart,
           backfillCycleEnd,
         );
