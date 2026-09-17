@@ -216,6 +216,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           break;
         }
 
+        final monthKey = '${backfillCycleEnd.month}/${backfillCycleEnd.year}';
+        // รอบนี้เคยไล่เช็คแล้วครั้งก่อนๆ ว่าไม่มี log เลย และแจ้งเตือนไปแล้ว —
+        // ไม่มีทาง log ย้อนหลังเข้ามาเองได้อีกสำหรับรอบที่ปิดไปแล้ว (นอกจาก user
+        // ไปกรอกผ่านหน้าประวัติบิลตรงๆ ซึ่งสร้าง bill doc เองอยู่แล้ว ไม่ต้องพึ่ง
+        // compileBill) ข้ามรอบนี้ไปเลย กัน query+compile ซ้ำเปล่าๆ ทุกครั้งที่เปิดแอป
+        // แต่ยัง "ไม่ break" เพราะรอบที่เก่ากว่านี้อาจยังไม่เคยถูกเช็คเลยก็ได้
+        final alreadyFlagged = await NotificationService.instance
+            .isCycleFlaggedMissing(monthKey);
+        if (alreadyFlagged) {
+          backfillCycleEnd = backfillCycleStart;
+          continue;
+        }
+
         final alreadyExists = await _firestoreService.billExistsForMonth(
             uid, backfillCycleEnd.year, backfillCycleEnd.month);
         if (alreadyExists) break; // ตามทันประวัติที่ compile ไปก่อนหน้านี้แล้ว
@@ -233,8 +246,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             uid, backfillCycleEnd.year, backfillCycleEnd.month);
         if (!createdNow) {
           // ไม่มี log เลยในรอบนี้ = รอบที่ user ไม่ได้บันทึกจริงๆ
-          missedCycles
-              .add('${backfillCycleEnd.month}/${backfillCycleEnd.year}');
+          missedCycles.add(monthKey);
         }
 
         backfillCycleEnd = backfillCycleStart;

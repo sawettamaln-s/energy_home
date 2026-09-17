@@ -6,13 +6,19 @@ import '../../widgets/auth_widgets.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  // รับ auth แบบ optional เพื่อฉีด MockFirebaseAuth ตอนเทสได้ (pattern เดียวกับ
+  // AuthGate ใน auth_gate.dart) — ไม่ส่งมาก็ fallback ไปใช้ของจริงตามปกติ
+  const LoginScreen({super.key, FirebaseAuth? auth}) : _auth = auth;
+
+  final FirebaseAuth? _auth;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  FirebaseAuth get _authInstance => widget._auth ?? FirebaseAuth.instance;
+
   // Controller สำหรับรับค่าจาก TextField
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -39,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await _authInstance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
@@ -166,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             dialogError = null;
                           });
                           try {
-                            await FirebaseAuth.instance
+                            await _authInstance
                                 .sendPasswordResetEmail(email: email);
                             if (!dialogContext.mounted) return;
                             Navigator.of(dialogContext).pop();

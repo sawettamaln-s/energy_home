@@ -45,6 +45,11 @@ dev_dependencies:
   # (ดู compatibility table ที่ pub.dev ของแต่ละแพ็กเกจ)
   firebase_auth_mocks: ^0.14.2
   fake_cloud_firestore: ^3.1.0
+  # ใช้คู่กับ firebase_auth_mocks สำหรับ whenCalling(...).on(...).thenThrow(...)
+  # (จำลอง FirebaseAuthException ตอนเทส เช่น wrong-password, user-not-found)
+  # เดิมเป็นแค่ transitive dependency ผ่าน firebase_auth_mocks อยู่แล้ว ประกาศ
+  # ตรงๆ ไว้ให้ import ได้ถูกต้องตามหลัก ไม่ใช่พึ่ง transitive resolution เฉยๆ
+  mock_exceptions: ^0.8.2
 
 flutter:
   uses-material-design: true

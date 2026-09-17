@@ -1,7 +1,7 @@
 part of 'settings_screen.dart';
 
 // สร้างตัวเลือก 6 เดือนย้อนหลัง อิงวันตัดรอบบิลจริง (billingDay) ไม่ใช่เดือนปฏิทิน
-// เป็นฟังก์ชันกลาง ให้ _HistoricalBillListScreen เรียกใช้เช็ค "ครบ 6 เดือนหรือยัง" ได้ด้วย
+// เป็นฟังก์ชันกลาง ให้ HistoricalBillListScreen เรียกใช้เช็ค "ครบ 6 เดือนหรือยัง" ได้ด้วย
 List<DateTime> _generateHistoricalMonthOptions(int billingDay) {
   final options = <DateTime>[];
   var cursor = EnergyForecaster.getCycleStart(DateTime.now(), billingDay);
@@ -10,6 +10,38 @@ List<DateTime> _generateHistoricalMonthOptions(int billingDay) {
     cursor = EnergyForecaster.getPreviousCycleStart(cursor, billingDay);
   }
   return options;
+}
+
+// หาเดือนที่ "ไม่มีบิลเลยไม่ว่า source ไหน" ไล่ย้อนจากรอบก่อนหน้ารอบปัจจุบันไป
+// จนถึงเดือนที่ user เริ่มตั้งค่าระบบครั้งแรก (startBillingMonth/Year) — ขอบเขต
+// เดียวกับที่ backfill loop ใน dashboard_screen.dart ใช้ตรวจจับรอบที่ขาด ตั้งใจ
+// ไม่จำกัดแค่ 6 เดือนแบบ _generateHistoricalMonthOptions (นั่นมีไว้จำกัดแค่ตอน
+// "เพิ่มบิลใหม่เอง" ผ่านปุ่ม +) เพราะเดือนที่ระบบเคยแจ้งเตือนไปแล้วว่าขาด ต้องยัง
+// หาเจอในลิสต์นี้ได้เสมอไม่ว่าจะผ่านไปนานแค่ไหนก่อน user จะกดเข้ามาดู ไม่งั้น
+// กดตาม notification เข้ามาแล้วจะเจอทางตัน หาเดือนที่ต้องการกรอกไม่เจอ
+List<DateTime> _generateAllMissingMonths(
+  int billingDay,
+  Set<String> takenAnySource, {
+  int startBillingYear = 0,
+  int startBillingMonth = 0,
+}) {
+  final missing = <DateTime>[];
+  var cursor = EnergyForecaster.getPreviousCycleStart(
+      EnergyForecaster.getCycleStart(DateTime.now(), billingDay), billingDay);
+  const maxLookback = 24; // กันลูปยาวเกินไปถ้าข้อมูล user ผิดปกติ
+  for (var i = 0; i < maxLookback; i++) {
+    if (startBillingYear != 0 &&
+        (cursor.year < startBillingYear ||
+            (cursor.year == startBillingYear &&
+                cursor.month < startBillingMonth))) {
+      break;
+    }
+    if (!takenAnySource.contains('${cursor.year}-${cursor.month}')) {
+      missing.add(cursor);
+    }
+    cursor = EnergyForecaster.getPreviousCycleStart(cursor, billingDay);
+  }
+  return missing;
 }
 
 // ==================== เพิ่ม/แก้ไขบันทึกบิลย้อนหลัง ====================
@@ -995,8 +1027,11 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'สำหรับเพิ่มบิลของเดือนก่อนๆ ที่ไม่ได้บันทึกผ่านแอปตั้งแต่แรก '
-          'เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไปเปรียบเทียบได้ (สูงสุด 6 เดือน)',
+          'สำหรับเพิ่มบิลของเดือนก่อนๆ ที่ไม่มีข้อมูลในระบบ ไม่ว่าจะเป็นเดือน'
+          'ก่อนเริ่มใช้แอป (กรอกได้สูงสุด 6 เดือนผ่านปุ่ม +) หรือเดือนที่ใช้แอป'
+          'อยู่แล้วแต่ดันลืมบันทึกไปทั้งเดือน (ระบบจะโชว์เป็นแถว "ยังไม่ได้'
+          'บันทึก" ให้กดกรอกได้เลย) เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไป'
+          'เปรียบเทียบได้ครบถ้วน',
           style: TextStyle(fontSize: 13.5, height: 1.6),
         ),
         const SizedBox(height: 14),
@@ -1018,23 +1053,30 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
 }
 
 
-class _HistoricalBillListScreen extends StatefulWidget {
+class HistoricalBillListScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
 
-  const _HistoricalBillListScreen({
+  const HistoricalBillListScreen({
+    super.key,
     required this.uid,
     required this.firestoreService,
   });
 
   @override
-  State<_HistoricalBillListScreen> createState() =>
-      _HistoricalBillListScreenState();
+  State<HistoricalBillListScreen> createState() =>
+      HistoricalBillListScreenState();
 }
 
-class _HistoricalBillListScreenState
-    extends State<_HistoricalBillListScreen> with SingleTickerProviderStateMixin {
+class HistoricalBillListScreenState
+    extends State<HistoricalBillListScreen> with SingleTickerProviderStateMixin {
   List<BillModel> _bills = [];
+  // เดือนที่ "ไม่มีบิลเลยไม่ว่า source ไหน" ในช่วง 5 เดือนย้อนหลัง — คือรอบที่
+  // user ข้ามไปจริงๆ ไม่ได้เปิดแอปบันทึกเลยทั้งรอบ (ไม่ใช่แค่ยังไม่กรอกฟอร์มนี้)
+  // ต่างจาก _bills ตรงที่ไม่มี Firestore doc รองรับจริง เป็นแค่ช่องว่างที่ตรวจพบ
+  // ใน build() จะแปลงเป็น placeholder BillModel (source: 'missing') ชั่วคราว
+  // เพื่อโชว์เป็นแถว "- -" ในตาราง กดแก้ไขได้เหมือนบิลปกติ
+  List<DateTime> _missingMonths = [];
   bool _isLoading = true;
   int _billingDay = 30;
   UserModel? _user;
@@ -1065,11 +1107,26 @@ class _HistoricalBillListScreenState
     final relevant = all
         .where((b) => b.source == 'imported' || b.source == 'startMeter')
         .toList();
+
+    final billingDay = user?.billingDay ?? 30;
+    // หาเดือนที่ "ไม่มีบิลเลย" เทียบกับบิลทุก source (รวม 'compiled' ด้วย ไม่ใช่
+    // แค่ relevant) กันไม่ให้เดือนที่ระบบ compile ให้เองสำเร็จแล้วถูกเข้าใจผิดว่า
+    // "ขาด" — ไล่ย้อนไปจนถึงเดือนเริ่มระบบ ไม่ใช่แค่ 5 เดือนล่าสุด (ดู
+    // _generateAllMissingMonths ด้านบนว่าทำไมถึงต้องไม่จำกัด)
+    final takenAnySource = all.map((b) => '${b.year}-${b.month}').toSet();
+    final missing = _generateAllMissingMonths(
+      billingDay,
+      takenAnySource,
+      startBillingYear: user?.startBillingYear ?? 0,
+      startBillingMonth: user?.startBillingMonth ?? 0,
+    );
+
     if (mounted) {
       setState(() {
         _user = user;
-        _billingDay = user?.billingDay ?? 30;
+        _billingDay = billingDay;
         _bills = relevant;
+        _missingMonths = missing;
         _isLoading = false;
       });
     }
@@ -1162,8 +1219,28 @@ final confirmed = await showConfirmDialog(
   @override
   Widget build(BuildContext context) {
     final latestId = _bills.isNotEmpty ? _bills.first.id : null;
-    final electricBills = _bills.where((b) => b.electricityCost > 0).toList();
-    final waterBills = _bills.where((b) => b.waterCost > 0).toList();
+    // แปลง _missingMonths เป็น placeholder BillModel ชั่วคราว (source: 'missing')
+    // ไม่มี Firestore doc จริงรองรับ — สร้างขึ้นแค่ตอน build() เพื่อโชว์เป็นแถว
+    // "- -" ในตาราง ผสมกับบิลจริงแล้วเรียงใหม่สุดก่อนเหมือนเดิม
+    final placeholderBills = _missingMonths
+        .map((m) => BillModel(
+              id: 'missing_${m.year}_${m.month}',
+              uid: widget.uid,
+              year: m.year,
+              month: m.month,
+              source: 'missing',
+            ))
+        .toList();
+    final displayBills = [..._bills, ...placeholderBills]
+      ..sort((a, b) => b.yearMonth.compareTo(a.yearMonth));
+    // รวม placeholder เข้าทั้งสองแท็บเสมอ (ไม่รู้ว่าขาดฝั่งไฟหรือน้ำ อาจขาดทั้งคู่)
+    // ต่างจากบิลจริงที่กรองด้วย cost > 0 ตามปกติ เพื่อแยกว่าเดือนนั้นมีข้อมูลฝั่งไหนบ้าง
+    final electricBills = displayBills
+        .where((b) => b.electricityCost > 0 || b.source == 'missing')
+        .toList();
+    final waterBills = displayBills
+        .where((b) => b.waterCost > 0 || b.source == 'missing')
+        .toList();
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
@@ -1355,6 +1432,17 @@ final confirmed = await showConfirmDialog(
         },
         onRowTap: (row) {
           final b = bills[row];
+          // รอบที่ตรวจพบว่าขาดหาย (ไม่มี log เลยทั้งรอบ) — ยังไม่มีบิลจริงให้ลบ
+          // เปิดฟอร์มกรอกย้อนหลังได้เลย (เหมือนกดปุ่ม + แต่เลือกเดือนไว้ให้แล้ว)
+          if (b.source == 'missing') {
+            showTableRowActions(
+              context,
+              title: '${thaiMonths[b.month - 1]} ${b.year}',
+              subtitle: 'ยังไม่ได้บันทึกข้อมูลเดือนนี้ค่ะ',
+              onEdit: () => _openSheet(existingBill: b),
+            );
+            return;
+          }
           // บิลที่มาจากหน้าเลขมิเตอร์ต้นรอบ (source == 'startMeter') แก้ไข/ลบตรงนี้ไม่ได้
           // (ดู _isStartMeterBill) — ล็อกไว้กันเปิดฟอร์มบันทึกบิลย้อนหลังแล้วคำนวณ delta ผิด
           // พาไปหน้าที่ถูกต้องผ่าน _goToStartMeterFor แทน

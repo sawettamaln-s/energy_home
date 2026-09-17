@@ -341,6 +341,26 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   double _deltaUsed(double current, double previous) =>
       previous > 0 ? EnergyCalculator.calculateUsed(current, previous) : 0;
 
+  // รายชื่อรอบบิลที่ "ไม่มี record" คั่นอยู่ระหว่าง record ก่อนหน้า (prev) กับรอบที่
+  // กำลังตั้งค่าอยู่ตอนนี้ (_selectedMonth/_selectedYear) — ปกติ prev คือรอบก่อนหน้า
+  // ติดกันพอดี ฟังก์ชันนี้จะคืน list ว่าง แต่ถ้า user ข้ามไปหลายรอบไม่ได้ตั้งค่าเลย
+  // จะได้ชื่อเดือนที่ขาดมาไว้โชว์เป็น note ในการ์ดสรุป เพื่อให้เห็นชัดว่าตัวเลข
+  // "ใช้ไปทั้งหมด" ที่คำนวณจาก prev -> ตอนนี้ นับรวมหลายเดือน ไม่ใช่แค่เดือนเดียว
+  List<String> _skippedMonthsBetween(StartMeterRecordModel prev) {
+    final billingDay = _user?.billingDay ?? 30;
+    final months = <String>[];
+    var cursor = EnergyForecaster.getPreviousCycleStart(
+        EnergyForecaster.safeBillingDate(
+            _selectedYear, _selectedMonth, billingDay),
+        billingDay);
+    while (cursor.year > prev.billingYear ||
+        (cursor.year == prev.billingYear && cursor.month > prev.billingMonth)) {
+      months.add('${thaiMonths[cursor.month - 1]} ${cursor.year}');
+      cursor = EnergyForecaster.getPreviousCycleStart(cursor, billingDay);
+    }
+    return months.reversed.toList(); // เรียงเก่า -> ใหม่ ให้อ่านง่าย
+  }
+
   // เช็คว่าเลขมิเตอร์ที่กรอกรอบนี้ "ต่ำกว่า" รอบก่อนหน้าไหม (เลขมิเตอร์สะสมต้องเพิ่มขึ้นเรื่อยๆ)
   // ส่วนใหญ่เป็นการกรอกผิด (พิมพ์เลขเก่า/ตกหลัก) — ใช้เตือนแบบ live ใต้ฟอร์ม และกันไว้อีกชั้นใน _save()
   // ไม่เช็คตอน isFirstEntry เพราะยังไม่มี record ก่อนหน้าให้เทียบ
@@ -389,6 +409,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       color: DashboardStyles.electricityBorder,
       prevMonthLabel:
           '${thaiMonths[prev.billingMonth - 1]} ${prev.billingYear}',
+      skippedMonths: _skippedMonthsBetween(prev),
     );
   }
 
@@ -406,6 +427,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       color: DashboardStyles.waterBorder,
       prevMonthLabel:
           '${thaiMonths[prev.billingMonth - 1]} ${prev.billingYear}',
+      skippedMonths: _skippedMonthsBetween(prev),
     );
   }
 
@@ -416,6 +438,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     required String unit,
     required Color color,
     required String prevMonthLabel,
+    List<String> skippedMonths = const [],
   }) {
     final fmt = NumberFormat('#,##0.##');
     final filledRows = rows.where((r) => r.currentVal > 0).toList();
@@ -456,6 +479,24 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                 'รวมใช้ไปทั้งหมด ${fmt.format(total)} $unit',
                 style: TextStyle(
                     fontSize: 11.5, fontWeight: FontWeight.w700, color: color),
+              ),
+            ),
+          // มีรอบบิลที่ไม่มี record คั่นอยู่ตรงกลาง (ข้ามไปหลายรอบ) — เตือนว่า
+          // ตัวเลขข้างบนคือยอดรวมสะสมของทุกรอบที่ขาด ไม่ใช่แค่รอบเดียว กันสับสน
+          // ว่าทำไมหน่วยที่ใช้ถึงเยอะผิดปกติ พร้อมชวนไปกรอกย้อนหลังแยกรายเดือนถ้าจำได้
+          if (skippedMonths.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'ครอบคลุม ${skippedMonths.length} รอบที่ไม่มีบันทึกเลย '
+                '(${skippedMonths.join(', ')}) ตัวเลขด้านบนคือยอดรวมทั้งช่วง '
+                'ถ้าจำหน่วยแยกรายเดือนได้ ลองไปกรอกย้อนหลังทีละเดือนที่หน้า '
+                '"ประวัติบิล" แทนจะแม่นกว่าค่ะ',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontStyle: FontStyle.italic,
+                  color: color.withValues(alpha: 0.8),
+                ),
               ),
             ),
         ],

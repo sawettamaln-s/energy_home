@@ -1185,7 +1185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _HistoricalBillListScreen(
+        builder: (context) => HistoricalBillListScreen(
           uid: _user!.uid,
           firestoreService: _firestoreService,
         ),

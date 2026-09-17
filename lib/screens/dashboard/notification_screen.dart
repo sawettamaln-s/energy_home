@@ -1,11 +1,14 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/notification_item_model.dart';
+import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../settings/settings_screen.dart';
 import 'dashboard_styles.dart';
 
 /// ===========================================================
@@ -24,6 +27,7 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen> {
   List<NotificationItem> _items = [];
   bool _isLoading = true;
+  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   void initState() {
@@ -45,6 +49,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (!item.isRead) {
       await NotificationService.instance.markAsRead(item.id);
       await _load();
+    }
+    // แจ้งเตือนรอบบิลที่ขาดหาย (ดู notifyMissedCycles ใน notification_service.dart)
+    // แตะแล้วพาไปหน้าประวัติบิลตรงๆ เลย เดือนที่ขาดจะโชว์เป็นแถว "- -"
+    // ให้กดแก้ไขกรอกย้อนหลังได้ทันที
+    if (item.type == 'missed_cycle' && mounted) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HistoricalBillListScreen(
+            uid: uid,
+            firestoreService: _firestoreService,
+          ),
+        ),
+      );
     }
   }
 
@@ -81,6 +101,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         );
       case 'meter':
         return (icon: Icons.edit_note_rounded, color: Colors.blueGrey);
+      case 'missed_cycle':
+        return (icon: Icons.event_busy_rounded, color: Colors.brown);
       case 'spike':
         return (icon: Icons.trending_up_rounded, color: Colors.red);
       case 'forecast':
