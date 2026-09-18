@@ -445,6 +445,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final billingDay = _user?.billingDay ?? 30;
     final remainingDays = EnergyForecaster.getRemainingDays(now, billingDay);
     final daysElapsed = EnergyForecaster.getDaysElapsed(now, billingDay);
+    final cycleLengthDays =
+        EnergyForecaster.getCycleLengthDays(now, billingDay);
     final formatter = NumberFormat('#,##0.00');
 
     return Scaffold(
@@ -470,7 +472,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // จัด layout ใหม่ ให้ "สวัสดี" เด่นขึ้น มี avatar กลม
                       // และ progress แถบเล็ก ๆ บอกความคืบหน้าของรอบบิล
                       // -------------------------------------------------
-                      _buildHeader(daysElapsed, remainingDays),
+                      _buildHeader(daysElapsed, remainingDays, cycleLengthDays),
 
                       const SizedBox(height: 18),
 
@@ -600,10 +602,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '$period, $name';
   }
 
-  Widget _buildHeader(int daysElapsed, int remainingDays) {
-    final totalCycleDays = daysElapsed + remainingDays;
-    final progress = totalCycleDays > 0
-        ? (daysElapsed / totalCycleDays).clamp(0.0, 1.0)
+  Widget _buildHeader(
+      int daysElapsed, int remainingDays, int cycleLengthDays) {
+    final progress = cycleLengthDays > 0
+        ? (daysElapsed / cycleLengthDays).clamp(0.0, 1.0)
         : 0.0;
 
     return Row(

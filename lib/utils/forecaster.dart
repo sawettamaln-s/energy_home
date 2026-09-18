@@ -76,6 +76,7 @@ class EnergyForecaster {
 
   static double seasonalForecast({
     required List<double> recentMonthlyValues, // ค่าใช้จ่ายย้อนหลังไม่กี่เดือนล่าสุดของ user คนนี้
+    required List<int> recentMonths, // เดือนปฏิทิน (1-12) ของแต่ละค่าใน recentMonthlyValues ตำแหน่งตรงกัน
     required List<double> curve, // 12 ค่า จาก SeasonalCurves (index 0 = ม.ค.)
     required int forecastMonth, // เดือนที่จะทาย (1-12)
   }) {
@@ -83,12 +84,28 @@ class EnergyForecaster {
     if (curve.length != 12) {
       throw ArgumentError('curve ต้องมี 12 ค่า (ม.ค.-ธ.ค.)');
     }
+    if (recentMonthlyValues.length != recentMonths.length) {
+      throw ArgumentError(
+          'recentMonthlyValues กับ recentMonths ต้องมีความยาวเท่ากัน');
+    }
 
-    double sum = recentMonthlyValues.reduce((a, b) => a + b);
-    double avg = sum / recentMonthlyValues.length;
+    // หักผลของฤดูกาลออกจากแต่ละเดือนก่อน (deseasonalize) ก่อนเฉลี่ย — ถ้าเอา
+    // ค่าดิบ (ที่ยังมีฤดูกาลของช่วงที่ผ่านมาติดอยู่) ไปเฉลี่ยตรงๆ แล้วคูณกับ
+    // curve[forecastMonth] ซ้ำอีกที จะกลายเป็นใส่ฤดูกาลซ้ำสองชั้น เช่น ทายจาก
+    // เดือนที่ใช้ไฟพีค (เม.ย.-พ.ค.) ไปหาเดือนที่เบากว่า (ก.ค.) จะทายสูงเกินจริง
+    // ไปได้ถึง ~20% ต้องหารด้วย curve ของเดือนนั้นๆ ก่อน ถึงจะได้ "ระดับการใช้
+    // จริง" ที่หักฤดูกาลออกแล้ว แล้วค่อยคูณกลับด้วย curve ของเดือนเป้าหมาย
+    double deseasonalizedSum = 0;
+    for (int i = 0; i < recentMonthlyValues.length; i++) {
+      final monthFactor = curve[recentMonths[i] - 1];
+      deseasonalizedSum += monthFactor > 0
+          ? recentMonthlyValues[i] / monthFactor
+          : recentMonthlyValues[i];
+    }
+    double baseLevel = deseasonalizedSum / recentMonthlyValues.length;
 
     double factor = curve[forecastMonth - 1];
-    double forecast = avg * factor;
+    double forecast = baseLevel * factor;
 
     return double.parse(forecast.toStringAsFixed(2));
   }
@@ -164,5 +181,20 @@ class EnergyForecaster {
   // คำนวณวันที่ผ่านมาในรอบบิล
   static int getDaysElapsed(DateTime now, int billingDay) {
     return now.difference(getCycleStart(now, billingDay)).inDays;
+  }
+
+  // ความยาวทั้งหมดของรอบบิลปัจจุบัน (หน่วย: วัน) — แหล่งความจริงเดียว
+  //
+  // ห้ามคำนวณด้วย getDaysElapsed(...) + getRemainingDays(...) แทน เพราะสอง
+  // ค่านั้นต่างเทียบกับ DateTime.now() ที่มีเศษชั่วโมง/นาทีติดมาด้วย การปัด
+  // เศษลง (floor ผ่าน .inDays) แยกกันคนละรอบ ทำให้ผลรวมคลาดจากความยาวรอบบิล
+  // จริงได้ ±1 วัน ขึ้นกับเวลาที่เรียกฟังก์ชัน (เคยเป็นแบบนี้ใน
+  // dashboard_screen.dart มาก่อน ทำให้ progress bar กับหน้าวิเคราะห์เห็นเลข
+  // ไม่ตรงกันในวันเดียวกัน) — ที่นี่คำนวณตรงจากขอบเขตรอบบิล (cycleEnd -
+  // cycleStart) ซึ่งทั้งคู่เป็น DateTime เที่ยงคืนไม่มีเศษเวลา จึงเสถียร
+  static int getCycleLengthDays(DateTime now, int billingDay) {
+    final startDate = getCycleStart(now, billingDay);
+    final endDate = getCycleEnd(now, billingDay);
+    return endDate.difference(startDate).inDays;
   }
 }

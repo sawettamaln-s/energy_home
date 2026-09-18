@@ -233,8 +233,10 @@ class AnalysisService {
     if (curve != null) {
       final current = bills.last;
       final targetMonth = DateTime(current.year, current.month + 1, 1).month;
+      final recentBills = _recentWindow(bills);
       return EnergyForecaster.seasonalForecast(
-        recentMonthlyValues: _recentWindow(monthlyValues),
+        recentMonthlyValues: recentBills.map(selector).toList(),
+        recentMonths: recentBills.map((b) => b.month).toList(),
         curve: curve,
         forecastMonth: targetMonth,
       );
@@ -267,12 +269,15 @@ class AnalysisService {
     final curve = _resolveCurve(area: area, meterType: meterType, isWater: isWater);
     if (curve != null) {
       final current = bills.last;
-      final recent = _recentWindow(monthlyValues);
+      final recentBills = _recentWindow(bills);
+      final recentValues = recentBills.map(selector).toList();
+      final recentMonths = recentBills.map((b) => b.month).toList();
       return List.generate(months, (i) {
         final targetMonth =
             DateTime(current.year, current.month + i + 1, 1).month;
         return EnergyForecaster.seasonalForecast(
-          recentMonthlyValues: recent,
+          recentMonthlyValues: recentValues,
+          recentMonths: recentMonths,
           curve: curve,
           forecastMonth: targetMonth,
         );
@@ -320,10 +325,12 @@ class AnalysisService {
   }
 
   /// ใช้ 3 เดือนล่าสุดเป็นตัวแทน "ระดับการใช้ปัจจุบัน" ของ user คนนี้
-  /// (ถ้ามีน้อยกว่า 3 เดือน ใช้เท่าที่มี)
-  List<double> _recentWindow(List<double> monthlyValues, {int months = 3}) {
-    if (monthlyValues.length <= months) return monthlyValues;
-    return monthlyValues.sublist(monthlyValues.length - months);
+  /// (ถ้ามีน้อยกว่า 3 เดือน ใช้เท่าที่มี) — คืนเป็น BillModel เพื่อให้ผู้เรียก
+  /// ดึงได้ทั้งค่าที่ต้องการ (ผ่าน selector) และเดือนปฏิทิน (.month) สำหรับหัก
+  /// ฤดูกาลออกก่อนเฉลี่ยใน seasonalForecast
+  List<BillModel> _recentWindow(List<BillModel> bills, {int months = 3}) {
+    if (bills.length <= months) return bills;
+    return bills.sublist(bills.length - months);
   }
 
   /// คาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่กำลังดำเนินอยู่ ยังไม่ปิด) ด้วย
@@ -339,7 +346,8 @@ class AnalysisService {
     final now = DateTime.now();
     final startDate = EnergyForecaster.getCycleStart(now, billingDay);
     final endDate = EnergyForecaster.getCycleEnd(now, billingDay);
-    final cycleLengthDays = endDate.difference(startDate).inDays;
+    final cycleLengthDays =
+        EnergyForecaster.getCycleLengthDays(now, billingDay);
     final daysElapsed = EnergyForecaster.getDaysElapsed(now, billingDay);
     final remainingDays = EnergyForecaster.getRemainingDays(now, billingDay);
 
