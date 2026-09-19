@@ -7,9 +7,15 @@
 // ของบัญชีให้ต่อเนื่องจากประวัติที่เพิ่งสร้าง
 //
 // สมมติฐาน (เพราะ CSV มีแค่หน่วยใช้ต่อเดือน ไม่มีเลขมิเตอร์สะสมจริง):
-//   - จำลองว่าผู้ใช้กรอกมิเตอร์ "1 ครั้งต่อ 1 รอบบิล" (ไม่มีกรอกกลางรอบ)
-//     ดังนั้น usedFromStart == usedFromLast == หน่วยที่ใช้ในเดือนนั้น
-//     (ตรงกับ logic ใน record_meter_screen.dart กรณีกรอกครั้งแรกของรอบ)
+//   - จำนวนครั้งที่กรอกต่อเดือนกำหนดได้ผ่าน --readings-min / --readings-max
+//     (default 1,1 = กรอกครั้งเดียวตอนตัดรอบ) ถ้าตั้งมากกว่า 1 สคริปต์จะสุ่ม
+//     (แบบ deterministic ด้วย seed ตาม ปี/เดือน — รันซ้ำได้ผลเดิมเป๊ะ) ทั้ง
+//     "วันที่กรอกภายในรอบ" และ "สัดส่วนหน่วยที่ใช้ในแต่ละครั้ง" โดยยึดว่า
+//     หน่วยสะสมต้องเพิ่มขึ้นเรื่อยๆ ภายในรอบ และรวมกันเท่ากับหน่วยทั้งเดือน
+//     พอดี (ครั้งสุดท้ายของรอบ = วันตัดรอบ ตรงกับบิลที่ import ไปแล้ว)
+//     usedFromStart ของแต่ละครั้ง = สะสมจากต้นรอบถึงครั้งนั้น (เหมือนแอปจริง
+//     ที่คำนวณค่าไฟ/น้ำประมาณการจากยอดสะสมทั้งรอบ ไม่ใช่แค่ครั้งล่าสุด)
+//     usedFromLast = ส่วนต่างจากครั้งก่อนหน้าในรอบเดียวกัน
 //   - เลขมิเตอร์สะสมเริ่มต้นที่ --elec-start / --water-start (default 0)
 //     แล้วบวกสะสมไปเรื่อยๆ ทีละเดือนตาม CSV (เลขจะไม่ตรงมิเตอร์จริงถ้ามี
 //     แต่ตัวเลข "หน่วยที่ใช้" และ "ค่าใช้จ่าย" ถูกต้องตรงกับบิลเป๊ะ)
@@ -34,9 +40,11 @@
 //     --area=bangkok
 //
 //   ตัวเลือกเสริม: --elec-start=1000 --water-start=100 (เลขมิเตอร์สะสมตั้งต้น)
+//                  --readings-min=5 --readings-max=6 (กรอกกี่ครั้ง/เดือน)
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 const _identityToolkitUrl =
     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
@@ -124,14 +132,25 @@ void main(List<String> args) async {
     final waterLogs = <Map<String, dynamic>>[];
     final startMeterRecords = <Map<String, dynamic>>[];
 
+    // วันตัดรอบของ "เดือนก่อนแถวแรกใน CSV" ใช้เป็นจุดเริ่มต้นของรอบแรก
+    DateTime previousCutoff = () {
+      var prevMonth = rows.first.month - 1;
+      var prevYear = rows.first.year;
+      if (prevMonth < 1) {
+        prevMonth = 12;
+        prevYear -= 1;
+      }
+      return _safeBillingDate(prevYear, prevMonth, options.billingDay);
+    }();
+
     for (final r in rows) {
-      final cycleDate =
-          _safeBillingDate(r.year, r.month, options.billingDay);
-      final id = 'imported_${r.year}_${r.month.toString().padLeft(2, '0')}';
+      final cycleCutoff = _safeBillingDate(r.year, r.month, options.billingDay);
+      final cycleStart = previousCutoff.add(const Duration(days: 1));
+      final monthId = 'imported_${r.year}_${r.month.toString().padLeft(2, '0')}';
 
       // ค่าต้นรอบของเดือนนี้ = ค่าสะสมก่อนบวกหน่วยเดือนนี้เข้าไป
       startMeterRecords.add({
-        'id': id,
+        'id': monthId,
         'uid': targetUid,
         'electricityValue': isTou ? 0.0 : elecCumulative,
         'waterValue': waterCumulative,
@@ -139,54 +158,103 @@ void main(List<String> args) async {
         'offPeakValue': isTou ? offPeakCumulative : 0.0,
         'billingMonth': r.month,
         'billingYear': r.year,
-        'recordedAt': cycleDate.toIso8601String(),
+        'recordedAt': cycleStart.toIso8601String(),
       });
 
-      double elecCost;
-      double peakMeterValue = 0, offPeakMeterValue = 0, elecMeterValue = 0;
-      double usedFromStartElec;
-      if (isTou) {
-        peakCumulative += r.elecPeakUnits;
-        offPeakCumulative += r.elecOffPeakUnits;
-        peakMeterValue = peakCumulative;
-        offPeakMeterValue = offPeakCumulative;
-        usedFromStartElec = r.elecPeakUnits + r.elecOffPeakUnits;
-        elecCost = _calculateElectricityTOU(
-          peakUnits: r.elecPeakUnits,
-          offPeakUnits: r.elecOffPeakUnits,
-          ftRate: ftRate,
-        );
-      } else {
-        elecCumulative += r.elecUnits;
-        elecMeterValue = elecCumulative;
-        usedFromStartElec = r.elecUnits;
-        elecCost = _calculateElectricity(r.elecUnits, options.area, ftRate);
+      final seed = r.year * 100 + r.month;
+      final readingCount = options.readingsMin == options.readingsMax
+          ? options.readingsMin
+          : options.readingsMin +
+              Random(seed).nextInt(
+                  options.readingsMax - options.readingsMin + 1);
+
+      final dates = _splitDatesAscending(
+          cycleStart, cycleCutoff, readingCount, Random(seed * 7 + 1));
+      final elecFractions =
+          _splitIncreasingFractions(readingCount, Random(seed * 7 + 2));
+      final peakFractions =
+          _splitIncreasingFractions(readingCount, Random(seed * 7 + 3));
+      final offPeakFractions =
+          _splitIncreasingFractions(readingCount, Random(seed * 7 + 4));
+      final waterFractions =
+          _splitIncreasingFractions(readingCount, Random(seed * 7 + 5));
+
+      double prevElecUsed = 0, prevPeakUsed = 0, prevOffPeakUsed = 0;
+      double prevWaterUsed = 0;
+
+      for (var i = 0; i < readingCount; i++) {
+        final id = readingCount == 1 ? monthId : '${monthId}_${i + 1}';
+        final date = dates[i];
+        final isLast = i == readingCount - 1;
+
+        double elecCost;
+        double peakMeterValue = 0, offPeakMeterValue = 0, elecMeterValue = 0;
+        double usedFromStartElec, usedFromLastElec;
+        if (isTou) {
+          // ครั้งสุดท้ายบังคับให้เท่ากับยอดทั้งเดือนพอดี กัน error สะสมจาก
+          // การปัดเศษของสัดส่วนสุ่ม
+          final peakUsed =
+              isLast ? r.elecPeakUnits : r.elecPeakUnits * peakFractions[i];
+          final offPeakUsed = isLast
+              ? r.elecOffPeakUnits
+              : r.elecOffPeakUnits * offPeakFractions[i];
+          peakCumulative = peakCumulative - prevPeakUsed + peakUsed;
+          // ↑ ปรับให้ peakCumulative เดินไปตาม "สะสมจากต้นรอบ" ของครั้งนี้
+          //   (prevPeakUsed คือค่าที่เคยบวกไปแล้วจากครั้งก่อนของรอบเดียวกัน)
+          peakMeterValue = peakCumulative;
+          offPeakCumulative = offPeakCumulative - prevOffPeakUsed + offPeakUsed;
+          offPeakMeterValue = offPeakCumulative;
+          usedFromStartElec = peakUsed + offPeakUsed;
+          usedFromLastElec =
+              (peakUsed - prevPeakUsed) + (offPeakUsed - prevOffPeakUsed);
+          elecCost = _calculateElectricityTOU(
+            peakUnits: peakUsed,
+            offPeakUnits: offPeakUsed,
+            ftRate: ftRate,
+          );
+          prevPeakUsed = peakUsed;
+          prevOffPeakUsed = offPeakUsed;
+        } else {
+          final elecUsed =
+              isLast ? r.elecUnits : r.elecUnits * elecFractions[i];
+          elecCumulative = elecCumulative - prevElecUsed + elecUsed;
+          elecMeterValue = elecCumulative;
+          usedFromStartElec = elecUsed;
+          usedFromLastElec = elecUsed - prevElecUsed;
+          elecCost = _calculateElectricity(elecUsed, options.area, ftRate);
+          prevElecUsed = elecUsed;
+        }
+        electricityLogs.add({
+          'id': id,
+          'uid': targetUid,
+          'date': date.toIso8601String(),
+          'meterValue': elecMeterValue,
+          'peakMeterValue': isTou ? peakMeterValue : null,
+          'offPeakMeterValue': isTou ? offPeakMeterValue : null,
+          'usedFromStart': usedFromStartElec,
+          'usedFromLast': usedFromLastElec,
+          'cost': elecCost,
+        });
+
+        final waterUsed =
+            isLast ? r.waterUnits : r.waterUnits * waterFractions[i];
+        waterCumulative = waterCumulative - prevWaterUsed + waterUsed;
+        final waterCost = options.area == 'bangkok'
+            ? _calculateWaterMWA(waterUsed)
+            : _calculateWaterPWA(waterUsed);
+        waterLogs.add({
+          'id': id,
+          'uid': targetUid,
+          'date': date.toIso8601String(),
+          'meterValue': waterCumulative,
+          'usedFromStart': waterUsed,
+          'usedFromLast': waterUsed - prevWaterUsed,
+          'cost': waterCost,
+        });
+        prevWaterUsed = waterUsed;
       }
-      electricityLogs.add({
-        'id': id,
-        'uid': targetUid,
-        'date': cycleDate.toIso8601String(),
-        'meterValue': elecMeterValue,
-        'peakMeterValue': isTou ? peakMeterValue : null,
-        'offPeakMeterValue': isTou ? offPeakMeterValue : null,
-        'usedFromStart': usedFromStartElec,
-        'usedFromLast': usedFromStartElec,
-        'cost': elecCost,
-      });
 
-      waterCumulative += r.waterUnits;
-      final waterCost = options.area == 'bangkok'
-          ? _calculateWaterMWA(r.waterUnits)
-          : _calculateWaterPWA(r.waterUnits);
-      waterLogs.add({
-        'id': id,
-        'uid': targetUid,
-        'date': cycleDate.toIso8601String(),
-        'meterValue': waterCumulative,
-        'usedFromStart': r.waterUnits,
-        'usedFromLast': r.waterUnits,
-        'cost': waterCost,
-      });
+      previousCutoff = cycleCutoff;
     }
 
     // ---------- 4) เตรียม user doc update (billingDay + ต้นรอบถัดไป) ----------
@@ -200,6 +268,8 @@ void main(List<String> args) async {
     final userUpdate = <String, dynamic>{
       'billingDay': options.billingDay,
       'billingDayConfigured': true,
+      'meterType': isTou ? 'tou' : 'normal',
+      'area': options.area,
       'startElectricityValue': isTou ? 0.0 : elecCumulative,
       'startWaterValue': waterCumulative,
       'startPeakValue': isTou ? peakCumulative : 0.0,
@@ -212,18 +282,19 @@ void main(List<String> args) async {
     };
 
     // ---------- 5) พิมพ์ preview ----------
-    stdout.writeln('--- Preview (${electricityLogs.length} เดือน) ---');
+    stdout.writeln(
+        '--- Preview (${rows.length} เดือน, รวม ${electricityLogs.length} ครั้งที่กรอก) ---');
     for (var i = 0; i < electricityLogs.length; i++) {
       final e = electricityLogs[i];
       final w = waterLogs[i];
-      final label = (e['date'] as String).substring(0, 7);
+      final label = (e['date'] as String).substring(0, 10);
       stdout.writeln('  $label  '
           'ไฟ: มิเตอร์=${(e['meterValue'] as double).toStringAsFixed(1)} '
-          'ใช้=${(e['usedFromLast'] as double).toStringAsFixed(1)} '
-          'ค่าไฟ=${(e['cost'] as double).toStringAsFixed(2)}   '
+          '(+${(e['usedFromLast'] as double).toStringAsFixed(1)}) '
+          'ค่าไฟสะสม=${(e['cost'] as double).toStringAsFixed(2)}   '
           'น้ำ: มิเตอร์=${(w['meterValue'] as double).toStringAsFixed(1)} '
-          'ใช้=${(w['usedFromLast'] as double).toStringAsFixed(1)} '
-          'ค่าน้ำ=${(w['cost'] as double).toStringAsFixed(2)}');
+          '(+${(w['usedFromLast'] as double).toStringAsFixed(1)}) '
+          'ค่าน้ำสะสม=${(w['cost'] as double).toStringAsFixed(2)}');
     }
     stdout.writeln('\nหลัง import: billingDay=${options.billingDay}, '
         'ต้นรอบถัดไป=$nextYear-${nextMonth.toString().padLeft(2, '0')}, '
@@ -238,9 +309,10 @@ void main(List<String> args) async {
 
     if (!options.skipConfirm) {
       stdout.write(
-          'กำลังจะเขียน ${electricityLogs.length} เดือน (electricity_logs + '
-          'water_logs + start_meter_history) และอัปเดต billingDay/ต้นรอบของ '
-          'users/$targetUid — พิมพ์ "yes" เพื่อยืนยัน: ');
+          'กำลังจะเขียน ${electricityLogs.length} ครั้งที่กรอก (electricity_logs + '
+          'water_logs) และ ${startMeterRecords.length} รอบบิล (start_meter_history) '
+          'และอัปเดต billingDay/ต้นรอบของ users/$targetUid — '
+          'พิมพ์ "yes" เพื่อยืนยัน: ');
       final answer = stdin.readLineSync()?.trim().toLowerCase();
       if (answer != 'yes') {
         stdout.writeln('ยกเลิก ไม่มีการเขียนข้อมูลใดๆ');
@@ -313,6 +385,56 @@ DateTime _safeBillingDate(int year, int month, int billingDay) {
   final lastDayOfMonth = DateTime(year, month + 1, 0).day;
   final safeDay = billingDay > lastDayOfMonth ? lastDayOfMonth : billingDay;
   return DateTime(year, month, safeDay);
+}
+
+// แบ่งช่วงวันที่ [start, end] เป็น n จุดเรียงจากน้อยไปมาก จุดสุดท้ายตรงกับ
+// end เป๊ะเสมอ (= วันตัดรอบ ให้ตรงกับบิลที่ import ไปแล้ว) จุดก่อนหน้ากระจาย
+// แบบ "แบ่งเท่าๆ กัน + สุ่มเยื้องเล็กน้อย" เพื่อไม่ให้ห่างเท่ากันแข็งทื่อ
+// เกินไป แต่ยังคงเรียงลำดับกันเสมอ (กันชนกันด้วย toSet() ท้ายสุด)
+List<DateTime> _splitDatesAscending(
+    DateTime start, DateTime end, int n, Random rng) {
+  if (n <= 1) return [end];
+  final totalDays = end.difference(start).inDays;
+  final safeTotalDays = totalDays < (n - 1) ? (n - 1) : totalDays;
+  final result = <DateTime>[];
+  for (var i = 0; i < n - 1; i++) {
+    final base = (safeTotalDays * (i + 1) / n).floor();
+    final jitter = safeTotalDays > n ? rng.nextInt((safeTotalDays / n).ceil()) - (safeTotalDays / n / 2).floor() : 0;
+    var offset = base + jitter;
+    if (offset < i) offset = i; // กันวันซ้อนกับจุดก่อนหน้า
+    if (offset >= safeTotalDays) offset = safeTotalDays - 1;
+    result.add(start.add(Duration(days: offset)));
+  }
+  // กันวันซ้ำ/ไม่เรียง เผื่อ jitter ดันชนกัน
+  for (var i = 1; i < result.length; i++) {
+    if (!result[i].isAfter(result[i - 1])) {
+      result[i] = result[i - 1].add(const Duration(days: 1));
+    }
+  }
+  if (result.isNotEmpty && !end.isAfter(result.last)) {
+    // ป้องกันกรณีรอบสั้นมากจน jitter ดันจุดสุดท้ายเลย end ไป
+    result[result.length - 1] = end.subtract(const Duration(days: 1));
+  }
+  result.add(end);
+  return result;
+}
+
+// สุ่มสัดส่วนสะสมแบบเพิ่มขึ้นเรื่อยๆ n จุด ตั้งแต่ >0 ถึง 1.0 (ใช้คูณกับ
+// หน่วยรวมทั้งเดือน เพื่อได้ "สะสมจากต้นรอบ" ของแต่ละครั้งที่กรอก) ค่าสุดท้าย
+// (index n-1) ไม่ได้ใช้จริง เพราะครั้งสุดท้ายบังคับ = ยอดทั้งเดือนพอดีเสมอ
+// (กันเศษปัดเพี้ยนสะสม) แต่คำนวณไว้ให้ครบเผื่อเรียกใช้ที่อื่น
+List<double> _splitIncreasingFractions(int n, Random rng) {
+  if (n <= 1) return [1.0];
+  final weights =
+      List.generate(n, (_) => 0.3 + rng.nextDouble()); // กันน้ำหนักใกล้ 0
+  final total = weights.reduce((a, b) => a + b);
+  var cumulative = 0.0;
+  final fractions = <double>[];
+  for (final w in weights) {
+    cumulative += w;
+    fractions.add(cumulative / total);
+  }
+  return fractions;
 }
 
 // ==================== พอร์ตจาก lib/utils/calculator.dart (ต้องตรงกันเป๊ะ) ====================
@@ -688,6 +810,8 @@ class _Options {
   final int billingDay;
   final double elecStart;
   final double waterStart;
+  final int readingsMin;
+  final int readingsMax;
   final bool apply;
   final bool skipConfirm;
 
@@ -703,6 +827,8 @@ class _Options {
     required this.billingDay,
     required this.elecStart,
     required this.waterStart,
+    required this.readingsMin,
+    required this.readingsMax,
     required this.apply,
     required this.skipConfirm,
   });
@@ -712,6 +838,7 @@ _Options? _parseArgs(List<String> args) {
   String? projectId, apiKey, email, password, uid, csvPath, household, area;
   int? billingDay;
   double elecStart = 0, waterStart = 0;
+  int readingsMin = 1, readingsMax = 1;
   bool apply = false, skipConfirm = false;
 
   for (final arg in args) {
@@ -744,6 +871,10 @@ _Options? _parseArgs(List<String> args) {
       elecStart = double.parse(arg.substring('--elec-start='.length));
     } else if (arg.startsWith('--water-start=')) {
       waterStart = double.parse(arg.substring('--water-start='.length));
+    } else if (arg.startsWith('--readings-min=')) {
+      readingsMin = int.parse(arg.substring('--readings-min='.length));
+    } else if (arg.startsWith('--readings-max=')) {
+      readingsMax = int.parse(arg.substring('--readings-max='.length));
     } else {
       stderr.writeln('ไม่รู้จัก argument: $arg');
       _printHelp();
@@ -775,6 +906,12 @@ _Options? _parseArgs(List<String> args) {
     exitCode = 1;
     return null;
   }
+  if (readingsMin < 1 || readingsMax < readingsMin) {
+    stderr.writeln(
+        '--readings-min ต้อง >= 1 และ --readings-max ต้อง >= --readings-min');
+    exitCode = 1;
+    return null;
+  }
 
   if (password == null) {
     stdout.write('Password สำหรับ $email: ');
@@ -800,6 +937,8 @@ _Options? _parseArgs(List<String> args) {
     billingDay: billingDay,
     elecStart: elecStart,
     waterStart: waterStart,
+    readingsMin: readingsMin,
+    readingsMax: readingsMax,
     apply: apply,
     skipConfirm: skipConfirm,
   );
@@ -826,6 +965,8 @@ Optional:
   --area=bangkok|province  สูตรค่าน้ำ (default: bangkok = MWA)
   --elec-start=NUMBER    เลขมิเตอร์ไฟสะสมตั้งต้น ก่อนเดือนแรกใน CSV (default: 0)
   --water-start=NUMBER   เลขมิเตอร์น้ำสะสมตั้งต้น ก่อนเดือนแรกใน CSV (default: 0)
+  --readings-min=N       จำนวนครั้งที่กรอกต่อเดือน ขั้นต่ำ (default: 1)
+  --readings-max=N       จำนวนครั้งที่กรอกต่อเดือน สูงสุด (default: 1, ต้อง >= readings-min)
   --apply                เขียนข้อมูลจริง (ไม่ใส่ = dry-run แสดง preview เฉยๆ)
   --yes                  ข้ามการถามยืนยันตอน apply
   --help                 แสดงข้อความนี้
