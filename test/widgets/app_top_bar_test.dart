@@ -69,9 +69,9 @@ void main() {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => Scaffold(
-                    appBar: const AppTopBar(title: 'หน้าย่อย'),
-                    body: const SizedBox(),
+                  builder: (_) => const Scaffold(
+                    appBar: AppTopBar(title: 'หน้าย่อย'),
+                    body: SizedBox(),
                   ),
                 ),
               ),
