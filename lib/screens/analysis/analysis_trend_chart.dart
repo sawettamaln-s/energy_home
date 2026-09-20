@@ -342,9 +342,8 @@ class _TrendChartCardState extends State<_TrendChartCard> {
   Widget build(BuildContext context) {
     final allBills = widget.bills;
     final canExpand = allBills.length > _cardMonths;
-    final bills = canExpand
-        ? allBills.sublist(allBills.length - _cardMonths)
-        : allBills;
+    final bills =
+        canExpand ? allBills.sublist(allBills.length - _cardMonths) : allBills;
 
     // กราฟโชว์เมื่อมีบิล >= 2 เดือน (เกณฑ์เดิม) — ส่วนคาดการณ์ต่อท้ายตามนั้น
     // ผู้ใช้ที่มีบิลเดียวยังเห็นคาดการณ์เดือนหน้าจากการ์ดด้านบนอยู่
@@ -920,8 +919,18 @@ class _TrendHistoryPage extends StatefulWidget {
 
 class _TrendHistoryPageState extends State<_TrendHistoryPage> {
   static const List<String> _monthShort = [
-    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+    'ม.ค.',
+    'ก.พ.',
+    'มี.ค.',
+    'เม.ย.',
+    'พ.ค.',
+    'มิ.ย.',
+    'ก.ค.',
+    'ส.ค.',
+    'ก.ย.',
+    'ต.ค.',
+    'พ.ย.',
+    'ธ.ค.',
   ];
 
   late bool _showCost;
@@ -999,8 +1008,8 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(value,
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700)),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -1011,10 +1020,9 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
     final cfg = widget.config;
     final cost = '${costFmt.format(cfg.costSelector(b))} บาท';
     final used = '${usedFmt.format(cfg.usedSelector(b))} ${cfg.unitLabel}';
-    final primaryStyle =
-        const TextStyle(fontSize: 13, fontWeight: FontWeight.w700);
-    final secondaryStyle =
-        TextStyle(fontSize: 11, color: Colors.grey.shade500);
+
+    const primaryStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w700);
+    final secondaryStyle = TextStyle(fontSize: 11, color: Colors.grey.shade500);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -1022,8 +1030,8 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
           SizedBox(
             width: 52,
             child: Text(_monthShort[b.month - 1],
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           ),
           const Spacer(),
           Column(
@@ -1073,13 +1081,13 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
             Row(
               children: [
                 Expanded(
-                  child: _statTile('รวมทั้งปี',
-                      '${valueFmt.format(total)} $valueUnit'),
+                  child: _statTile(
+                      'รวมทั้งปี', '${valueFmt.format(total)} $valueUnit'),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _statTile('เฉลี่ยต่อเดือน',
-                      '${valueFmt.format(avg)} $valueUnit'),
+                  child: _statTile(
+                      'เฉลี่ยต่อเดือน', '${valueFmt.format(avg)} $valueUnit'),
                 ),
               ],
             ),
