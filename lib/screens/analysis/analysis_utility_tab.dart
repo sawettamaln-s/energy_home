@@ -130,10 +130,6 @@ class _UtilityTab extends StatelessWidget {
     final usesSeasonalCurve = area != null && meterType != null;
 
 
-    // ยอดเดือนนี้ (เดือนล่าสุด) — ทุกการ์ดเปรียบเทียบใช้ยอดเดียวกัน จึงโชว์ครั้งเดียว
-    // ที่หัวส่วน แล้วแต่ละการ์ดโชว์เฉพาะยอดของสิ่งที่ใช้เทียบ
-    final double? currentMonthValue = (mom ?? avg6 ?? yoy)?.currentValue;
-
     // การ์ดเทียบค่าเฉลี่ย 6 เดือน — ใช้ได้ทั้งเป็นการ์ดเต็มความกว้าง (มีข้อมูลปีก่อน)
     // และเป็นการ์ดช่องขวาข้างเทียบเดือนก่อน (ยังไม่มีข้อมูลปีก่อน)
     Widget avg6Card(String cardLabel) => _comparisonCard(
@@ -185,29 +181,6 @@ class _UtilityTab extends StatelessWidget {
           usesSeasonalCurve: usesSeasonalCurve,
         ),
         const SizedBox(height: 16),
-        if (currentMonthValue != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text('ยอดเดือนนี้',
-                    style:
-                        TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-                const SizedBox(width: 8),
-                Text(_fmt.format(currentMonthValue),
-                    style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87)),
-                const SizedBox(width: 6),
-                Text('บาท',
-                    style:
-                        TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-              ],
-            ),
-          ),
         // แถวบน: เทียบเดือนก่อน | เทียบปีก่อน — ถ้ายังไม่มีข้อมูลปีก่อน (ซ่อนอยู่)
         // ให้ "เทียบค่าเฉลี่ย 6 เดือน" ขึ้นมาอยู่ช่องนั้นแทน และไม่ต้องมีการ์ด
         // เต็มความกว้างด้านล่างอีก IntrinsicHeight + stretch ทำให้การ์ดสองใบ
@@ -536,8 +509,7 @@ class _UtilityTab extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 10),
-            // แถวค่าอ้างอิง: ชื่อสิ่งที่ใช้เทียบ (ซ้าย) กับยอดของมัน (ขวา) — ยอดเดือนนี้
-            // แสดงครั้งเดียวที่หัวส่วนเปรียบเทียบ ไม่ซ้ำในทุกการ์ด
+            // แถวค่าอ้างอิง: ชื่อสิ่งที่ใช้เทียบ (ซ้าย) กับยอดของมัน (ขวา)
             Divider(height: 1, thickness: 0.5, color: Colors.grey.shade300),
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -553,37 +525,6 @@ class _UtilityTab extends StatelessWidget {
                 ],
               ),
             ),
-            if (isAnomaly)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.info_outline,
-                        size: 13, color: Colors.orange.shade800),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        r.isIncrease
-                            ? 'เปลี่ยนแปลงมากผิดปกติ ลองเช็คว่ามีเครื่องใช้ไฟฟ้าใหม่'
-                                'หรือมีคนพักอาศัยเพิ่มไหม'
-                            : 'เปลี่ยนแปลงมากผิดปกติ มักเกิดจากไม่อยู่บ้านทั้งเดือน'
-                                'หรือมิเตอร์บันทึกคลาดเคลื่อน ลองเช็คบิลอีกครั้ง',
-                        style: TextStyle(
-                            fontSize: 10.5,
-                            color: Colors.orange.shade800,
-                            height: 1.4),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
           ],
         ],
       ),
@@ -606,6 +547,19 @@ class _UtilityTab extends StatelessWidget {
     if (month >= 3 && month <= 5) return _Season.summer;
     if (month >= 6 && month <= 10) return _Season.rainy;
     return _Season.cool;
+  }
+
+  // ไอคอน + สีของแต่ละฤดู — ใช้ไอคอน Material ในกรอบมนสีอ่อน สไตล์เดียวกับ
+  // การ์ด "ข้อสังเกต" (แทนไอคอนที่วาดเองด้วย CustomPainter เดิม)
+  (IconData, Color) _seasonVisual(_Season season) {
+    switch (season) {
+      case _Season.summer:
+        return (Icons.wb_sunny_rounded, const Color(0xFFF57C00));
+      case _Season.rainy:
+        return (Icons.umbrella_rounded, const Color(0xFF1E88E5));
+      case _Season.cool:
+        return (Icons.ac_unit_rounded, const Color(0xFF0097A7));
+    }
   }
 
   String _seasonReasonText(int month, double factor) {
@@ -663,78 +617,47 @@ class _UtilityTab extends StatelessWidget {
                 ? DashboardStyles.spikeUp
                 : DashboardStyles.spikeDown));
 
+    final (IconData badgeIcon, Color badgeColor) = targetMonth != null
+        ? _seasonVisual(_seasonFor(targetMonth))
+        : (Icons.insights, _green);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _green.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
       ),
+      // ทุกอย่างในการ์ดชิดขอบซ้ายเส้นเดียวกัน — หัวการ์ด (ไอคอน/ชื่อ/ปุ่มข้อมูล)
+      // อยู่บรรทัดเดียวเสมอ ปุ่มข้อมูลจึงไม่เลื่อนตามความสูงของข้อความด้านล่าง
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              // ไอคอนตามฤดูกาลของเดือนที่คาดการณ์ (ร้อน/ฝน/หนาว) — ถ้าไม่รู้เดือน
-              // ใช้ไอคอนเดิม
-              if (targetMonth != null)
-                SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: CustomPaint(
-                    painter: _SeasonIconPainter(_seasonFor(targetMonth)),
-                  ),
-                )
-              else
-                const Icon(Icons.insights, color: _green),
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(badgeIcon, size: 20, color: badgeColor),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      targetMonth != null
-                          ? 'คาดการณ์เดือนหน้า • ${_thaiMonthShort[targetMonth - 1]}'
-                          : 'คาดการณ์เดือนหน้า',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.grey.shade900),
-                    ),
-                    Text('${_fmt.format(forecast)} บาท',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: _green)),
-                    if (seasonalFactor != null && targetMonth != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          _seasonReasonText(targetMonth, seasonalFactor),
-                          style: TextStyle(
-                              fontSize: 11.5,
-                              color: Colors.grey.shade700,
-                              height: 1.4),
-                        ),
-                      ),
-                    // เดือนฐานที่ใช้เทียบ (บิลล่าสุด) ผิดปกติจากค่าเฉลี่ยมาก
-                    // เกินไป → เตือนไว้ว่าตัวเลข %/บาทที่เทียบด้านล่างอาจดู
-                    // เกินจริง แทนที่จะปล่อยให้ผู้ใช้ตกใจว่าคาดการณ์พลาดมาก
-                    if (lastBillIsAnomalousBase)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          'เดือนล่าสุดที่ใช้เทียบมีค่าผิดปกติจากค่าเฉลี่ย '
-                          'ตัวเลขเทียบด้านล่างอาจดูต่างจากปกติมากกว่าที่ควรจะเป็น',
-                          style: TextStyle(
-                              fontSize: 10.5,
-                              color: Colors.orange.shade800,
-                              height: 1.4),
-                        ),
-                      ),
-                  ],
+                child: Text(
+                  targetMonth != null
+                      ? 'คาดการณ์เดือนหน้า • ${_thaiMonthShort[targetMonth - 1]}'
+                      : 'คาดการณ์เดือนหน้า',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade900),
                 ),
               ),
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => showInfoDialog(
                   context,
                   title: 'ตัวเลขนี้คำนวณอย่างไร?',
@@ -750,41 +673,95 @@ class _UtilityTab extends StatelessWidget {
                           'แล้วลากเส้นแนวโน้มนั้นต่อไปยังเดือนถัดไป\n\n'
                           'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขนี้จะยิ่งแม่นยำขึ้น',
                 ),
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _green.withValues(alpha: 0.15),
-                  ),
-                  child: const Text('!',
-                      style: TextStyle(
-                          color: _green,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold)),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(Icons.info_outline_rounded,
+                      size: 20, color: _green.withValues(alpha: 0.7)),
                 ),
               ),
             ],
           ),
-          // ไม่ใส่หน้าอารมณ์ในบรรทัดนี้ เพราะการ์ดมีไอคอนสภาพอากาศอยู่แล้ว
-          if (comparison != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              comparison.isUnchanged
-                  ? 'ไม่เปลี่ยนแปลงจากเดือนนี้'
-                  : '${comparison.isIncrease ? 'สูงกว่า' : 'ประหยัดกว่า'}เดือนนี้ประมาณ '
-                      '${comparison.percentChange != null ? '${comparison.percentChange!.abs().toStringAsFixed(0)}% ' : ''}'
-                      '(${comparison.isIncrease ? '+' : '-'}${_fmt.format(comparison.diff.abs())} บาท)',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: deltaTone,
+          const SizedBox(height: 12),
+          Text('${_fmt.format(forecast)} บาท',
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 24, color: _green)),
+          if (seasonalFactor != null && targetMonth != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _seasonReasonText(targetMonth, seasonalFactor),
+                style: TextStyle(
+                    fontSize: 11.5, color: Colors.grey.shade700, height: 1.4),
               ),
             ),
+          // ไม่ใส่หน้าอารมณ์ในบรรทัดนี้ เพราะการ์ดมีไอคอนสภาพอากาศอยู่แล้ว
+          if (comparison != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(
+                    comparison.isUnchanged
+                        ? Icons.trending_flat_rounded
+                        : (comparison.isIncrease
+                            ? Icons.trending_up_rounded
+                            : Icons.trending_down_rounded),
+                    size: 16,
+                    color: deltaTone,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    comparison.isUnchanged
+                        ? 'ไม่เปลี่ยนแปลงจากเดือนนี้'
+                        : '${comparison.isIncrease ? 'สูงกว่า' : 'ประหยัดกว่า'}เดือนนี้ประมาณ '
+                            '${comparison.percentChange != null ? '${comparison.percentChange!.abs().toStringAsFixed(0)}% ' : ''}'
+                            '(${comparison.isIncrease ? '+' : '-'}${_fmt.format(comparison.diff.abs())} บาท)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: deltaTone,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
+          // เดือนฐานที่ใช้เทียบ (บิลล่าสุด) ผิดปกติจากค่าเฉลี่ยมากเกินไป → เตือนไว้ว่า
+          // ตัวเลข %/บาทที่เทียบอาจดูเกินจริง แทนที่จะปล่อยให้ผู้ใช้ตกใจว่าคาดการณ์พลาดมาก
+          // (หน้าตาเดียวกับกล่องเตือนในการ์ดเปรียบเทียบ)
+          if (lastBillIsAnomalousBase)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 13, color: Colors.orange.shade800),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      'เดือนล่าสุดที่ใช้เทียบมีค่าผิดปกติจากค่าเฉลี่ย '
+                      'ตัวเลขเทียบด้านบนอาจดูต่างจากปกติมากกว่าที่ควรจะเป็น',
+                      style: TextStyle(
+                          fontSize: 10.5,
+                          color: Colors.orange.shade800,
+                          height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (lowConfidence) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -924,74 +901,6 @@ class _UtilityTab extends StatelessWidget {
 }
 
 // =====================================================================
-// ไอคอนฤดูกาลของการ์ดคาดการณ์เดือนหน้า: ร้อน = พระอาทิตย์, ฝน = เมฆมีฝนตก,
+// ไอคอนฤดูกาลของการ์ดคาดการณ์เดือนหน้า: ร้อน = พระอาทิตย์, ฝน = ร่ม,
 // หนาว = เกล็ดหิมะ (ช่วงเดือนตรงกับ _seasonName)
 enum _Season { summer, rainy, cool }
-
-class _SeasonIconPainter extends CustomPainter {
-  final _Season season;
-  const _SeasonIconPainter(this.season);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // วาดบนผืน 24x24
-    canvas.save();
-    canvas.scale(size.width / 24);
-
-    switch (season) {
-      case _Season.summer:
-        const sunColor = Color(0xFFFFB300);
-        canvas.drawCircle(const Offset(12, 12), 4.5, Paint()..color = sunColor);
-        final ray = Paint()
-          ..color = sunColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.8
-          ..strokeCap = StrokeCap.round;
-        for (var i = 0; i < 8; i++) {
-          final a = i * math.pi / 4;
-          canvas.drawLine(
-            Offset(12 + 7.5 * math.cos(a), 12 + 7.5 * math.sin(a)),
-            Offset(12 + 10 * math.cos(a), 12 + 10 * math.sin(a)),
-            ray,
-          );
-        }
-      case _Season.rainy:
-        final cloud = Paint()..color = const Color(0xFF90A4AE);
-        canvas.drawCircle(const Offset(8.5, 10.5), 3.8, cloud);
-        canvas.drawCircle(const Offset(14, 8.5), 4.8, cloud);
-        canvas.drawCircle(const Offset(18, 11.5), 3.2, cloud);
-        canvas.drawRRect(
-          RRect.fromLTRBR(5, 10.5, 21, 15, const Radius.circular(2.2)),
-          cloud,
-        );
-        final drop = Paint()
-          ..color = const Color(0xFF42A5F5)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.8
-          ..strokeCap = StrokeCap.round;
-        canvas.drawLine(const Offset(8, 17.5), const Offset(6.8, 20.5), drop);
-        canvas.drawLine(
-            const Offset(12.5, 17.5), const Offset(11.3, 20.5), drop);
-        canvas.drawLine(const Offset(17, 17.5), const Offset(15.8, 20.5), drop);
-      case _Season.cool:
-        final flake = Paint()
-          ..color = const Color(0xFF4FC3F7)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.8
-          ..strokeCap = StrokeCap.round;
-        for (var i = 0; i < 3; i++) {
-          final a = i * math.pi / 3;
-          canvas.drawLine(
-            Offset(12 + 9 * math.cos(a), 12 + 9 * math.sin(a)),
-            Offset(12 - 9 * math.cos(a), 12 - 9 * math.sin(a)),
-            flake,
-          );
-        }
-    }
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _SeasonIconPainter oldDelegate) =>
-      oldDelegate.season != season;
-}

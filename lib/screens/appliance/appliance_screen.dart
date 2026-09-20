@@ -47,6 +47,21 @@ IconData _defaultApplianceIcon(String key) {
   }
 }
 
+// key ไอคอนของรายการสามัญประจำบ้านที่ชื่อตรงกับ [name] (ไม่เจอ = null)
+String? _defaultIconKeyForName(String name) {
+  for (final d in DefaultAppliances.list) {
+    if (d.name == name) return d.icon;
+  }
+  return null;
+}
+
+// ไอคอนของเครื่องใช้ไฟฟ้าที่บันทึกแล้วในลิสต์ — ใช้ชุดเดียวกับหน้าเลือกจากรายการ
+// สามัญประจำบ้าน: ใช้ iconKey ที่เก็บไว้ตอนเลือก (เปลี่ยนชื่อทีหลังไอคอนก็ยังเดิม)
+// ข้อมูลเก่าที่ยังไม่มี iconKey ลองจับคู่จากชื่อ ส่วนอุปกรณ์ที่เพิ่มเอง
+// ตกไปใช้ไอคอนเริ่มต้น
+IconData _applianceIcon(ApplianceModel a) =>
+    _defaultApplianceIcon(a.iconKey ?? _defaultIconKeyForName(a.name) ?? '');
+
 class ApplianceScreen extends StatefulWidget {
   // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
   final ValueChanged<int>? onNavTap;
@@ -304,8 +319,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                           ),
-                                          child: const Icon(
-                                              Icons.electrical_services,
+                                          child: Icon(_applianceIcon(a),
                                               color: DashboardStyles.primaryGreen),
                                         ),
                                         const SizedBox(width: 12),
@@ -664,6 +678,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
   Set<int> _selectedDays = {0, 1, 2, 3, 4, 5, 6}; // ทุกวันเป็นค่าเริ่มต้น
   bool _isCustom = false;
   bool _isSaving = false;
+  String? _iconKey; // ไอคอนที่จะบันทึกกับอุปกรณ์ (null = อุปกรณ์ที่เพิ่มเอง)
 
   bool get _isEditing => widget.existing != null;
 
@@ -674,6 +689,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     if (existing != null) {
       _isCustom = true; // แก้ไข: ข้ามหน้าเลือกรายการสามัญ เข้าฟอร์มตรง
       _nameController.text = existing.name;
+      _iconKey = existing.iconKey ?? _defaultIconKeyForName(existing.name);
       _wattController.text = existing.watt.toStringAsFixed(0);
       if (existing.schedules.isNotEmpty) {
         final s = existing.schedules.first;
@@ -701,6 +717,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     setState(() {
       _nameController.text = d.name;
       _wattController.text = d.defaultWatt.toStringAsFixed(0);
+      _iconKey = d.icon;
       _isCustom = true;
     });
   }
@@ -731,6 +748,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
         uid: uid,
         name: _nameController.text,
         watt: watt,
+        iconKey: _iconKey,
         schedules: [
           ScheduleModel(
             days: _selectedDays.toList()..sort(),
@@ -833,7 +851,10 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                         )),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
-                      onPressed: () => setState(() => _isCustom = true),
+                      onPressed: () => setState(() {
+                        _isCustom = true;
+                        _iconKey = null;
+                      }),
                       icon: const Icon(Icons.add),
                       label: const Text('เพิ่มเครื่องใช้ไฟฟ้าอื่น'),
                       style: OutlinedButton.styleFrom(

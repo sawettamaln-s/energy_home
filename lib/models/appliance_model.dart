@@ -4,6 +4,9 @@ class ApplianceModel {
   final String name; // ชื่ออุปกรณ์ เช่น แอร์ห้องนอน
   final double watt; // กำลังไฟ (วัตต์)
   final List<ScheduleModel> schedules; // ตารางการใช้งาน
+  // key ไอคอนจาก DefaultAppliance.icon ตอนเลือกจากรายการสามัญประจำบ้าน
+  // (null = อุปกรณ์ที่เพิ่มเอง หรือข้อมูลเก่าที่บันทึกก่อนมีฟิลด์นี้)
+  final String? iconKey;
 
   ApplianceModel({
     required this.id,
@@ -11,6 +14,7 @@ class ApplianceModel {
     required this.name,
     required this.watt,
     this.schedules = const [],
+    this.iconKey,
   });
 
   // แปลงจาก Firestore เป็น Model
@@ -23,6 +27,7 @@ class ApplianceModel {
       schedules: (map['schedules'] as List<dynamic>? ?? [])
           .map((s) => ScheduleModel.fromMap(s))
           .toList(),
+      iconKey: map['iconKey'] as String?,
     );
   }
 
@@ -34,6 +39,7 @@ class ApplianceModel {
       'name': name,
       'watt': watt,
       'schedules': schedules.map((s) => s.toMap()).toList(),
+      if (iconKey != null) 'iconKey': iconKey,
     };
   }
 }
