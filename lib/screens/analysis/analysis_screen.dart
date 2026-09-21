@@ -48,8 +48,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   String? _userArea;
 
   // เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
-  // (เดิมไม่เก็บไว้เลย ทำให้ setState ถูกเรียกหลัง widget dispose ไปแล้ว
-  // ถ้า user ออกจากหน้านี้ระหว่างที่ Firestore ยังส่ง snapshot ใหม่เข้ามา)
+  // (กัน setState ถูกเรียกหลัง widget dispose ถ้า user ออกจากหน้านี้ระหว่างที่
+  // Firestore ยังส่ง snapshot ใหม่เข้ามา)
   StreamSubscription<List<ApplianceModel>>? _applianceSub;
 
   static const _green = DashboardStyles.primaryGreen;

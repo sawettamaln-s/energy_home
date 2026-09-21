@@ -162,8 +162,8 @@ class EnergyForecaster {
   }
 
   // เช็คว่า "เดือน/ปีที่ตั้งมิเตอร์ต้นรอบไว้" ยังตรงกับรอบบิลปัจจุบันไหม
-  // แหล่งความจริงเดียวสำหรับเช็คนี้ — เดิมแต่ละหน้า (dashboard_screen.dart,
-  // settings_start_meter.dart) ต่างคำนวณเองแยกกัน เสี่ยงแก้ไม่ครบทุกจุด
+  // แหล่งความจริงเดียวสำหรับเช็คนี้ — ทุกหน้า (dashboard_screen.dart,
+  // settings_start_meter.dart) เรียกใช้ที่นี่ ไม่คำนวณเองแยกกัน
   static bool matchesCurrentCycle({
     required int billingMonth,
     required int billingYear,
@@ -188,10 +188,10 @@ class EnergyForecaster {
   // ห้ามคำนวณด้วย getDaysElapsed(...) + getRemainingDays(...) แทน เพราะสอง
   // ค่านั้นต่างเทียบกับ DateTime.now() ที่มีเศษชั่วโมง/นาทีติดมาด้วย การปัด
   // เศษลง (floor ผ่าน .inDays) แยกกันคนละรอบ ทำให้ผลรวมคลาดจากความยาวรอบบิล
-  // จริงได้ ±1 วัน ขึ้นกับเวลาที่เรียกฟังก์ชัน (เคยเป็นแบบนี้ใน
-  // dashboard_screen.dart มาก่อน ทำให้ progress bar กับหน้าวิเคราะห์เห็นเลข
-  // ไม่ตรงกันในวันเดียวกัน) — ที่นี่คำนวณตรงจากขอบเขตรอบบิล (cycleEnd -
-  // cycleStart) ซึ่งทั้งคู่เป็น DateTime เที่ยงคืนไม่มีเศษเวลา จึงเสถียร
+  // จริงได้ ±1 วัน ขึ้นกับเวลาที่เรียกฟังก์ชัน (progress bar กับหน้าวิเคราะห์
+  // จะเห็นเลขไม่ตรงกันในวันเดียวกัน) — ที่นี่คำนวณตรงจากขอบเขตรอบบิล
+  // (cycleEnd - cycleStart) ซึ่งทั้งคู่เป็น DateTime เที่ยงคืนไม่มีเศษเวลา
+  // จึงเสถียร
   static int getCycleLengthDays(DateTime now, int billingDay) {
     final startDate = getCycleStart(now, billingDay);
     final endDate = getCycleEnd(now, billingDay);

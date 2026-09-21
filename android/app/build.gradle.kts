@@ -13,7 +13,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = true  // ← เพิ่มตรงนี้
+        // จำเป็นสำหรับ flutter_local_notifications (scheduled notification)
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -26,7 +27,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        multiDexEnabled = true  // ← เพิ่มตรงนี้
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -50,6 +51,6 @@ flutter {
     source = "../.."
 }
 
-dependencies {  // ← เพิ่มบรรทัดนี้ทั้งหมด
+dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
 }

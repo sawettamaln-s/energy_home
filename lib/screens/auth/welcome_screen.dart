@@ -15,8 +15,8 @@ class WelcomeScreen extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // พื้นหลังไล่เฉดเขียว (มุมบนซ้ายอ่อนกว่า ไล่เข้มลงมุมล่างขวา) แทน
-          // สีเขียวตันสีเดียวแบบเดิม ให้มีมิติ/ความลึกมากขึ้น
+          // พื้นหลังไล่เฉดเขียว (มุมบนซ้ายอ่อนกว่า ไล่เข้มลงมุมล่างขวา) ให้มีมิติ/
+          // ความลึก
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -94,8 +94,8 @@ class _GlowOrb extends StatelessWidget {
   }
 }
 
-/// เนื้อหาหลักของหน้า Welcome (โลโก้ + ชื่อแอป + ปุ่ม) แยกออกมาจาก build()
-/// เดิม เพื่อให้ชั้น Stack ด้านนอกดูแล background/แสงเงาอย่างเดียว
+/// เนื้อหาหลักของหน้า Welcome (โลโก้ + ชื่อแอป + ปุ่ม) แยกออกจาก build()
+/// เพื่อให้ชั้น Stack ด้านนอกดูแล background/แสงเงาอย่างเดียว
 class _WelcomeContent extends StatelessWidget {
   const _WelcomeContent();
 

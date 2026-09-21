@@ -203,11 +203,10 @@ class FirestoreService {
   /// หมายเหตุ: startDate/endDate ต้องเป็นช่วงของรอบบิลที่ "ปิดไปแล้ว"
   /// ไม่ใช่รอบที่กำลังดำเนินอยู่ตอนนี้ (ผู้เรียกเป็นคนคำนวณช่วงมาให้)
   ///
-  /// แก้บั๊ก: เดิมรับ fixedCost เป็น parameter จากผู้เรียก (dashboard_screen
-  /// ส่ง user.fixedCost ซึ่งเป็น cache ของ "เดือนปัจจุบัน" เท่านั้น) ทำให้บิล
-  /// ย้อนหลังที่ compile ตอน backfill (ได้ถึง 24 รอบ) ทุกใบใช้ยอด fixed cost
-  /// ของวันนี้ผิดๆ แทนที่จะเป็นยอดที่ active จริงในรอบนั้น — ตอนนี้คำนวณเองจาก
-  /// isActiveInMonth(year, month) ของรอบบิลที่กำลัง compile โดยตรง
+  /// fixedCost คำนวณเองจาก isActiveInMonth(year, month) ของรอบบิลที่กำลัง
+  /// compile (ไม่รับเป็น parameter และไม่ใช้ user.fixedCost ซึ่งเป็น cache ของ
+  /// "เดือนปัจจุบัน" เท่านั้น) เพื่อให้บิลย้อนหลังที่ compile ตอน backfill
+  /// (ได้ถึง 24 รอบ) ใช้ยอดที่ active จริงในรอบนั้น
   Future<void> compileBill(
     String uid,
     int year,

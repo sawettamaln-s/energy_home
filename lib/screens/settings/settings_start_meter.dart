@@ -333,11 +333,9 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   StartMeterRecordModel? get _previousWaterRecord =>
       _previousRecordWhere((r) => r.waterValue > 0);
 
-  // คำนวณ "หน่วยที่ใช้ไป" แบบ delta เดียวที่ใช้ร่วมกันทั้ง preview (ตอนพิมพ์)
-  // คำนวณ "หน่วยที่ใช้ไป" แบบ delta เดียวใช้ร่วมกันทั้ง preview และตอนกด "บันทึก" จริง
-  // กันตัวเลขที่โชว์กับที่เซฟไม่ตรงกัน (บั๊กเดิม: preview ไม่มี guard แต่ _save() มี
-  // guard "previous > 0" พอ previous เป็น 0 preview จะโชว์ตัวเลขพุ่งผิดปกติ) previous <= 0
-  // หมายถึงไม่มี baseline ที่เชื่อถือได้ ต้องคืน 0 เสมอ
+  // คำนวณ "หน่วยที่ใช้ไป" แบบ delta เดียวใช้ร่วมกันทั้ง preview และตอนกด "บันทึก"
+  // จริง กันตัวเลขที่โชว์กับที่เซฟไม่ตรงกัน — previous <= 0 หมายถึงไม่มี
+  // baseline ที่เชื่อถือได้ ต้องคืน 0 เสมอ (ไม่งั้น preview จะโชว์ตัวเลขพุ่งผิดปกติ)
   double _deltaUsed(double current, double previous) =>
       previous > 0 ? EnergyCalculator.calculateUsed(current, previous) : 0;
 
@@ -809,6 +807,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
           'ต่อใช่ไหมคะ?',
     );
     if (confirm != true) return;
+    if (!mounted) return;
 
     setState(() => _isSaving = true);
     try {
@@ -1018,7 +1017,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             ),
                           ),
                         const SizedBox(height: 4),
-                        // ใช้ widget กลาง StartMeterPairedFields (widgets/start_meter_fields.dart) — เดิมใช้ร่วมกับ setup_screen.dart แต่ขั้นตอนนั้นถูกตัดออกจากเซตอัพแล้ว ปัจจุบันเรียกใช้จากที่นี่ที่เดียว
+                        // ใช้ widget กลาง StartMeterPairedFields (widgets/start_meter_fields.dart)
                         StartMeterPairedFields(
                           isTou: widget.isTou,
                           area: _user?.area ?? 'bangkok',
@@ -1554,15 +1553,12 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
         },
         onRowTap: (row) {
           final r = records[row];
-          // เดิมเช็คด้วย _currentCycleConfigured (เทียบกับ "รอบที่ควรจะเป็นตอนนี้"
-          // ตามวันที่ปัจจุบัน + billingDay) ซึ่งเป็นคนละเรื่องกับ "record นี้คือ
-          // record ที่ค่า start ใน user document อ้างอิงอยู่จริงไหม" — ถ้าจังหวะกดลบ
-          // ดันไม่ตรงกับรอบตามปฏิทินพอดี (เช่น billingDay เพิ่งเปลี่ยน) การรีเซ็ตค่า
-          // ใน user document ตอนลบจะถูกข้ามไปทั้งที่ record ถูกลบไปแล้วจริง เหลือ
-          // startMeterConfigured/startElectricityValue ฯลฯ ค้างอยู่แบบไม่มี record
-          // รองรับ ทำให้ปุ่ม (+) ไม่โผล่ทั้งที่ไม่มีประวัติเหลือแล้ว — เช็คตรงกับ
-          // billingMonth/Year ของ record กับ user.startBillingMonth/Year ตรงๆ แทน
-          // ถึงจะสะท้อนว่า "นี่คือ record ที่ค่า cache อยู่จริง" ไม่ผูกกับวันปฏิทิน
+          // เช็คด้วย billingMonth/Year ของ record เทียบกับ user.startBillingMonth/
+          // Year ตรงๆ (ไม่ผูกกับวันที่ตามปฏิทิน/billingDay) เพื่อให้สะท้อนว่า "นี่คือ
+          // record ที่ค่า start ใน user document อ้างอิงอยู่จริงไหม" — ถ้าเช็คกับ
+          // "รอบที่ควรจะเป็นตอนนี้" การรีเซ็ตค่าใน user document ตอนลบอาจถูกข้าม
+          // (เช่น billingDay เพิ่งเปลี่ยน) ทั้งที่ record ถูกลบไปแล้ว เหลือ
+          // startMeterConfigured/startElectricityValue ค้างแบบไม่มี record รองรับ
           final isCurrentCycleRow = _user != null &&
               r.billingMonth == _user!.startBillingMonth &&
               r.billingYear == _user!.startBillingYear;

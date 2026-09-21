@@ -61,8 +61,8 @@ class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
 }
 
 // การ์ดสรุปด้านบนของแต่ละแท็บ — รวมสถิติ "รอบปัจจุบัน"/"รวมทั้งหมดที่มี" กับ
-// ตัวเลือกปี (พ.ศ.) + เดือน ไว้ในกรอบเดียวกัน (เดิมแยก 2 การ์ดขาวซ้อนกัน ดูรก
-// และเปลืองพื้นที่แนวตั้งโดยไม่จำเป็น) คั่นด้วยเส้น Divider บางๆ แทน
+// ตัวเลือกปี (พ.ศ.) + เดือน ไว้ในกรอบเดียวกัน คั่นด้วยเส้น Divider บางๆ
+// (ประหยัดพื้นที่แนวตั้ง)
 Widget _historySummaryCard({
   required Color accent,
   required double currentCycleCost,
@@ -411,7 +411,7 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
   int _billingDay = 30;
   DateTime? _cycleStart;
   DateTime? _billingCycleKey;
-  // ใช้ตัดสินว่าตารางควรโชว์คอลัมน์ On-Peak/Off-Peak แยกไหม (เดิมโชว์ได้แค่ตอนแตะแถวดู detail เฉยๆ)
+  // ใช้ตัดสินว่าตารางควรโชว์คอลัมน์ On-Peak/Off-Peak แยกไหม
   bool _isTou = false;
   // เลขมิเตอร์ต้นรอบ (peak/offpeak) ของแต่ละรอบบิล — อิงจาก log.peakMeterValue/
   // offPeakMeterValue ของประวัติจริงรอบนั้นๆ ไม่ใช้ user.startPeakValue ตัวเดียว
@@ -587,8 +587,8 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
               formatter: formatter,
               table: ExcelStyleTable(
                 accent: accent,
-                // TOU: เพิ่มคอลัมน์ On-Peak/Off-Peak "ที่ใช้ไป" เข้าตารางหลักเลย
-                // (เดิมมีแต่เลขสะสม โชว์ตอนแตะแถวดู detail เท่านั้น)
+                // TOU: มีคอลัมน์ On-Peak/Off-Peak "ที่ใช้ไป" ในตารางหลักเลย
+                // (ไม่ต้องแตะแถวดู detail)
                 columns: _isTou
                     ? const [
                         ExcelTableColumn('วันที่',

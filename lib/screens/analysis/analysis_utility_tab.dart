@@ -15,8 +15,8 @@ class _UtilityTab extends StatelessWidget {
   final String label; // หัวข้อสั้น เช่น 'ค่าไฟ' ใช้ในข้อความ insight
   // สีประจำยูทิลิตี้ (ส้ม = ไฟฟ้า, ฟ้าอมเขียว = น้ำ) ใช้กับกราฟเทรนด์และ
   // ปุ่มสลับมุมมอง (ค่าใช้จ่าย/หน่วย) ให้ตรงกับโทนสีที่ dashboard ใช้อยู่
-  // แล้ว (DashboardStyles.electricityBorder/waterBorder) แทนที่จะใช้สีเขียว
-  // เดียวกันหมดทั้ง 2 แท็บเหมือนเดิม แยกไม่ออกว่ากำลังดูแท็บไหนอยู่จากกราฟ
+  // แล้ว (DashboardStyles.electricityBorder/waterBorder) ให้แยกออกได้ทันที
+  // ว่ากำลังดูแท็บไหนอยู่จากกราฟ
   final Color accentColor;
   // พาเลตสีจริงของกราฟแท่งเทรนด์ ต่อโหมด "ค่าใช้จ่าย"/"หน่วย" — เลือกเฉด
   // เฉพาะของแต่ละยูทิลิตี้ (ไฟฟ้า = แดง/เหลือง, น้ำ = น้ำเงิน) ตรงตาม swatch
@@ -26,7 +26,7 @@ class _UtilityTab extends StatelessWidget {
   final CurrentCycleForecast? currentCycle;
   // TOU เท่านั้น (แท็บไฟฟ้า) — ใช้ให้กราฟเทรนด์ฝั่ง "หน่วยที่ใช้" โชว์เป็น
   // แท่งซ้อน On-Peak/Off-Peak แทนแท่งทึบสีเดียว แท็บน้ำไม่ส่งมาเลย (default
-  // false/null) จึงยังเป็นแท่งเดียวเหมือนเดิมทุกอย่าง
+  // false/null) จึงเป็นแท่งเดียวตามปกติ
   final bool isTou;
   final double Function(BillModel)? peakUsedSelector;
   final double Function(BillModel)? offPeakUsedSelector;
@@ -34,7 +34,7 @@ class _UtilityTab extends StatelessWidget {
   // area/meterType ของ user คนนี้ ('bangkok'/'province', 'normal'/'tou') —
   // ส่งต่อให้ analysisService เลือก seasonal curve ให้ตรงเคส ถ้าเป็น null
   // (เช่น ยังโหลด user ไม่เสร็จ) analysisService จะ fallback ไปใช้ linear
-  // regression เดิมเองโดยอัตโนมัติ (ดู _resolveCurve ใน analysis_service.dart)
+  // regression เองโดยอัตโนมัติ (ดู _resolveCurve ใน analysis_service.dart)
   final String? area;
   final String? meterType;
   // true เฉพาะแท็บน้ำ — ใช้เลือก SeasonalCurves.water แทน .elec
@@ -550,7 +550,7 @@ class _UtilityTab extends StatelessWidget {
   }
 
   // ไอคอน + สีของแต่ละฤดู — ใช้ไอคอน Material ในกรอบมนสีอ่อน สไตล์เดียวกับ
-  // การ์ด "ข้อสังเกต" (แทนไอคอนที่วาดเองด้วย CustomPainter เดิม)
+  // การ์ด "ข้อสังเกต"
   (IconData, Color) _seasonVisual(_Season season) {
     switch (season) {
       case _Season.summer:

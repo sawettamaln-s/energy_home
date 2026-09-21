@@ -257,8 +257,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
 
-              // ลิงก์กลับไปเข้าสู่ระบบ — แทนที่ปุ่มย้อนกลับเดิม เผื่อกรณี
-              // ผู้ใช้มีบัญชีอยู่แล้วแต่หลงเข้ามาหน้าสมัครสมาชิก
+              // ลิงก์กลับไปเข้าสู่ระบบ — เผื่อกรณีผู้ใช้มีบัญชีอยู่แล้วแต่หลงเข้ามา
+              // หน้าสมัครสมาชิก
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

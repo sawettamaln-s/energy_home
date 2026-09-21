@@ -212,13 +212,11 @@ class AnalysisService {
 
   /// คาดการณ์ "แนวโน้มระยะยาว" ของเดือนถัดไป
   ///
-  /// ถ้าใส่ area+meterType มา (รู้ area/meterType ของ user คนนี้) จะใช้วิธีใหม่
-  /// "seasonal curve" (ผสมข้อมูลสมมติ+จริง จาก tool/forecast_synth/) แทน
-  /// linear regression เดิม เพราะจับรูปแบบฤดูกาลได้ ซึ่ง linear regression เดิม
-  /// จับไม่ได้ (ดู comment เดิมของ forecastNextMonths ด้านล่าง)
+  /// ถ้าใส่ area+meterType มา (รู้ area/meterType ของ user คนนี้) จะใช้
+  /// "seasonal curve" (ผสมข้อมูลสมมติ+จริง จาก tool/forecast_synth/) ซึ่งจับ
+  /// รูปแบบฤดูกาลได้ ต่างจาก linear regression ที่จับไม่ได้
   ///
-  /// ถ้าไม่ใส่ area/meterType มา (เช่นเรียกจากที่เก่าที่ยังไม่ได้แก้) จะ fallback
-  /// ไปใช้ linear regression เดิมเป๊ะๆ เหมือนก่อนหน้านี้ทุกอย่าง
+  /// ถ้าไม่ใส่ area/meterType มา จะ fallback ไปใช้ linear regression
   double forecastNextMonth(
     List<BillModel> bills, {
     required double Function(BillModel) selector,
@@ -251,10 +249,9 @@ class AnalysisService {
   /// คาดการณ์แนวโน้มหลายเดือนล่วงหน้า
   ///
   /// ถ้าใส่ area+meterType มา ใช้ seasonal curve เดือนต่อเดือน (แต่ละเดือน
-  /// ในอนาคตมีตัวคูณฤดูกาลของตัวเอง ไม่ใช่ลากเส้นตรงเดิมยาวออกไปแบบ
-  /// linear regression) ถ้าไม่ใส่มา fallback เป็น linear regression เดิม
-  /// (ลากเส้น Linear Regression เส้นเดียวกัน เพียงขยับจุด X ที่ทำนายออกไป
-  /// ทีละเดือน ยิ่งเดือนไกลยิ่งไม่แน่นอนสูง เพราะไม่จับ seasonality)
+  /// ในอนาคตมีตัวคูณฤดูกาลของตัวเอง) ถ้าไม่ใส่มา fallback เป็น linear regression
+  /// (ลากเส้นเดียวกัน ขยับจุด X ที่ทำนายออกไปทีละเดือน ยิ่งเดือนไกลยิ่งไม่แน่นอน
+  /// สูง เพราะไม่จับ seasonality)
   List<double> forecastNextMonths(
     List<BillModel> bills, {
     required double Function(BillModel) selector,

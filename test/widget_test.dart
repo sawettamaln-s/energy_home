@@ -1,11 +1,6 @@
-// เดิมไฟล์นี้เป็นเทส counter app ตัวอย่างจาก `flutter create` ที่ไม่มีใครแก้
-// ตั้งแต่ตั้งโปรเจกต์ — พอ pump MyApp() จริง มันไปเจอ AuthGate ที่เรียก
-// FirebaseAuth.instance ตรงๆ ซึ่งพังทันทีเพราะเทสไม่มี Firebase.initializeApp()
-// (ดู `[core/no-app] No Firebase App '[DEFAULT]' has been created`)
-//
-// แก้โดยฉีด FirebaseAuth/FirestoreService ปลอมเข้า AuthGate แทน (ดู
-// lib/screens/auth/auth_gate.dart, lib/services/firestore_service.dart)
-// แล้วเทส 2 branch ของการ routing ที่ทดสอบได้แบบสมบูรณ์:
+// เทส routing ของ AuthGate โดยฉีด FirebaseAuth/FirestoreService ปลอมแทนของจริง
+// (ดู lib/screens/auth/auth_gate.dart, lib/services/firestore_service.dart)
+// เพราะเทสไม่มี Firebase.initializeApp() — ครอบ 2 branch ที่ทดสอบได้สมบูรณ์:
 //   1) ยังไม่ล็อกอิน            -> WelcomeScreen (หน้าแรกสุดของแอป)
 //   2) ล็อกอินแล้วแต่ยังไม่มีข้อมูล user -> SetupScreen
 //

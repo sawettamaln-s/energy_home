@@ -224,9 +224,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  // การ์ดรวมของแต่ละกลุ่มวันที่ — แทนที่การ์ดลอยแยกทีละรายการแบบเดิม
-  // (ที่มีเงาซ้อนกันทุกใบจนดูรก) ด้วยการ์ดเดียวมีกรอบบางๆ คั่นแต่ละแถวด้วย
-  // เส้นบาง ให้ดูเรียบและเป็นระบบมากขึ้น
+  // การ์ดรวมของแต่ละกลุ่มวันที่ — การ์ดเดียวมีกรอบบางๆ คั่นแต่ละแถวด้วย
+  // เส้นบาง (ไม่มีเงาซ้อนกันทุกรายการ) ให้ดูเรียบและเป็นระบบ
   Widget _buildDateGroupCard(List<NotificationItem> items) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
@@ -270,7 +269,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   // แถวเดียวของรายการแจ้งเตือน อยู่ภายในการ์ดกลุ่มวันที่ (ดู
   // _buildDateGroupCard) — รายการที่ยังไม่อ่านมีพื้นหลังเขียวจางไฮไลต์
-  // แทนจุดแดงเดิม ให้เห็นชัดตั้งแต่แวบแรกโดยไม่ต้องมีเงาต่อใบ
+  // ให้เห็นชัดตั้งแต่แวบแรกโดยไม่ต้องมีเงาต่อใบ
   Widget _buildNotificationRow(NotificationItem item) {
     final style = _styleForType(item.type);
     final unread = !item.isRead;

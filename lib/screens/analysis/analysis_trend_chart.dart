@@ -286,7 +286,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
 
   // จำนวนเดือนที่โชว์ในการ์ด — ข้อมูลย้อนหลังหลายปีถ้าโชว์ทั้งหมดในการ์ด
   // แคบๆ แท่งจะซ้อนกันและป้ายเดือนทับกัน ส่วนตัวเลขเทียบ/คาดการณ์ยังคำนวณ
-  // จากบิลทั้งหมดตามเดิม ดูย้อนหลังทั้งหมดได้ที่หน้าประวัติ
+  // จากบิลทั้งหมด ดูย้อนหลังทั้งหมดได้ที่หน้าประวัติ
   static const int _cardMonths = 6;
 
   String _emptyMessage(String subject) {
@@ -345,7 +345,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
     final bills =
         canExpand ? allBills.sublist(allBills.length - _cardMonths) : allBills;
 
-    // กราฟโชว์เมื่อมีบิล >= 2 เดือน (เกณฑ์เดิม) — ส่วนคาดการณ์ต่อท้ายตามนั้น
+    // กราฟโชว์เมื่อมีบิล >= 2 เดือน — ส่วนคาดการณ์ต่อท้ายตามนั้น
     // ผู้ใช้ที่มีบิลเดียวยังเห็นคาดการณ์เดือนหน้าจากการ์ดด้านบนอยู่
     final hasChart = bills.length >= 2;
     final forecasts = !hasChart
@@ -375,7 +375,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
         children: [
           // ส่วนหัวการ์ด — ชื่อการ์ดอยู่ซ้าย ปุ่ม "!" อธิบายวิธีคำนวณอยู่มุมขวาบน
           // กดที่หัวการ์ด (ไอคอน/ชื่อ) เพื่อเปิดหน้าประวัติทั้งหมดได้เช่นกัน ส่วน
-          // ตัวกราฟไม่ครอบ เพื่อให้แตะแท่งดู tooltip ได้เหมือนเดิม
+          // ตัวกราฟไม่ครอบ เพื่อให้แตะแท่งดู tooltip ได้ตามปกติ
           InkWell(
             onTap: canExpand ? _openHistoryPage : null,
             borderRadius: BorderRadius.circular(10),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/notification_service.dart';
 import 'analysis/analysis_screen.dart';
 import 'appliance/appliance_screen.dart';
 import 'dashboard/dashboard_screen.dart';
@@ -7,22 +8,14 @@ import 'settings/settings_screen.dart';
 
 /// จุดเข้าเดียวของ "แอปหลังล็อกอิน" (4 แท็บ: หน้าหลัก/วิเคราะห์/อุปกรณ์/ตั้งค่า)
 ///
-/// เดิมแต่ละแท็บเป็นคนละ Scaffold/route กัน สลับแท็บด้วย
-/// Navigator.pushReplacement ผลคือทุกครั้งที่แตะแท็บ หน้าปลายทางถูกสร้าง
-/// ใหม่ทั้งหมด -> initState ยิง fetch ข้อมูลจาก Firestore ใหม่ทุกครั้ง ->
-/// เห็น loading spinner กระพริบทุกครั้งที่สลับแท็บ ทั้งที่ข้อมูลเพิ่งโหลด
-/// ไปหมาดๆ เมื่อกี้เอง
+/// เก็บทั้ง 4 หน้าไว้ใน IndexedStack เดียว (สร้างครั้งเดียวตอนเปิด MainShell)
+/// แล้วสลับแค่ "ใครโชว์อยู่" ตัว State ของแต่ละหน้า (ข้อมูลที่โหลดมาแล้ว,
+/// scroll position, ค่าที่พิมพ์ค้างในฟอร์ม ฯลฯ) จะยังอยู่ครบเวลาสลับกลับมา
+/// ไม่ต้องโหลดซ้ำ และไม่เห็น loading spinner กระพริบทุกครั้งที่สลับแท็บ
 ///
-/// ที่นี่แก้โดยเก็บทั้ง 4 หน้าไว้ใน IndexedStack เดียว (สร้างครั้งเดียว
-/// ตอนเปิด MainShell) แล้วสลับแค่ "ใครโชว์อยู่" ตัว State ของแต่ละหน้า
-/// (ข้อมูลที่โหลดมาแล้ว, scroll position, ค่าที่พิมพ์ค้างในฟอร์ม ฯลฯ) จะยัง
-/// อยู่ครบเวลาสลับกลับมา ไม่ต้องโหลดซ้ำ
-///
-/// ผลพลอยได้: ปุ่ม back ตอนนี้พฤติกรรมถูกต้องขึ้นด้วย — เดิมเพราะสลับแท็บ
-/// ด้วย pushReplacement ทำให้ stack ไม่เก็บหน้าก่อนหน้าไว้เลย กด back จาก
-/// แท็บไหนก็มีสิทธิ์หลุดออกจากแอปทันที ตอนนี้ถ้าอยู่แท็บอื่นที่ไม่ใช่
-/// หน้าหลัก กด back จะพากลับไปแท็บหน้าหลักก่อน ต้องกด back อีกทีถึงจะออก
-/// จากแอปจริงๆ (พฤติกรรมมาตรฐานของแอปที่มี bottom nav ทั่วไป)
+/// ปุ่ม back: ถ้าอยู่แท็บอื่นที่ไม่ใช่หน้าหลัก กด back จะพากลับไปแท็บหน้าหลัก
+/// ก่อน ต้องกด back อีกทีถึงจะออกจากแอปจริงๆ (พฤติกรรมมาตรฐานของแอปที่มี
+/// bottom nav)
 class MainShell extends StatefulWidget {
   final int initialIndex;
 
@@ -43,7 +36,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _currentIndex = widget.initialIndex;
 
-  // สร้างทั้ง 4 หน้าครั้งเดียวตอน initState แล้วเก็บไว้ใน list นี้ตลอด
+  // สร้างทั้ง 4 หน้าครั้งเดียว (ตอน build ครั้งแรก) แล้วเก็บไว้ใน list นี้ตลอด
   // อายุของ MainShell — ห้ามสร้างใหม่ใน build() เด็ดขาด ไม่งั้น IndexedStack
   // จะเสียประโยชน์ (State ของแต่ละหน้าจะโดนสร้างใหม่ทุกครั้งที่ build ใหม่)
   late final List<Widget> _tabs = [
@@ -55,6 +48,17 @@ class _MainShellState extends State<MainShell> {
     ApplianceScreen(onNavTap: _onNavTap),
     SettingsScreen(onNavTap: _onNavTap),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // ขอสิทธิ์แจ้งเตือนหลังเข้าแอปแล้ว (ไม่ใช่ใน main() ก่อน runApp) เพื่อไม่ให้
+    // หน้าจอค้างรอผู้ใช้ตอบ dialog ตั้งแต่เปิดแอปครั้งแรก — ไม่ await เพราะไม่มี
+    // อะไรต้องรอผลก่อนใช้งานต่อ
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.requestPermission().catchError((_) => false);
+    });
+  }
 
   void _onNavTap(int index) {
     if (index == _currentIndex) return;

@@ -12,7 +12,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await NotificationService.instance.init();
-  await NotificationService.instance.requestPermission();
+  // ขอสิทธิ์แจ้งเตือนทำใน MainShell หลังเข้าแอปแล้ว (ไม่บล็อกหน้าแรก)
   runApp(const MyApp());
 }
 

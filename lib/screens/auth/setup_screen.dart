@@ -11,9 +11,8 @@ import '../main_shell.dart';
 
 class SetupScreen extends StatefulWidget {
   // รับ firestoreService แบบ optional เพื่อให้ AuthGate ส่ง instance ปลอมมา
-  // ตอนเทสได้ (เดิม _SetupScreenState สร้าง FirestoreService() ของจริงเอง
-  // ตรงๆ ใน field initializer ทำให้ crash ตั้งแต่ก่อน initState ด้วยซ้ำ
-  // เวลาเทสโดยไม่มี Firebase.initializeApp())
+  // ตอนเทสได้ (ถ้าไม่ส่งมาจะสร้าง FirestoreService() ของจริง ซึ่งต้องมี
+  // Firebase.initializeApp() ก่อน)
   const SetupScreen({super.key, FirestoreService? firestoreService})
       : _firestoreService = firestoreService;
 
@@ -29,13 +28,11 @@ class _SetupScreenState extends State<SetupScreen> {
 
   int _currentStep = 0;
   // 2 ขั้นตอนเสมอ: เลือกพื้นที่+สูตรคำนวณ / ประเภทมิเตอร์
-  // ขั้น "วันตัดรอบบิล" และ "ค่ามิเตอร์ตามใบแจ้งหนี้" ไม่อยู่ในเซตอัพแล้ว
-  // (ไปกรอกที่หน้าตั้งค่าแทน) ตัวแปรด้านล่างนี้จึงเป็นค่าเริ่มต้นเสมอ
-  // (billingDay = null → fallback 30, start meter = ยังไม่ตั้ง)
+  // วันตัดรอบบิลและค่ามิเตอร์ต้นรอบไม่ได้ตั้งในเซตอัพ (ไปกรอกที่หน้าตั้งค่า)
+  // จึงใช้ค่าเริ่มต้น: billingDay = 30, start meter = ยังไม่ตั้ง
   static const int _totalSteps = 2;
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
-  final int? _selectedBillingDay = null;
   final int _selectedStartMonth = DateTime.now().month;
   final int _selectedStartYear = DateTime.now().year;
 
@@ -55,7 +52,7 @@ class _SetupScreenState extends State<SetupScreen> {
         email: user.email ?? '',
         area: _selectedArea,
         meterType: _selectedMeterType,
-        billingDay: _selectedBillingDay ?? 30,
+        billingDay: 30,
         startElectricityValue: 0,
         startWaterValue: 0,
         startPeakValue: 0,
@@ -63,27 +60,25 @@ class _SetupScreenState extends State<SetupScreen> {
         startMeterConfigured: false,
         electricityStartConfigured: false,
         waterStartConfigured: false,
-        // _selectedBillingDay เป็น null เสมอ (ขั้นนี้ไม่อยู่ในเซตอัพแล้ว)
-        // เงื่อนไขนี้จึงเป็น false เสมอ — คงไว้เผื่อเอาขั้นนี้กลับมาใช้อีก
-        billingDayConfigured: _selectedBillingDay != null,
+        // วันตัดรอบบิลยังไม่ได้ตั้ง (ใช้ 30 ไปก่อน) ผู้ใช้เลือกเองภายหลังที่
+        // หน้าตั้งค่า
+        billingDayConfigured: false,
         startBillingMonth: _selectedStartMonth,
         startBillingYear: _selectedStartYear,
       );
 
       await _firestoreService.createUser(userModel);
 
-      // แจ้งเตือนต้อนรับ — ย้ายมาไว้ตรงนี้แทน Dashboard.initState()
-      // เพราะ _saveSetup() รันแค่ครั้งเดียวจริงๆ ต่อบัญชี (เฉพาะตอนบัญชีใหม่
-      // ทำ setup เสร็จครั้งแรก ปุ่มกดถูก disable ระหว่าง _isLoading กันกด
-      // ซ้ำอยู่แล้ว) ไม่ต้องพึ่ง flag เครื่องแบบเดิมที่ผูกผิดกับ device
-      // ไม่ใช่บัญชี
+      // แจ้งเตือนต้อนรับ — ยิงที่นี่เพราะ _saveSetup() รันแค่ครั้งเดียวจริงๆ ต่อ
+      // บัญชี (ตอนบัญชีใหม่ทำ setup เสร็จ ปุ่มกดถูก disable ระหว่าง _isLoading
+      // กันกดซ้ำ) ไม่ผูกกับ flag ของเครื่อง หรือ Dashboard.initState() ที่รัน
+      // ทุกครั้งที่เข้าหน้า
       await NotificationService.instance.notifyWelcome();
 
       if (!mounted) return;
 
-      // เซตอัพจบแค่ 2 ขั้นตอนนี้เสมอ วันตัดรอบบิล/ค่ามิเตอร์ยังไม่ตั้งทุก
-      // บัญชี → แวะหน้าสรุปเพื่อจูงไปตั้งค่าต่อเสมอ (เหมือน path เดิมตอน
-      // กดข้ามทั้งคู่)
+      // เซตอัพจบแค่ 2 ขั้นตอนนี้เสมอ วันตัดรอบบิล/ค่ามิเตอร์ยังไม่ตั้งทุกบัญชี →
+      // แวะหน้าสรุปเพื่อจูงไปตั้งค่าต่อเสมอ
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => const MainShell(justCompletedSetup: true),
@@ -187,7 +182,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
   // ขั้นรวม: ส่วนที่ 1 เลือกพื้นที่ + ส่วนที่ 2 อธิบายสูตรคำนวณแบบภาพรวม
   // (ไม่ลงรายละเอียดปกติ/TOU ตรงนี้ เพราะยังไม่เลือกในขั้นตอนนี้ — รายละเอียด
-  // แยกตามประเภทมิเตอร์ย้ายไปอยู่ในหน้าเลือกประเภทมิเตอร์แทนแล้ว)
+  // แยกตามประเภทมิเตอร์อยู่ในหน้าเลือกประเภทมิเตอร์)
   Widget _buildAreaAndRateExplanationStep() {
     final isBangkok = _selectedArea == 'bangkok';
 
@@ -271,15 +266,14 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // popup อธิบายข้อมูล — ใช้ widget กลาง showInfoDialog (เดิมมีโค้ดซ้ำในนี้)
+  // popup อธิบายข้อมูล — ใช้ widget กลาง showInfoDialog
   void _showInfoPopup(String title, String message) {
     showInfoDialog(context, title: title, message: message);
   }
 
   // หัวข้อของแต่ละ step — ใช้โครงเดียวกันทั้ง 2 หน้า: ไอคอนกล่องสีเขียว +
   // หัวข้อ + คำอธิบายสั้น 1 บรรทัด + ปุ่ม "?" (ถ้ามีอะไรอธิบายเพิ่ม เปิด
-  // popup เดียวกับที่ใช้ในหน้าตั้งค่า) แทนที่จะโชว์คำอธิบายยาวเต็มหน้าแบบ
-  // เดิมที่แต่ละ step ทำคนละสไตล์กัน
+  // popup เดียวกับที่ใช้ในหน้าตั้งค่า)
   Widget _buildStepHeader({
     required IconData icon,
     required String title,

@@ -9,12 +9,10 @@ import '../screens/settings/settings_screen.dart';
 /// บาร์ล่างแบบ floating pill ใช้ร่วมกันทุกหน้า (หน้าหลัก/วิเคราะห์/อุปกรณ์/ตั้งค่า)
 ///
 /// [onTap] — ถ้ามีมาจาก MainShell (ทางเข้าปกติของแอปหลัง login) จะแค่
-/// setState สลับ index ใน IndexedStack ไม่มีการสร้างหน้าใหม่/โหลดข้อมูลซ้ำ
-/// เลย ตัดปัญหาเดิมที่ทุกครั้งที่สลับแท็บ หน้าปลายทางจะถูกสร้างใหม่ทั้งหมด
-/// ทำให้ initState ยิง fetch Firestore ซ้ำ + เห็น loading spinner วูบทุกครั้ง
+/// setState สลับ index ใน IndexedStack ไม่มีการสร้างหน้าใหม่/โหลดข้อมูลซ้ำเลย
 ///
 /// ถ้าไม่มี [onTap] (เช่นหน้าที่ถูก push ตรงๆ แยกจาก MainShell) จะ fallback
-/// กลับไปใช้ pushReplacement แบบเดิม กันไม่ให้พังในเคสที่ยังไม่ได้ผ่าน shell
+/// ไปใช้ pushReplacement กันไม่ให้พังในเคสที่ยังไม่ได้ผ่าน shell
 class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
@@ -40,14 +38,14 @@ class AppBottomNavBar extends StatelessWidget {
     if (index == currentIndex) return; // อยู่หน้านี้อยู่แล้ว ไม่ต้องทำอะไร
 
     // ทางหลัก: มาจาก MainShell -> แค่สลับ index ใน IndexedStack ไม่มีการ
-    // สร้างหน้าใหม่/ยิง fetch ซ้ำ/เห็น loading กระพริบเหมือนเดิมอีกต่อไป
+    // สร้างหน้าใหม่/ยิง fetch ซ้ำ/เห็น loading กระพริบ
     if (onTap != null) {
       onTap!(index);
       return;
     }
 
     // Fallback: เผื่อหน้าไหนถูก push ตรงๆ แยกออกมาจาก MainShell (ไม่มี
-    // onTap ส่งมาให้) ใช้ pushReplacement แบบเดิมกันไว้ไม่ให้พัง
+    // onTap ส่งมาให้) ใช้ pushReplacement กันไว้ไม่ให้พัง
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: _destinations[index]!),

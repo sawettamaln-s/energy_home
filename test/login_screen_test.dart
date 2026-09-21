@@ -10,8 +10,8 @@
 //   3) ไม่พบบัญชี (code: user-not-found) -> ข้อความ error อีกแบบ
 //
 // mock exception ใช้ whenCalling(...).on(...).thenThrow(...) จากแพ็กเกจ
-// mock_exceptions (firebase_auth_mocks เวอร์ชัน >= 0.10.0 เปลี่ยนมาใช้ pattern
-// นี้แทน AuthExceptions เดิม ดู CHANGELOG ของ firebase_auth_mocks)
+// mock_exceptions (firebase_auth_mocks เวอร์ชัน >= 0.10.0 ใช้ pattern นี้
+// แทน AuthExceptions ดู CHANGELOG ของ firebase_auth_mocks)
 import 'package:energy_home/screens/auth/login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';

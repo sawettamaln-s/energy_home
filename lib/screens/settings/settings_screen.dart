@@ -184,10 +184,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // เดิม "ออกจากระบบ" กดแล้วไม่ออก เพราะ main.dart มี StreamBuilder ฟัง authStateChanges()
-  // อยู่ที่ root แต่พอ push ไปหน้าอื่นมันไปแทนที่ StreamBuilder นั้นในสแต็กเลย เหลือไม่มี
-  // อะไรฟัง auth state — ต้อง push ไปที่ AuthGate() (มี StreamBuilder ของตัวเอง) พร้อมเคลียร์
-  // ประวัติหน้าจอทิ้งทั้งหมด (pushAndRemoveUntil) ไม่ใช่ push ไป LoginScreen() เปล่าๆ
+  // ออกจากระบบด้วย push ไปที่ AuthGate() (มี StreamBuilder ฟัง authStateChanges()
+  // ของตัวเอง) พร้อมเคลียร์ประวัติหน้าจอทิ้งทั้งหมด (pushAndRemoveUntil) — ไม่ใช้
+  // push ไป LoginScreen() เปล่าๆ เพราะเมื่อ push ไปหน้าอื่น StreamBuilder ที่ root
+  // ถูกแทนที่ในสแต็ก ทำให้ไม่มีอะไรฟัง auth state เหลืออยู่
   Future<void> _confirmSignOut() async {
     final confirmed = await showConfirmDialog(
       context,
@@ -585,8 +585,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _showEditBillingDay(),
           ),
           const Divider(height: 1, indent: 56),
-          // เดิมกดแล้วเด้ง dialog กรอกค่าอย่างเดียว ตอนนี้รวมกับหน้าประวัติ
-          // เป็นหน้าเดียวแล้ว (มีปุ่ม + ในหน้านั้นสำหรับเพิ่มค่าใหม่)
+          // หน้าเดียวรวมประวัติ + เพิ่มค่าใหม่ (มีปุ่ม + ในหน้านั้น)
           _buildSettingsTile(
             icon: Icons.history,
             title: 'บันทึกเลขมิเตอร์ประจำเดือน',
@@ -595,8 +594,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _showStartMeterHistory(),
           ),
           const Divider(height: 1, indent: 56),
-          // ย้ายมาจากหมวด "ข้อมูลและบิล" — สลับที่กับ "ประวัติค่ามิเตอร์
-          // ต้นรอบ" ที่ย้ายไปอยู่หมวดนั้นแทน
           _buildSettingsTile(
             icon: Icons.receipt_long,
             title: 'เพิ่มบิลเดือนเก่าเข้าระบบ',
@@ -1046,8 +1043,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () async {
-                          // ครั้งแรกสุดที่ user ตั้งวันตัดรอบเอง (เดิมยังไม่เคย
-                          // ตั้ง) เช็คไว้ก่อน updateUser() ด้านล่างจะเขียนทับค่านี้
+                          // ครั้งแรกสุดที่ user ตั้งวันตัดรอบเอง — เช็คไว้ก่อน
+                          // updateUser() ด้านล่างจะเขียนทับค่านี้
                           final wasUnconfigured =
                               _user?.billingDayConfigured == false;
 
@@ -1168,9 +1165,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // เดิม Fixed Cost เป็นช่องกรอกยอดเดียว เปลี่ยนเป็นหน้าแยกที่บันทึกเป็นรายการย่อยได้
-  // (ค่าแก๊ส, อินเทอร์เน็ต ฯลฯ) — ดู _FixedCostScreen ยอดรวมยัง sync เข้า _user.fixedCost
-  // เหมือนเดิม เลย reload _loadUser() ทุกครั้งที่กลับจากหน้านั้น
+  // Fixed Cost เป็นหน้าแยกที่บันทึกเป็นรายการย่อยได้ (ค่าแก๊ส, อินเทอร์เน็ต
+  // ฯลฯ) — ดู _FixedCostScreen ยอดรวม sync เข้า _user.fixedCost อยู่แล้ว เลย
+  // reload _loadUser() ทุกครั้งที่กลับจากหน้านั้น
   Future<void> _showEditFixedCost() async {
     await Navigator.push(
       context,

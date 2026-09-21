@@ -18,10 +18,10 @@ import 'notification_screen.dart';
 import 'record_meter_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  // true เฉพาะตอนเพิ่ง push มาจาก setup_screen/setup_complete_screen หลัง
-  // สมัครสมาชิกเสร็จหมาดๆ ใช้กันไม่ให้แจ้งเตือนหลายๆ อย่างยิง popup รัว
-  // พร้อมกันตั้งแต่เปิดแอปครั้งแรก (ยังเห็นแค่ welcome พอ ที่เหลือถ้ามี
-  // จะถูกบันทึกเงียบๆ ไว้ในหน้าแจ้งเตือนแทน ไปดูเองได้)
+  // true เฉพาะตอนเพิ่ง setup เสร็จหมาดๆ (MainShell ส่งต่อมาจาก setup_screen) ใช้
+  // กันไม่ให้แจ้งเตือนหลายๆ อย่างยิง popup รัวพร้อมกันตั้งแต่เปิดแอปครั้งแรก
+  // (ยังเห็นแค่ welcome พอ ที่เหลือถ้ามีจะถูกบันทึกเงียบๆ ไว้ในหน้าแจ้งเตือนแทน
+  // ไปดูเองได้)
   final bool justCompletedSetup;
 
   // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
@@ -70,6 +70,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double _lastMonthWaterCost = 0;
 
   bool _isLoading = true;
+
+  // true = โหลดข้อมูลไม่สำเร็จ (ออฟไลน์/Firestore error) → โชว์หน้า "ลองใหม่"
+  // แทนตัวเลข 0 เงียบๆ ที่ทำให้ผู้ใช้เข้าใจผิดว่าข้อมูลหาย
+  bool _loadFailed = false;
   int _unreadNotifications =
       0; // จำนวนแจ้งเตือนที่ยังไม่อ่าน (badge ที่ปุ่มกระดิ่ง)
 
@@ -91,11 +95,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // โชว์คู่มือเริ่มต้นใช้งาน (เฉพาะครั้งแรกที่เข้า Dashboard เท่านั้น)
     // ใช้ addPostFrameCallback เพื่อรอให้ widget tree พร้อมก่อนเปิด dialog
     //
-    // หมายเหตุ: ย้าย notifyWelcome() ไปไว้ที่ setup_screen.dart แทนแล้ว
-    // เพราะที่นี่ (Dashboard.initState) รันทุกครั้งที่เข้า Dashboard
-    // (ทั้ง login เก่าและใหม่) ทำให้แจ้งเตือนต้อนรับเด้งซ้ำผิดจุดประสงค์
-    // ที่ setup_screen.dart จะรันแค่ครั้งเดียวจริงๆ ตอนบัญชีใหม่ทำ setup
-    // เสร็จครั้งแรกเท่านั้น
+    // หมายเหตุ: notifyWelcome() ยิงที่ setup_screen.dart (ไม่ใช่ที่นี่) เพราะ
+    // Dashboard.initState รันทุกครั้งที่เข้าหน้านี้ (ทั้ง login เก่าและใหม่)
+    // ขณะที่ setup_screen.dart รันแค่ครั้งเดียวตอนบัญชีใหม่ทำ setup เสร็จ
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OnboardingGuide.showIfFirstTime(context);
     });
@@ -154,7 +156,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // โหลดข้อมูล: user, log ล่าสุด, log เดือนนี้, ปิดบิลเดือนก่อนถ้ายังไม่ปิด
   // =====================================================================
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
     // เงียบเฉพาะโหลดรอบแรกจริงๆ หลังสมัครสมาชิกเสร็จ — รอบถัดไป (pull-to-
     // refresh, กลับมาเปิดแอปใหม่) ยิง popup ตามปกติ
     final bool silentThisLoad = widget.justCompletedSetup && _isFirstLoad;
@@ -191,12 +196,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       // ----- Backfill รอบบิลที่ขาดหายไปก่อนหน้า prevCycleStart -----
-      // เดิมโค้ดเช็ค/compile แค่ "รอบก่อนหน้าล่าสุด" รอบเดียว ถ้า user ไม่ได้
-      // เปิดแอปข้าม 2-3 รอบบิลติดกัน รอบที่อยู่ตรงกลางจะไม่มีใครไป compile ให้
-      // เลย เพราะฟังก์ชันนี้ไม่เคยถูกเรียกระหว่างช่วงนั้น ไล่ย้อนต่อจาก
-      // prevCycleStart ไปเรื่อยๆ จนกว่าจะ (1) เจอบิลที่ compile ไว้แล้ว
-      // (แปลว่าตามทันประวัติแล้ว) หรือ (2) ย้อนไปถึงเดือนที่ user เริ่มตั้งค่า
-      // ระบบครั้งแรก (startBillingMonth/Year) หรือ (3) ชนเพดานความปลอดภัย
+      // ถ้า user ไม่ได้เปิดแอปข้าม 2-3 รอบบิลติดกัน รอบที่อยู่ตรงกลางจะไม่มีใครไป
+      // compile ให้ ที่นี่จึงไล่ย้อนต่อจาก prevCycleStart ไปเรื่อยๆ จนกว่าจะ
+      // (1) เจอบิลที่ compile ไว้แล้ว (แปลว่าตามทันประวัติแล้ว) หรือ (2) ย้อนไปถึง
+      // เดือนที่ user เริ่มตั้งค่าระบบครั้งแรก (startBillingMonth/Year) หรือ
+      // (3) ชนเพดานความปลอดภัย
       // รอบไหนไล่ compile แล้วไม่มี log เลย (user ไม่ได้บันทึกจริงๆ ในรอบนั้น)
       // จะถูกเก็บไว้แจ้งเตือน ไม่ใช่ปล่อยให้หายไปเงียบๆ
       final missedCycles = <String>[];
@@ -258,8 +262,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       // ดึงยอดบิลเดือนก่อน (ที่ปิดไปแล้ว) มาเทียบ "พุ่งขึ้น/ลดลง"
       // ใช้ getLatestBill() ที่ query เฉพาะบิลล่าสุดตัวเดียวจาก Firestore
-      // โดยตรง (orderBy yearMonth + limit 1) แทนการโหลดบิลทั้งหมดมาเรียง
-      // เองฝั่ง client แบบเดิม — ยิ่งมีบิลสะสมมากขึ้นเรื่อยๆ ยิ่งประหยัดขึ้น
+      // โดยตรง (orderBy yearMonth + limit 1) ไม่โหลดบิลทั้งหมดมาเรียงฝั่ง client
+      // — ยิ่งมีบิลสะสมมากขึ้นเรื่อยๆ ยิ่งประหยัด
       try {
         final latestBill = await _firestoreService.getLatestBill(uid);
         if (latestBill != null) {
@@ -350,7 +354,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _unreadNotifications =
           await NotificationService.instance.getUnreadCount();
     } catch (e) {
-      debugPrint('Error: $e');
+      debugPrint('Error loading dashboard: $e');
+      _loadFailed = true;
     } finally {
       _isFirstLoad = false;
       if (mounted) setState(() => _isLoading = false);
@@ -385,10 +390,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // ----- ค่าเฉลี่ย "บาท/วัน" จริง -----
     // ห้ามเอา dailyUsage (หน่วย/วัน) ไปบวกกับ currentTotal (บาท) ตรง ๆ ผ่าน
-    // EnergyForecaster.forecastCurrentMonth เพราะยอดคาดการณ์จะไม่ใช่ "บาท"
-    // จริง (หน่วยคนละอย่างกัน) ต้องคำนวณผลต่างของ cost สะสม (field `cost`
-    // ใน log เป็นค่าสะสมจากต้นรอบเหมือน usedFromStart) ระหว่างแต่ละครั้งที่
-    // บันทึก ให้ได้ "บาทที่เพิ่มขึ้นต่อช่วง" จริง ๆ ก่อนป้อนเข้า movingAverage
+    // EnergyForecaster.movingAverage เพราะยอดคาดการณ์จะไม่ใช่ "บาท" จริง
+    // (หน่วยคนละอย่างกัน) ต้องคำนวณผลต่างของ cost สะสม (field `cost` ใน log
+    // เป็นค่าสะสมจากต้นรอบเหมือน usedFromStart) ระหว่างแต่ละครั้งที่บันทึก
+    // ให้ได้ "บาทที่เพิ่มขึ้นต่อช่วง" จริง ๆ ก่อนป้อนเข้า movingAverage
     final dailyElectricityCost =
         _dailyCostDeltas(_electricityLogs.map((l) => l.cost).toList());
     final dailyWaterCost =
@@ -439,6 +444,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (mounted) setState(() => _unreadNotifications = count);
   }
 
+  // แสดงแทนเนื้อหาหลักเมื่อโหลดข้อมูลไม่สำเร็จ — มีปุ่มลองใหม่
+  Widget _buildLoadErrorView() {
+    return SafeArea(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_off_outlined,
+                  size: 56, color: Colors.grey.shade500),
+              const SizedBox(height: 16),
+              const Text(
+                'โหลดข้อมูลไม่สำเร็จ',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้งค่ะ',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 14, height: 1.5, color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loadData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DashboardStyles.primaryGreen,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('ลองใหม่'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
@@ -457,7 +506,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? const Center(
               child: CircularProgressIndicator(
                   color: DashboardStyles.primaryGreen))
-          : SafeArea(
+          : _loadFailed
+              ? _buildLoadErrorView()
+              : SafeArea(
               child: RefreshIndicator(
                 onRefresh: _loadData,
                 color: DashboardStyles.primaryGreen,
@@ -503,11 +554,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 10),
                       ],
 
-                      // การ์ดไฟฟ้ากับน้ำอยู่คู่กันแบบ Row ซ้าย-ขวา — ไม่มีช่อง
-                      // กรอกอยู่ในการ์ดเองแล้ว (ย้ายไปหน้าเต็มจอ
-                      // RecordMeterScreen หมด) การ์ดตรงนี้เหลือแค่โชว์สรุป
-                      // ค่าล่าสุด/ต้นรอบ + ปุ่มเดียวพาไปหน้าบันทึก ใช้
-                      // IntrinsicHeight ให้การ์ดไฟ (TOU โชว์ 2 บรรทัดสรุป)
+                      // การ์ดไฟฟ้ากับน้ำอยู่คู่กันแบบ Row ซ้าย-ขวา — การ์ดแค่โชว์สรุป
+                      // ค่าล่าสุด/ต้นรอบ + ปุ่มเดียวพาไปหน้าบันทึก (RecordMeterScreen)
+                      // ใช้ IntrinsicHeight ให้การ์ดไฟ (TOU โชว์ 2 บรรทัดสรุป)
                       // กับการ์ดน้ำ (1 บรรทัด) สูงเท่ากัน — เช็ค
                       // startMeterConfigured ของแต่ละฝั่งแยกกัน (ดู
                       // UserModel) ถ้ายังไม่ได้ตั้งเลยสักอย่าง โชว์การ์ดเต็ม
@@ -794,12 +843,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          // ยอดคาดการณ์สิ้นเดือน — รวมไฟฟ้า+น้ำ แปะเป็น pill จางๆ บนพื้น
-          // เขียวเดิม ให้เห็นตัวเลขปลายทางไม่ต้องรอเลื่อนไปหน้าวิเคราะห์
-          // ถ้ายังไม่มีข้อมูลพอคำนวณอัตรา (_hasForecastData == false) ไม่โชว์
-          // เป็นตัวเลขคาดการณ์เป๊ะๆ (จะเท่ากับยอดปัจจุบันพอดีซึ่งดูเหมือน
-          // ระบบฟันธงว่าใช้เท่านี้พอ ทั้งที่จริงยังไม่มีอัตราการใช้มาคำนวณ)
-          // เปลี่ยนเป็นข้อความจางๆ บอกตรงๆ ว่าต้องบันทึกอีกอย่างน้อย 1 ครั้ง
+          // ยอดคาดการณ์สิ้นเดือน — รวมไฟฟ้า+น้ำ แปะเป็น pill จางๆ บนพื้นเขียว
+          // ให้เห็นตัวเลขปลายทางไม่ต้องรอเลื่อนไปหน้าวิเคราะห์ ถ้ายังไม่มีข้อมูล
+          // พอคำนวณอัตรา (_hasForecastData == false) จะไม่โชว์เป็นตัวเลขคาดการณ์
+          // (เพราะจะเท่ากับยอดปัจจุบันพอดี ดูเหมือนระบบฟันธงว่าใช้เท่านี้พอ ทั้งที่
+          // ยังไม่มีอัตราการใช้มาคำนวณ) แต่โชว์ข้อความจางๆ บอกตรงๆ ว่าต้องบันทึก
+          // อีกอย่างน้อย 1 ครั้ง
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -835,11 +884,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  // -------------------------------------------------------------------
-  // บาร์ล่าง — ย้ายไปเป็น widget กลางที่ใช้ร่วมกันทุกหน้าแล้ว
-  // ดู lib/widgets/app_bottom_nav_bar.dart
-  // -------------------------------------------------------------------
 
   // =====================================================================
   // แบนเนอร์เล็กเตือนให้ตั้งวันตัดรอบบิล — ต่างจาก
@@ -1261,10 +1305,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // =====================================================================
-  // การ์ดสรุปมิเตอร์ (ไฟฟ้า/น้ำ) — แทนที่การ์ดกรอกเลขเดิมทั้งหมด (ทั้ง
-  // มิเตอร์ปกติและ TOU) ตัวการ์ดเองไม่มีช่องกรอกแล้ว มีแค่โชว์ค่าล่าสุด/
-  // ต้นรอบ แล้วกดปุ่มเดียวพาไปหน้าเต็มจอ RecordMeterScreen แทน (ดูเหตุผล
-  // ที่ย้ายออกมาที่ท้ายไฟล์ record_meter_screen.dart)
+  // การ์ดสรุปมิเตอร์ (ไฟฟ้า/น้ำ) — ไม่มีช่องกรอกในการ์ด มีแค่โชว์ค่าล่าสุด/
+  // ต้นรอบ แล้วกดปุ่มเดียวพาไปหน้าเต็มจอ RecordMeterScreen (ดูเหตุผลที่แยก
+  // หน้าออกไปที่ท้ายไฟล์ record_meter_screen.dart)
   // =====================================================================
   // แถวเดียวของการ์ด TOU: ป้าย On-Peak/Off-Peak ทางซ้าย ค่าล่าสุดตัวหนา
   // ตามด้วยต้นรอบสีจางแบบ "/ต้นรอบ" ทางขวา — ให้เห็นต้นรอบเทียบเคียงค่า

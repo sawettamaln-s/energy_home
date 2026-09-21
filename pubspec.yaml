@@ -10,12 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # ของเดิมที่มีอยู่แล้ว (firebase_auth, cloud_firestore, fl_chart, ฯลฯ) คงไว้เหมือนเดิม
-
-  # ----- เพิ่มสำหรับระบบแจ้งเตือน -----
+  # ----- แจ้งเตือน -----
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4          # ใช้คำนวณเวลาสำหรับ scheduled notification
-  permission_handler: ^11.3.1  # ขอสิทธิ์แจ้งเตือนบน Android 13+ / iOS
+  permission_handler: ^11.3.1  # ขอสิทธิ์แจ้งเตือนบน Android 13+
 
   # Firebase
   firebase_core: ^3.6.0
@@ -44,8 +42,7 @@ dev_dependencies:
   fake_cloud_firestore: ^3.1.0
   # ใช้คู่กับ firebase_auth_mocks สำหรับ whenCalling(...).on(...).thenThrow(...)
   # (จำลอง FirebaseAuthException ตอนเทส เช่น wrong-password, user-not-found)
-  # เดิมเป็นแค่ transitive dependency ผ่าน firebase_auth_mocks อยู่แล้ว ประกาศ
-  # ตรงๆ ไว้ให้ import ได้ถูกต้องตามหลัก ไม่ใช่พึ่ง transitive resolution เฉยๆ
+  # ประกาศตรงๆ เพราะเทส import โดยตรง (ไม่พึ่ง transitive dependency)
   mock_exceptions: ^0.8.2
 
 flutter:

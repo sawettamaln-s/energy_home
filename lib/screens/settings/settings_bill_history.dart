@@ -348,10 +348,10 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   // บิลมาหรือยัง (validation) และโชว์ยอดไฟ+น้ำแยกในพรีวิว
   double get _total => _eCost + _wCost;
 
-  // แก้บั๊ก: totalCost ต้องรวม fixedCost ที่ active จริงในเดือนที่กำลังกรอก
-  // (ไม่ใช่ user.fixedCost ซึ่งเป็น cache ของ "วันนี้" เท่านั้น) เดิมใช้ค่านั้น
-  // ตรงๆ ทำให้บิลย้อนหลังได้ fixedCost ผิดถ้ารายการ fixed cost เปลี่ยน/หมดอายุ
-  // ไปตั้งแต่เดือนนั้น — ตอนนี้โหลดจาก _loadFixedCostForSelectedMonth() แทน
+  // totalCost ต้องรวม fixedCost ที่ active จริงในเดือนที่กำลังกรอก (ไม่ใช่
+  // user.fixedCost ซึ่งเป็น cache ของ "วันนี้" เท่านั้น ไม่งั้นบิลย้อนหลังจะได้
+  // fixedCost ผิดถ้ารายการเปลี่ยน/หมดอายุไปตั้งแต่เดือนนั้น) — โหลดจาก
+  // _loadFixedCostForSelectedMonth()
   double get _fixedCost => _fixedCostForSelectedMonth;
   double get _totalWithFixedCost => _total + _fixedCost;
 
@@ -507,8 +507,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
               Text(label,
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 14)),
-              // ปุ่ม info ย้ายมารวมไว้ตรงนี้จุดเดียว (เดิมติดกับ label ช่อง "หน่วยที่ใช้"
-              // ทำให้หายไปฝั่งไฟฟ้าตอนเป็น TOU เพราะสลับไปใช้ TouPairedUnitsField แทน)
+              // ปุ่ม info อยู่ที่หัวการ์ดจุดเดียว (ไม่ผูกกับ label ช่อง "หน่วยที่ใช้"
+              // เพราะฝั่งไฟฟ้าตอนเป็น TOU ใช้ TouPairedUnitsField แทน)
               if (onInfoTap != null) ...[
                 const SizedBox(width: 4),
                 GestureDetector(
@@ -726,7 +726,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       label: 'ไฟฟ้า',
                       accentColor: DashboardStyles.electricityBorder,
                       icon: Icons.bolt,
-                      // info ย้ายมาไว้ที่หัวการ์ดจุดเดียว ใช้ได้ทั้ง TOU และไม่ใช่ TOU
+                      // info อยู่ที่หัวการ์ดจุดเดียว ใช้ได้ทั้ง TOU และไม่ใช่ TOU
                       onInfoTap: () => _showUsageInfoPopup(
                           'หน่วยที่ใช้เดือนนี้ (ไฟ)', 'kWh',
                           isElectricity: true),
@@ -1000,8 +1000,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   }
 }
 
-// วิดเจ็ตหัวข้อย่อยที่ใช้ร่วมกันใน info popup หลายหน้า (แทนอิโมจินำหน้า
-// ข้อความแบบเดิม ให้ใช้ไอคอนจริงแทนเพื่อความสม่ำเสมอกันทั้งแอป)
+// วิดเจ็ตหัวข้อย่อยที่ใช้ร่วมกันใน info popup หลายหน้า (ใช้ไอคอนจริงแทน
+// อิโมจิ เพื่อความสม่ำเสมอกันทั้งแอป)
 Widget _infoSectionHeader(String label, {IconData icon = Icons.checklist_rounded}) {
   return Row(
     children: [
@@ -1016,7 +1016,7 @@ Widget _infoSectionHeader(String label, {IconData icon = Icons.checklist_rounded
   );
 }
 
-// กล่องข้อควรระวัง — แทนที่การขึ้นต้นด้วย "⚠️" ในข้อความเดิม
+// กล่องข้อควรระวัง
 Widget _infoWarningBox(String text) {
   return Container(
     padding: const EdgeInsets.all(10),

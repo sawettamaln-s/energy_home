@@ -1,8 +1,8 @@
-// เทสยืนยันบั๊กที่แก้ไปใน compileBill() (lib/services/firestore_service.dart):
-// เดิมบิลที่ระบบ auto-compile ให้ตอนปิดรอบบิล (source: 'compiled') ไม่เคยเซ็ต
-// electricityPeakUsed/electricityOffPeakUsed เลยสำหรับมิเตอร์ TOU (มีแต่
-// usedElec ยอดรวม) ทำให้กราฟ On-Peak/Off-Peak ในหน้าวิเคราะห์ว่างเปล่าสำหรับ
-// บิลส่วนใหญ่ที่เกิดขึ้นจริงในแอป — เทสชุดนี้ครอบ 3 เคสหลัก:
+// เทสยืนยันการคำนวณของ compileBill() (lib/services/firestore_service.dart):
+// บิลที่ระบบ auto-compile ให้ตอนปิดรอบบิล (source: 'compiled') ต้องเซ็ต
+// electricityPeakUsed/electricityOffPeakUsed สำหรับมิเตอร์ TOU (ไม่ใช่มีแต่
+// usedElec ยอดรวม) ไม่งั้นกราฟ On-Peak/Off-Peak ในหน้าวิเคราะห์จะว่างเปล่า —
+// เทสชุดนี้ครอบ 3 เคสหลัก:
 //   1) มิเตอร์ TOU + มีการใช้จริง -> ต้องคำนวณ peak/offpeak used ให้ถูกต้อง
 //   2) มิเตอร์ปกติ (ไม่ใช่ TOU) -> ต้อง "ไม่" ไปยุ่งกับ field พวกนี้ ต้องยังเป็น
 //      0 เหมือนพฤติกรรมเดิม (regression guard กันไม่ให้กระทบ user ปกติ)
@@ -151,7 +151,7 @@ void main() {
 
     // รายการที่ active เฉพาะช่วง มิ.ย. 2026 (รอบที่กำลัง compile) เท่านั้น —
     // สิ้นสุดก่อนเดือนปัจจุบันจริง (วันที่รันเทส) จึงไม่ถูกนับใน
-    // _user.fixedCost ที่ cache ไว้แบบเดิมถ้ายังอิงเดือนปัจจุบัน
+    // _user.fixedCost ที่ cache ไว้ (ถ้ายังอิงเดือนปัจจุบัน)
     await service.saveFixedCostItem(FixedCostItemModel(
       id: 'item-june-only',
       uid: uid,

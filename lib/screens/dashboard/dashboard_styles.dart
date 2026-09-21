@@ -62,7 +62,7 @@ class DashboardStyles {
 
   // ---------- Text style ที่ใช้บ่อย ----------
   static const TextStyle greeting = TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: textDark);
-  // ฟอนต์ขาวแบบเดิม อ่านออกได้เพราะ chip พื้นหลังทึบขึ้น (ดู pageHighlight
+  // ฟอนต์ขาว อ่านออกได้เพราะ chip พื้นหลังทึบ (ดู pageHighlight
   // header chip ใน dashboard_screen.dart) — ไม่ต้องพึ่งสีตัวอักษรเข้ม
   static const TextStyle subGreeting = TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500);
   static const TextStyle sectionTitle = TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark);

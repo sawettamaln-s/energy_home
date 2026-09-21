@@ -73,10 +73,9 @@ class ExcelStyleTable extends StatelessWidget {
               child: Padding(
                 // ช่องว่างกันหัวข้อชนกัน — ข้อความไทยส่วนใหญ่ไม่มีจุดตัดคำ
                 // (ไม่มีเว้นวรรค) ทำให้ Text ขึ้นบรรทัดใหม่เองไม่ได้เวลาคอลัมน์
-                // แคบ แล้วล้นทับคอลัมน์ข้างๆ (เคยเจอปัญหานี้กับหัวข้อ
-                // "หน่วยที่ใช้(รวม)" ชนกับ "Off-Peak" มาแล้ว) เพิ่ม padding +
-                // maxLines/ellipsis กันไว้เป็น safety net ระดับ widget กลาง
-                // เผื่อหัวข้อยาวๆ ในอนาคตจะได้ไม่ล้นซ้ำอีก
+                // แคบ แล้วล้นทับคอลัมน์ข้างๆ (เช่น "หน่วยที่ใช้(รวม)" ชนกับ
+                // "Off-Peak") — padding + maxLines/ellipsis เป็น safety net
+                // ระดับ widget กลาง กันหัวข้อยาวๆ ล้น
                 padding: const EdgeInsets.only(left: 4),
                 child: Text(
                   c.label,

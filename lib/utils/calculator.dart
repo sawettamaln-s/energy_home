@@ -79,7 +79,7 @@ class EnergyCalculator {
         (peakUnits * touPeakRate) + (offPeakUnits * touOffPeakRate);
     // ค่าบริการ TOU บ้านอยู่อาศัย (แรงดันต่ำกว่า 22kV) ตามประกาศ กฟน./กฟภ.
     // คือ 24.62 บาท เท่ากับประเภท 1.2 ปกติ ไม่ใช่ 38.22 (ค่านั้นเป็นของ
-    // ผู้ใช้ไฟฟ้าประเภทอื่น) — แก้ตามที่เทียบกับเว็บคำนวณค่าไฟทางการแล้ว
+    // ผู้ใช้ไฟฟ้าประเภทอื่น) — ตรวจเทียบกับเว็บคำนวณค่าไฟทางการแล้ว
     const double serviceFee = electricityServiceFee;
     double ftCost = totalUnits * ftRate;
 

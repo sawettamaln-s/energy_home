@@ -6,7 +6,7 @@ import '../screens/dashboard/dashboard_styles.dart';
 /// ทั่วแอป — คู่กับ showConfirmDialog ใน confirm_dialog.dart
 ///
 /// ใช้ได้ 2 แบบ:
-/// 1) ข้อความล้วน: ส่ง `message` (แบบเดิมส่วนใหญ่ในแอป)
+/// 1) ข้อความล้วน: ส่ง `message` (แบบที่ใช้ส่วนใหญ่ในแอป)
 /// 2) เนื้อหากำหนดเอง (เช่น มี Container สีพิเศษแทรกอยู่): ส่ง `contentBuilder`
 ///    แทน `message` (ใช้กรณีอย่าง _showEstimateInfoPopup ที่มีกล่องเตือน
 ///    เพิ่มเติมนอกเหนือจากข้อความปกติ)
