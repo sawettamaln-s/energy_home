@@ -38,7 +38,7 @@ part 'settings_start_meter.dart'; // บันทึก + ประวัติ�
 part 'settings_utility_log.dart'; // ประวัติมิเตอร์ไฟฟ้า/น้ำที่บันทึกแต่ละวัน
 
 // ทางลัดเปิดหน้าย่อยทันทีตอนเข้าหน้าตั้งค่า (ใช้จากหน้าเช็คลิสหลัง setup)
-enum SettingsQuickAction { billingDay, startMeter, historicalBills }
+enum SettingsQuickAction { billingDay }
 
 class SettingsScreen extends StatefulWidget {
   // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
@@ -178,13 +178,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         switch (widget.quickAction!) {
           case SettingsQuickAction.billingDay:
             _showEditBillingDay();
-            break;
-          case SettingsQuickAction.startMeter:
-            _showStartMeterHistory();
-            break;
-          case SettingsQuickAction.historicalBills:
-            _showHistoricalBillList();
-            break;
         }
       });
     }
