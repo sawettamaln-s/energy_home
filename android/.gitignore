@@ -12,3 +12,6 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# โฟลเดอร์ build ของ Android (ปกติ Flutter ย้ายไปไว้ที่ <project>/build แล้ว)
+/build/

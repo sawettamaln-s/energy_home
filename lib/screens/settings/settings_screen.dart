@@ -13,6 +13,7 @@ import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/google_auth_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
@@ -205,8 +206,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ==================== ลบบัญชี + ข้อมูลทั้งหมด (PDPA) ====================
-  // ลำดับ: 1) ยืนยัน+อธิบายผล 2) ขอรหัสผ่าน reauthenticate (Firebase บังคับ
-  // requires-recent-login สำหรับ operation อ่อนไหวแบบนี้) 3) ลบข้อมูลใน Firestore
+  // ลำดับ: 1) ยืนยัน+อธิบายผล 2) reauthenticate (Firebase บังคับ
+  // requires-recent-login สำหรับ operation อ่อนไหวแบบนี้) — บัญชีอีเมลขอรหัสผ่าน,
+  // บัญชี Google ล้วนไม่มีรหัสผ่าน จึงให้เลือกบัญชี Google ยืนยันซ้ำแทน
+  // 3) ลบข้อมูลใน Firestore
   // ก่อนแล้วค่อยลบบัญชี Auth ทีหลังสุด (สลับลำดับแล้วลบ Firestore ไม่สำเร็จ
   // จะไม่มีทาง sign-in กลับมาลบข้อมูลที่เหลือได้อีก)
   Future<void> _confirmDeleteAccount() async {
@@ -221,17 +224,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!confirmed) return;
     if (!mounted) return;
 
-    final password = await _askPasswordForDeletion();
-    if (password == null || password.isEmpty) return;
+    final authUser = FirebaseAuth.instance.currentUser;
+    if (authUser == null) return;
+    final usesPassword =
+        authUser.providerData.any((p) => p.providerId == 'password');
+
+    AuthCredential? credential;
+    try {
+      credential = await _askReauthCredential(authUser, usesPassword);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('ยืนยันตัวตนด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ')),
+      );
+      return;
+    }
+    // null = ผู้ใช้กดยกเลิกตอนยืนยันตัวตน
+    if (credential == null) return;
+    if (!mounted) return;
 
     setState(() => _isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser!;
-      final cred = EmailAuthProvider.credential(
-        email: user.email!,
-        password: password,
-      );
-      await user.reauthenticateWithCredential(cred);
+      await user.reauthenticateWithCredential(credential);
 
       await _firestoreService.deleteAllUserData(user.uid);
       await user.delete();
@@ -245,8 +261,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
       String message = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้งค่ะ';
-      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        message = 'รหัสผ่านไม่ถูกต้องค่ะ';
+      if (e.code == 'user-mismatch') {
+        message = 'บัญชี Google ที่เลือกไม่ตรงกับบัญชีที่ใช้งานอยู่ค่ะ';
+      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        message = usesPassword
+            ? 'รหัสผ่านไม่ถูกต้องค่ะ'
+            : 'ยืนยันตัวตนไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ';
       } else if (e.code == 'too-many-requests') {
         message = 'ลองผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่ค่ะ';
       }
@@ -260,6 +280,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             content: Text('ลบบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ')),
       );
     }
+  }
+
+  // ขอ credential สำหรับยืนยันตัวตนก่อนลบบัญชี — คืนค่า null ถ้ากดยกเลิก
+  // บัญชีที่มี provider 'password' → กรอกรหัสผ่าน / นอกนั้น (Google) → เลือกบัญชี Google
+  Future<AuthCredential?> _askReauthCredential(
+      User user, bool usesPassword) async {
+    if (usesPassword) {
+      final password = await _askPasswordForDeletion();
+      if (password == null || password.isEmpty) return null;
+      return EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+    }
+    return GoogleAuthService.getCredential();
   }
 
   // ขอรหัสผ่านก่อนลบบัญชี — คืนค่า null ถ้ากดยกเลิก

@@ -32,6 +32,16 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+
+            // เปิด R8 ย่อโค้ด/รีซอร์สตอน release และชี้ไปที่ proguard-rules.pro
+            // (กฎของ Gson ที่ flutter_local_notifications ใช้เก็บ scheduled
+            // notification) — ถ้าไม่ระบุ proguardFiles ไฟล์กฎของโปรเจกต์จะไม่ถูกใช้
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }

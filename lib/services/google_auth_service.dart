@@ -34,10 +34,13 @@ class GoogleAuthService {
     _initialized = true;
   }
 
-  /// เปิดหน้าต่างเลือกบัญชี Google แล้ว sign in เข้า Firebase ให้
-  /// คืนค่า UserCredential เมื่อสำเร็จ, null เมื่อผู้ใช้กดยกเลิกเอง (ไม่ throw
-  /// กรณียกเลิก เพื่อให้ผู้เรียกไม่ต้องแยกเช็ค exception code เอง)
-  static Future<UserCredential?> signIn() async {
+  /// เปิดหน้าต่างเลือกบัญชี Google แล้วคืน credential สำหรับส่งต่อให้ Firebase
+  /// คืน null เมื่อผู้ใช้กดยกเลิกเอง (ไม่ throw กรณียกเลิก เพื่อให้ผู้เรียก
+  /// ไม่ต้องแยกเช็ค exception code เอง)
+  ///
+  /// แยกออกมาจาก signIn() เพื่อให้ใช้ยืนยันตัวตนซ้ำ (reauthenticate) ตอนลบบัญชี
+  /// ของผู้ใช้ที่สมัครด้วย Google ได้ด้วย — บัญชีกลุ่มนี้ไม่มีรหัสผ่านให้กรอก
+  static Future<AuthCredential?> getCredential() async {
     await _ensureInitialized();
 
     final GoogleSignInAccount account;
@@ -49,7 +52,14 @@ class GoogleAuthService {
     }
 
     final idToken = account.authentication.idToken;
-    final credential = GoogleAuthProvider.credential(idToken: idToken);
+    return GoogleAuthProvider.credential(idToken: idToken);
+  }
+
+  /// เปิดหน้าต่างเลือกบัญชี Google แล้ว sign in เข้า Firebase ให้
+  /// คืนค่า UserCredential เมื่อสำเร็จ, null เมื่อผู้ใช้กดยกเลิกเอง
+  static Future<UserCredential?> signIn() async {
+    final credential = await getCredential();
+    if (credential == null) return null;
     return FirebaseAuth.instance.signInWithCredential(credential);
   }
 }
