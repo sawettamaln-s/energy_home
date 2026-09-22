@@ -30,6 +30,18 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
+      // จำกัดสเกลฟอนต์ของระบบ (การตั้งค่า "ขนาดตัวอักษร" ในมือถือ) ไว้ไม่ให้
+      // เล็ก/ใหญ่เกินไป กันเลย์เอาต์ที่ยังไม่ได้ใช้ context.rf()/AppTypography.
+      // scaled() (ส่วนใหญ่ของแอปตอนนี้) ล้น/บี้กันบนจอเล็กหรือเครื่องที่ผู้ใช้
+      // ตั้งฟอนต์ใหญ่มาก — ครอบทั้งแอปที่จุดเดียว ไม่ต้องแก้ทีละหน้า
+      builder: (context, child) {
+        final clamped = MediaQuery.textScalerOf(context)
+            .clamp(minScaleFactor: 0.85, maxScaleFactor: 1.3);
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: clamped),
+          child: child!,
+        );
+      },
       home: const AuthGate(),
     );
   }
