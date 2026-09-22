@@ -80,48 +80,58 @@ class _UserGate extends StatefulWidget {
   State<_UserGate> createState() => _UserGateState();
 }
 
+// ไม่ใช้ FutureBuilder — ใส่ตัวจับ error (onError) ในบรรทัดเดียวกับตอนสร้าง
+// Future เลย (.then(..., onError: ...)) การแนบ error handler ทันทีแบบนี้
+// การันตีว่า error ถูก "handled" ตั้งแต่ frame เดียวกัน ไม่มีช่องให้หลุดเป็น
+// unhandled exception เหมือนที่เคยเจอตอนพึ่ง FutureBuilder เฉยๆ
+enum _LoadStatus { loading, error, loaded }
+
 class _UserGateState extends State<_UserGate> {
-  late Future<UserModel?> _userFuture;
+  _LoadStatus _status = _LoadStatus.loading;
+  UserModel? _user;
 
   @override
   void initState() {
     super.initState();
-    _userFuture = widget.firestoreService.getUser(widget.uid);
+    _load();
   }
 
-  void _retry() {
-    setState(() {
-      _userFuture = widget.firestoreService.getUser(widget.uid);
-    });
+  void _load() {
+    setState(() => _status = _LoadStatus.loading);
+    widget.firestoreService.getUser(widget.uid).then(
+      (user) {
+        if (!mounted) return;
+        setState(() {
+          _user = user;
+          _status = _LoadStatus.loaded;
+        });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        setState(() => _status = _LoadStatus.error);
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UserModel?>(
-      future: _userFuture,
-      builder: (context, userSnapshot) {
-        // กำลังโหลดข้อมูล User
-        if (userSnapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingScaffold();
-        }
-
-        // โหลดไม่สำเร็จ → ห้ามไป Setup (กันเขียนทับข้อมูลเดิม) ให้ลองใหม่แทน
-        if (userSnapshot.hasError) {
-          return _LoadErrorScaffold(
-            onRetry: _retry,
-            onSignOut: () => widget.auth.signOut(),
-          );
-        }
-
+    switch (_status) {
+      case _LoadStatus.loading:
+        return const _LoadingScaffold();
+      // โหลดไม่สำเร็จ → ห้ามไป Setup (กันเขียนทับข้อมูลเดิม) ให้ลองใหม่แทน
+      case _LoadStatus.error:
+        return _LoadErrorScaffold(
+          onRetry: _load,
+          onSignOut: () => widget.auth.signOut(),
+        );
+      case _LoadStatus.loaded:
         // โหลดสำเร็จแต่ไม่มีข้อมูล User → บัญชีใหม่ ไปหน้า Setup
-        if (userSnapshot.data == null) {
+        if (_user == null) {
           return SetupScreen(firestoreService: widget.firestoreService);
         }
-
         // มีข้อมูลแล้ว → เข้าแอปหลัก (MainShell คุมทั้ง 4 แท็บ)
         return const MainShell();
-      },
-    );
+    }
   }
 }
 
