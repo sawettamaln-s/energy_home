@@ -88,7 +88,7 @@ Widget _historySummaryCard({
             height: 30,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppSpacing.v8),
             ),
             child: Icon(icon, size: 15, color: accent),
           ),
@@ -101,7 +101,7 @@ Widget _historySummaryCard({
                 Text(
                   label,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade500),
                 ),
                 RichText(
                   text: TextSpan(
@@ -109,7 +109,7 @@ Widget _historySummaryCard({
                       TextSpan(
                         text: formatter.format(value),
                         style: const TextStyle(
-                          fontSize: 15.5,
+                          fontSize: AppTypography.s15_5,
                           fontWeight: FontWeight.w600,
                           color: Colors.black87,
                         ),
@@ -117,7 +117,7 @@ Widget _historySummaryCard({
                       TextSpan(
                         text: ' บาท',
                         style:
-                            TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+                            TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade500),
                       ),
                     ],
                   ),
@@ -135,28 +135,28 @@ Widget _historySummaryCard({
       isDense: true,
       filled: true,
       fillColor: const Color(0xFFFAF9F4),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v7),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(AppSpacing.v9),
         borderSide: const BorderSide(color: Color(0xFFD8D5C8)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(AppSpacing.v9),
         borderSide: const BorderSide(color: Color(0xFFD8D5C8)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(AppSpacing.v9),
         borderSide: BorderSide(color: accent, width: 1.4),
       ),
     );
   }
 
   return Container(
-    margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-    padding: const EdgeInsets.all(14),
+    margin: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v10),
+    padding: const EdgeInsets.all(AppSpacing.v14),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppSpacing.v14),
       border: Border.all(color: Colors.grey.shade200),
     ),
     child: Column(
@@ -178,7 +178,7 @@ Widget _historySummaryCard({
           ],
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v12),
           child: Divider(height: 1, color: Colors.grey.shade200),
         ),
         Row(
@@ -193,7 +193,7 @@ Widget _historySummaryCard({
                 icon: Icon(Icons.keyboard_arrow_down,
                     size: 18, color: Colors.grey.shade500),
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: AppTypography.s13,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
@@ -218,7 +218,7 @@ Widget _historySummaryCard({
                 icon: Icon(Icons.keyboard_arrow_down,
                     size: 18, color: Colors.grey.shade500),
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: AppTypography.s13,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
@@ -265,7 +265,7 @@ class _MonthGroupCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppSpacing.v14),
         border: Border.all(
           color:
               isCurrent ? accent.withValues(alpha: 0.35) : Colors.grey.shade200,
@@ -273,13 +273,13 @@ class _MonthGroupCard extends StatelessWidget {
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(AppSpacing.v13),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v12),
               color:
                   isCurrent ? accent.withValues(alpha: 0.07) : Colors.grey.shade50,
               child: Row(
@@ -289,7 +289,7 @@ class _MonthGroupCard extends StatelessWidget {
                     height: 34,
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: isCurrent ? 0.16 : 0.08),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppSpacing.v10),
                     ),
                     child: Icon(Icons.calendar_month, size: 18, color: accent),
                   ),
@@ -306,7 +306,7 @@ class _MonthGroupCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: AppTypography.s14,
                                   color: Colors.black87,
                                 ),
                               ),
@@ -315,15 +315,15 @@ class _MonthGroupCard extends StatelessWidget {
                               const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 7, vertical: 2),
+                                    horizontal: AppSpacing.v7, vertical: AppSpacing.v2),
                                 decoration: BoxDecoration(
                                   color: accent,
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(AppSpacing.v20),
                                 ),
                                 child: const Text(
                                   'กำลังสะสมยอด',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: AppTypography.s10,
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -338,7 +338,7 @@ class _MonthGroupCard extends StatelessWidget {
                               ? '$count รายการที่บันทึกแล้ว' // รอบปัจจุบันโชว์แค่จำนวนรายการพอ ไม่ต้องโชว์บาทซ้ำ
                               : '$count รายการ · สรุปยอดรวม ${formatter.format(totalCost)} บาท', // รอบเก่าโชว์ยอดเงินจริง
                           style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade600),
+                              fontSize: AppTypography.s12, color: Colors.grey.shade600),
                         ),
                       ],
                     ),
@@ -347,7 +347,7 @@ class _MonthGroupCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.v10, AppSpacing.v10, AppSpacing.v10, AppSpacing.v10),
               child: table,
             ),
           ],
@@ -577,7 +577,7 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
             onMonthChanged: (m) => setState(() => _selMonth = m),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v0, AppSpacing.v16, AppSpacing.v16),
             child: _MonthGroupCard(
               monthLabel: _cycleMonthLabel(selectedGroup.key),
               isCurrent: isSelectedCurrent,
@@ -801,7 +801,7 @@ class _WaterLogTabState extends State<_WaterLogTab> {
             onMonthChanged: (m) => setState(() => _selMonth = m),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v0, AppSpacing.v16, AppSpacing.v16),
             child: _MonthGroupCard(
               monthLabel: _cycleMonthLabel(selectedGroup.key),
               isCurrent: isSelectedCurrent,

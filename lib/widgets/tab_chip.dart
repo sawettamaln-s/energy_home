@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../styles/app_spacing.dart';
+import '../styles/app_typography.dart';
+
 /// แท็บสลับไฟฟ้า/น้ำ พร้อมไอคอน check เมื่อกรอกข้อมูลครบ — ใช้ร่วมกันระหว่าง
 /// หน้าบันทึกบิลย้อนหลังกับหน้าตั้งค่ามิเตอร์ต้นรอบให้หน้าตาตรงกันทั้งแอป
 class TabChip extends StatelessWidget {
@@ -24,13 +27,13 @@ class TabChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.v12),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
         decoration: BoxDecoration(
           color: selected ? color.withValues(alpha: 0.12) : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSpacing.v12),
           border: Border.all(
             color: selected ? color : Colors.grey.shade200,
             width: selected ? 1.5 : 1,
@@ -44,7 +47,7 @@ class TabChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: AppTypography.s13,
                 fontWeight: selected ? FontWeight.bold : FontWeight.w500,
                 color: selected ? color : Colors.grey.shade700,
               ),

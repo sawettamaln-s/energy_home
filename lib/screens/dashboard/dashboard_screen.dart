@@ -449,7 +449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return SafeArea(
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -459,14 +459,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Text(
                 'โหลดข้อมูลไม่สำเร็จ',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: AppTypography.s17, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
                 'กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้งค่ะ',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    fontSize: 14, height: 1.5, color: Colors.grey.shade700),
+                    fontSize: AppTypography.s14, height: 1.5, color: Colors.grey.shade700),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -475,9 +475,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   backgroundColor: DashboardStyles.primaryGreen,
                   foregroundColor: Colors.white,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                      const EdgeInsets.symmetric(horizontal: AppSpacing.v32, vertical: AppSpacing.v12),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(AppSpacing.v12)),
                 ),
                 child: const Text('ลองใหม่'),
               ),
@@ -514,7 +514,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: DashboardStyles.primaryGreen,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.v16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -672,7 +672,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: const TextStyle(
               color: DashboardStyles.primaryGreen,
               fontWeight: FontWeight.bold,
-              fontSize: 18,
+              fontSize: AppTypography.s18,
             ),
           ),
         ),
@@ -691,10 +691,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (_user?.billingDayConfigured == false)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                      horizontal: AppSpacing.v8, vertical: AppSpacing.v3),
                   decoration: BoxDecoration(
                     color: DashboardStyles.primaryGreen.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppSpacing.v20),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -709,10 +709,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               else ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                      horizontal: AppSpacing.v8, vertical: AppSpacing.v3),
                   decoration: BoxDecoration(
                     color: DashboardStyles.primaryGreen.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppSpacing.v20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -728,7 +728,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 6),
                 // แถบความคืบหน้าของรอบบิล (บาง ๆ ใต้ข้อความ)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(AppSpacing.v4),
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 4,
@@ -757,11 +757,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   top: -2,
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        const EdgeInsets.symmetric(horizontal: AppSpacing.v4, vertical: AppSpacing.v1),
                     constraints:
                         const BoxConstraints(minWidth: 16, minHeight: 16),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFE53935),
+                      color: AppColors.spikeUp,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
@@ -769,7 +769,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 9,
+                        fontSize: AppTypography.s9,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -791,10 +791,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildCostSummaryCard(NumberFormat formatter) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.v20),
       decoration: BoxDecoration(
         color: DashboardStyles.primaryGreen,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.v20),
         boxShadow: [
           BoxShadow(
             color: DashboardStyles.primaryGreen.withValues(alpha: 0.25),
@@ -814,7 +814,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Text('ประมาณการรอบบิลนี้',
                   style: TextStyle(
                       color: Colors.white70,
-                      fontSize: 13,
+                      fontSize: AppTypography.s13,
                       fontWeight: FontWeight.w500)),
             ],
           ),
@@ -851,10 +851,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // อีกอย่างน้อย 1 ครั้ง
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8, horizontal: AppSpacing.v12),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSpacing.v10),
             ),
             child: Row(
               children: [
@@ -872,7 +872,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         : 'บันทึกมิเตอร์อีกอย่างน้อย 1 ครั้งเพื่อเริ่มคาดการณ์',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: _hasForecastData ? 1 : 0.75),
-                      fontSize: 12,
+                      fontSize: AppTypography.s12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -895,7 +895,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   Widget _buildBillingDayReminderBanner() {
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.v12),
       onTap: () async {
         await Navigator.push(
           context,
@@ -908,10 +908,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v12),
         decoration: BoxDecoration(
           color: DashboardStyles.primaryGreen.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSpacing.v12),
           border: Border.all(
               color: DashboardStyles.primaryGreen.withValues(alpha: 0.25)),
         ),
@@ -923,7 +923,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const Expanded(
               child: Text(
                 'ยังไม่ได้ตั้งวันตัดรอบบิล แตะเพื่อตั้งค่า',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
               ),
             ),
             Icon(Icons.arrow_forward_ios,
@@ -947,10 +947,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildStartMeterRequiredCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppSpacing.v18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppSpacing.v14),
         border: Border.all(color: DashboardStyles.primaryGreen.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
@@ -966,10 +966,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(AppSpacing.v8),
                 decoration: BoxDecoration(
                   color: DashboardStyles.primaryGreen.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.v8),
                 ),
                 child: const Icon(Icons.speed_outlined,
                     color: DashboardStyles.primaryGreen, size: 20),
@@ -978,7 +978,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Expanded(
                 child: Text(
                   'ยังไม่ได้ตั้งค่ามิเตอร์ต้นรอบ',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14_5),
                 ),
               ),
             ],
@@ -988,7 +988,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // อาจมาจากหลายทาง ไม่ใช่แค่ข้ามขั้นตอนตอนสมัครเสมอไป)
           const Text(
             'ระบบยังคำนวณค่าไฟ/ค่าน้ำให้ไม่ได้ เพราะยังไม่มีเลขมิเตอร์ตั้งต้น',
-            style: TextStyle(fontSize: 12.5, color: Colors.grey, height: 1.5),
+            style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey, height: 1.5),
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -1008,9 +1008,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: DashboardStyles.primaryGreen,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppSpacing.v10),
                 ),
               ),
             ),
@@ -1040,7 +1040,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isStaleCycle = message != null;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.v14),
       decoration: DashboardStyles.accentCard(borderColor.withValues(alpha: 0.4)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1054,7 +1054,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: TextStyle(
                   color: accent.withValues(alpha: 0.5),
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: AppTypography.s14,
                 ),
               ),
             ],
@@ -1062,7 +1062,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 10),
           Text(
             message ?? 'ยังไม่ได้ตั้งเลขมิเตอร์ต้นรอบฝั่งนี้',
-            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600),
           ),
           const Spacer(),
           SizedBox(
@@ -1080,14 +1080,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: accent,
                 side: BorderSide(color: accent.withValues(alpha: 0.5)),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppSpacing.v10),
                 ),
               ),
               icon: Icon(isStaleCycle ? Icons.refresh : Icons.add, size: 16),
               label: Text(isStaleCycle ? 'ตั้งรอบใหม่' : 'ตั้งเลย',
-                  style: const TextStyle(fontSize: 12.5)),
+                  style: const TextStyle(fontSize: AppTypography.s12_5)),
             ),
           ),
         ],
@@ -1102,7 +1102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   Widget _buildFixedCostRow(NumberFormat formatter) {
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppSpacing.v14),
       onTap: () async {
         await Navigator.push(
           context,
@@ -1114,15 +1114,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v14),
         decoration: DashboardStyles.whiteCard(),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(AppSpacing.v8),
               decoration: BoxDecoration(
                 color: const Color(0xFFE8F5E9),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppSpacing.v10),
               ),
               child: const Icon(Icons.bookmark_outline,
                   color: DashboardStyles.primaryGreen, size: 18),
@@ -1133,7 +1133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 'Fixed Cost รายจ่ายประจำ',
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: AppTypography.s14,
                     color: DashboardStyles.textDark),
               ),
             ),
@@ -1141,7 +1141,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               '${formatter.format(_user?.fixedCost ?? 0)} บาท',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
+                fontSize: AppTypography.s15,
                 color: DashboardStyles.textDark,
               ),
             ),
@@ -1162,10 +1162,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final cycleEndBuddhistYear = cycleEnd.year + 543;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppSpacing.v18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.v18),
         border: Border.all(color: DashboardStyles.creamBorder),
         boxShadow: [
           BoxShadow(
@@ -1181,10 +1181,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(7),
+                padding: const EdgeInsets.all(AppSpacing.v7),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFF3E0),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(AppSpacing.v9),
                 ),
                 child: const Icon(Icons.summarize_outlined,
                     color: Colors.orange, size: 16),
@@ -1195,7 +1195,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'ยอดสรุปบิลรอบถัดไป (${thaiMonths[cycleEnd.month - 1]} $cycleEndBuddhistYear)',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 14.5,
+                      fontSize: AppTypography.s14_5,
                       color: DashboardStyles.textDark),
                 ),
               ),
@@ -1217,10 +1217,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // แถบ "รวมทั้งสิ้น" — แยกเป็นกล่องไฮไลต์ ให้รู้สึกเป็นยอดสุดท้ายจริง ๆ
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v13),
             decoration: BoxDecoration(
               color: const Color(0xFFFFF3E0),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.v12),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1229,7 +1229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'รวมทั้งสิ้น',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontSize: AppTypography.s15,
                     color: DashboardStyles.textDark,
                   ),
                 ),
@@ -1237,7 +1237,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   '${formatter.format((_currentElectricityCost + _currentWaterCost) + (_user?.fixedCost ?? 0))} บาท',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 19,
+                    fontSize: AppTypography.s19,
                     color: Colors.orange,
                   ),
                 ),
@@ -1267,17 +1267,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icon(icon, color: Colors.white70, size: 16),
             const SizedBox(width: 4),
             Text(label,
-                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                style: const TextStyle(color: Colors.white70, fontSize: AppTypography.s12)),
           ],
         ),
         const SizedBox(height: 4),
         Text(amount,
             style: const TextStyle(
                 color: Colors.white,
-                fontSize: 20,
+                fontSize: AppTypography.s20,
                 fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
-        Text(sub, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+        Text(sub, style: const TextStyle(color: Colors.white60, fontSize: AppTypography.s11)),
       ],
     );
   }
@@ -1292,13 +1292,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
               color: color ?? DashboardStyles.textDark,
-              fontSize: isBold ? 15 : 13,
+              fontSize: isBold ? AppTypography.s15 : AppTypography.s13,
             )),
         Text(value,
             style: TextStyle(
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
               color: color ?? DashboardStyles.textDark,
-              fontSize: isBold ? 18 : 14,
+              fontSize: isBold ? AppTypography.s18 : AppTypography.s14,
             )),
       ],
     );
@@ -1318,7 +1318,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(label,
-            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+            style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
         const Spacer(),
         RichText(
           text: TextSpan(
@@ -1327,10 +1327,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               TextSpan(
                   text: formatter.format(current ?? 0),
                   style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w600)),
+                      fontSize: AppTypography.s17, fontWeight: FontWeight.w600)),
               TextSpan(
                   text: ' /${formatter.format(start ?? 0)}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+                  style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade400)),
             ],
           ),
         ),
@@ -1368,7 +1368,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.v14),
       decoration: DashboardStyles.accentCard(borderColor),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1384,7 +1384,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(title,
-                    style: TextStyle(color: borderColor, fontWeight: FontWeight.w600, fontSize: 13.5),
+                    style: TextStyle(color: borderColor, fontWeight: FontWeight.w600, fontSize: AppTypography.s13_5),
                     overflow: TextOverflow.ellipsis),
               ),
             ],
@@ -1402,16 +1402,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     TextSpan(
                         text: formatter.format(lastValue),
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                        style: const TextStyle(fontSize: AppTypography.s20, fontWeight: FontWeight.w600)),
                     TextSpan(
                         text: ' $unit',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                        style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
                   ],
                 ),
               ),
             if (startValue != null)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.only(top: AppSpacing.v2),
                 child: Text('ต้นรอบ ${formatter.format(startValue)} $unit',
                     style: DashboardStyles.lastValueStyle),
               ),
@@ -1425,11 +1425,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 backgroundColor: badgeBg,
                 foregroundColor: borderColor,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v10)),
               ),
               icon: const Icon(Icons.edit_note, size: 16),
-              label: const Text('บันทึกมิเตอร์', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+              label: const Text('บันทึกมิเตอร์', style: TextStyle(fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600)),
             ),
           ),
         ],

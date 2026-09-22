@@ -416,7 +416,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   }
 
   Widget _label(String text, {VoidCallback? onInfoTap}) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.only(bottom: AppSpacing.v8),
         child: Row(
           children: [
             Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -434,7 +434,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                   ),
                   child: const Text('!',
                       style: TextStyle(
-                          fontSize: 10,
+                          fontSize: AppTypography.s10,
                           fontWeight: FontWeight.bold,
                           color: DashboardStyles.primaryGreen)),
                 ),
@@ -486,7 +486,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.v14),
       decoration: DashboardStyles.accentCard(accentColor, radius: 14).copyWith(
         color: accentColor.withValues(alpha: 0.045),
       ),
@@ -496,7 +496,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(AppSpacing.v6),
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
@@ -506,7 +506,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
               const SizedBox(width: 8),
               Text(label,
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14)),
+                      fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
               // ปุ่ม info อยู่ที่หัวการ์ดจุดเดียว (ไม่ผูกกับ label ช่อง "หน่วยที่ใช้"
               // เพราะฝั่งไฟฟ้าตอนเป็น TOU ใช้ TouPairedUnitsField แทน)
               if (onInfoTap != null) ...[
@@ -557,14 +557,14 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
           Text(
             'เปิดบิลเดือนที่จะบันทึกย้อนหลัง แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
             'หรือ "$unitLabel" นำตัวเลขดังกล่าวมากรอกในช่องนี้',
-            style: const TextStyle(fontSize: 13.5, height: 1.6),
+            style: const TextStyle(fontSize: AppTypography.s13_5, height: 1.6),
           ),
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(AppSpacing.v10),
             decoration: BoxDecoration(
               color: Colors.orange.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSpacing.v10),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,7 +579,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                     'ระบบจะบันทึกเฉพาะยอดหน่วยที่ใช้จริงของเดือนนั้นเพื่อการวิเคราะห์ '
                     'หากกรอกเลขมิเตอร์สะสมแทน ข้อมูลในหน้าวิเคราะห์จะคลาดเคลื่อน',
                     style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: AppTypography.s12_5,
                         height: 1.5,
                         color: Colors.orange.shade900),
                   ),
@@ -618,7 +618,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.v10),
         borderSide: BorderSide.none,
       ),
     );
@@ -632,21 +632,21 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.v20)),
       ),
       child: Column(
         children: [
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
+            margin: const EdgeInsets.symmetric(vertical: AppSpacing.v12),
             width: 40,
             height: 4,
             decoration: BoxDecoration(
               color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(AppSpacing.v2),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -657,7 +657,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                           ? 'แก้ไขบิลเดือนเก่าเข้าระบบ'
                           : 'เพิ่มบิลเดือนเก่าเข้าระบบ',
                       style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                          fontSize: AppTypography.s18, fontWeight: FontWeight.bold),
                     ),
                     // ตัดคำอธิบายยาวใต้หัวข้อออก (ซ้ำกับ _showHistoricalBillInfoPopup)
                     // เหลือแค่ไอคอน info กดดูได้แทน ลดความรกตอนเปิดฟอร์มครั้งแรก
@@ -678,14 +678,14 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.v16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _label('เดือน'),
                   _isLoadingTaken
                       ? const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.v12),
                           child: Center(
                               child: CircularProgressIndicator(strokeWidth: 2)),
                         )
@@ -901,9 +901,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                   // ไม่ว่าจะเคยตั้งมาก่อนแล้วหรือยัง
                   InkWell(
                     onTap: _goSetStartMeter,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSpacing.v8),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.v4),
                       child: Row(
                         children: [
                           Icon(Icons.speed,
@@ -914,7 +914,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                               'มีบิลของ${thaiMonths[_currentCycleMonth.month - 1]} '
                               '${_currentCycleMonth.year}? ไปกรอกที่หน้าเลขมิเตอร์ต้นรอบ',
                               style: TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: AppTypography.s11_5,
                                   color: Colors.grey.shade600,
                                   decoration: TextDecoration.underline),
                             ),
@@ -927,10 +927,10 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                   ),
                   const SizedBox(height: 20),
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.v16),
                     decoration: BoxDecoration(
                       color: DashboardStyles.primaryGreen.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSpacing.v12),
                     ),
                     child: Column(
                       children: [
@@ -944,7 +944,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                             Text(
                               '${formatter.format(_totalWithFixedCost)} บาท',
                               style: const TextStyle(
-                                fontSize: 18,
+                                fontSize: AppTypography.s18,
                                 fontWeight: FontWeight.bold,
                                 color: DashboardStyles.primaryGreen,
                               ),
@@ -960,7 +960,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                                 'ไฟ+น้ำ ${formatter.format(_total)} บาท '
                                 '+ ค่าใช้จ่ายคงที่ ${formatter.format(_fixedCost)} บาท',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: AppTypography.s11,
                                   color: Colors.grey.shade600,
                                 ),
                               ),
@@ -982,7 +982,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                         backgroundColor: DashboardStyles.primaryGreen,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppSpacing.v12),
                         ),
                       ),
                       child: _isSaving
@@ -1009,7 +1009,7 @@ Widget _infoSectionHeader(String label, {IconData icon = Icons.checklist_rounded
       const SizedBox(width: 6),
       Text(label,
           style: const TextStyle(
-              fontSize: 13.5,
+              fontSize: AppTypography.s13_5,
               fontWeight: FontWeight.bold,
               color: DashboardStyles.primaryGreen)),
     ],
@@ -1019,10 +1019,10 @@ Widget _infoSectionHeader(String label, {IconData icon = Icons.checklist_rounded
 // กล่องข้อควรระวัง
 Widget _infoWarningBox(String text) {
   return Container(
-    padding: const EdgeInsets.all(10),
+    padding: const EdgeInsets.all(AppSpacing.v10),
     decoration: BoxDecoration(
       color: Colors.orange.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppSpacing.v10),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1033,7 +1033,7 @@ Widget _infoWarningBox(String text) {
           child: Text(
             text,
             style: TextStyle(
-                fontSize: 12.5, height: 1.5, color: Colors.orange.shade900),
+                fontSize: AppTypography.s12_5, height: 1.5, color: Colors.orange.shade900),
           ),
         ),
       ],
@@ -1057,7 +1057,7 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
           'อยู่แล้วแต่ดันลืมบันทึกไปทั้งเดือน (ระบบจะโชว์เป็นแถว "ยังไม่ได้'
           'บันทึก" ให้กดกรอกได้เลย) เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไป'
           'เปรียบเทียบได้ครบถ้วน',
-          style: TextStyle(fontSize: 13.5, height: 1.6),
+          style: TextStyle(fontSize: AppTypography.s13_5, height: 1.6),
         ),
         const SizedBox(height: 14),
         _infoSectionHeader('กรอกยังไง'),
@@ -1065,7 +1065,7 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
         const Text(
           'เปิดบิลค่าไฟ/ค่าน้ำเดือนนั้น แล้วมองหาช่อง "จำนวนหน่วยที่ใช้" '
           '(kWh หรือ ลบ.ม.) กับ "ยอดเงิน" นำตัวเลขทั้งสองมากรอก',
-          style: TextStyle(fontSize: 13.5, height: 1.6),
+          style: TextStyle(fontSize: AppTypography.s13_5, height: 1.6),
         ),
         const SizedBox(height: 12),
         _infoWarningBox(
@@ -1300,12 +1300,12 @@ final confirmed = await showConfirmDialog(
                   final icon = isWater ? Icons.water_drop : Icons.bolt;
                   final tabBills = isWater ? waterBills : electricBills;
                   return Container(
-                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    margin: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v8),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+                        horizontal: AppSpacing.v16, vertical: AppSpacing.v14),
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppSpacing.v14),
                       border: Border.all(color: accent.withValues(alpha: 0.2)),
                     ),
                     child: Row(
@@ -1317,7 +1317,7 @@ final confirmed = await showConfirmDialog(
                           style: TextStyle(
                             color: accent,
                             fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                            fontSize: AppTypography.s13,
                           ),
                         ),
                         const Spacer(),
@@ -1327,7 +1327,7 @@ final confirmed = await showConfirmDialog(
                             style: TextStyle(
                               color: accent,
                               fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                              fontSize: AppTypography.s14,
                             ),
                           ),
                       ],
@@ -1412,7 +1412,7 @@ final confirmed = await showConfirmDialog(
           ];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v8, AppSpacing.v16, AppSpacing.v16),
       child: ExcelStyleTable(
         accent: accent,
         columns: columns,

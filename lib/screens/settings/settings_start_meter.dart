@@ -446,7 +446,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.v10),
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Column(
@@ -463,7 +463,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                     : '${r.label != null ? '${r.label} ' : ''}'
                         '$prevMonthLabel ${fmt.format(r.prevVal)} → ตอนนี้ ...',
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: AppTypography.s11_5,
                   color: r.currentVal > 0
                       ? color
                       : color.withValues(alpha: 0.55),
@@ -476,7 +476,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
               child: Text(
                 'รวมใช้ไปทั้งหมด ${fmt.format(total)} $unit',
                 style: TextStyle(
-                    fontSize: 11.5, fontWeight: FontWeight.w700, color: color),
+                    fontSize: AppTypography.s11_5, fontWeight: FontWeight.w700, color: color),
               ),
             ),
           // มีรอบบิลที่ไม่มี record คั่นอยู่ตรงกลาง (ข้ามไปหลายรอบ) — เตือนว่า
@@ -491,7 +491,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                 'ถ้าจำหน่วยแยกรายเดือนได้ ลองไปกรอกย้อนหลังทีละเดือนที่หน้า '
                 '"ประวัติบิล" แทนจะแม่นกว่าค่ะ',
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: AppTypography.s10_5,
                   fontStyle: FontStyle.italic,
                   color: color.withValues(alpha: 0.8),
                 ),
@@ -853,7 +853,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       height: MediaQuery.of(context).size.height * 0.8,
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.v20)),
       ),
       child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
@@ -865,7 +865,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                   height: 4,
                   decoration: BoxDecoration(
                     color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: BorderRadius.circular(AppSpacing.v2),
                   ),
                 ),
                 Padding(
@@ -876,7 +876,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                       const Text(
                         'บันทึกเลขมิเตอร์ประจำเดือน',
                         style:
-                            TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            TextStyle(fontSize: AppTypography.s18, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close),
@@ -887,7 +887,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                 ),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.v16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -896,7 +896,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 14),
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(AppSpacing.v10),
                               onTap: () async {
                                 await Navigator.push(
                                   context,
@@ -914,7 +914,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                     horizontal: 12, vertical: 10),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(AppSpacing.v10),
                                 ),
                                 child: Row(
                                   children: [
@@ -926,7 +926,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                       child: Text(
                                         'ยังไม่ได้ตั้งวันตัดรอบบิล ตั้งไปพร้อมกันไหม',
                                         style: TextStyle(
-                                            fontSize: 12.5,
+                                            fontSize: AppTypography.s12_5,
                                             fontWeight: FontWeight.w600),
                                       ),
                                     ),
@@ -943,7 +943,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             const Text(
                               'เดือนของใบแจ้งหนี้',
                               style: TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 13),
+                                  fontWeight: FontWeight.w600, fontSize: AppTypography.s13),
                             ),
                             if (_user != null) ...[
                               const SizedBox(width: 8),
@@ -952,12 +952,12 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                     horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(AppSpacing.v20),
                                 ),
                                 child: Text(
                                   _isEditingCurrentCycle ? 'แก้ไข' : 'ตั้งใหม่',
                                   style: TextStyle(
-                                    fontSize: 10.5,
+                                    fontSize: AppTypography.s10_5,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.grey.shade600,
                                   ),
@@ -976,7 +976,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                 horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(AppSpacing.v10),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -984,14 +984,14 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                 Text(
                                   '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
                                   style: const TextStyle(
-                                      fontSize: 14,
+                                      fontSize: AppTypography.s14,
                                       fontWeight: FontWeight.w600),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   'แก้ไขได้จนกว่าจะถึงรอบบิลถัดไป',
                                   style: TextStyle(
-                                      fontSize: 11.5,
+                                      fontSize: AppTypography.s11_5,
                                       color: Colors.grey.shade600),
                                 ),
                               ],
@@ -1006,12 +1006,12 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             decoration: BoxDecoration(
                               color:
                                   DashboardStyles.primaryGreen.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(AppSpacing.v10),
                             ),
                             child: Text(
                               '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
                               style: const TextStyle(
-                                  fontSize: 14,
+                                  fontSize: AppTypography.s14,
                                   fontWeight: FontWeight.w600,
                                   color: DashboardStyles.primaryGreen),
                             ),
@@ -1057,7 +1057,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                 horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(AppSpacing.v10),
                               border:
                                   Border.all(color: Colors.orange.shade200),
                             ),
@@ -1078,7 +1078,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                         ' กรุณาตรวจสอบว่าพิมพ์ถูกไหมค่ะ '
                                         '(เลขมิเตอร์สะสมควรเพิ่มขึ้นทุกรอบ)',
                                     style: TextStyle(
-                                        fontSize: 11.5,
+                                        fontSize: AppTypography.s11_5,
                                         color: Colors.orange.shade900),
                                   ),
                                 ),
@@ -1092,7 +1092,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             'กรอกให้ครบอย่างน้อย 1 ประเภท (ไฟฟ้า หรือ น้ำ) '
                             'ก่อนถึงจะบันทึกได้',
                             style: TextStyle(
-                                fontSize: 11.5, color: Colors.red.shade600),
+                                fontSize: AppTypography.s11_5, color: Colors.red.shade600),
                           ),
                         ],
                         const SizedBox(height: 24),
@@ -1105,7 +1105,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                               backgroundColor: DashboardStyles.primaryGreen,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(AppSpacing.v12),
                               ),
                             ),
                             child: _isSaving
@@ -1413,7 +1413,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                         horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppSpacing.v14),
                       border: Border.all(color: accent.withValues(alpha: 0.2)),
                     ),
                     child: Row(
@@ -1425,7 +1425,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                           style: TextStyle(
                             color: accent,
                             fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                            fontSize: AppTypography.s13,
                           ),
                         ),
                         const Spacer(),
@@ -1435,7 +1435,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                             style: TextStyle(
                               color: accent,
                               fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                              fontSize: AppTypography.s14,
                             ),
                           ),
                       ],

@@ -92,13 +92,13 @@ class _ApplianceTab extends StatelessWidget {
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.v16),
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.v16),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppSpacing.v14),
             boxShadow: [
               BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
             ],
@@ -107,7 +107,7 @@ class _ApplianceTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('สัดส่วนการใช้พลังงาน (kWh/เดือน, ประมาณการ)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
               const SizedBox(height: 8),
               // วงกลม + ป้ายชื่อรายการรอบวง — ป้ายวางด้วย Alignment (ไม่ใช่
               // Positioned ตำแหน่งตายตัว) เพราะไม่รู้ขนาดจริงของป้ายแต่ละ
@@ -140,7 +140,7 @@ class _ApplianceTab extends StatelessWidget {
                                 : '',
                             radius: 56,
                             titleStyle: const TextStyle(
-                                fontSize: 11,
+                                fontSize: AppTypography.s11,
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold),
                           );
@@ -156,7 +156,7 @@ class _ApplianceTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const Text('อันดับอุปกรณ์กินไฟ',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
         const SizedBox(height: 8),
         // แสดง top 3 ก่อนเสมอ ถ้ามีมากกว่านั้นค่อยกดขยายดูที่เหลือ
         // (ใช้ widget แยกเพราะ _ApplianceTab เป็น StatelessWidget
@@ -172,7 +172,7 @@ class _ApplianceTab extends StatelessWidget {
               Expanded(
                 child: Text(
                   'เป็นค่าประมาณการ ไม่ใช่ค่าจากมิเตอร์จริง — แตะเพื่อดูรายละเอียด',
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: AppTypography.s10, color: Colors.grey.shade500),
                 ),
               ),
             ],
@@ -181,10 +181,10 @@ class _ApplianceTab extends StatelessWidget {
         if (insights.isNotEmpty) ...[
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(AppSpacing.v14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.v12),
               boxShadow: [
                 BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
               ],
@@ -198,12 +198,12 @@ class _ApplianceTab extends StatelessWidget {
                     SizedBox(width: 6),
                     Text('ข้อสังเกต',
                         style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 13)),
+                            fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
                   ],
                 ),
                 const SizedBox(height: 10),
                 ...insights.map((i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.v8),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -220,7 +220,7 @@ class _ApplianceTab extends StatelessWidget {
                           Expanded(
                             child: Text(i.text,
                                 style: const TextStyle(
-                                    fontSize: 12.5, height: 1.4)),
+                                    fontSize: AppTypography.s12_5, height: 1.4)),
                           ),
                         ],
                       ),
@@ -284,10 +284,10 @@ class _PieLabelPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 92),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v5),
       decoration: BoxDecoration(
         color: const Color(0xFFE4F2E4),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.v20),
         boxShadow: [
           BoxShadow(color: Colors.grey.withValues(alpha: 0.18), blurRadius: 5)
         ],
@@ -306,7 +306,7 @@ class _PieLabelPill extends StatelessWidget {
               label,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
-              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: AppTypography.s10_5, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -354,7 +354,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSpacing.v10),
             boxShadow: [
               BoxShadow(color: Colors.grey.withValues(alpha: 0.06), blurRadius: 4)
             ],
@@ -407,13 +407,13 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
             onTap: () => setState(() => _showAll = !_showAll),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
               alignment: Alignment.center,
               child: Text(
                 _showAll ? 'ย่อรายการ' : 'ดูทั้งหมด (${breakdown.length})',
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontSize: 12.5,
+                  fontSize: AppTypography.s12_5,
                   color: _green,
                 ),
               ),
@@ -430,14 +430,14 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v10),
         child: Text(
           label,
           textAlign: alignLeft
               ? TextAlign.left
               : (alignRight ? TextAlign.right : TextAlign.center),
           style: const TextStyle(
-            fontSize: 11,
+            fontSize: AppTypography.s11,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -451,7 +451,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v10),
         child: Row(
           children: [
             CircleAvatar(
@@ -461,7 +461,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
                   style: TextStyle(
                       color: rankColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: 10)),
+                      fontSize: AppTypography.s10)),
             ),
             const SizedBox(width: 6),
             Expanded(
@@ -469,7 +469,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
                 name,
                 overflow: TextOverflow.ellipsis,
                 style:
-                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s12_5),
               ),
             ),
           ],
@@ -484,12 +484,12 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v10),
         child: Text(
           text,
           textAlign: alignRight ? TextAlign.right : TextAlign.center,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: AppTypography.s12,
             fontWeight: bold ? FontWeight.bold : FontWeight.normal,
             color: color ?? Colors.grey.shade800,
           ),

@@ -107,8 +107,8 @@ class _MonthYearField extends StatelessWidget {
     final picked = await showDialog<DateTime>(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v24),
         child: _MonthYearPickerSheet(
           label: label,
           initialValue: value,
@@ -126,22 +126,22 @@ class _MonthYearField extends StatelessWidget {
         ? '${thaiMonths[value!.month - 1]} ${value!.year + 543}'
         : 'เลือก';
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.v12),
       onTap: enabled ? () => _openPicker(context) : null,
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: label,
           filled: !enabled,
           fillColor: Colors.grey.shade100,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v14),
           suffixIcon: Icon(Icons.expand_more,
               size: 18, color: enabled ? Colors.black54 : Colors.grey),
         ),
         child: Text(
           text,
-          style: const TextStyle(fontSize: 13),
+          style: const TextStyle(fontSize: AppTypography.s13),
           overflow: TextOverflow.ellipsis,
         ),
       ),
@@ -235,14 +235,14 @@ class _MonthYearPickerSheetState extends State<_MonthYearPickerSheet> {
     ];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v24, AppSpacing.v20, AppSpacing.v24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text('เลือก${widget.label}',
               style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s15)),
           const SizedBox(height: 16),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -283,16 +283,16 @@ class _MonthYearPickerSheetState extends State<_MonthYearPickerSheet> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: DashboardStyles.primaryGreen,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 13),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v13),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                    borderRadius: BorderRadius.circular(AppSpacing.v14)),
                 elevation: 0,
               ),
               onPressed: () =>
                   Navigator.pop(context, DateTime(_year, _month, 1)),
               child: const Text('เลือก',
                   style:
-                      TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      TextStyle(fontSize: AppTypography.s15, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -325,10 +325,10 @@ class _MonthYearSpinner extends StatelessWidget {
   Widget build(BuildContext context) {
     final borderColor = DashboardStyles.primaryGreen.withValues(alpha: 0.25);
     return Container(
-      padding: const EdgeInsets.only(left: 14, right: 4, top: 5, bottom: 5),
+      padding: const EdgeInsets.only(left: AppSpacing.v14, right: AppSpacing.v4, top: AppSpacing.v5, bottom: AppSpacing.v5),
       decoration: BoxDecoration(
         color: DashboardStyles.primaryGreen.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(AppSpacing.v30),
         border: Border.all(color: borderColor),
       ),
       child: Row(
@@ -340,7 +340,7 @@ class _MonthYearSpinner extends StatelessWidget {
               position: PopupMenuPosition.under,
               color: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(AppSpacing.v12)),
               itemBuilder: (context) => [
                 for (var i = 0; i < options.length; i++)
                   PopupMenuItem(
@@ -349,7 +349,7 @@ class _MonthYearSpinner extends StatelessWidget {
                     child: Text(
                       options[i],
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: AppTypography.s13,
                         fontWeight: i == selectedIndex
                             ? FontWeight.w600
                             : FontWeight.normal,
@@ -369,7 +369,7 @@ class _MonthYearSpinner extends StatelessWidget {
                       text,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: AppTypography.s14,
                           fontWeight: FontWeight.w600,
                           color: Colors.black87,
                           letterSpacing: 0.3),
@@ -385,7 +385,7 @@ class _MonthYearSpinner extends StatelessWidget {
           Container(
             width: 1,
             height: 18,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.v4),
             color: borderColor,
           ),
           Column(
@@ -393,18 +393,18 @@ class _MonthYearSpinner extends StatelessWidget {
             children: [
               InkWell(
                 onTap: onUp,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AppSpacing.v20),
                 child: const Padding(
-                  padding: EdgeInsets.all(1),
+                  padding: EdgeInsets.all(AppSpacing.v1),
                   child: Icon(Icons.keyboard_arrow_up,
                       size: 14, color: DashboardStyles.primaryGreen),
                 ),
               ),
               InkWell(
                 onTap: onDown,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AppSpacing.v20),
                 child: const Padding(
-                  padding: EdgeInsets.all(1),
+                  padding: EdgeInsets.all(AppSpacing.v1),
                   child: Icon(Icons.keyboard_arrow_down,
                       size: 14, color: DashboardStyles.primaryGreen),
                 ),
@@ -488,7 +488,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v16)),
           title: Text(existing == null ? 'เพิ่มรายการ Fixed Cost' : 'แก้ไขรายการ'),
           content: SingleChildScrollView(
             child: Column(
@@ -496,7 +496,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('หมวดหมู่',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s13)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -504,7 +504,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                   children: _fixedCostCategories.map((c) {
                     final selected = c.key == selectedCategory;
                     return ChoiceChip(
-                      label: Text(c.label, style: const TextStyle(fontSize: 12)),
+                      label: Text(c.label, style: const TextStyle(fontSize: AppTypography.s12)),
                       avatar: Icon(c.icon,
                           size: 16,
                           color: selected ? Colors.white : DashboardStyles.primaryGreen),
@@ -542,13 +542,13 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                     filled: selectedCategory != 'other',
                     fillColor: Colors.grey.shade100,
                     border:
-                        OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
                     disabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSpacing.v12),
                       borderSide: BorderSide(color: Colors.grey.shade300),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 14),
+                        horizontal: AppSpacing.v12, vertical: AppSpacing.v14),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -559,16 +559,16 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                     labelText: 'ยอดต่อเดือน',
                     suffixText: ' บาท',
                     border:
-                        OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 14),
+                        horizontal: AppSpacing.v12, vertical: AppSpacing.v14),
                   ),
                 ),
                 const SizedBox(height: 16),
                 const Divider(height: 1),
                 const SizedBox(height: 12),
                 const Text('ช่วงเวลา',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s13)),
                 const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -622,25 +622,25 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                   dense: true,
                   visualDensity: VisualDensity.compact,
                   activeColor: DashboardStyles.primaryGreen,
-                  title: const Text('มีวันสิ้นสุด', style: TextStyle(fontSize: 13)),
+                  title: const Text('มีวันสิ้นสุด', style: TextStyle(fontSize: AppTypography.s13)),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v10),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(AppSpacing.v10),
                   ),
                   child: Text(
                     hasEndDate
                         ? 'จะไม่ถูกนับรวมในยอด Fixed Cost หลังวันที่สิ้นสุด'
                         : 'นับรวมทุกเดือนต่อเนื่อง ไม่มีกำหนดสิ้นสุด',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600),
                   ),
                 ),
                 if (errorText != null) ...[
                   const SizedBox(height: 8),
                   Text(errorText!,
-                      style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      style: const TextStyle(color: Colors.red, fontSize: AppTypography.s12)),
                 ],
               ],
             ),
@@ -726,11 +726,11 @@ final confirmed = await showConfirmDialog(
               children: [
                 // การ์ดสรุปยอดรวมด้านบน
                 Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(18),
+                  margin: const EdgeInsets.all(AppSpacing.v16),
+                  padding: const EdgeInsets.all(AppSpacing.v18),
                   decoration: BoxDecoration(
                     color: DashboardStyles.primaryGreen,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppSpacing.v16),
                     boxShadow: [
                       BoxShadow(
                         color: DashboardStyles.primaryGreen.withValues(alpha: 0.25),
@@ -750,14 +750,14 @@ final confirmed = await showConfirmDialog(
                           children: [
                             const Text(
                               'รวม Fixed Cost ต่อเดือน',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                              style: TextStyle(color: Colors.white70, fontSize: AppTypography.s12),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${formatter.format(_total)} บาท',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 22,
+                                fontSize: AppTypography.s22,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -766,7 +766,7 @@ final confirmed = await showConfirmDialog(
                       ),
                       Text(
                         '${_items.length} รายการ',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        style: const TextStyle(color: Colors.white70, fontSize: AppTypography.s12),
                       ),
                     ],
                   ),
@@ -777,7 +777,7 @@ final confirmed = await showConfirmDialog(
                   child: _items.isEmpty
                       ? Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.all(AppSpacing.v24),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -794,7 +794,7 @@ final confirmed = await showConfirmDialog(
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v0, AppSpacing.v16, AppSpacing.v16),
                           itemCount: _items.length,
                           itemBuilder: (context, index) {
                             final item = _items[index];
@@ -821,7 +821,7 @@ final confirmed = await showConfirmDialog(
                                       Container(
                                         width: 14,
                                         height: 14,
-                                        margin: const EdgeInsets.only(top: 4),
+                                        margin: const EdgeInsets.only(top: AppSpacing.v4),
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
                                           color: isLatest
@@ -854,15 +854,15 @@ final confirmed = await showConfirmDialog(
                                   Expanded(
                                     child: Padding(
                                       padding:
-                                          const EdgeInsets.only(bottom: 8),
+                                          const EdgeInsets.only(bottom: AppSpacing.v8),
                                       child: Opacity(
                                         opacity: isExpired ? 0.55 : 1,
                                         child: Container(
-                                        padding: const EdgeInsets.all(14),
+                                        padding: const EdgeInsets.all(AppSpacing.v14),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
                                           borderRadius:
-                                              BorderRadius.circular(12),
+                                              BorderRadius.circular(AppSpacing.v12),
                                           border: isLatest
                                               ? Border.all(
                                                   color:
@@ -881,12 +881,12 @@ final confirmed = await showConfirmDialog(
                                           children: [
                                             Container(
                                               padding:
-                                                  const EdgeInsets.all(10),
+                                                  const EdgeInsets.all(AppSpacing.v10),
                                               decoration: BoxDecoration(
                                                 color: accent
                                                     .withValues(alpha: 0.1),
                                                 borderRadius:
-                                                    BorderRadius.circular(10),
+                                                    BorderRadius.circular(AppSpacing.v10),
                                               ),
                                               child: Icon(
                                                 _iconForFixedCostCategory(
@@ -906,7 +906,7 @@ final confirmed = await showConfirmDialog(
                                                     style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
-                                                      fontSize: 14,
+                                                      fontSize: AppTypography.s14,
                                                     ),
                                                     overflow:
                                                         TextOverflow.ellipsis,
@@ -916,7 +916,7 @@ final confirmed = await showConfirmDialog(
                                                     _labelForFixedCostCategory(
                                                         item.category),
                                                     style: TextStyle(
-                                                        fontSize: 11.5,
+                                                        fontSize: AppTypography.s11_5,
                                                         color: Colors
                                                             .grey.shade500),
                                                   ),
@@ -937,7 +937,7 @@ final confirmed = await showConfirmDialog(
                                                       child: Text(
                                                         'หมดอายุแล้ว',
                                                         style: TextStyle(
-                                                            fontSize: 10.5,
+                                                            fontSize: AppTypography.s10_5,
                                                             color: Colors
                                                                 .red.shade400),
                                                       ),
@@ -948,7 +948,7 @@ final confirmed = await showConfirmDialog(
                                                     Text(
                                                       periodLabel,
                                                       style: TextStyle(
-                                                          fontSize: 10.5,
+                                                          fontSize: AppTypography.s10_5,
                                                           color: Colors.grey
                                                               .shade400),
                                                     ),
@@ -960,7 +960,7 @@ final confirmed = await showConfirmDialog(
                                               '${formatter.format(item.amount)} บาท',
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
-                                                fontSize: 14,
+                                                fontSize: AppTypography.s14,
                                                 color: accent,
                                               ),
                                             ),

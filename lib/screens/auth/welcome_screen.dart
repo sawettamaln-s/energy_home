@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../styles/app_spacing.dart';
+import '../../styles/app_typography.dart';
 import '../../widgets/auth_widgets.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -102,7 +104,7 @@ class _WelcomeContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v24, AppSpacing.v8, AppSpacing.v24, AppSpacing.v24),
       child: Column(
         children: [
               // ภาพประกอบตรงกลาง — ใช้ไอคอนแทนภาพประกอบ (ไม่มีไฟล์ภาพ)
@@ -119,7 +121,7 @@ class _WelcomeContent extends StatelessWidget {
               const Text(
                 'EnergyHome',
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: AppTypography.s32,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                   letterSpacing: 0.2,
@@ -131,7 +133,7 @@ class _WelcomeContent extends StatelessWidget {
                 'ได้ง่ายๆ พร้อมวิเคราะห์การใช้งานทุกเดือน',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: AppTypography.s14,
                   height: 1.5,
                   color: Colors.white.withValues(alpha: 0.85),
                 ),

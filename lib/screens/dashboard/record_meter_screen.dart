@@ -404,11 +404,11 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
           automaticallyImplyLeading: false,
           leadingWidth: 56,
           leading: Padding(
-            padding: const EdgeInsets.only(left: 8),
+            padding: const EdgeInsets.only(left: AppSpacing.v8),
             child: Center(
               child: InkWell(
                 onTap: () => _closeWith(false),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AppSpacing.v20),
                 child: const SizedBox(
                   width: 36,
                   height: 36,
@@ -429,7 +429,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                           height: 4,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(2),
+                            borderRadius: BorderRadius.circular(AppSpacing.v2),
                           ),
                         ),
                         const SizedBox(width: 5),
@@ -438,21 +438,21 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                           height: 4,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(2),
+                            borderRadius: BorderRadius.circular(AppSpacing.v2),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text('บันทึกมิเตอร์$_utilityLabel',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+                        style: const TextStyle(fontSize: AppTypography.s15, fontWeight: FontWeight.w600, color: Colors.white)),
                   ],
                 )
               : const Text('บันทึกสำเร็จ', style: TextStyle(color: Colors.white)),
         ),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.v20),
             child: _step == 0 ? _buildEntryAndConfirmStep() : _buildSuccessStep(),
           ),
         ),
@@ -474,17 +474,17 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
           isDense: true,
           filled: true,
           fillColor: DashboardStyles.background,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v14),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.v12),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.v12),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.v12),
             borderSide: BorderSide(color: _accent, width: 1.6),
           ),
         );
@@ -499,10 +499,10 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
         children: [
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v7),
               decoration: BoxDecoration(
                 color: DashboardStyles.background,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.v8),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,13 +511,13 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                     children: [
                       Icon(Icons.history, size: 11, color: Colors.grey.shade500),
                       const SizedBox(width: 3),
-                      Text('ค่าล่าสุด', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                      Text('ค่าล่าสุด', style: TextStyle(fontSize: AppTypography.s10, color: Colors.grey.shade600)),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text('${formatter.format(last)} $_unit',
                       style: TextStyle(
-                          fontSize: 13,
+                          fontSize: AppTypography.s13,
                           fontWeight: lastIsPlaceholder ? FontWeight.w400 : FontWeight.w600,
                           color: lastTextColor)),
                 ],
@@ -527,10 +527,10 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v7),
               decoration: BoxDecoration(
                 color: DashboardStyles.background,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.v8),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,13 +539,13 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                     children: [
                       Icon(Icons.outlined_flag, size: 11, color: Colors.grey.shade500),
                       const SizedBox(width: 3),
-                      Text('ต้นรอบ', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                      Text('ต้นรอบ', style: TextStyle(fontSize: AppTypography.s10, color: Colors.grey.shade600)),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text('${formatter.format(start)} $_unit',
                       style: TextStyle(
-                          fontSize: 13,
+                          fontSize: AppTypography.s13,
                           fontWeight: lastIsPlaceholder ? FontWeight.w600 : FontWeight.w400,
                           color: lastIsPlaceholder ? null : Colors.grey.shade400)),
                 ],
@@ -568,11 +568,11 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
     }) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(AppSpacing.v14),
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: Colors.grey.shade300, width: 0.6),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSpacing.v14),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,13 +585,13 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: _accent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: BorderRadius.circular(AppSpacing.v7),
                   ),
                   child: Icon(icon, size: 13, color: _accent),
                 ),
                 const SizedBox(width: 8),
                 Text(label,
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: _accent)),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s12_5, color: _accent)),
               ],
             ),
             const SizedBox(height: 10),
@@ -620,11 +620,11 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(AppSpacing.v14),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: Colors.grey.shade300, width: 0.6),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppSpacing.v14),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,14 +637,14 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: DashboardStyles.primaryGreen.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(7),
+                            borderRadius: BorderRadius.circular(AppSpacing.v7),
                           ),
                           child: const Icon(Icons.calculate_outlined,
                               size: 13, color: DashboardStyles.primaryGreen),
                         ),
                         const SizedBox(width: 8),
                         const Text('การคำนวณ',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -653,7 +653,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                           '${formatter.format(_previewPeakValue + _previewOffPeakValue)} $_unit'),
                       Center(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v4),
                           child: Icon(Icons.remove, size: 13, color: Colors.grey.shade400),
                         ),
                       ),
@@ -663,7 +663,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                       _calcRow('มิเตอร์วันนี้', '${formatter.format(_previewNormalValue)} $_unit'),
                       Center(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v4),
                           child: Icon(Icons.remove, size: 13, color: Colors.grey.shade400),
                         ),
                       ),
@@ -678,10 +678,10 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(AppSpacing.v14),
                 decoration: BoxDecoration(
                   color: _accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppSpacing.v14),
                 ),
                 child: Row(
                   children: [
@@ -694,18 +694,18 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: Text('฿',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _accent)),
+                          style: TextStyle(fontSize: AppTypography.s14, fontWeight: FontWeight.bold, color: _accent)),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'ค่า$_utilityLabelโดยประมาณ (ถึงวันนี้)\nอ้างอิงอัตราปัจจุบันของ $_providerLabel',
-                        style: TextStyle(fontSize: 12, height: 1.4, color: _accent),
+                        style: TextStyle(fontSize: AppTypography.s12, height: 1.4, color: _accent),
                       ),
                     ),
                     Text('฿${costFormatter.format(_previewCost)}',
                         style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold, color: _darkAccent)),
+                            fontSize: AppTypography.s20, fontWeight: FontWeight.bold, color: _darkAccent)),
                   ],
                 ),
               ),
@@ -745,7 +745,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text('เว้นช่องไหนไว้ได้ ถ้าช่วงนั้นยังไม่ได้ใช้เพิ่ม',
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                      style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
                 ),
               ],
             ),
@@ -757,14 +757,14 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               last: widget.lastValue,
               start: widget.startValue,
               autofocus: true,
-              fontSize: 26,
+              fontSize: AppTypography.s26,
               lastIsPlaceholder: widget.recentLogs.isEmpty,
             ),
           ],
           const SizedBox(height: 14),
           if (_isCalculating)
             Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: AppSpacing.v10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -775,15 +775,15 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text('กำลังคำนวณ...',
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                      style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
                 ],
               ),
             ),
           calculationPanel(),
           if (_error.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: Text(_error, style: const TextStyle(color: Colors.red, fontSize: 12.5)),
+              padding: const EdgeInsets.only(top: AppSpacing.v14),
+              child: Text(_error, style: const TextStyle(color: Colors.red, fontSize: AppTypography.s12_5)),
             ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
@@ -791,8 +791,8 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: _accent,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.v14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
             ),
             icon: _isSaving
                 ? const SizedBox(
@@ -811,10 +811,10 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+        Text(label, style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade700)),
         Text(value,
             style: TextStyle(
-              fontSize: bold ? 15 : 13,
+              fontSize: bold ? AppTypography.s15 : AppTypography.s13,
               fontWeight: bold ? FontWeight.bold : FontWeight.normal,
               color: bold ? _accent : DashboardStyles.textDark,
             )),
@@ -845,13 +845,13 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(AppSpacing.v14),
                   decoration: BoxDecoration(color: _accent, shape: BoxShape.circle),
                   child: const Icon(Icons.check, color: Colors.white, size: 36),
                 ),
                 const SizedBox(height: 12),
                 const Text('บันทึกสำเร็จ',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s18)),
                 Text(_shortThaiDate(_savedAt), style: DashboardStyles.lastValueStyle),
               ],
             ),
@@ -859,13 +859,13 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
           const SizedBox(height: 20),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.v16),
             decoration: DashboardStyles.whiteCard(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('ใช้ไปในรอบนี้ (อัปเดตแล้ว)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: _accent)),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s13_5, color: _accent)),
                 const SizedBox(height: 10),
                 _calcRow('ใช้ไปในรอบนี้', '${formatter.format(_savedUsedFromStart)} $_unit', bold: true),
                 const SizedBox(height: 4),
@@ -880,30 +880,30 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
             ..._historyAfterSave.take(5).map((e) {
               final isLatest = e == _historyAfterSave.first;
               return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                margin: const EdgeInsets.only(bottom: AppSpacing.v8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v10),
                 decoration: DashboardStyles.whiteCard(radius: 12),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        Text(_shortThaiDate(e.date), style: const TextStyle(fontSize: 12.5)),
+                        Text(_shortThaiDate(e.date), style: const TextStyle(fontSize: AppTypography.s12_5)),
                         if (isLatest) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v6, vertical: AppSpacing.v2),
                             decoration: BoxDecoration(
                               color: _accent.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(AppSpacing.v6),
                             ),
-                            child: Text('ล่าสุด', style: TextStyle(fontSize: 10, color: _accent)),
+                            child: Text('ล่าสุด', style: TextStyle(fontSize: AppTypography.s10, color: _accent)),
                           ),
                         ],
                       ],
                     ),
                     Text('+${formatter.format(e.usedFromLast)} $_unit • ฿${costFormatter.format(e.cost)}',
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                        style: const TextStyle(fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600)),
                   ],
                 ),
               );
@@ -917,8 +917,8 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: _accent,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
               ),
               child: const Text('กลับหน้าหลัก'),
             ),

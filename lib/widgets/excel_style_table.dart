@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../styles/app_spacing.dart';
+import '../styles/app_typography.dart';
+
 // ==================== ตารางสไตล์ Excel ====================
 // ใช้ในหน้า "เลขมิเตอร์ต้นรอบ", "บันทึกบิลย้อนหลัง", "ประวัติมิเตอร์ไฟฟ้า/
 // ประปา" — โชว์เป็นคอลัมน์ตรงๆ แบบเว็บการไฟฟ้า/ประปา อ่านง่ายกว่าการ์ดที่มี
@@ -44,11 +47,11 @@ class ExcelStyleTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.v12),
       child: Container(
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSpacing.v12),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -64,7 +67,7 @@ class ExcelStyleTable extends StatelessWidget {
   Widget _headerRow() {
     return Container(
       color: accent.withValues(alpha: 0.1),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v11),
       child: Row(
         children: [
           for (final c in columns)
@@ -76,14 +79,14 @@ class ExcelStyleTable extends StatelessWidget {
                 // แคบ แล้วล้นทับคอลัมน์ข้างๆ (เช่น "หน่วยที่ใช้(รวม)" ชนกับ
                 // "Off-Peak") — padding + maxLines/ellipsis เป็น safety net
                 // ระดับ widget กลาง กันหัวข้อยาวๆ ล้น
-                padding: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.only(left: AppSpacing.v4),
                 child: Text(
                   c.label,
                   textAlign: c.align,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: AppTypography.s12_5,
                     fontWeight: FontWeight.bold,
                     color: accent,
                   ),
@@ -105,7 +108,7 @@ class ExcelStyleTable extends StatelessWidget {
     return InkWell(
       onTap: onRowTap == null ? null : () => onRowTap!(row),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v12),
         decoration: BoxDecoration(
           color: bg,
           border: Border(top: BorderSide(color: Colors.grey.shade200)),
@@ -122,7 +125,7 @@ class ExcelStyleTable extends StatelessWidget {
                   children: [
                     if (col == 0 && locked)
                       Padding(
-                        padding: const EdgeInsets.only(right: 4),
+                        padding: const EdgeInsets.only(right: AppSpacing.v4),
                         child: Icon(Icons.lock_outline,
                             size: 12, color: Colors.grey.shade400),
                       ),
@@ -131,7 +134,7 @@ class ExcelStyleTable extends StatelessWidget {
                         cellText(row, col),
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: AppTypography.s13,
                           fontWeight:
                               col == 0 && latest ? FontWeight.bold : FontWeight.normal,
                           color: col == 0
@@ -158,7 +161,7 @@ Widget excelTableEmptyState({
 }) {
   return Center(
     child: Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.v24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -219,7 +222,7 @@ Future<void> showTableRowActions(
   await showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.v20)),
     ),
     builder: (ctx) => SafeArea(
       child: Column(
@@ -231,11 +234,11 @@ Future<void> showTableRowActions(
             height: 4,
             decoration: BoxDecoration(
               color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(AppSpacing.v2),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v14, AppSpacing.v20, AppSpacing.v6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -243,14 +246,14 @@ Future<void> showTableRowActions(
                   title,
                   textAlign: TextAlign.center,
                   style:
-                      const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      const TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s15),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600),
                   ),
                 ],
               ],

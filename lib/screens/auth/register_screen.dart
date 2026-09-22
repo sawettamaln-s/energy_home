@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/google_auth_service.dart';
+import '../../styles/app_spacing.dart';
+import '../../styles/app_typography.dart';
 import '../../widgets/auth_widgets.dart';
 import 'login_screen.dart';
 
@@ -134,7 +136,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.v24, AppSpacing.v8, AppSpacing.v24, AppSpacing.v24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -148,7 +150,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Text(
                       'สร้างบัญชีใหม่',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: AppTypography.s22,
                         fontWeight: FontWeight.bold,
                         color: AuthStyle.green,
                       ),
@@ -157,7 +159,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Text(
                       'สมัครสมาชิกเพื่อเริ่มติดตามพลังงานในบ้านคุณ',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13.5, color: Colors.grey),
+                      style: TextStyle(fontSize: AppTypography.s13_5, color: Colors.grey),
                     ),
                   ],
                 ),

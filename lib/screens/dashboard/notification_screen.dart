@@ -193,7 +193,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     builder: (context) {
                       final grouped = _groupedItems();
                       return ListView.builder(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(AppSpacing.v12),
                         itemCount: grouped.length,
                         itemBuilder: (ctx, sectionIndex) {
                           final label = grouped.keys.elementAt(sectionIndex);
@@ -203,11 +203,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             children: [
                               Padding(
                                 padding: EdgeInsets.fromLTRB(
-                                    4, sectionIndex == 0 ? 0 : 16, 4, 8),
+                                    AppSpacing.v4, sectionIndex == AppSpacing.v0 ? AppSpacing.v0 : AppSpacing.v16, AppSpacing.v4, AppSpacing.v8),
                                 child: Text(
                                   label,
                                   style: TextStyle(
-                                    fontSize: 12.5,
+                                    fontSize: AppTypography.s12_5,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.grey.shade500,
                                   ),
@@ -228,11 +228,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
   // เส้นบาง (ไม่มีเงาซ้อนกันทุกรายการ) ให้ดูเรียบและเป็นระบบ
   Widget _buildDateGroupCard(List<NotificationItem> items) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppSpacing.v14),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSpacing.v14),
           border: Border.all(color: Colors.grey.shade200),
         ),
         child: Column(
@@ -241,7 +241,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               _buildNotificationRow(items[i]),
               if (i != items.length - 1)
                 Padding(
-                  padding: const EdgeInsets.only(left: 54),
+                  padding: const EdgeInsets.only(left: AppSpacing.v54),
                   child: Divider(
                       height: 1, thickness: 0.5, color: Colors.grey.shade200),
                 ),
@@ -261,7 +261,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               size: 56, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           Text('ยังไม่มีการแจ้งเตือน',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+              style: TextStyle(color: Colors.grey.shade500, fontSize: AppTypography.s14)),
         ],
       ),
     );
@@ -281,13 +281,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
       background: Container(
         color: Colors.red,
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        padding: const EdgeInsets.only(right: AppSpacing.v20),
         child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
       child: InkWell(
         onTap: () => _onTapItem(item),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppSpacing.v12),
           color: unread
               ? DashboardStyles.primaryGreen.withValues(alpha: 0.05)
               : Colors.white,
@@ -314,17 +314,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           child: Text(
                             item.title,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: AppTypography.s13,
                               fontWeight:
                                   unread ? FontWeight.bold : FontWeight.w500,
-                              color: const Color(0xFF333333),
+                              color: AppColors.textDark,
                             ),
                           ),
                         ),
                         Text(
                           _timeAgo(item.timestamp),
                           style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade400),
+                              fontSize: AppTypography.s11, color: Colors.grey.shade400),
                         ),
                       ],
                     ),
@@ -332,7 +332,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     Text(
                       item.body,
                       style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
+                          fontSize: AppTypography.s12, color: Colors.grey.shade600),
                     ),
                   ],
                 ),

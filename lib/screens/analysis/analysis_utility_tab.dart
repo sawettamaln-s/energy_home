@@ -156,7 +156,7 @@ class _UtilityTab extends StatelessWidget {
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.v16),
       children: [
         if (currentCycle != null && currentCycle!.hasData) ...[
           _currentCycleCard(context),
@@ -253,10 +253,10 @@ class _UtilityTab extends StatelessWidget {
     final progressPercent = (c.progress * 100).toStringAsFixed(0);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.v16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppSpacing.v14),
         boxShadow: [
           BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
         ],
@@ -272,16 +272,16 @@ class _UtilityTab extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(AppSpacing.v9),
                 ),
                 child: Icon(Icons.timelapse, color: accentColor, size: 15),
               ),
               const SizedBox(width: 8),
               const Text('คาดการณ์ยอดบิลรอบนี้',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
               const Spacer(),
               Text('ผ่านมาแล้ว $progressPercent%',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => showInfoDialog(
@@ -304,7 +304,7 @@ class _UtilityTab extends StatelessWidget {
                   child: const Text('!',
                       style: TextStyle(
                           color: _green,
-                          fontSize: 11,
+                          fontSize: AppTypography.s11,
                           fontWeight: FontWeight.bold)),
                 ),
               ),
@@ -312,7 +312,7 @@ class _UtilityTab extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(AppSpacing.v6),
             child: LinearProgressIndicator(
               value: c.progress,
               minHeight: 6,
@@ -339,10 +339,10 @@ class _UtilityTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8, horizontal: AppSpacing.v10),
             decoration: BoxDecoration(
               color: DashboardStyles.background,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppSpacing.v8),
             ),
             child: Row(
               children: [
@@ -352,7 +352,7 @@ class _UtilityTab extends StatelessWidget {
                   child: Text(
                     'ใช้ไป ${_fmtUnit.format(c.currentUnits)} $unitLabel '
                     '• คาดว่าจะใช้ทั้งสิ้น ${_fmtUnit.format(c.forecastUnits)} $unitLabel',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                    style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade700),
                   ),
                 ),
               ],
@@ -368,12 +368,12 @@ class _UtilityTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+            style: TextStyle(fontSize: AppTypography.s10, color: Colors.grey.shade600)),
         const SizedBox(height: 4),
         Text(value,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: highlight ? 15 : 13,
+              fontSize: highlight ? AppTypography.s15 : AppTypography.s13,
               color: highlight ? _green : Colors.black87,
             )),
       ],
@@ -416,10 +416,10 @@ class _UtilityTab extends StatelessWidget {
             : (r.isIncrease ? Icons.trending_up : Icons.trending_down);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.v14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         boxShadow: [
           BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
         ],
@@ -440,7 +440,7 @@ class _UtilityTab extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: tone.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSpacing.v8),
                   ),
                   child: Icon(icon, size: 16, color: tone),
                 ),
@@ -451,7 +451,7 @@ class _UtilityTab extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: AppTypography.s13,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                       color: Colors.grey.shade900,
@@ -474,7 +474,7 @@ class _UtilityTab extends StatelessWidget {
           const SizedBox(height: 8),
           if (r == null)
             Text(emptyHint,
-                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500))
+                style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade500))
           else ...[
             // FittedBox กันข้อความยาว (เช่น "ประหยัดกว่าปกติ 15.2%") ล้นการ์ดช่องแคบ
             FittedBox(
@@ -484,7 +484,7 @@ class _UtilityTab extends StatelessWidget {
                   ? Text(sameLabel,
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 17,
+                          fontSize: AppTypography.s17,
                           color: tone))
                   : Row(
                       mainAxisSize: MainAxisSize.min,
@@ -493,7 +493,7 @@ class _UtilityTab extends StatelessWidget {
                       children: [
                         Text(
                           r.isIncrease ? increaseWord : decreaseWord,
-                          style: TextStyle(fontSize: 12, color: tone),
+                          style: TextStyle(fontSize: AppTypography.s12, color: tone),
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -502,7 +502,7 @@ class _UtilityTab extends StatelessWidget {
                               : '${r.percentChange!.abs().toStringAsFixed(1)}%',
                           style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              fontSize: 20,
+                              fontSize: AppTypography.s20,
                               color: tone),
                         ),
                       ],
@@ -512,16 +512,16 @@ class _UtilityTab extends StatelessWidget {
             // แถวค่าอ้างอิง: ชื่อสิ่งที่ใช้เทียบ (ซ้าย) กับยอดของมัน (ขวา)
             Divider(height: 1, thickness: 0.5, color: Colors.grey.shade300),
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: AppSpacing.v8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(previousLabel,
                       style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
                   Text(_fmt.format(r.previousValue),
                       style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
                 ],
               ),
             ),
@@ -622,10 +622,10 @@ class _UtilityTab extends StatelessWidget {
         : (Icons.insights, _green);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.v16),
       decoration: BoxDecoration(
         color: _green.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
       ),
       // ทุกอย่างในการ์ดชิดขอบซ้ายเส้นเดียวกัน — หัวการ์ด (ไอคอน/ชื่อ/ปุ่มข้อมูล)
       // อยู่บรรทัดเดียวเสมอ ปุ่มข้อมูลจึงไม่เลื่อนตามความสูงของข้อความด้านล่าง
@@ -640,7 +640,7 @@ class _UtilityTab extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: badgeColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppSpacing.v10),
                 ),
                 child: Icon(badgeIcon, size: 20, color: badgeColor),
               ),
@@ -651,7 +651,7 @@ class _UtilityTab extends StatelessWidget {
                       ? 'คาดการณ์เดือนหน้า • ${_thaiMonthShort[targetMonth - 1]}'
                       : 'คาดการณ์เดือนหน้า',
                   style: TextStyle(
-                      fontSize: 13,
+                      fontSize: AppTypography.s13,
                       fontWeight: FontWeight.w700,
                       color: Colors.grey.shade900),
                 ),
@@ -674,7 +674,7 @@ class _UtilityTab extends StatelessWidget {
                           'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขนี้จะยิ่งแม่นยำขึ้น',
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(AppSpacing.v6),
                   child: Icon(Icons.info_outline_rounded,
                       size: 20, color: _green.withValues(alpha: 0.7)),
                 ),
@@ -684,14 +684,14 @@ class _UtilityTab extends StatelessWidget {
           const SizedBox(height: 12),
           Text('${_fmt.format(forecast)} บาท',
               style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 24, color: _green)),
+                  fontWeight: FontWeight.bold, fontSize: AppTypography.s24, color: _green)),
           if (seasonalFactor != null && targetMonth != null)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: AppSpacing.v4),
               child: Text(
                 _seasonReasonText(targetMonth, seasonalFactor),
                 style: TextStyle(
-                    fontSize: 11.5, color: Colors.grey.shade700, height: 1.4),
+                    fontSize: AppTypography.s11_5, color: Colors.grey.shade700, height: 1.4),
               ),
             ),
           // ไม่ใส่หน้าอารมณ์ในบรรทัดนี้ เพราะการ์ดมีไอคอนสภาพอากาศอยู่แล้ว
@@ -701,7 +701,7 @@ class _UtilityTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(top: 1),
+                  padding: const EdgeInsets.only(top: AppSpacing.v1),
                   child: Icon(
                     comparison.isUnchanged
                         ? Icons.trending_flat_rounded
@@ -721,7 +721,7 @@ class _UtilityTab extends StatelessWidget {
                             '${comparison.percentChange != null ? '${comparison.percentChange!.abs().toStringAsFixed(0)}% ' : ''}'
                             '(${comparison.isIncrease ? '+' : '-'}${_fmt.format(comparison.diff.abs())} บาท)',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppTypography.s12,
                       fontWeight: FontWeight.w600,
                       color: deltaTone,
                     ),
@@ -735,11 +735,11 @@ class _UtilityTab extends StatelessWidget {
           // (หน้าตาเดียวกับกล่องเตือนในการ์ดเปรียบเทียบ)
           if (lastBillIsAnomalousBase)
             Container(
-              margin: const EdgeInsets.only(top: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              margin: const EdgeInsets.only(top: AppSpacing.v10),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v6),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.v8),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -752,7 +752,7 @@ class _UtilityTab extends StatelessWidget {
                       'เดือนล่าสุดที่ใช้เทียบมีค่าผิดปกติจากค่าเฉลี่ย '
                       'ตัวเลขเทียบด้านบนอาจดูต่างจากปกติมากกว่าที่ควรจะเป็น',
                       style: TextStyle(
-                          fontSize: 10.5,
+                          fontSize: AppTypography.s10_5,
                           color: Colors.orange.shade800,
                           height: 1.4),
                     ),
@@ -764,15 +764,15 @@ class _UtilityTab extends StatelessWidget {
             const SizedBox(height: 10),
             Container(
               padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v4),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(AppSpacing.v6),
               ),
               child: Text(
                 'ประมาณการเบื้องต้น (มีข้อมูล ${bills.length} เดือน)',
                 style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: AppTypography.s10_5,
                     color: Colors.orange.shade900,
                     fontWeight: FontWeight.w600),
               ),
@@ -785,10 +785,10 @@ class _UtilityTab extends StatelessWidget {
 
   Widget _insightsCard(List<AnalysisInsight> insights) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.v14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         boxShadow: [
           BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
         ],
@@ -804,19 +804,19 @@ class _UtilityTab extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: _green.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(AppSpacing.v9),
                 ),
                 child: const Icon(Icons.lightbulb_outline,
                     size: 15, color: _green),
               ),
               const SizedBox(width: 8),
               const Text('ข้อสังเกต',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
             ],
           ),
           const SizedBox(height: 10),
           ...insights.map((i) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: AppSpacing.v10),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -840,15 +840,15 @@ class _UtilityTab extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.only(top: AppSpacing.v4),
                             child: Text(i.text,
                                 style: const TextStyle(
-                                    fontSize: 12.5, height: 1.4)),
+                                    fontSize: AppTypography.s12_5, height: 1.4)),
                           ),
                           if (i.showApplianceCta &&
                               onViewAppliances != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.only(top: AppSpacing.v4),
                               child: GestureDetector(
                                 onTap: onViewAppliances,
                                 child: const Row(
@@ -856,7 +856,7 @@ class _UtilityTab extends StatelessWidget {
                                   children: [
                                     Text('ดูอุปกรณ์ที่ใช้ไฟมากสุด',
                                         style: TextStyle(
-                                            fontSize: 11.5,
+                                            fontSize: AppTypography.s11_5,
                                             fontWeight: FontWeight.bold,
                                             color: _green)),
                                     SizedBox(width: 2),

@@ -55,11 +55,11 @@ class AppBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      margin: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v0, AppSpacing.v16, AppSpacing.v16),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8, horizontal: AppSpacing.v8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppSpacing.v24),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -80,13 +80,13 @@ class AppBottomNavBar extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.v4),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? DashboardStyles.primaryGreen.withValues(alpha: 0.12)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(AppSpacing.v18),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -102,7 +102,7 @@ class AppBottomNavBar extends StatelessWidget {
                     Text(
                       item.label,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: AppTypography.s11,
                         fontWeight:
                             isSelected ? FontWeight.bold : FontWeight.w500,
                         color: isSelected

@@ -76,7 +76,7 @@ class AuthPrimaryButton extends StatelessWidget {
                   Text(
                     label,
                     style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600),
+                        fontSize: AppTypography.s16, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -123,7 +123,7 @@ class AuthSecondaryButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: AppTypography.s16, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -141,10 +141,10 @@ class AuthDivider extends StatelessWidget {
       children: [
         Expanded(child: Divider(color: Colors.grey.shade300)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10),
           child: Text(
             'หรือ',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 12.5),
+            style: TextStyle(color: Colors.grey.shade500, fontSize: AppTypography.s12_5),
           ),
         ),
         Expanded(child: Divider(color: Colors.grey.shade300)),
@@ -201,7 +201,7 @@ class AuthGoogleButton extends StatelessWidget {
                     child: const Text(
                       'G',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: AppTypography.s13,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF4285F4), // Google blue
                       ),
@@ -210,7 +210,7 @@ class AuthGoogleButton extends StatelessWidget {
                   const SizedBox(width: 10),
                   const Text(
                     'เข้าสู่ระบบด้วย Google',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: AppTypography.s15, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -233,7 +233,7 @@ InputDecoration authFieldDecoration({
     suffixIcon: suffixIcon,
     filled: true,
     fillColor: Colors.grey.shade50,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v14),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(AuthStyle.fieldRadius),
       borderSide: BorderSide.none,
@@ -271,10 +271,10 @@ class AuthErrorBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v10),
       decoration: BoxDecoration(
         color: Colors.red.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.v10),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,7 +284,7 @@ class AuthErrorBox extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: Colors.red, fontSize: 12.5),
+              style: const TextStyle(color: Colors.red, fontSize: AppTypography.s12_5),
             ),
           ),
         ],

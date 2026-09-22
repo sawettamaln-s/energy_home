@@ -72,11 +72,11 @@ void _showRateInfoDialog(
 Widget _rateCard({required Widget child}) {
   return Container(
     width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(16),
+    margin: const EdgeInsets.only(bottom: AppSpacing.v12),
+    padding: const EdgeInsets.all(AppSpacing.v16),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.v12),
       boxShadow: [
         BoxShadow(
           color: Colors.grey.withValues(alpha: 0.1),
@@ -101,10 +101,10 @@ Widget _rateCardHeader({
   return Row(
     children: [
       Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(AppSpacing.v8),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppSpacing.v8),
         ),
         child: Icon(icon, color: color, size: 20),
       ),
@@ -112,7 +112,7 @@ Widget _rateCardHeader({
       Expanded(
         child: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s15),
         ),
       ),
       if (infoTitle != null && infoMessage != null)
@@ -134,13 +134,13 @@ Widget _tierRow({
   required Color color,
 }) {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v8),
     color: isAlt ? color.withValues(alpha: 0.05) : Colors.transparent,
     child: Row(
       children: [
         Expanded(
           flex: 3,
-          child: Text(range, style: const TextStyle(fontSize: 12.5)),
+          child: Text(range, style: const TextStyle(fontSize: AppTypography.s12_5)),
         ),
         Expanded(
           flex: 2,
@@ -148,7 +148,7 @@ Widget _tierRow({
             pricePerUnit,
             textAlign: TextAlign.right,
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: AppTypography.s12_5,
               fontWeight: FontWeight.w600,
               color: color,
             ),
@@ -168,11 +168,11 @@ Widget _currentSettingBanner({
   required Color color,
 }) {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v10),
+    margin: const EdgeInsets.only(bottom: AppSpacing.v12),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppSpacing.v10),
       border: Border.all(color: color.withValues(alpha: 0.25)),
     ),
     child: Row(
@@ -183,7 +183,7 @@ Widget _currentSettingBanner({
           child: Text(
             label,
             style: TextStyle(
-                color: color, fontSize: 12.5, fontWeight: FontWeight.w600),
+                color: color, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -226,7 +226,7 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
     final isBangkok = widget.area == 'bangkok';
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.v16),
       children: [
         _currentSettingBanner(
           icon: Icons.bolt,
@@ -387,7 +387,7 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
               Row(
                 children: [
                   const Text('ค่า Ft ที่แอปใช้อยู่ตอนนี้: ',
-                      style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+                      style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey)),
                   _ftRate == null
                       ? const SizedBox(
                           width: 12,
@@ -398,7 +398,7 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
                       : Text(
                           '${_ftRate!.toStringAsFixed(4)} บาท/หน่วย',
                           style: const TextStyle(
-                              fontSize: 12.5,
+                              fontSize: AppTypography.s12_5,
                               fontWeight: FontWeight.bold,
                               color: _green),
                         ),
@@ -440,7 +440,7 @@ class _WaterRateTab extends StatelessWidget {
     final isBangkok = area == 'bangkok';
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.v16),
       children: [
         _currentSettingBanner(
           icon: Icons.water_drop,
@@ -550,7 +550,7 @@ class _WaterRateTab extends StatelessWidget {
               ] else ...[
                 Text('ที่อยู่อาศัย ใช้ไม่เกิน 50 หน่วย:',
                     style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppTypography.s12,
                         fontWeight: FontWeight.w600,
                         color: Colors.grey.shade700)),
                 _tierRow(
@@ -576,7 +576,7 @@ class _WaterRateTab extends StatelessWidget {
                 const Divider(height: 20),
                 Text('ใช้เกิน 50 หน่วย (หน่วยที่ 51 ขึ้นไปคิดอัตรานี้แทน):',
                     style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppTypography.s12,
                         fontWeight: FontWeight.w600,
                         color: Colors.grey.shade700)),
                 _tierRow(

@@ -24,7 +24,6 @@ import '../../widgets/bill_mockup_card.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/excel_style_table.dart';
 import '../../widgets/info_dialog.dart';
-import '../../widgets/onboarding_guide.dart';
 import '../../widgets/start_meter_fields.dart';
 import '../../widgets/tab_chip.dart';
 import '../auth/auth_gate.dart';
@@ -127,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v16)),
         title: Text(turnOn ? 'เปิดแจ้งเตือนไม่ได้จากในแอป' : 'ปิดแจ้งเตือน'),
         content: Text(
           turnOn
@@ -136,7 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               : 'ระบบมือถือไม่อนุญาตให้แอปปิดสิทธิ์แจ้งเตือนเองได้ค่ะ กรุณา'
                   'ไปปิดที่หน้าตั้งค่าเครื่อง > แอป > Energy Home > '
                   'การแจ้งเตือน',
-          style: const TextStyle(fontSize: 13.5, height: 1.5),
+          style: const TextStyle(fontSize: AppTypography.s13_5, height: 1.5),
         ),
         actions: [
           TextButton(
@@ -306,16 +305,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v16)),
           title: const Text('ยืนยันตัวตนก่อนลบบัญชี',
-              style: TextStyle(fontSize: 16)),
+              style: TextStyle(fontSize: AppTypography.s16)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'กรอกรหัสผ่านของบัญชีนี้อีกครั้งเพื่อยืนยันว่าเป็นคุณเอง',
-                style: TextStyle(fontSize: 13.5, height: 1.5),
+                style: TextStyle(fontSize: AppTypography.s13_5, height: 1.5),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -325,7 +324,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: InputDecoration(
                   labelText: 'รหัสผ่าน',
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(AppSpacing.v10)),
                   suffixIcon: IconButton(
                     icon:
                         Icon(obscure ? Icons.visibility_off : Icons.visibility),
@@ -359,7 +358,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.v16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -398,9 +397,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.v20),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppSpacing.v12),
                         ),
                       ),
                     ),
@@ -432,14 +431,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required Color color,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.v12),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(AppSpacing.v6),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppSpacing.v8),
             ),
             child: Icon(icon, size: 15, color: color),
           ),
@@ -448,7 +447,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 14.5,
+              fontSize: AppTypography.s14_5,
               color: color,
             ),
           ),
@@ -460,10 +459,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildUserCard() {
     final initials = _getInitials(_user?.name ?? '');
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.v16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withValues(alpha: 0.1),
@@ -486,7 +485,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: const TextStyle(
                     color: _sectionColor,
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontSize: AppTypography.s15,
                   ),
                 ),
               ),
@@ -499,14 +498,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _user?.name ?? '-',
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                        fontSize: AppTypography.s15,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       _user?.email ?? '-',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: AppTypography.s12_5,
                         color: Colors.grey.shade600,
                       ),
                     ),
@@ -531,7 +530,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Text(
                   '${_user?.area == 'bangkok' ? 'กรุงเทพและปริมณฑล' : 'ต่างจังหวัด'}'
                   ' · ${_user?.meterType == 'tou' ? 'TOU' : 'ปกติ'}',
-                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600),
                 ),
               ),
             ],
@@ -557,7 +556,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withValues(alpha: 0.1),
@@ -601,16 +600,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: _sectionColor,
             onTap: () => _showHistoricalBillList(),
           ),
-          const Divider(height: 1, indent: 56),
-          // เปิดคู่มือใช้งานซ้ำได้เสมอ ไม่เช็ค flag เหมือน showIfFirstTime
-          // ที่เด้งอัตโนมัติตอนเข้า Dashboard ครั้งแรก
-          _buildSettingsTile(
-            icon: Icons.help_outline,
-            title: 'คู่มือการใช้งาน',
-            subtitle: 'ดูวิธีใช้งานระบบรอบบิลและการบันทึกมิเตอร์อีกครั้ง',
-            color: _sectionColor,
-            onTap: () => OnboardingGuide.showAgain(context),
-          ),
         ],
       ),
     );
@@ -625,7 +614,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withValues(alpha: 0.1),
@@ -639,23 +628,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           ListTile(
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v8),
             leading: Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(AppSpacing.v8),
               decoration: BoxDecoration(
                 color: _sectionColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.v8),
               ),
               child: const Icon(Icons.notifications_active_outlined,
                   color: _sectionColor, size: 20),
             ),
             title: const Text(
               'การแจ้งเตือนทั้งหมด',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s14),
             ),
             subtitle: Text(
               granted ? 'เปิดอยู่' : 'ปิดอยู่',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(fontSize: AppTypography.s12, color: Colors.grey),
             ),
             trailing: Switch(
               value: granted,
@@ -713,12 +702,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         SwitchListTile(
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v8),
           secondary: Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppSpacing.v8),
             decoration: BoxDecoration(
               color: (enabled ? _sectionColor : Colors.grey).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppSpacing.v8),
             ),
             child: Icon(icon,
                 size: 20,
@@ -728,14 +717,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title,
             style: TextStyle(
               fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontSize: AppTypography.s14,
               color: enabled ? Colors.black87 : Colors.grey.shade400,
             ),
           ),
           subtitle: Text(
             subtitle,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppTypography.s12,
               color: enabled ? Colors.grey : Colors.grey.shade400,
             ),
           ),
@@ -752,7 +741,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withValues(alpha: 0.1),
@@ -792,7 +781,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
@@ -821,22 +810,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Color color = _sectionColor,
   }) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v8),
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(AppSpacing.v8),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppSpacing.v8),
         ),
         child: Icon(icon, color: color, size: 20),
       ),
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s14),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(fontSize: 12, color: Colors.grey),
+        style: const TextStyle(fontSize: AppTypography.s12, color: Colors.grey),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
       onTap: onTap,
@@ -857,9 +846,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           autofocus: true,
           decoration: InputDecoration(
             hintText: 'ชื่อของคุณ',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v14),
           ),
         ),
         actions: [
@@ -912,7 +901,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
           color: isSelected ? DashboardStyles.primaryGreen : Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSpacing.v10),
           border: Border.all(
             color: isSelected ? DashboardStyles.primaryGreen : Colors.grey.shade200,
           ),
@@ -925,18 +914,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text(
               '$day',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: AppTypography.s14,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? Colors.white : Colors.black87,
               ),
             ),
             if (isPopular)
               Padding(
-                padding: const EdgeInsets.only(top: 1),
+                padding: const EdgeInsets.only(top: AppSpacing.v1),
                 child: Text(
                   'ยอดนิยม',
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: AppTypography.s8,
                     fontWeight: FontWeight.w600,
                     color: isSelected ? Colors.white : Colors.green.shade700,
                   ),
@@ -955,9 +944,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v20)),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v20, AppSpacing.v20, AppSpacing.v12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -970,7 +959,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'กำหนดวันจดใบแจ้งบิล',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 17,
+                          fontSize: AppTypography.s17,
                         ),
                       ),
                     ),
@@ -989,7 +978,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'แตะที่วันบนใบแจ้งหนี้ล่าสุดของคุณ',
-                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 16),
 
@@ -1023,7 +1012,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text(
                     'วันที่เลือก: ทุกวันที่ $selectedDay ของเดือน',
                     style: const TextStyle(
-                      fontSize: 12.5,
+                      fontSize: AppTypography.s12_5,
                       fontWeight: FontWeight.w600,
                       color: DashboardStyles.primaryGreen,
                     ),
@@ -1147,9 +1136,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: DashboardStyles.primaryGreen,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(AppSpacing.v10),
                           ),
                         ),
                         child: const Text('บันทึก'),

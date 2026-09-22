@@ -24,12 +24,12 @@ void showInfoDialog(
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v16)),
       title: Row(
         children: [
           Icon(Icons.info_outline, color: iconColor, size: 20),
           const SizedBox(width: 8),
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 16))),
+          Expanded(child: Text(title, style: const TextStyle(fontSize: AppTypography.s16))),
         ],
       ),
       content: SingleChildScrollView(
@@ -37,7 +37,7 @@ void showInfoDialog(
             ? contentBuilder(context)
             : Text(
                 message!,
-                style: const TextStyle(fontSize: 13.5, height: 1.5),
+                style: const TextStyle(fontSize: AppTypography.s13_5, height: 1.5),
               ),
       ),
       actions: [
@@ -56,13 +56,13 @@ void showApplianceEstimateInfoDialog(BuildContext context) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v16)),
       title: const Row(
         children: [
           Icon(Icons.info_outline, color: DashboardStyles.primaryGreen, size: 20),
           SizedBox(width: 8),
           Expanded(
-            child: Text('ตัวเลขนี้คำนวณอย่างไร?', style: TextStyle(fontSize: 16)),
+            child: Text('ตัวเลขนี้คำนวณอย่างไร?', style: TextStyle(fontSize: AppTypography.s16)),
           ),
         ],
       ),
@@ -77,14 +77,14 @@ void showApplianceEstimateInfoDialog(BuildContext context) {
               'ค่าไฟ = หน่วยไฟ × อัตราเฉลี่ยประมาณการ 4.5 บาท/หน่วย\n\n'
               'อัตรานี้เป็นค่าเฉลี่ยโดยประมาณ (รวม Ft และ VAT) ไม่ใช่อัตราขั้นบันไดจริง '
               'จึงอาจไม่ตรงกับยอดบิลทุกประการ แต่ใช้เทียบสัดส่วนระหว่างอุปกรณ์ได้',
-              style: TextStyle(fontSize: 13.5, height: 1.5),
+              style: TextStyle(fontSize: AppTypography.s13_5, height: 1.5),
             ),
             const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(AppSpacing.v10),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppSpacing.v10),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,7 +101,7 @@ void showApplianceEstimateInfoDialog(BuildContext context) {
                       'สำหรับค่าที่แม่นยำกว่านี้ ให้ดู "หน่วยไฟฟ้าต่อปี" บนฉลากประหยัดไฟเบอร์ 5 '
                       'ของอุปกรณ์นั้นแทน',
                       style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: AppTypography.s12_5,
                           height: 1.5,
                           color: Colors.orange.shade900),
                     ),

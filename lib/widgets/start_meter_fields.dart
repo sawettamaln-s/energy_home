@@ -323,10 +323,10 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(AppSpacing.v10),
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSpacing.v10),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,7 +337,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                   child: RichText(
                     text: TextSpan(
                       style: TextStyle(
-                          fontSize: 12.5, height: 1.5, color: Colors.grey.shade800),
+                          fontSize: AppTypography.s12_5, height: 1.5, color: Colors.grey.shade800),
                       children: [
                         const TextSpan(
                             text: 'ข้อมูลที่ใช้กรอก ดูจากใบแจ้งหนี้ที่คุณมี '
@@ -379,7 +379,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.v10),
         borderSide: BorderSide.none,
       ),
     );
@@ -409,7 +409,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
         const SizedBox(height: 4),
         Text(
           'กรอกจากใบแจ้งหนี้ใบเดียวกับเลขมิเตอร์ด้านบน',
-          style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade600),
         ),
       ],
     );
@@ -428,7 +428,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s12_5)),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -487,7 +487,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.v14),
       decoration: DashboardStyles.accentCard(borderColor, radius: 14).copyWith(
         color: borderColor.withValues(alpha: 0.045),
       ),
@@ -497,7 +497,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(AppSpacing.v6),
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
@@ -509,19 +509,19 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
               ),
               const SizedBox(width: 8),
               Text(label,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
               const Spacer(),
               if (isPartial)
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v3),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppSpacing.v20),
                   ),
                   child: Text('กรอกไม่ครบ',
                       style: TextStyle(
-                          fontSize: 10.5,
+                          fontSize: AppTypography.s10_5,
                           fontWeight: FontWeight.w600,
                           color: Colors.red.shade700)),
                 ),
@@ -551,14 +551,14 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
           // toggle "ยังไม่มีบิลตอนนี้" ของฝั่งนี้โดยเฉพาะ กดแล้วกระทบแค่ฝั่งนี้
           // ใช้ checkbox วงกลมแทนสวิตช์วงรี ให้กดทั้งแถวได้ ไม่ต้องเล็งตัวสวิตช์
           InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppSpacing.v8),
             onTap: () => onNoBillYetChanged(!noBillYet),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     'ยังไม่มีบิล$labelตอนนี้ (มีแต่เลขมิเตอร์ที่อ่านจากหน้าปัดเอง)',
-                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                    style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade700),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -575,7 +575,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             Text(
               'กรอกให้ครบทุกช่องของ$label หรือเว้นว่างทั้งหมดถ้ายัง'
               'ไม่มีบิล$labelในมือ',
-              style: TextStyle(fontSize: 11.5, color: Colors.red.shade600),
+              style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.red.shade600),
             ),
           ],
         ],
@@ -691,7 +691,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                   ? const SizedBox.shrink()
                   : Text(widget.title!,
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14)),
+                          fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
             ),
             IconButton(
               visualDensity: VisualDensity.compact,
@@ -704,7 +704,7 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
         ),
         const SizedBox(height: 2),
         Text(widget.subtitle,
-            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+            style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
         const SizedBox(height: 12),
         _buildTabs(eComplete: eComplete, wComplete: wComplete),
         const SizedBox(height: 12),
@@ -822,7 +822,7 @@ class TouPairedUnitsField extends StatelessWidget {
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSpacing.v10),
           borderSide: BorderSide.none,
         ),
       );
@@ -833,7 +833,7 @@ class TouPairedUnitsField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s12_5)),
         const SizedBox(height: 6),
         TextField(
           controller: c,
@@ -851,7 +851,7 @@ class TouPairedUnitsField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s12_5)),
         const SizedBox(height: 6),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -881,12 +881,12 @@ class TouPairedUnitsField extends StatelessWidget {
         Text(
           'รวมหน่วยที่ใช้ :  ${sum.toStringAsFixed(0)} หน่วย ',
           style: TextStyle(
-              fontSize: 11.5, fontWeight: FontWeight.w600, color: iconColor),
+              fontSize: AppTypography.s11_5, fontWeight: FontWeight.w600, color: iconColor),
         ),
         if (helperText != null) ...[
           const SizedBox(height: 4),
           Text(helperText!,
-              style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade600)),
         ],
       ],
     );

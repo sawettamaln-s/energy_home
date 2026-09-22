@@ -63,8 +63,14 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
         child: Text(
           title,
           maxLines: 1,
-          style: const TextStyle(
-              fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+          // ฟอนต์ยืดหยุ่นตามความกว้างจอจริง (context.rf) แทนเลข 16 ตายตัว
+          // เดิม — ยังคงลดขนาดอัตโนมัติผ่าน FittedBox ต่อถ้าชื่อหน้ายาวเกิน
+          style: AppTypography.scaled(
+            context,
+            size: AppTypography.title,
+            weight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
       actions: actions,

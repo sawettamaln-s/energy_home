@@ -165,7 +165,7 @@ class _LoadErrorScaffold extends StatelessWidget {
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -175,14 +175,14 @@ class _LoadErrorScaffold extends StatelessWidget {
                 const Text(
                   'โหลดข้อมูลบัญชีไม่สำเร็จ',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: AppTypography.s17, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้งค่ะ',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 14, height: 1.5, color: Colors.grey.shade700),
+                      fontSize: AppTypography.s14, height: 1.5, color: Colors.grey.shade700),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -192,9 +192,9 @@ class _LoadErrorScaffold extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: DashboardStyles.primaryGreen,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.v14),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(AppSpacing.v12)),
                     ),
                     child: const Text('ลองใหม่'),
                   ),

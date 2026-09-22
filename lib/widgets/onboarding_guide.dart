@@ -81,9 +81,9 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
     final isLast = _page == _pages.length - 1;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v20)),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.v24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,16 +93,16 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
             Text(
               page.title,
               style: const TextStyle(
-                fontSize: 17,
+                fontSize: AppTypography.s17,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF333333),
+                color: AppColors.textDark,
               ),
             ),
             const SizedBox(height: 10),
             Text(
               page.body,
               style: const TextStyle(
-                fontSize: 13.5,
+                fontSize: AppTypography.s13_5,
                 height: 1.5,
                 color: Color(0xFF555555),
               ),
@@ -116,14 +116,14 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                 final active = i == _page;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  margin: const EdgeInsets.symmetric(horizontal: AppSpacing.v3),
                   width: active ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
                     color: active
                         ? DashboardStyles.primaryGreen
                         : Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(AppSpacing.v3),
                   ),
                 );
               }),
@@ -150,7 +150,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                     backgroundColor: DashboardStyles.primaryGreen,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppSpacing.v10),
                     ),
                   ),
                   onPressed: () {

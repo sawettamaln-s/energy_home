@@ -218,7 +218,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
               children: [
                 // ---- สรุปยอด 3 ช่อง ----
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v8),
                   child: Row(
                     children: [
                       Expanded(
@@ -272,7 +272,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                       const Text('กดปุ่ม + เพื่อเพิ่มรายการ',
                                           style: TextStyle(
                                               color: Colors.grey,
-                                              fontSize: 12)),
+                                              fontSize: AppTypography.s12)),
                                     ],
                                   ),
                                 ),
@@ -282,7 +282,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                         )
                       : ListView.builder(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v4, AppSpacing.v16, AppSpacing.v16),
                           itemCount: _appliances.length,
                           itemBuilder: (context, index) {
                             final a = _appliances[index];
@@ -291,10 +291,10 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                             final hasSchedule = a.schedules.isNotEmpty;
 
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
+                              margin: const EdgeInsets.only(bottom: AppSpacing.v12),
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(AppSpacing.v14),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.grey.withValues(alpha: 0.08),
@@ -307,16 +307,16 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Padding(
-                                    padding: const EdgeInsets.all(14),
+                                    padding: const EdgeInsets.all(AppSpacing.v14),
                                     child: Row(
                                       children: [
                                         Container(
-                                          padding: const EdgeInsets.all(10),
+                                          padding: const EdgeInsets.all(AppSpacing.v10),
                                           decoration: BoxDecoration(
                                             color: DashboardStyles.primaryGreen
                                                 .withValues(alpha: 0.1),
                                             borderRadius:
-                                                BorderRadius.circular(10),
+                                                BorderRadius.circular(AppSpacing.v10),
                                           ),
                                           child: Icon(_applianceIcon(a),
                                               color: DashboardStyles.primaryGreen),
@@ -331,12 +331,12 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                                   style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
-                                                      fontSize: 15)),
+                                                      fontSize: AppTypography.s15)),
                                               const SizedBox(height: 2),
                                               Text(
                                                 '${a.watt.toStringAsFixed(0)} วัตต์ • ${formatter.format(monthlyCost)} บาท/เดือน',
                                                 style: TextStyle(
-                                                    fontSize: 12,
+                                                    fontSize: AppTypography.s12,
                                                     color:
                                                         Colors.grey.shade600),
                                               ),
@@ -354,7 +354,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 14, vertical: 8),
+                                        horizontal: AppSpacing.v14, vertical: AppSpacing.v8),
                                     decoration: BoxDecoration(
                                       color: hasSchedule
                                           ? _scheduleBgColor(
@@ -378,7 +378,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                           child: Text(
                                             _scheduleSummary(a),
                                             style: TextStyle(
-                                              fontSize: 11,
+                                              fontSize: AppTypography.s11,
                                               color: hasSchedule
                                                   ? _scheduleFgColor(a
                                                       .schedules
@@ -393,7 +393,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                   ),
                                   ClipRRect(
                                     borderRadius: const BorderRadius.vertical(
-                                        bottom: Radius.circular(14)),
+                                        bottom: Radius.circular(AppSpacing.v14)),
                                     child: Row(
                                       children: [
                                         Expanded(
@@ -401,14 +401,14 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                             onTap: () => _showDetailSheet(a),
                                             child: const Padding(
                                               padding: EdgeInsets.symmetric(
-                                                  vertical: 11),
+                                                  vertical: AppSpacing.v11),
                                               child: Center(
                                                 child: Text(
                                                   'ดูข้อมูล',
                                                   style: TextStyle(
-                                                    fontSize: 12,
+                                                    fontSize: AppTypography.s12,
                                                     fontWeight: FontWeight.w600,
-                                                    color: Color(0xFF333333),
+                                                    color: AppColors.textDark,
                                                   ),
                                                 ),
                                               ),
@@ -426,12 +426,12 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                                                 _showEditApplianceSheet(a),
                                             child: const Padding(
                                               padding: EdgeInsets.symmetric(
-                                                  vertical: 11),
+                                                  vertical: AppSpacing.v11),
                                               child: Center(
                                                 child: Text(
                                                   'แก้ไข',
                                                   style: TextStyle(
-                                                    fontSize: 12,
+                                                    fontSize: AppTypography.s12,
                                                     fontWeight: FontWeight.w600,
                                                     color: DashboardStyles.primaryGreen,
                                                   ),
@@ -463,10 +463,10 @@ Widget _summaryBox({
   Color? valueColor,
 }) {
   return Container(
-    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.v12, horizontal: AppSpacing.v8),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.v12),
       border: Border.all(
         color: DashboardStyles.primaryGreen.withValues(alpha: 0.25),
       ),
@@ -483,7 +483,7 @@ Widget _summaryBox({
         Text(
           label,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 6),
         Text(
@@ -491,8 +491,8 @@ Widget _summaryBox({
           textAlign: TextAlign.center,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 15,
-            color: valueColor ?? const Color(0xFF333333),
+            fontSize: AppTypography.s15,
+            color: valueColor ?? AppColors.textDark,
           ),
         ),
       ],
@@ -551,10 +551,10 @@ Future<void> _confirmDelete(ApplianceModel a) async {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.v20),
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.v20)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -562,29 +562,29 @@ Future<void> _confirmDelete(ApplianceModel a) async {
           children: [
             Center(
               child: Container(
-                margin: const EdgeInsets.only(bottom: 16),
+                margin: const EdgeInsets.only(bottom: AppSpacing.v16),
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
                   color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(AppSpacing.v2),
                 ),
               ),
             ),
             Text(a.name,
                 style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const TextStyle(fontSize: AppTypography.s18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 2),
             Text(
               '${a.watt.toStringAsFixed(0)} วัตต์'
               '${hasSchedule ? ' • ${_scheduleSummary(a)}' : ''}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 16),
             if (!hasSchedule)
               Text(
                 'อุปกรณ์นี้ยังไม่ได้ตั้งตารางการใช้งาน จึงยังไม่มีตัวเลขประมาณการค่าไฟ',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade600),
               )
             else ...[
               Row(
@@ -631,21 +631,21 @@ Future<void> _confirmDelete(ApplianceModel a) async {
 
   Widget _detailBox(String label, String value) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.v12),
       decoration: BoxDecoration(
         color: const Color(0xFFE8F5E9),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.v10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
           const SizedBox(height: 4),
           Text(value,
               style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                  fontSize: AppTypography.s15,
                   color: DashboardStyles.primaryGreen)),
         ],
       ),
@@ -790,21 +790,21 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
       height: MediaQuery.of(context).size.height * 0.8,
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.v20)),
       ),
       child: Column(
         children: [
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
+            margin: const EdgeInsets.symmetric(vertical: AppSpacing.v12),
             width: 40,
             height: 4,
             decoration: BoxDecoration(
               color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(AppSpacing.v2),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -813,7 +813,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                         ? 'แก้ไขเครื่องใช้ไฟฟ้า'
                         : 'เพิ่มเครื่องใช้ไฟฟ้า',
                     style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
+                        fontSize: AppTypography.s18, fontWeight: FontWeight.bold)),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -823,7 +823,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.v16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -832,19 +832,19 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
                     ...DefaultAppliances.list.map((d) => Container(
-                          margin: const EdgeInsets.only(bottom: 8),
+                          margin: const EdgeInsets.only(bottom: AppSpacing.v8),
                           child: ListTile(
                             tileColor: Colors.grey.shade50,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(AppSpacing.v10),
                             ),
                             leading: Icon(_defaultApplianceIcon(d.icon),
                                 color: DashboardStyles.primaryGreen),
                             title: Text(d.name,
-                                style: const TextStyle(fontSize: 14)),
+                                style: const TextStyle(fontSize: AppTypography.s14)),
                             subtitle: Text(
                                 '${d.minWatt.toStringAsFixed(0)}-${d.maxWatt.toStringAsFixed(0)} วัตต์',
-                                style: const TextStyle(fontSize: 11)),
+                                style: const TextStyle(fontSize: AppTypography.s11)),
                             onTap: () => _selectDefault(d),
                           ),
                         )),
@@ -885,7 +885,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                       decoration: InputDecoration(
                         hintText: 'เช่น แอร์ห้องนอน',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppSpacing.v10),
                         ),
                       ),
                     ),
@@ -900,7 +900,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                         hintText: 'เช่น 1200',
                         suffixText: 'วัตต์',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppSpacing.v10),
                         ),
                       ),
                       onChanged: (_) => setState(() {}),
@@ -919,7 +919,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                               hintText: 'เช่น 8',
                               suffixText: 'ชม.',
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(AppSpacing.v10),
                               ),
                             ),
                             onChanged: (_) => setState(() {}),
@@ -934,7 +934,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                               hintText: 'เช่น 30',
                               suffixText: 'นาที',
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(AppSpacing.v10),
                               ),
                             ),
                             onChanged: (_) => setState(() {}),
@@ -957,9 +957,9 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: DashboardStyles.primaryGreen,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v20),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppSpacing.v12),
                           ),
                         ),
                         child: _isSaving
@@ -980,10 +980,10 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
 
   Widget _buildDaySelector() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.v14, horizontal: AppSpacing.v8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
@@ -1015,7 +1015,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
               child: Text(
                 thaiWeekdaysShort[index],
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: AppTypography.s11,
                   fontWeight: FontWeight.w600,
                   color: selected ? Colors.white : Colors.grey.shade600,
                 ),
@@ -1051,10 +1051,10 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     final formatter = NumberFormat('#,##0.00');
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.v16),
       decoration: BoxDecoration(
         color: DashboardStyles.primaryGreen.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1062,7 +1062,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
           Row(
             children: [
               const Text('ประมาณการค่าไฟ',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
               const SizedBox(width: 4),
               GestureDetector(
                 onTap: _showEstimateInfoPopup,
@@ -1106,21 +1106,21 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
 
   Widget _estimateBox(String label, String value) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(AppSpacing.v10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppSpacing.v8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
           const SizedBox(height: 2),
           Text(value,
               style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                  fontSize: AppTypography.s15,
                   color: DashboardStyles.primaryGreen)),
         ],
       ),

@@ -54,10 +54,10 @@ class BillMockupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = _mockDataFor();
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.v12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         border: Border.all(color: Colors.grey.shade300, width: 1),
       ),
       child: Column(
@@ -76,7 +76,7 @@ class BillMockupCard extends StatelessWidget {
                 child: Text(
                   data.logoLabel,
                   style: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w700, color: _accent),
+                      fontSize: AppTypography.s10, fontWeight: FontWeight.w700, color: _accent),
                 ),
               ),
               const SizedBox(width: 10),
@@ -86,10 +86,10 @@ class BillMockupCard extends StatelessWidget {
                   children: [
                     Text(data.providerName,
                         style: const TextStyle(
-                            fontSize: 12.5, fontWeight: FontWeight.w600)),
+                            fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600)),
                     Text(data.providerSubtitle,
                         style: TextStyle(
-                            fontSize: 10.5, color: Colors.grey.shade600)),
+                            fontSize: AppTypography.s10_5, color: Colors.grey.shade600)),
                   ],
                 ),
               ),
@@ -97,14 +97,14 @@ class BillMockupCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(data.customerNameLine,
-              style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700)),
+              style: TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade700)),
           const SizedBox(height: 2),
           Text(data.premiseLine,
-              style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700)),
+              style: TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade700)),
           if (data.typeLine != null) ...[
             const SizedBox(height: 2),
             Text(data.typeLine!,
-                style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700)),
+                style: TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade700)),
           ],
           const SizedBox(height: 10),
           _infoTable([data.accountRow], headerRow: data.accountHeader),
@@ -120,11 +120,11 @@ class BillMockupCard extends StatelessWidget {
           if (data.footnote != null) ...[
             const SizedBox(height: 4),
             Text(data.footnote!,
-                style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500)),
+                style: TextStyle(fontSize: AppTypography.s9_5, color: Colors.grey.shade500)),
           ],
           const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: AppSpacing.v8),
             decoration: BoxDecoration(
               border: Border(top: BorderSide(color: Colors.grey.shade200)),
             ),
@@ -139,7 +139,7 @@ class BillMockupCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'ข้อมูลตัวอย่าง (mock) เพื่อการอ้างอิงโครงสร้างเท่านั้น ไม่ใช่เอกสารจริงของ ${data.providerAbbr}',
-            style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: AppTypography.s9_5, color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -147,19 +147,19 @@ class BillMockupCard extends StatelessWidget {
   }
 
   Widget _costRow(String label, String value, {bool bold = false}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.v2),
         child: Row(
           children: [
             Expanded(
               child: Text(label,
                   style: TextStyle(
-                      fontSize: bold ? 12.5 : 11.5,
+                      fontSize: bold ? AppTypography.s12_5 : AppTypography.s11_5,
                       fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
                       color: bold ? DashboardStyles.textDark : Colors.grey.shade700)),
             ),
             Text(value,
                 style: TextStyle(
-                    fontSize: bold ? 12.5 : 11.5,
+                    fontSize: bold ? AppTypography.s12_5 : AppTypography.s11_5,
                     fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
                     color: bold ? DashboardStyles.textDark : Colors.grey.shade800)),
           ],
@@ -190,14 +190,16 @@ class BillMockupCard extends StatelessWidget {
               for (int c = 0; c < allRows[r].length; c++)
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 3),
+                      horizontal: AppSpacing.v4, vertical: AppSpacing.v3),
                   child: Builder(builder: (context) {
                     final isHighlighted = r >= headerOffset &&
                         (highlightCols?.contains(c) ?? false);
                     final text = Text(
                       allRows[r][c],
                       style: TextStyle(
-                        fontSize: r == 0 && headerRow != null ? 9.5 : 11,
+                        fontSize: r == 0 && headerRow != null
+                            ? AppTypography.s9_5
+                            : AppTypography.s11,
                         fontWeight:
                             isHighlighted ? FontWeight.w700 : FontWeight.normal,
                         color: r == 0 && headerRow != null
@@ -208,10 +210,10 @@ class BillMockupCard extends StatelessWidget {
                     if (!isHighlighted) return text;
                     return Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 2),
+                          horizontal: AppSpacing.v5, vertical: AppSpacing.v2),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.red, width: 1.5),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(AppSpacing.v4),
                       ),
                       child: text,
                     );

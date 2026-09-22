@@ -103,7 +103,7 @@ class _SetupScreenState extends State<SetupScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.v24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -113,12 +113,12 @@ class _SetupScreenState extends State<SetupScreen> {
                   return Expanded(
                     child: Container(
                       height: 4,
-                      margin: const EdgeInsets.only(right: 4),
+                      margin: const EdgeInsets.only(right: AppSpacing.v4),
                       decoration: BoxDecoration(
                         color: index <= _currentStep
                             ? AuthStyle.green
                             : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(AppSpacing.v2),
                       ),
                     ),
                   );
@@ -127,7 +127,7 @@ class _SetupScreenState extends State<SetupScreen> {
               const SizedBox(height: 8),
               Text(
                 'ขั้นตอนที่ ${_currentStep + 1} จาก $_totalSteps',
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                style: const TextStyle(color: Colors.grey, fontSize: AppTypography.s13),
               ),
               const SizedBox(height: 32),
               Expanded(child: _buildStep(_currentStep)),
@@ -286,10 +286,10 @@ class _SetupScreenState extends State<SetupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(AppSpacing.v10),
           decoration: BoxDecoration(
             color: green.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.v12),
           ),
           child: Icon(icon, color: green),
         ),
@@ -303,11 +303,11 @@ class _SetupScreenState extends State<SetupScreen> {
                 children: [
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: AppSpacing.v6),
                       child: Text(
                         title,
                         style: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
+                            fontSize: AppTypography.s20, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -325,7 +325,7 @@ class _SetupScreenState extends State<SetupScreen> {
               Text(
                 subtitle,
                 style: TextStyle(
-                    color: Colors.grey.shade600, fontSize: 13, height: 1.4),
+                    color: Colors.grey.shade600, fontSize: AppTypography.s13, height: 1.4),
               ),
             ],
           ),
@@ -344,12 +344,12 @@ class _SetupScreenState extends State<SetupScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.v16),
         decoration: BoxDecoration(
           color: isSelected
               ? DashboardStyles.primaryGreen.withValues(alpha: 0.1)
               : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSpacing.v12),
           border: Border.all(
             color: isSelected
                 ? DashboardStyles.primaryGreen
@@ -360,12 +360,12 @@ class _SetupScreenState extends State<SetupScreen> {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(AppSpacing.v10),
               decoration: BoxDecoration(
                 color: isSelected
                     ? DashboardStyles.primaryGreen
                     : Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppSpacing.v10),
               ),
               child: Icon(
                 icon,
@@ -388,7 +388,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: const TextStyle(color: Colors.grey, fontSize: AppTypography.s12),
                   ),
                 ],
               ),

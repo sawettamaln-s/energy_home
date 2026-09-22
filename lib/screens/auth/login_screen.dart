@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/google_auth_service.dart';
+import '../../styles/app_spacing.dart';
+import '../../styles/app_typography.dart';
 import '../../widgets/auth_widgets.dart';
 import 'register_screen.dart';
 
@@ -127,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const Text(
                     'กรอกอีเมลที่ใช้สมัคร ระบบจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปให้',
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                    style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -138,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       hintText: 'example@email.com',
                       prefixIcon: const Icon(Icons.email_outlined),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppSpacing.v12),
                       ),
                     ),
                   ),
@@ -146,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 8),
                     Text(dialogError!,
                         style:
-                            const TextStyle(color: Colors.red, fontSize: 13)),
+                            const TextStyle(color: Colors.red, fontSize: AppTypography.s13)),
                   ],
                 ],
               ),
@@ -231,7 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v24, vertical: AppSpacing.v16),
               child: ConstrainedBox(
                 // บังคับความสูงขั้นต่ำเท่าพื้นที่จอ เพื่อให้ Spacer จัด layout
                 // แบบสมดุลได้บนจอสูง แต่ยังยุบ/เลื่อนได้ปกติเวลาคีย์บอร์ดเปิด
@@ -253,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               'ยินดีต้อนรับกลับมา',
                               style: TextStyle(
-                                fontSize: 22,
+                                fontSize: AppTypography.s22,
                                 fontWeight: FontWeight.bold,
                                 color: AuthStyle.green,
                               ),
@@ -263,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               'เข้าสู่ระบบเพื่อติดตามพลังงานในบ้านของคุณ',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 13.5,
+                                fontSize: AppTypography.s13_5,
                                 color: Colors.grey,
                               ),
                             ),
@@ -319,7 +321,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               color: AuthStyle.green,
                               fontWeight: FontWeight.w600,
-                              fontSize: 13,
+                              fontSize: AppTypography.s13,
                             ),
                           ),
                         ),

@@ -33,7 +33,7 @@ Widget _trendLegendDot(Color color, String label) {
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
       const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: 9.5, color: Colors.grey.shade600)),
+      Text(label, style: TextStyle(fontSize: AppTypography.s9_5, color: Colors.grey.shade600)),
     ],
   );
 }
@@ -73,9 +73,9 @@ Widget _trendRadio(
     Color accent, String label, bool selected, VoidCallback onTap) {
   return InkWell(
     onTap: onTap,
-    borderRadius: BorderRadius.circular(20),
+    borderRadius: BorderRadius.circular(AppSpacing.v20),
     child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v4, vertical: AppSpacing.v2),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -88,7 +88,7 @@ Widget _trendRadio(
           Text(
             label,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: AppTypography.s11_5,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
               color: selected ? accent : Colors.grey.shade500,
             ),
@@ -101,7 +101,7 @@ Widget _trendRadio(
 
 BoxDecoration _trendCardDecoration() => BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppSpacing.v14),
       boxShadow: [
         BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
       ],
@@ -124,7 +124,7 @@ class _LegendSwatch extends StatelessWidget {
           : DecoratedBox(
               decoration: BoxDecoration(
                 color: color,
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(AppSpacing.v3),
               ),
             ),
     );
@@ -139,7 +139,7 @@ class _DashedRRectPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rrect = RRect.fromRectAndRadius(
       (Offset.zero & size).deflate(0.7),
-      const Radius.circular(3),
+      const Radius.circular(AppSpacing.v3),
     );
     // พื้นจางเท่ากับแท่งคาดการณ์ในกราฟ (alpha 0.10) แล้วเส้นประทับบน
     canvas.drawRRect(rrect, Paint()..color = color.withValues(alpha: 0.10));
@@ -364,10 +364,10 @@ class _TrendChartCardState extends State<_TrendChartCard> {
         : _emptyMessage('${widget.unitLabel}ที่ใช้${widget.title}');
 
     final accent = _showCost ? widget.costColor : widget.unitColor;
-    final legendStyle = TextStyle(fontSize: 10.5, color: Colors.grey.shade600);
+    final legendStyle = TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade600);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.v16),
       decoration: _trendCardDecoration(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -378,7 +378,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
           // ตัวกราฟไม่ครอบ เพื่อให้แตะแท่งดู tooltip ได้ตามปกติ
           InkWell(
             onTap: canExpand ? _openHistoryPage : null,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSpacing.v10),
             child: Row(
               children: [
                 Container(
@@ -387,7 +387,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: widget.accentColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(9),
+                    borderRadius: BorderRadius.circular(AppSpacing.v9),
                   ),
                   child: Icon(Icons.show_chart,
                       color: widget.accentColor, size: 15),
@@ -397,14 +397,14 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                   // การ์ดนี้มีทั้งประวัติและคาดการณ์ จึงไม่ใช้คำว่า "ประวัติการใช้"
                   child: Text('ประวัติและคาดการณ์${widget.title}',
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 13)),
+                          fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
                 ),
                 if (forecasts.isNotEmpty)
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _showForecastInfo,
                     child: Padding(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(AppSpacing.v4),
                       child: Container(
                         width: 18,
                         height: 18,
@@ -416,7 +416,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                         child: Text('!',
                             style: TextStyle(
                                 color: widget.accentColor,
-                                fontSize: 11,
+                                fontSize: AppTypography.s11,
                                 fontWeight: FontWeight.bold)),
                       ),
                     ),
@@ -484,7 +484,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                                     color: Colors.grey.shade300,
                                     width: 18,
                                     borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(6)),
+                                        top: Radius.circular(AppSpacing.v6)),
                                   ),
                                 ]);
                               }),
@@ -495,16 +495,16 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                       Center(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
+                              horizontal: AppSpacing.v16, vertical: AppSpacing.v10),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.92),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(AppSpacing.v10),
                           ),
                           child: Text(
                             emptyMessage,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
+                                fontSize: AppTypography.s12, color: Colors.grey),
                           ),
                         ),
                       ),
@@ -525,16 +525,16 @@ class _TrendChartCardState extends State<_TrendChartCard> {
           if (forecasts.isNotEmpty && widget.forecastLowConfidence) ...[
             const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v4),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(AppSpacing.v6),
               ),
               child: Text(
                 'ประมาณการเบื้องต้น (มีข้อมูล ${widget.bills.length} เดือน) '
                 'ยิ่งเดือนไกลยิ่งไม่แน่นอน',
                 style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: AppTypography.s10_5,
                     color: Colors.orange.shade900,
                     fontWeight: FontWeight.w600),
               ),
@@ -557,16 +557,16 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                 if (canExpand)
                   InkWell(
                     onTap: _openHistoryPage,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSpacing.v8),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
+                          horizontal: AppSpacing.v4, vertical: AppSpacing.v2),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text('ดูทั้งหมด',
                               style: TextStyle(
-                                  fontSize: 10.5,
+                                  fontSize: AppTypography.s10_5,
                                   fontWeight: FontWeight.w600,
                                   color: widget.accentColor)),
                           Icon(Icons.chevron_right,
@@ -661,8 +661,8 @@ class _TrendBars extends StatelessWidget {
     }
 
     const tooltipStyle = TextStyle(
-        color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold);
-    const barRadius = BorderRadius.vertical(top: Radius.circular(6));
+        color: Colors.white, fontSize: AppTypography.s11, fontWeight: FontWeight.bold);
+    const barRadius = BorderRadius.vertical(top: Radius.circular(AppSpacing.v6));
 
     final chart = BarChart(
       BarChartData(
@@ -683,7 +683,7 @@ class _TrendBars extends StatelessWidget {
               interval: interval == 0 ? 1 : interval,
               getTitlesWidget: (value, meta) => Text(
                 value.toInt().toString(),
-                style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: AppTypography.s9, color: Colors.grey.shade500),
               ),
             ),
           ),
@@ -702,7 +702,7 @@ class _TrendBars extends StatelessWidget {
                 }
                 final isForecast = i >= histCount;
                 return Padding(
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: AppSpacing.v4),
                   child: Text(
                     allLabels[i],
                     style: TextStyle(
@@ -854,7 +854,7 @@ class _TrendBars extends StatelessWidget {
                 child: Text(
                   'วันนี้',
                   textAlign: TextAlign.right,
-                  style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: AppTypography.s9, color: Colors.grey.shade500),
                 ),
               ),
             ),
@@ -865,7 +865,7 @@ class _TrendBars extends StatelessWidget {
                 child: Text(
                   'คาดการณ์',
                   style: TextStyle(
-                      fontSize: 9,
+                      fontSize: AppTypography.s9,
                       fontWeight: FontWeight.w700,
                       color: modeAccent),
                 ),
@@ -952,10 +952,10 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
     final accent = widget.config.accentColor;
     final nowYear = DateTime.now().year;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.v12),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
@@ -968,7 +968,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
                 value: _year,
                 isExpanded: true,
                 dropdownColor: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.v12),
                 icon: Icon(Icons.keyboard_arrow_down, color: accent),
                 items: [
                   for (final y in _years)
@@ -979,7 +979,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
                             ? 'พ.ศ. ${y + 543} (ปีนี้)'
                             : 'พ.ศ. ${y + 543}',
                         style: const TextStyle(
-                            fontSize: 13.5, fontWeight: FontWeight.w600),
+                            fontSize: AppTypography.s13_5, fontWeight: FontWeight.w600),
                       ),
                     ),
                 ],
@@ -996,20 +996,20 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
 
   Widget _statTile(String label, String value) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.v14),
       decoration: _trendCardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade500)),
           const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(value,
                 style:
-                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                    const TextStyle(fontSize: AppTypography.s15, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -1021,17 +1021,17 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
     final cost = '${costFmt.format(cfg.costSelector(b))} บาท';
     final used = '${usedFmt.format(cfg.usedSelector(b))} ${cfg.unitLabel}';
 
-    const primaryStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w700);
-    final secondaryStyle = TextStyle(fontSize: 11, color: Colors.grey.shade500);
+    const primaryStyle = TextStyle(fontSize: AppTypography.s13, fontWeight: FontWeight.w700);
+    final secondaryStyle = TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade500);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
       child: Row(
         children: [
           SizedBox(
             width: 52,
             child: Text(_monthShort[b.month - 1],
                 style:
-                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    const TextStyle(fontSize: AppTypography.s13, fontWeight: FontWeight.w600)),
           ),
           const Spacer(),
           Column(
@@ -1071,7 +1071,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
       backgroundColor: DashboardStyles.background,
       appBar: AppTopBar(title: 'ประวัติการใช้${cfg.title}'),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.v16),
         children: [
           if (_years.isNotEmpty) ...[
             _yearDropdown(),
@@ -1094,7 +1094,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
             const SizedBox(height: 12),
           ],
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.v16),
             decoration: _trendCardDecoration(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1104,7 +1104,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
                     Expanded(
                       child: Text('รายเดือน พ.ศ. ${_year + 543}',
                           style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 13)),
+                              fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
                     ),
                     _trendRadio(cfg.accentColor, 'ค่าใช้จ่าย', _showCost,
                         () => setState(() => _showCost = true)),
@@ -1122,7 +1122,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
                             ? 'ค่าใช้จ่าย (บาท)'
                             : '${cfg.unitLabel}ที่ใช้',
                         style: TextStyle(
-                            fontSize: 10.5, color: Colors.grey.shade500),
+                            fontSize: AppTypography.s10_5, color: Colors.grey.shade500),
                       ),
                     ),
                     cfg.legendFor(_showCost, present),
@@ -1136,7 +1136,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
                           child: Text(
                             'ไม่มีข้อมูลบิลของปี ${_year + 543}',
                             style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
+                                fontSize: AppTypography.s12, color: Colors.grey),
                           ),
                         )
                       : cfg.buildBars(
@@ -1153,17 +1153,17 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
           if (present.isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v8),
               decoration: _trendCardDecoration(),
               child: Column(
                 children: [
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.v8),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text('รายละเอียดรายเดือน',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 13)),
+                              fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
                     ),
                   ),
                   for (final b in present.reversed) ...[
