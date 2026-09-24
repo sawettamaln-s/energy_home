@@ -35,6 +35,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 const _identityToolkitUrl =
     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
@@ -92,6 +93,18 @@ void main(List<String> args) async {
     exitCode = 1;
     return;
   }
+
+  if (options.extendToCurrent) {
+    final before = rows.length;
+    _extendToCurrentMonth(rows, isTou);
+    if (rows.length > before) {
+      final now = DateTime.now();
+      stdout.writeln(
+          'ขยายข้อมูลเพิ่ม ${rows.length - before} เดือน (ประมาณการจากแนวโน้ม+ฤดูกาลของข้อมูลเดิม) '
+          'ถึงเดือนปัจจุบัน ${now.year}-${now.month.toString().padLeft(2, '0')}');
+    }
+  }
+
   stdout.writeln(
       'พบ ${rows.length} เดือนสำหรับ household "${options.household}" '
       '(${rows.first.year}-${rows.first.month.toString().padLeft(2, '0')} '
@@ -139,10 +152,10 @@ void main(List<String> args) async {
         offPeakUsed = r.elecOffPeakUnits;
         // เท่ากับ eLogs.first.usedFromStart ที่แอปจริงคำนวณตอน
         // compileBill() (ดู record_meter_screen.dart: usedFromStart =
-        // peakUnits + offPeakUnits) — ต้องไม่เป็น 0 ไม่งั้น usedSelector ใน
-        // หน้าวิเคราะห์ (b) => b.electricityUsed จะได้ 0 ทุกเดือน ทำให้ maxY
-        // ของกราฟตกไปใช้ fallback 8.0 ทั้งที่แท่งจริง (จาก peak+offpeak
-        // stacked) สูงเป็นร้อย กราฟเลยทะลุกรอบ
+        // peakUnits + offPeakUnits) — ถ้าปล่อยเป็น 0 แบบก่อนหน้านี้
+        // usedSelector ในหน้าวิเคราะห์ (b) => b.electricityUsed จะได้ 0
+        // ทุกเดือน ทำให้ maxY ของกราฟตกไปใช้ fallback 8.0 ทั้งที่แท่งจริง
+        // (จาก peak+offpeak stacked) สูงเป็นร้อย กราฟเลยทะลุกรอบ
         elecUsed = peakUsed + offPeakUsed;
         electricityCost = _calculateElectricityTOU(
           peakUnits: peakUsed,
@@ -248,6 +261,82 @@ class _Row {
     required this.elecOffPeakUnits,
     required this.waterUnits,
   });
+}
+
+// ==================== ขยายข้อมูลถึงเดือนปัจจุบัน (ตอน --extend-to-current) ====================
+//
+// ประมาณการเดือนที่ยังไม่มีใน CSV (นับจากเดือนถัดจากแถวสุดท้ายจนถึงเดือน
+// ปัจจุบันตาม DateTime.now() ตอนรัน) ด้วยหลักการ:
+//   ค่าประมาณ = ค่าของ "เดือนเดียวกันเมื่อปีก่อน" (anchor ปีก่อนหน้า จับ
+//               ฤดูกาลให้ตรง) x แนวโน้มการเติบโตเทียบปีต่อปี (เฉลี่ย 3 เดือน
+//               ล่าสุดเทียบกับ 3 เดือนเดียวกันเมื่อปีก่อน จำกัดไว้ 0.8-1.2
+//               เท่า กันเหวี่ยงเกินจริงหากข้อมูล noise สูง) x random noise
+//               เล็กน้อย ±5% (seed ตาม ปี*100+เดือน เพื่อ reproducible)
+// ถ้าย้อนหลังไม่ถึง 12 เดือน (ไม่มี anchor ปีก่อน) จะใช้ค่าเดือนล่าสุด
+// แทน anchor (เท่ากับไม่ปรับฤดูกาล แต่ยังคูณแนวโน้มอยู่)
+//
+// mutate list `rows` ที่ส่งเข้ามาโดยตรง (เพิ่มแถวต่อท้าย)
+void _extendToCurrentMonth(List<_Row> rows, bool isTou) {
+  if (rows.isEmpty) return;
+  final now = DateTime.now();
+
+  _Row? findRow(int year, int month) {
+    for (final r in rows) {
+      if (r.year == year && r.month == month) return r;
+    }
+    return null;
+  }
+
+  double growthFactor(double Function(_Row) selector) {
+    final recentWindow =
+        rows.length >= 3 ? rows.sublist(rows.length - 3) : rows;
+    double recentSum = 0, pastSum = 0;
+    for (final r in recentWindow) {
+      final past = findRow(r.year - 1, r.month);
+      recentSum += selector(r);
+      pastSum += selector(past ?? r);
+    }
+    if (pastSum <= 0) return 1.0;
+    final ratio = recentSum / pastSum;
+    return ratio.clamp(0.8, 1.2);
+  }
+
+  while (true) {
+    final last = rows.last;
+    var nextMonth = last.month + 1;
+    var nextYear = last.year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    if (nextYear > now.year || (nextYear == now.year && nextMonth > now.month)) {
+      break;
+    }
+
+    final anchor = findRow(nextYear - 1, nextMonth) ?? last;
+    final elecGrowth = isTou ? 1.0 : growthFactor((r) => r.elecUnits);
+    final peakGrowth = isTou ? growthFactor((r) => r.elecPeakUnits) : 1.0;
+    final offPeakGrowth = isTou ? growthFactor((r) => r.elecOffPeakUnits) : 1.0;
+    final waterGrowth = growthFactor((r) => r.waterUnits);
+
+    final rng = Random(nextYear * 100 + nextMonth);
+    double withNoise(double base) {
+      final noise = 1 + (rng.nextDouble() * 0.10 - 0.05); // ±5%
+      final value = base * noise;
+      return double.parse((value < 0 ? 0 : value).toStringAsFixed(1));
+    }
+
+    rows.add(_Row(
+      year: nextYear,
+      month: nextMonth,
+      elecUnits: isTou ? 0 : withNoise(anchor.elecUnits * elecGrowth),
+      elecPeakUnits:
+          isTou ? withNoise(anchor.elecPeakUnits * peakGrowth) : 0,
+      elecOffPeakUnits:
+          isTou ? withNoise(anchor.elecOffPeakUnits * offPeakGrowth) : 0,
+      waterUnits: withNoise(anchor.waterUnits * waterGrowth),
+    ));
+  }
 }
 
 // ==================== พอร์ตจาก lib/utils/calculator.dart (ต้องตรงกันเป๊ะ) ====================
@@ -514,11 +603,11 @@ Future<Map<String, dynamic>> _signIn({
   final uri = Uri.parse('$_identityToolkitUrl?key=$apiKey');
   final request = await client.postUrl(uri);
   request.headers.set('Content-Type', 'application/json');
-  request.write(jsonEncode({
+  request.add(utf8.encode(jsonEncode({
     'email': email,
     'password': password,
     'returnSecureToken': true,
-  }));
+  })));
   final response = await request.close();
   final body = await response.transform(utf8.decoder).join();
   if (response.statusCode != 200) {
@@ -565,7 +654,7 @@ class _FirestoreRestClient {
     final request = await client.patchUrl(uri);
     request.headers.set('Authorization', 'Bearer $idToken');
     request.headers.set('Content-Type', 'application/json');
-    request.write(jsonEncode({'fields': _encodeFields(fieldsToUpdate)}));
+    request.add(utf8.encode(jsonEncode({'fields': _encodeFields(fieldsToUpdate)})));
     final response = await request.close();
     final body = await response.transform(utf8.decoder).join();
     if (response.statusCode != 200) {
@@ -625,6 +714,7 @@ class _Options {
   final String household;
   final String area;
   final double fixedCost;
+  final bool extendToCurrent;
   final bool apply;
   final bool skipConfirm;
 
@@ -638,6 +728,7 @@ class _Options {
     required this.household,
     required this.area,
     required this.fixedCost,
+    required this.extendToCurrent,
     required this.apply,
     required this.skipConfirm,
   });
@@ -646,6 +737,7 @@ class _Options {
 _Options? _parseArgs(List<String> args) {
   String? projectId, apiKey, email, password, uid, csvPath, household, area;
   double fixedCost = 0;
+  bool extendToCurrent = false;
   bool apply = false, skipConfirm = false;
 
   for (final arg in args) {
@@ -656,6 +748,8 @@ _Options? _parseArgs(List<String> args) {
       apply = true;
     } else if (arg == '--yes') {
       skipConfirm = true;
+    } else if (arg == '--extend-to-current') {
+      extendToCurrent = true;
     } else if (arg.startsWith('--project-id=')) {
       projectId = arg.substring('--project-id='.length);
     } else if (arg.startsWith('--api-key=')) {
@@ -722,6 +816,7 @@ _Options? _parseArgs(List<String> args) {
     household: household,
     area: area,
     fixedCost: fixedCost,
+    extendToCurrent: extendToCurrent,
     apply: apply,
     skipConfirm: skipConfirm,
   );
@@ -746,6 +841,7 @@ Optional:
   --uid=UID              เขียนบิลให้ uid อื่นที่ไม่ใช่บัญชีที่ sign-in
   --area=bangkok|province  ใช้เลือกสูตรค่าน้ำ (default: bangkok = MWA)
   --fixed-cost=NUMBER    ค่าใช้จ่ายคงที่ต่อเดือนที่จะใส่ทุกบิล (default: 0)
+  --extend-to-current    ประมาณการเพิ่มให้ถึงเดือนปัจจุบัน ถ้า CSV ไม่มีข้อมูลถึงเดือนนี้
   --apply                เขียนข้อมูลจริง (ไม่ใส่ = dry-run แสดง preview เฉยๆ)
   --yes                  ข้ามการถามยืนยันตอน apply (สำหรับ non-interactive)
   --help                 แสดงข้อความนี้

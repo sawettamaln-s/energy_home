@@ -94,6 +94,18 @@ void main(List<String> args) async {
     exitCode = 1;
     return;
   }
+
+  if (options.extendToCurrent) {
+    final before = rows.length;
+    _extendToCurrentMonth(rows, isTou);
+    if (rows.length > before) {
+      final now = DateTime.now();
+      stdout.writeln(
+          'ขยายข้อมูลเพิ่ม ${rows.length - before} เดือน (ประมาณการจากแนวโน้ม+ฤดูกาลของข้อมูลเดิม) '
+          'ถึงเดือนปัจจุบัน ${now.year}-${now.month.toString().padLeft(2, '0')}');
+    }
+  }
+
   stdout.writeln(
       'พบ ${rows.length} เดือนสำหรับ household "${options.household}" '
       '(meterType=${isTou ? 'tou' : 'normal'}, billingDay=${options.billingDay})\n');
@@ -379,7 +391,72 @@ class _Row {
   });
 }
 
-// ==================== พอร์ตจาก lib/utils/forecaster.dart ====================
+// ==================== ขยายข้อมูลถึงเดือนปัจจุบัน (ตอน --extend-to-current) ====================
+// เหมือนกับใน import_case_bills.dart เป๊ะ — ต้องให้สองสคริปต์ประมาณการ
+// เดือนเดียวกันได้ค่าตรงกัน (ทั้งคู่ deterministic จาก seed เดียวกัน) บิลกับ
+// log ของเดือนที่ขยายเพิ่มถึงจะสอดคล้องกัน
+void _extendToCurrentMonth(List<_Row> rows, bool isTou) {
+  if (rows.isEmpty) return;
+  final now = DateTime.now();
+
+  _Row? findRow(int year, int month) {
+    for (final r in rows) {
+      if (r.year == year && r.month == month) return r;
+    }
+    return null;
+  }
+
+  double growthFactor(double Function(_Row) selector) {
+    final recentWindow =
+        rows.length >= 3 ? rows.sublist(rows.length - 3) : rows;
+    double recentSum = 0, pastSum = 0;
+    for (final r in recentWindow) {
+      final past = findRow(r.year - 1, r.month);
+      recentSum += selector(r);
+      pastSum += selector(past ?? r);
+    }
+    if (pastSum <= 0) return 1.0;
+    final ratio = recentSum / pastSum;
+    return ratio.clamp(0.8, 1.2);
+  }
+
+  while (true) {
+    final last = rows.last;
+    var nextMonth = last.month + 1;
+    var nextYear = last.year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    if (nextYear > now.year || (nextYear == now.year && nextMonth > now.month)) {
+      break;
+    }
+
+    final anchor = findRow(nextYear - 1, nextMonth) ?? last;
+    final elecGrowth = isTou ? 1.0 : growthFactor((r) => r.elecUnits);
+    final peakGrowth = isTou ? growthFactor((r) => r.elecPeakUnits) : 1.0;
+    final offPeakGrowth = isTou ? growthFactor((r) => r.elecOffPeakUnits) : 1.0;
+    final waterGrowth = growthFactor((r) => r.waterUnits);
+
+    final rng = Random(nextYear * 100 + nextMonth);
+    double withNoise(double base) {
+      final noise = 1 + (rng.nextDouble() * 0.10 - 0.05); // ±5%
+      final value = base * noise;
+      return double.parse((value < 0 ? 0 : value).toStringAsFixed(1));
+    }
+
+    rows.add(_Row(
+      year: nextYear,
+      month: nextMonth,
+      elecUnits: isTou ? 0 : withNoise(anchor.elecUnits * elecGrowth),
+      elecPeakUnits:
+          isTou ? withNoise(anchor.elecPeakUnits * peakGrowth) : 0,
+      elecOffPeakUnits:
+          isTou ? withNoise(anchor.elecOffPeakUnits * offPeakGrowth) : 0,
+      waterUnits: withNoise(anchor.waterUnits * waterGrowth),
+    ));
+  }
+}
 
 DateTime _safeBillingDate(int year, int month, int billingDay) {
   final lastDayOfMonth = DateTime(year, month + 1, 0).day;
@@ -698,11 +775,11 @@ Future<Map<String, dynamic>> _signIn({
   final uri = Uri.parse('$_identityToolkitUrl?key=$apiKey');
   final request = await client.postUrl(uri);
   request.headers.set('Content-Type', 'application/json');
-  request.write(jsonEncode({
+  request.add(utf8.encode(jsonEncode({
     'email': email,
     'password': password,
     'returnSecureToken': true,
-  }));
+  })));
   final response = await request.close();
   final body = await response.transform(utf8.decoder).join();
   if (response.statusCode != 200) {
@@ -748,7 +825,7 @@ class _FirestoreRestClient {
     final request = await client.patchUrl(uri);
     request.headers.set('Authorization', 'Bearer $idToken');
     request.headers.set('Content-Type', 'application/json');
-    request.write(jsonEncode({'fields': _encodeFields(fieldsToUpdate)}));
+    request.add(utf8.encode(jsonEncode({'fields': _encodeFields(fieldsToUpdate)})));
     final response = await request.close();
     final body = await response.transform(utf8.decoder).join();
     if (response.statusCode != 200) {
@@ -812,6 +889,7 @@ class _Options {
   final double waterStart;
   final int readingsMin;
   final int readingsMax;
+  final bool extendToCurrent;
   final bool apply;
   final bool skipConfirm;
 
@@ -829,6 +907,7 @@ class _Options {
     required this.waterStart,
     required this.readingsMin,
     required this.readingsMax,
+    required this.extendToCurrent,
     required this.apply,
     required this.skipConfirm,
   });
@@ -839,6 +918,7 @@ _Options? _parseArgs(List<String> args) {
   int? billingDay;
   double elecStart = 0, waterStart = 0;
   int readingsMin = 1, readingsMax = 1;
+  bool extendToCurrent = false;
   bool apply = false, skipConfirm = false;
 
   for (final arg in args) {
@@ -849,6 +929,8 @@ _Options? _parseArgs(List<String> args) {
       apply = true;
     } else if (arg == '--yes') {
       skipConfirm = true;
+    } else if (arg == '--extend-to-current') {
+      extendToCurrent = true;
     } else if (arg.startsWith('--project-id=')) {
       projectId = arg.substring('--project-id='.length);
     } else if (arg.startsWith('--api-key=')) {
@@ -939,6 +1021,7 @@ _Options? _parseArgs(List<String> args) {
     waterStart: waterStart,
     readingsMin: readingsMin,
     readingsMax: readingsMax,
+    extendToCurrent: extendToCurrent,
     apply: apply,
     skipConfirm: skipConfirm,
   );
@@ -967,6 +1050,7 @@ Optional:
   --water-start=NUMBER   เลขมิเตอร์น้ำสะสมตั้งต้น ก่อนเดือนแรกใน CSV (default: 0)
   --readings-min=N       จำนวนครั้งที่กรอกต่อเดือน ขั้นต่ำ (default: 1)
   --readings-max=N       จำนวนครั้งที่กรอกต่อเดือน สูงสุด (default: 1, ต้อง >= readings-min)
+  --extend-to-current    ประมาณการเพิ่มให้ถึงเดือนปัจจุบัน ถ้า CSV ไม่มีข้อมูลถึงเดือนนี้ (ต้องตรงกับที่ใส่ตอนรัน import_case_bills.dart ด้วย ไม่งั้นข้อมูลจะไม่ตรงกัน)
   --apply                เขียนข้อมูลจริง (ไม่ใส่ = dry-run แสดง preview เฉยๆ)
   --yes                  ข้ามการถามยืนยันตอน apply
   --help                 แสดงข้อความนี้
