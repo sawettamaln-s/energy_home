@@ -324,12 +324,11 @@ void main(List<String> args) async {
 
     // ---------- user doc update ----------
     final lastMonth = months.last;
-    var nextMonth = lastMonth.month + 1;
-    var nextYear = lastMonth.year;
-    if (nextMonth > 12) {
-      nextMonth = 1;
-      nextYear += 1;
-    }
+    // แก้บั๊ก: ห้าม +1 — "รอบที่กำลังเปิดอยู่" ถูกตั้งชื่อด้วยเดือนของวันตัดรอบ
+    // ล่าสุดที่เพิ่งผ่านไป (ตรงกับ EnergyForecaster.getCycleStart) ซึ่งคือ
+    // lastMonth ตัวเดียวกับที่เพิ่ง import ไปเป๊ะ ไม่ใช่เดือนถัดไป — ของเดิม
+    // ที่ +1 ทำให้ user.startBillingMonth ไม่ตรงกับ matchesCurrentCycle()
+    // แอปเลยคิดว่ายังไม่ได้ตั้งเลขต้นรอบของรอบปัจจุบัน แล้วให้บันทึกซ้ำ
     final userUpdate = <String, dynamic>{
       'billingDay': options.billingDay,
       'billingDayConfigured': true,
@@ -339,8 +338,8 @@ void main(List<String> args) async {
       'startWaterValue': waterCumulative,
       'startPeakValue': options.isTou ? peakCumulative : 0.0,
       'startOffPeakValue': options.isTou ? offPeakCumulative : 0.0,
-      'startBillingMonth': nextMonth,
-      'startBillingYear': nextYear,
+      'startBillingMonth': lastMonth.month,
+      'startBillingYear': lastMonth.year,
       'startMeterConfigured': true,
       'electricityStartConfigured': true,
       'waterStartConfigured': true,
@@ -365,7 +364,7 @@ void main(List<String> args) async {
         '${waterLogs.length} ครั้ง (water) ตลอด ${months.length} เดือน');
     stdout.writeln(
         'ตั้ง billingDay=${options.billingDay}, meterType=${options.isTou ? "tou" : "normal"}, '
-        'area=${options.area}, ต้นรอบถัดไป=$nextYear-${nextMonth.toString().padLeft(2, '0')}\n');
+        'area=${options.area}, ต้นรอบถัดไป=${lastMonth.year}-${lastMonth.month.toString().padLeft(2, '0')}\n');
 
     if (!options.apply) {
       stdout.writeln(

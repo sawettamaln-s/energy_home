@@ -271,12 +271,8 @@ void main(List<String> args) async {
 
     // ---------- 4) เตรียม user doc update (billingDay + ต้นรอบถัดไป) ----------
     final lastRow = rows.last;
-    var nextMonth = lastRow.month + 1;
-    var nextYear = lastRow.year;
-    if (nextMonth > 12) {
-      nextMonth = 1;
-      nextYear += 1;
-    }
+    // แก้บั๊ก: ห้าม +1 — ดู comment เดียวกันใน generate_household.dart
+    // (เรื่อง getCycleStart/matchesCurrentCycle ทำให้ต้องบันทึกซ้ำ)
     final userUpdate = <String, dynamic>{
       'billingDay': options.billingDay,
       'billingDayConfigured': true,
@@ -286,8 +282,8 @@ void main(List<String> args) async {
       'startWaterValue': waterCumulative,
       'startPeakValue': isTou ? peakCumulative : 0.0,
       'startOffPeakValue': isTou ? offPeakCumulative : 0.0,
-      'startBillingMonth': nextMonth,
-      'startBillingYear': nextYear,
+      'startBillingMonth': lastRow.month,
+      'startBillingYear': lastRow.year,
       'startMeterConfigured': true,
       'electricityStartConfigured': true,
       'waterStartConfigured': true,
@@ -309,7 +305,7 @@ void main(List<String> args) async {
           'ค่าน้ำสะสม=${(w['cost'] as double).toStringAsFixed(2)}');
     }
     stdout.writeln('\nหลัง import: billingDay=${options.billingDay}, '
-        'ต้นรอบถัดไป=$nextYear-${nextMonth.toString().padLeft(2, '0')}, '
+        'ต้นรอบถัดไป=${lastRow.year}-${lastRow.month.toString().padLeft(2, '0')}, '
         'เลขมิเตอร์ต้นรอบถัดไป ไฟ=${(userUpdate['startElectricityValue'] as double).toStringAsFixed(1)} '
         'น้ำ=${(userUpdate['startWaterValue'] as double).toStringAsFixed(1)}\n');
 

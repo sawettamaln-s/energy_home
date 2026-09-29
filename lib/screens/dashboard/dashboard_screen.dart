@@ -1309,29 +1309,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ต้นรอบ แล้วกดปุ่มเดียวพาไปหน้าเต็มจอ RecordMeterScreen (ดูเหตุผลที่แยก
   // หน้าออกไปที่ท้ายไฟล์ record_meter_screen.dart)
   // =====================================================================
-  // แถวเดียวของการ์ด TOU: ป้าย On-Peak/Off-Peak ทางซ้าย ค่าล่าสุดตัวหนา
-  // ตามด้วยต้นรอบสีจางแบบ "/ต้นรอบ" ทางขวา — ให้เห็นต้นรอบเทียบเคียงค่า
-  // ล่าสุดได้ทันทีในหน้าแดชบอร์ด ไม่ต้องกดเข้าไปในฟอร์มบันทึกมิเตอร์
+  // ป้าย On-Peak/Off-Peak ทางซ้าย ค่าล่าสุดทางขวา — โชว์แค่ค่าล่าสุดอย่างเดียว
+  // ไม่มี "/ต้นรอบ" ต่อท้ายแล้ว ไม่ใส่ overflow/maxLines บังคับตัด ปล่อยให้ Text
+  // ห่อเองตามพื้นที่จริง ถ้าฟอนต์ระบบถูกซูม/ปรับใหญ่ขึ้นจะยืดหยุ่นตามนั้น
   Widget _touMeterRow(
       String label, double? current, double? start, NumberFormat formatter) {
+    final c = current ?? 0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(label,
             style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
         const Spacer(),
-        RichText(
-          text: TextSpan(
-            style: const TextStyle(color: DashboardStyles.textDark),
-            children: [
-              TextSpan(
-                  text: formatter.format(current ?? 0),
-                  style: const TextStyle(
-                      fontSize: AppTypography.s17, fontWeight: FontWeight.w600)),
-              TextSpan(
-                  text: ' /${formatter.format(start ?? 0)}',
-                  style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade400)),
-            ],
+        Flexible(
+          child: Text(
+            formatter.format(c),
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+                fontSize: AppTypography.s15,
+                fontWeight: FontWeight.w600,
+                color: DashboardStyles.textDark),
           ),
         ),
       ],
