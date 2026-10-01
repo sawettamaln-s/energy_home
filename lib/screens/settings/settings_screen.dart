@@ -1116,10 +1116,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       waterCost: oldBill.waterCost,
                                       fixedCost: oldBill.fixedCost,
                                       totalCost: oldBill.totalCost,
-                                      forecastElectricity:
-                                          oldBill.forecastElectricity,
-                                      forecastWater: oldBill.forecastWater,
-                                      forecastTotal: oldBill.forecastTotal,
                                       source: oldBill.source,
                                     ),
                                   );

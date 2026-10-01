@@ -40,7 +40,8 @@ class ComparisonResult {
 }
 
 /// ผลคาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่ยังไม่ปิด) ด้วย Moving Average
-/// ต่างจาก forecastNextMonth ที่คาดการณ์ "เดือนถัดไปทั้งเดือน" ด้วย Linear Regression
+/// ต่างจาก forecastNextMonth ที่คาดการณ์ "เดือนถัดไปทั้งเดือน" ด้วย seasonal curve
+/// (เมื่อรู้ area+meterType) หรือ linear regression (เมื่อไม่รู้)
 /// อันนี้ตอบคำถามว่า "ถ้าใช้ในอัตรานี้ต่อไปจนสิ้นรอบบิล จะจบที่เท่าไหร่"
 class CurrentCycleForecast {
   final double currentCost; // ใช้ไปแล้วเท่าไหร่ (บาท) ตั้งแต่ต้นรอบจนถึงวันนี้

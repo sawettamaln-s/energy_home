@@ -1,13 +1,35 @@
 part of 'settings_screen.dart';
 
+// เปิดหน้าประวัติการบันทึกมิเตอร์จากนอกหน้าตั้งค่า (เช่น หน้าบันทึกมิเตอร์
+// ตอนเลขที่กรอกต่ำกว่าครั้งล่าสุด) — initialTab 0 = ไฟฟ้า, 1 = ประปา
+Future<void> openUtilityHistory(
+  BuildContext context,
+  String uid,
+  FirestoreService firestoreService, {
+  int initialTab = 0,
+}) async {
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => _UtilityHistoryScreen(
+        uid: uid,
+        firestoreService: firestoreService,
+        initialTab: initialTab,
+      ),
+    ),
+  );
+}
+
 // ==================== บันทึกย้อนหลัง: ไฟฟ้า / ประปา ====================
 class _UtilityHistoryScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
+  final int initialTab; // 0 = ไฟฟ้า, 1 = ประปา
 
   const _UtilityHistoryScreen({
     required this.uid,
     required this.firestoreService,
+    this.initialTab = 0,
   });
 
   @override
@@ -21,7 +43,8 @@ class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController =
+        TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
   }
 
   @override

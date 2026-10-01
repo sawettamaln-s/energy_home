@@ -291,9 +291,6 @@ class FirestoreService {
         waterCost: totalWater,
         fixedCost: fixedCost,
         totalCost: totalElec + totalWater + fixedCost,
-        forecastElectricity: totalElec,
-        forecastWater: totalWater,
-        forecastTotal: totalElec + totalWater + fixedCost,
         source: 'compiled',
       );
 
@@ -677,9 +674,6 @@ class FirestoreService {
           waterCost: bill.waterCost,
           fixedCost: bill.fixedCost,
           totalCost: bill.totalCost,
-          forecastElectricity: bill.forecastElectricity,
-          forecastWater: bill.forecastWater,
-          forecastTotal: bill.forecastTotal,
           source: bill.source,
         ));
       }

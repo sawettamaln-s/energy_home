@@ -691,9 +691,6 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
               waterUsed:
                   wComplete ? wUsed : (existingBillForMonth?.waterUsed ?? 0),
               fixedCost: existingBillForMonth?.fixedCost ?? 0,
-              forecastElectricity: existingBillForMonth?.forecastElectricity ?? 0,
-              forecastWater: existingBillForMonth?.forecastWater ?? 0,
-              forecastTotal: existingBillForMonth?.forecastTotal ?? 0,
               // 'startMeter' = บิลที่สร้าง/อัปเดตจากหน้านี้ (ต่างจาก 'imported') — ล็อกไม่ให้แก้/ลบจากหน้าบันทึกบิลย้อนหลัง
               source: 'startMeter',
             ),
@@ -1328,9 +1325,6 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                 isElectricity ? 0 : pairedBill.electricityOffPeakUsed,
             waterUsed: isElectricity ? pairedBill.waterUsed : 0,
             fixedCost: pairedBill.fixedCost,
-            forecastElectricity: pairedBill.forecastElectricity,
-            forecastWater: pairedBill.forecastWater,
-            forecastTotal: pairedBill.forecastTotal,
             source: pairedBill.source,
           ),
         );

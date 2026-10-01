@@ -11,9 +11,6 @@ class BillModel {
   final double waterCost; // ค่าน้ำรวมทั้งเดือน
   final double fixedCost; // ค่าใช้จ่ายคงที่
   final double totalCost; // ยอดรวมทั้งหมด
-  final double forecastElectricity; // คาดการณ์ค่าไฟสิ้นเดือน (Moving Average)
-  final double forecastWater; // คาดการณ์ค่าน้ำสิ้นเดือน (Moving Average)
-  final double forecastTotal; // คาดการณ์ยอดรวมสิ้นเดือน
   final String source; // 'compiled' = ระบบสรุปจาก log อัตโนมัติ, 'imported' = กรอกย้อนหลังเอง
 
   // ฟิลด์ derived สำหรับ query หา "บิลล่าสุด" ด้วย orderBy ฟิลด์เดียว
@@ -35,9 +32,6 @@ class BillModel {
     this.waterCost = 0,
     this.fixedCost = 0,
     this.totalCost = 0,
-    this.forecastElectricity = 0,
-    this.forecastWater = 0,
-    this.forecastTotal = 0,
     this.source = 'compiled',
   }) : yearMonth = year * 100 + month;
 
@@ -56,9 +50,6 @@ class BillModel {
       waterCost: (map['waterCost'] ?? 0).toDouble(),
       fixedCost: (map['fixedCost'] ?? 0).toDouble(),
       totalCost: (map['totalCost'] ?? 0).toDouble(),
-      forecastElectricity: (map['forecastElectricity'] ?? 0).toDouble(),
-      forecastWater: (map['forecastWater'] ?? 0).toDouble(),
-      forecastTotal: (map['forecastTotal'] ?? 0).toDouble(),
       source: map['source'] ?? 'compiled',
     );
   }
@@ -78,9 +69,6 @@ class BillModel {
       'waterCost': waterCost,
       'fixedCost': fixedCost,
       'totalCost': totalCost,
-      'forecastElectricity': forecastElectricity,
-      'forecastWater': forecastWater,
-      'forecastTotal': forecastTotal,
       'source': source,
       'yearMonth': yearMonth,
     };

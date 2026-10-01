@@ -1352,15 +1352,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final double? lastValue = isTou
         ? null
         : (isElectricity
-            ? (_latestElectricityLog?.meterValue ?? _user?.startElectricityValue)
-            : (_latestWaterLog?.meterValue ?? _user?.startWaterValue));
+            ? (_cycleLatestElectricityLog?.meterValue ?? _user?.startElectricityValue)
+            : (_cycleLatestWaterLog?.meterValue ?? _user?.startWaterValue));
     final double? startValue = isTou
         ? null
         : (isElectricity ? _user?.startElectricityValue : _user?.startWaterValue);
-    final double? lastPeak =
-        isTou ? (_latestElectricityLog?.peakMeterValue ?? _user?.startPeakValue) : null;
+    final double? lastPeak = isTou
+        ? (_cycleLatestElectricityLog?.peakMeterValue ?? _user?.startPeakValue)
+        : null;
     final double? lastOffPeak = isTou
-        ? (_latestElectricityLog?.offPeakMeterValue ?? _user?.startOffPeakValue)
+        ? (_cycleLatestElectricityLog?.offPeakMeterValue ?? _user?.startOffPeakValue)
         : null;
 
     return Container(
@@ -1417,7 +1418,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => _openRecordMeter(kind, isTou: isTou),
+              onPressed: () => _openRecordMeter(kind),
               style: ElevatedButton.styleFrom(
                 backgroundColor: badgeBg,
                 foregroundColor: borderColor,
@@ -1433,6 +1434,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  // log ล่าสุดของรอบบิลปัจจุบัน (_electricityLogs/_waterLogs เรียงใหม่สุดก่อน)
+  // ใช้เป็น "ค่าล่าสุด" บนการ์ดสรุปและหน้าบันทึกมิเตอร์ — null = รอบนี้ยังไม่
+  // ได้บันทึก ผู้เรียกใช้ค่าต้นรอบแทน ส่วน _latestElectricityLog/_latestWaterLog
+  // (log ล่าสุดทุกรอบ) ใช้เฉพาะเช็ค "ไม่ได้บันทึกมิเตอร์มากี่วัน"
+  ElectricityLogModel? get _cycleLatestElectricityLog =>
+      _electricityLogs.isNotEmpty ? _electricityLogs.first : null;
+  WaterLogModel? get _cycleLatestWaterLog =>
+      _waterLogs.isNotEmpty ? _waterLogs.first : null;
 
   // แปลง log ของรอบนี้เป็น MeterHistoryEntry ให้ RecordMeterScreen ใช้โชว์
   // ประวัติในหน้าสำเร็จ — _electricityLogs/_waterLogs มาจาก
@@ -1454,26 +1464,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // เปิดหน้าบันทึกมิเตอร์เต็มจอ — ส่งค่าต้นรอบ/ล่าสุดของยูทิลิตี้นั้นๆ ไปให้
   // ครบ พอปิดหน้ากลับมาแล้วมีการบันทึกสำเร็จ (result.saved) ค่อยโหลดข้อมูล
-  // ใหม่ทั้งหน้า
-  Future<void> _openRecordMeter(MeterKind kind, {bool isTou = false}) async {
+  // ใหม่ทั้งหน้า — isTou ส่งตาม meterType ของผู้ใช้เสมอ (รวมฝั่งน้ำ) เพราะ
+  // หน้านั้นส่งต่อให้หน้าตั้งเลขมิเตอร์ต้นรอบ ซึ่งต้องรู้ว่าไฟฟ้าเป็น TOU ไหม
+  Future<void> _openRecordMeter(MeterKind kind) async {
     final isElectricity = kind == MeterKind.electricity;
     final result = await Navigator.push<RecordMeterResult>(
       context,
       MaterialPageRoute(
         builder: (context) => RecordMeterScreen(
           kind: kind,
-          isTou: isTou,
+          isTou: _user?.meterType == 'tou',
           uid: _user!.uid,
           firestoreService: _firestoreService,
           area: _user?.area ?? 'bangkok',
           startValue: isElectricity ? (_user?.startElectricityValue ?? 0) : (_user?.startWaterValue ?? 0),
           lastValue: isElectricity
-              ? (_latestElectricityLog?.meterValue ?? _user?.startElectricityValue ?? 0)
-              : (_latestWaterLog?.meterValue ?? _user?.startWaterValue ?? 0),
+              ? (_cycleLatestElectricityLog?.meterValue ?? _user?.startElectricityValue ?? 0)
+              : (_cycleLatestWaterLog?.meterValue ?? _user?.startWaterValue ?? 0),
           startPeak: _user?.startPeakValue ?? 0,
-          lastPeak: _latestElectricityLog?.peakMeterValue ?? _user?.startPeakValue ?? 0,
+          lastPeak: _cycleLatestElectricityLog?.peakMeterValue ?? _user?.startPeakValue ?? 0,
           startOffPeak: _user?.startOffPeakValue ?? 0,
-          lastOffPeak: _latestElectricityLog?.offPeakMeterValue ?? _user?.startOffPeakValue ?? 0,
+          lastOffPeak:
+              _cycleLatestElectricityLog?.offPeakMeterValue ?? _user?.startOffPeakValue ?? 0,
           recentLogs: _historyFor(kind),
         ),
       ),

@@ -166,9 +166,6 @@ void main(List<String> args) async {
         'waterCost': waterCost,
         'fixedCost': 0.0,
         'totalCost': totalCost,
-        'forecastElectricity': electricityCost,
-        'forecastWater': waterCost,
-        'forecastTotal': totalCost,
         'source': 'imported',
       });
     }

@@ -9,11 +9,16 @@ import '../../models/electricity_log_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/calculator.dart';
+import '../../utils/data_refresh_bus.dart';
 import '../../utils/thai_date_utils.dart';
-import '../../widgets/start_meter_fields.dart' show parseNumInput;
+import '../settings/settings_screen.dart'
+    show openStartMeterSetup, openUtilityHistory;
 import 'dashboard_styles.dart';
 
 enum MeterKind { electricity, water }
+
+// ผลการเช็คช่วงของเลขที่กรอก — none = ผ่าน
+enum _RangeIssue { none, invalid, belowStart, belowLast }
 
 // รายการประวัติแบบย่อ ใช้โชว์ในหน้าสำเร็จ — หน้านี้เรียกใช้ทั้งฝั่งไฟฟ้า
 // และน้ำ แต่ ElectricityLogModel/WaterLogModel มีฟิลด์คนละชุด จึงแปลงเป็น
@@ -55,13 +60,17 @@ class RecordMeterResult {
 // =====================================================================
 class RecordMeterScreen extends StatefulWidget {
   final MeterKind kind;
-  final bool isTou; // มีผลเฉพาะ kind == electricity
+  // มิเตอร์ไฟฟ้าของผู้ใช้เป็น TOU ไหม — ช่องกรอก Peak/Off-Peak ใช้เฉพาะ
+  // kind == electricity แต่ส่งต่อให้หน้าตั้งเลขมิเตอร์ต้นรอบทุก kind
+  final bool isTou;
   final String uid;
   final FirestoreService firestoreService;
   final String area; // 'bangkok' หรือ 'province' — เลือกสูตร/ผู้ให้บริการ
 
   final double startValue; // หน่วยต้นรอบ (ไฟปกติ/น้ำ)
-  final double lastValue; // หน่วยสะสมที่บันทึกครั้งล่าสุด
+  // ค่าล่าสุด = เลขที่บันทึกครั้งล่าสุดในรอบบิลนี้ ถ้ารอบนี้ยังไม่ได้บันทึก
+  // ผู้เรียกส่งค่าต้นรอบมาแทน (เหมือนกันทั้ง lastValue/lastPeak/lastOffPeak)
+  final double lastValue;
   final double startPeak;
   final double lastPeak;
   final double startOffPeak;
@@ -103,6 +112,16 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
   bool _previewValid = false;
   String _error = '';
   bool _isSaving = false;
+
+  // เลขที่กรอกต้องไม่น้อยกว่าทั้งเลขต้นรอบและค่าที่บันทึกล่าสุดของรอบนี้
+  // (TOU เช็คทีละช่อง) ถ้าไม่ผ่านจะบล็อกการบันทึก — ข้อความสีแดงแสดงใต้ช่อง
+  // ที่ผิด ส่วนคำแนะนำ + ปุ่มด้านล่างเลือกตาม _rangeIssue (ต่ำกว่าต้นรอบ
+  // มาก่อน เพราะต้องแก้ต้นรอบก่อนถึงจะเทียบกับค่าล่าสุดได้)
+  _RangeIssue _rangeIssue = _RangeIssue.none;
+  String _valueFieldError = '';
+  String _peakFieldError = '';
+  String _offPeakFieldError = '';
+
   bool _savedAtLeastOnce = false;
 
   // ผลคำนวณล่าสุด (จาก debounce หรือกดยืนยัน) — ใช้ทั้งโชว์ผลใต้ช่องกรอก
@@ -162,7 +181,6 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
     super.dispose();
   }
 
-  double _parse(TextEditingController c) => parseNumInput(c.text);
 
   // เรียกทุกครั้งที่พิมพ์ในช่องกรอก — ยกเลิก timer เดิม ตั้งใหม่ให้รอ
   // 500ms หลังหยุดพิมพ์ค่อยคำนวณจริง (debounce กัน Firestore read ถี่)
@@ -171,9 +189,70 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
       _isCalculating = true;
       _previewValid = false;
       _error = '';
+      _resetRangeFlags();
     });
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () => _runCalc());
+  }
+
+  void _resetRangeFlags() {
+    _rangeIssue = _RangeIssue.none;
+    _valueFieldError = '';
+    _peakFieldError = '';
+    _offPeakFieldError = '';
+  }
+
+  // เช็คข้อความที่กรอก 1 ช่อง — แปลงเป็นตัวเลข แล้วเทียบกับต้นรอบ/ค่าล่าสุด
+  // คืนค่าที่ใช้คำนวณ + issue ของช่องนั้น + ข้อความ (ว่าง = ผ่าน)
+  // ช่องว่างใช้ค่า fallback แทน (TOU เว้นช่องได้ = ช่วงนั้นไม่ได้ใช้เพิ่ม)
+  // label ว่าง = มิเตอร์ปกติ/น้ำ
+  ({double value, _RangeIssue issue, String message}) _checkField({
+    required String label,
+    required String text,
+    required double fallback,
+    required double start,
+    required double last,
+  }) {
+    if (text.trim().isEmpty) {
+      return (value: fallback, issue: _RangeIssue.none, message: '');
+    }
+    final value = double.tryParse(text.replaceAll(',', '').trim());
+    if (value == null) {
+      return (
+        value: 0,
+        issue: _RangeIssue.invalid,
+        message: 'รูปแบบตัวเลขไม่ถูกต้อง กรุณากรอกเฉพาะตัวเลขค่ะ',
+      );
+    }
+
+    final formatter = NumberFormat('#,##0.##');
+    final subject = label.isEmpty ? 'เลขมิเตอร์' : 'เลข $label';
+    if (value < start) {
+      return (
+        value: value,
+        issue: _RangeIssue.belowStart,
+        message:
+            '$subjectต้องไม่น้อยกว่าเลขต้นรอบบิล (${formatter.format(start)} $_unit) ค่ะ',
+      );
+    }
+    if (value < last) {
+      return (
+        value: value,
+        issue: _RangeIssue.belowLast,
+        message:
+            '$subjectต้องไม่น้อยกว่าค่าที่บันทึกล่าสุด (${formatter.format(last)} $_unit) ค่ะ',
+      );
+    }
+    return (value: value, issue: _RangeIssue.none, message: '');
+  }
+
+  // เลือกคำแนะนำ + ปุ่มด้านล่างจาก issue ของทุกช่อง — ต่ำกว่าต้นรอบมาก่อน
+  // (ต้องแก้ต้นรอบก่อนถึงจะเทียบกับค่าล่าสุดได้) ส่วน invalid ไม่มีคำแนะนำ
+  // เพิ่ม เพราะข้อความใต้ช่องบอกวิธีแก้อยู่แล้ว
+  _RangeIssue _helpIssueOf(List<_RangeIssue> issues) {
+    if (issues.contains(_RangeIssue.belowStart)) return _RangeIssue.belowStart;
+    if (issues.contains(_RangeIssue.belowLast)) return _RangeIssue.belowLast;
+    return _RangeIssue.none;
   }
 
   // คำนวณผลลัพธ์จากค่าที่กรอกตอนนี้ — ใช้ทั้งตอน debounce (showEmptyError:
@@ -188,36 +267,46 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
           setState(() {
             _isCalculating = false;
             _previewValid = false;
+            _resetRangeFlags();
             _error = showEmptyError
-                ? 'กรุณากรอกหน่วย Peak หรือ Off-Peak อย่างน้อย 1 ช่องค่ะ'
+                ? 'กรุณากรอกเลขมิเตอร์ On-Peak (T1) หรือ Off-Peak (T2) อย่างน้อย 1 ช่องค่ะ'
                 : '';
           });
         }
         return;
       }
-      final peakValue = peakEmpty ? widget.lastPeak : _parse(_peakCtrl);
-      final offPeakValue = offPeakEmpty ? widget.lastOffPeak : _parse(_offPeakCtrl);
 
-      if (peakValue < widget.startPeak || offPeakValue < widget.startOffPeak) {
+      final peakCheck = _checkField(
+        label: 'On-Peak (T1)',
+        text: _peakCtrl.text,
+        fallback: widget.lastPeak,
+        start: widget.startPeak,
+        last: widget.lastPeak,
+      );
+      final offPeakCheck = _checkField(
+        label: 'Off-Peak (T2)',
+        text: _offPeakCtrl.text,
+        fallback: widget.lastOffPeak,
+        start: widget.startOffPeak,
+        last: widget.lastOffPeak,
+      );
+      if (peakCheck.issue != _RangeIssue.none ||
+          offPeakCheck.issue != _RangeIssue.none) {
         if (mounted) {
           setState(() {
             _isCalculating = false;
             _previewValid = false;
-            _error = 'ค่ามิเตอร์ต้องไม่น้อยกว่าหน่วยต้นรอบค่ะ';
+            _error = '';
+            _resetRangeFlags();
+            _peakFieldError = peakCheck.message;
+            _offPeakFieldError = offPeakCheck.message;
+            _rangeIssue = _helpIssueOf([peakCheck.issue, offPeakCheck.issue]);
           });
         }
         return;
       }
-      if (peakValue < widget.lastPeak || offPeakValue < widget.lastOffPeak) {
-        if (mounted) {
-          setState(() {
-            _isCalculating = false;
-            _previewValid = false;
-            _error = 'ค่ามิเตอร์ต้องไม่น้อยกว่าครั้งล่าสุดค่ะ';
-          });
-        }
-        return;
-      }
+      final peakValue = peakCheck.value;
+      final offPeakValue = offPeakCheck.value;
 
       final peakUnits = EnergyCalculator.calculateUsed(peakValue, widget.startPeak);
       final offPeakUnits =
@@ -245,6 +334,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
         _previewValid = true;
         _isCalculating = false;
         _error = '';
+        _resetRangeFlags();
       });
       return;
     }
@@ -254,44 +344,35 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
         setState(() {
           _isCalculating = false;
           _previewValid = false;
-          _error = showEmptyError ? 'กรุณากรอกค่ามิเตอร์$_utilityLabelก่อนค่ะ' : '';
+          _resetRangeFlags();
+          _error = showEmptyError ? 'กรุณากรอกเลขมิเตอร์$_utilityLabelก่อนบันทึกค่ะ' : '';
         });
       }
       return;
     }
-    final value = _parse(_valueCtrl);
-    if (value <= 0) {
+    // ไม่ต้องเช็ค <= 0 แยก — ค่าติดลบหรือ 0 จะไม่ผ่านการเทียบกับต้นรอบเอง
+    // (ยกเว้นต้นรอบเป็น 0 ซึ่งการบันทึก 0 ก็แปลว่ายังไม่ได้ใช้ ถือว่าถูกต้อง)
+    final check = _checkField(
+      label: '',
+      text: _valueCtrl.text,
+      fallback: widget.lastValue,
+      start: widget.startValue,
+      last: widget.lastValue,
+    );
+    if (check.issue != _RangeIssue.none) {
       if (mounted) {
         setState(() {
           _isCalculating = false;
           _previewValid = false;
-          _error = 'กรุณากรอกเป็นตัวเลขเท่านั้นค่ะ';
+          _error = '';
+          _resetRangeFlags();
+          _valueFieldError = check.message;
+          _rangeIssue = _helpIssueOf([check.issue]);
         });
       }
       return;
     }
-    if (value < widget.startValue) {
-      if (mounted) {
-        setState(() {
-          _isCalculating = false;
-          _previewValid = false;
-          _error =
-              'ต้องไม่น้อยกว่าหน่วยต้นรอบ (${NumberFormat('#,##0.##').format(widget.startValue)}) ค่ะ';
-        });
-      }
-      return;
-    }
-    if (value < widget.lastValue) {
-      if (mounted) {
-        setState(() {
-          _isCalculating = false;
-          _previewValid = false;
-          _error =
-              'ต้องไม่น้อยกว่าครั้งล่าสุด (${NumberFormat('#,##0.##').format(widget.lastValue)}) ค่ะ';
-        });
-      }
-      return;
-    }
+    final value = check.value;
 
     final usedFromStart = EnergyCalculator.calculateUsed(value, widget.startValue);
     final usedFromLast = EnergyCalculator.calculateUsed(value, widget.lastValue);
@@ -316,6 +397,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
       _previewValid = true;
       _isCalculating = false;
       _error = '';
+      _resetRangeFlags();
     });
   }
 
@@ -326,9 +408,32 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
     _debounce?.cancel();
     setState(() => _isCalculating = true);
     await _runCalc(showEmptyError: true);
-    if (!_previewValid) return;
+    if (!_previewValid || !mounted) return;
     await _doSave();
   }
+
+  // เปิดหน้าตั้งเลขมิเตอร์ต้นรอบ หรือหน้าประวัติการบันทึกมิเตอร์ (ตัวเดียวกับ
+  // ที่หน้าอื่นใช้) — ถ้ามีการแก้ข้อมูลระหว่างนั้น (DataRefreshBus เปลี่ยน)
+  // ค่าต้นรอบ/ล่าสุดที่หน้านี้ถืออยู่จะไม่ตรงแล้ว จึงปิดกลับไปแดชบอร์ดให้
+  // โหลดข้อมูลใหม่ก่อนบันทึก
+  Future<void> _openAndReturnIfChanged(Future<void> Function() open) async {
+    final versionBefore = DataRefreshBus.instance.version.value;
+    await open();
+    if (!mounted) return;
+    if (DataRefreshBus.instance.version.value != versionBefore) {
+      _closeWith(true);
+    }
+  }
+
+  Future<void> _openStartMeterSetup() => _openAndReturnIfChanged(() =>
+      openStartMeterSetup(context, widget.uid, widget.firestoreService, widget.isTou));
+
+  Future<void> _openUtilityHistory() => _openAndReturnIfChanged(() => openUtilityHistory(
+        context,
+        widget.uid,
+        widget.firestoreService,
+        initialTab: widget.kind == MeterKind.electricity ? 0 : 1,
+      ));
 
   Future<void> _doSave() async {
     setState(() => _isSaving = true);
@@ -376,7 +481,8 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'เกิดข้อผิดพลาดบางอย่างค่ะ กรุณาลองใหม่อีกครั้ง');
+        setState(() => _error =
+            'บันทึกข้อมูลไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้งค่ะ');
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -565,6 +671,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
       bool autofocus = false,
       double fontSize = 22,
       bool lastIsPlaceholder = false,
+      String fieldError = '',
     }) {
       return Container(
         width: double.infinity,
@@ -602,6 +709,12 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold),
               decoration: decoration('เช่น 12,345'),
             ),
+            if (fieldError.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.v6),
+                child: Text(fieldError,
+                    style: const TextStyle(color: Colors.red, fontSize: AppTypography.s12)),
+              ),
             const SizedBox(height: 8),
             lastValueChips(last, start, lastIsPlaceholder: lastIsPlaceholder),
           ],
@@ -728,6 +841,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               start: widget.startPeak,
               autofocus: true,
               lastIsPlaceholder: widget.recentLogs.isEmpty,
+              fieldError: _peakFieldError,
             ),
             const SizedBox(height: 10),
             fieldCard(
@@ -737,6 +851,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               last: widget.lastOffPeak,
               start: widget.startOffPeak,
               lastIsPlaceholder: widget.recentLogs.isEmpty,
+              fieldError: _offPeakFieldError,
             ),
             const SizedBox(height: 8),
             Row(
@@ -744,7 +859,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                 Icon(Icons.info_outline, size: 13, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: Text('เว้นช่องไหนไว้ได้ ถ้าช่วงนั้นยังไม่ได้ใช้เพิ่ม',
+                  child: Text('หากช่วงเวลาใดยังไม่มีการใช้ไฟเพิ่ม เว้นช่องนั้นว่างไว้ได้ ระบบจะใช้ค่าล่าสุดแทนค่ะ',
                       style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
                 ),
               ],
@@ -759,6 +874,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               autofocus: true,
               fontSize: AppTypography.s26,
               lastIsPlaceholder: widget.recentLogs.isEmpty,
+              fieldError: _valueFieldError,
             ),
           ],
           const SizedBox(height: 14),
@@ -785,6 +901,22 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               padding: const EdgeInsets.only(top: AppSpacing.v14),
               child: Text(_error, style: const TextStyle(color: Colors.red, fontSize: AppTypography.s12_5)),
             ),
+          if (_rangeIssue == _RangeIssue.belowStart)
+            _rangeIssueHelp(
+              message: 'หากเพิ่งเปลี่ยนมิเตอร์ใหม่ กรุณาตั้งเลขมิเตอร์ต้นรอบใหม่ก่อนบันทึกค่ะ',
+              buttonIcon: Icons.refresh,
+              buttonLabel: 'ตั้งเลขมิเตอร์ต้นรอบใหม่',
+              onPressed: _openStartMeterSetup,
+            ),
+          if (_rangeIssue == _RangeIssue.belowLast)
+            _rangeIssueHelp(
+              message: 'หากตรวจสอบแล้วว่าเลขที่กรอกถูกต้อง แสดงว่าการบันทึกครั้งล่าสุด'
+                  'อาจคลาดเคลื่อน กรุณาลบรายการดังกล่าวที่ ตั้งค่า › ประวัติการบันทึกมิเตอร์ '
+                  'แล้วจึงบันทึกเลขนี้อีกครั้งค่ะ',
+              buttonIcon: Icons.history,
+              buttonLabel: 'ไปที่ประวัติการบันทึกมิเตอร์',
+              onPressed: _openUtilityHistory,
+            ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: _isSaving ? null : _onConfirmTap,
@@ -801,6 +933,37 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.save_outlined, size: 18),
             label: Text(_isSaving ? 'กำลังบันทึก...' : 'ยืนยันบันทึก'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // คำแนะนำ + ปุ่มแก้ไข ใต้ข้อความแดงเมื่อเลขที่กรอกไม่ผ่านการเช็คช่วง
+  Widget _rangeIssueHelp({
+    required String message,
+    required IconData buttonIcon,
+    required String buttonLabel,
+    required VoidCallback onPressed,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.v14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(message,
+              style: TextStyle(fontSize: AppTypography.s12, height: 1.5, color: Colors.grey.shade700)),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _isSaving ? null : onPressed,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _accent,
+              side: BorderSide(color: _accent.withValues(alpha: 0.5)),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v10)),
+            ),
+            icon: Icon(buttonIcon, size: 16),
+            label: Text(buttonLabel, style: const TextStyle(fontSize: AppTypography.s12_5)),
           ),
         ],
       ),
