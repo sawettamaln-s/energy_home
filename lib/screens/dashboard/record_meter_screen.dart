@@ -226,7 +226,8 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
     }
 
     final formatter = NumberFormat('#,##0.##');
-    final subject = label.isEmpty ? 'เลขมิเตอร์' : 'เลข $label';
+    // ชื่อช่อง TOU ลงท้ายด้วยวงเล็บ ต้องเว้นวรรคก่อนข้อความต่อท้าย
+    final subject = label.isEmpty ? 'เลขมิเตอร์' : 'เลข $label ';
     if (value < start) {
       return (
         value: value,
