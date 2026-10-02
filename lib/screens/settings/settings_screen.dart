@@ -217,8 +217,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context,
       title: 'ลบบัญชีและข้อมูลทั้งหมด?',
       content: 'การลบบัญชีจะลบข้อมูลทั้งหมดถาวร ได้แก่ ประวัติมิเตอร์ไฟ/น้ำ, '
-          'บิลย้อนหลังทั้งหมด, เครื่องใช้ไฟฟ้าที่บันทึกไว้, ค่าใช้จ่ายคงที่ '
-          'รายเดือน และการตั้งค่าบัญชีทั้งหมด — กู้คืนไม่ได้ไม่ว่ากรณีใดค่ะ',
+          'บิลย้อนหลังทั้งหมด, เครื่องใช้ไฟฟ้าที่บันทึกไว้, รายจ่ายประจำ '
+          'และการตั้งค่าบัญชีทั้งหมด — กู้คืนไม่ได้ไม่ว่ากรณีใดค่ะ',
       confirmLabel: 'ลบถาวร',
     );
     if (!confirmed) return;
@@ -576,8 +576,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(height: 1, indent: 56),
           _buildSettingsTile(
             icon: Icons.calendar_today,
-            title: 'กำหนดวันจดใบแจ้งบิล',
-            subtitle: 'รอบแจ้งเตือนเริ่มต้น ทุกวันที่ ${_user?.billingDay ?? 30} ของเดือน',
+            title: 'วันตัดรอบบิล',
+            subtitle: 'รอบบิลเริ่มทุกวันที่ ${_user?.billingDay ?? 30} ของเดือน',
             color: _sectionColor,
             onTap: () => _showEditBillingDay(),
           ),
@@ -954,7 +954,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     const Expanded(
                       child: Text(
-                        'กำหนดวันจดใบแจ้งบิล',
+                        'เลือกวันตัดรอบบิล',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: AppTypography.s17,
@@ -966,9 +966,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: const Icon(Icons.info_outline,
                           color: DashboardStyles.primaryGreen, size: 20),
                       onPressed: () => _showInfoPopup(
-                        'วันบันทึกบิล คืออะไร?',
-                        'วันที่บิลค่าไฟหรือค่าน้ำมาส่งที่บ้านของคุณ โดยระบบจะใช้เพื่อ:'
-                            'แจ้งเตือน ให้คุณเข้ามาบันทึกยอดเงินและเลขมิเตอร์'
+                        'วันตัดรอบบิล คืออะไร?',
+                        'วันที่จดเลขมิเตอร์ที่พิมพ์อยู่บนใบแจ้งหนี้ (วันเริ่มรอบบิลใหม่) '
+                            'ระบบใช้วันนี้แบ่งรอบบิล คำนวณยอดของแต่ละรอบ และแจ้งเตือน'
+                            'ให้คุณบันทึกเลขมิเตอร์ต้นรอบเมื่อได้ใบแจ้งหนี้ใบใหม่\n\n'
+                            'ไฟฟ้าและน้ำใช้วันเดียวกัน ถ้าสองใบมาไม่ตรงกัน แนะนำให้เลือก'
+                            'ตามใบที่มาทีหลัง'
                       ),
                     ),
                   ],

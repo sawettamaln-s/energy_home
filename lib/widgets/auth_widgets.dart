@@ -10,8 +10,8 @@ class AuthStyle {
   AuthStyle._();
 
   static const Color green = DashboardStyles.primaryGreen;
-  static const Color greenDark = Color(0xFF1B5E20);
-  static const Color greenLight = Color(0xFF43A047);
+  static const Color greenDark = AppColors.authGreenDark;
+  static const Color greenLight = AppColors.authGreenLight;
 
   // ขนาด/มุมโค้งกลาง ใช้เหมือนกันทุกปุ่มหลักในกลุ่มหน้า auth ทั้งหมด
   static const double buttonHeight = 54;
@@ -203,7 +203,7 @@ class AuthGoogleButton extends StatelessWidget {
                       style: TextStyle(
                         fontSize: AppTypography.s13,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF4285F4), // Google blue
+                        color: AppColors.googleBlue,
                       ),
                     ),
                   ),

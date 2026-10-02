@@ -13,7 +13,7 @@ part of 'analysis_screen.dart';
 // ไฮไลต์แท่งเดือนสูงสุด/ต่ำสุดด้วยสีต่างจากแท่งปกติ ช่วยให้กวาดตาเจอ
 // เดือนผิดปกติได้ทันทีโดยไม่ต้องไล่อ่านตัวเลขทีละแท่ง เดือนต่ำสุดใช้สีเขียว
 // หลักของแบรนด์ (สื่อว่า "ใช้น้อย = ดี") เดือนสูงสุดใช้ส้มอิฐ
-const Color _trendPeakColor = Color(0xFFE2673F);
+const Color _trendPeakColor = AppColors.trendPeak;
 const Color _trendLowColor = DashboardStyles.primaryGreen;
 
 bool _trendHasVariation(List<double> values) {

@@ -157,17 +157,17 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   // หนักเบาของแต่ละอุปกรณ์ได้ไวๆ โดยไม่ต้องอ่านตัวเลข
   // <=5 ชม. เขียว (เบา) | <=10 ชม. เหลือง | <=15 ชม. ส้ม | >15 ชม. แดง (หนัก)
   Color _scheduleBgColor(double hoursPerDay) {
-    if (hoursPerDay <= 5) return const Color(0xFFE8F5E9);
-    if (hoursPerDay <= 10) return const Color(0xFFFFF8E1);
-    if (hoursPerDay <= 15) return const Color(0xFFFFF3E0);
-    return const Color(0xFFFFEBEE);
+    if (hoursPerDay <= 5) return AppColors.softGreenBg;
+    if (hoursPerDay <= 10) return AppColors.softAmberBg;
+    if (hoursPerDay <= 15) return AppColors.softOrangeBg;
+    return AppColors.softRedBg;
   }
 
   Color _scheduleFgColor(double hoursPerDay) {
     if (hoursPerDay <= 5) return DashboardStyles.primaryGreen;
-    if (hoursPerDay <= 10) return const Color(0xFFF9A825);
-    if (hoursPerDay <= 15) return const Color(0xFFEF6C00);
-    return const Color(0xFFC62828);
+    if (hoursPerDay <= 10) return AppColors.levelMedium;
+    if (hoursPerDay <= 15) return AppColors.levelHigh;
+    return AppColors.levelVeryHigh;
   }
 
   // สรุปตารางการใช้งานเป็นข้อความสั้นๆ จากข้อมูลที่มีจริง (days + จำนวนชม./วัน)
@@ -633,7 +633,7 @@ Future<void> _confirmDelete(ApplianceModel a) async {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.v12),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9),
+        color: AppColors.softGreenBg,
         borderRadius: BorderRadius.circular(AppSpacing.v10),
       ),
       child: Column(

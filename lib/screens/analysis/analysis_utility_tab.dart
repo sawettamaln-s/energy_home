@@ -559,11 +559,11 @@ class _UtilityTab extends StatelessWidget {
   (IconData, Color) _seasonVisual(_Season season) {
     switch (season) {
       case _Season.summer:
-        return (Icons.wb_sunny_rounded, const Color(0xFFF57C00));
+        return (Icons.wb_sunny_rounded, AppColors.seasonSummer);
       case _Season.rainy:
-        return (Icons.umbrella_rounded, const Color(0xFF1E88E5));
+        return (Icons.umbrella_rounded, AppColors.seasonRainy);
       case _Season.cool:
-        return (Icons.ac_unit_rounded, const Color(0xFF0097A7));
+        return (Icons.ac_unit_rounded, AppColors.seasonCool);
     }
   }
 

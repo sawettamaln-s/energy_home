@@ -297,59 +297,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       await _calculateCurrentMonth();
 
-      // ===================================================
-      // เรียกระบบแจ้งเตือนทั้ง 3 อย่างที่เหลือ หลังคำนวณข้อมูลเสร็จ
-      // ===================================================
-
-      // (Scheduled) เตือนใกล้วันตัดรอบบิล — ตั้งล่วงหน้าให้ OS จัดการเอง
-      await NotificationService.instance.scheduleBillingReminder(
-        billingDate: endDate,
-        daysBefore: 3,
-      );
-
-      // (Instant) เตือนยังไม่บันทึกมิเตอร์เกิน N วัน — ดูจาก log ล่าสุดที่เก่ากว่า
-      final latestLogDates = [
-        _latestElectricityLog?.date,
-        _latestWaterLog?.date,
-      ].whereType<DateTime>().toList();
-      if (latestLogDates.isNotEmpty) {
-        latestLogDates.sort();
-        await NotificationService.instance.checkMeterNotRecorded(
-          lastLogDate: latestLogDates.last, // log ล่าสุด (ใหม่ที่สุด)
-          silent: silentThisLoad,
-        );
-      }
-
-      // (Instant) เตือนเมื่อใช้ไฟ/น้ำเกิน 30% ของเดือนก่อน
-      await NotificationService.instance.checkUsageSpike(
-        currentElectricityCost: _currentElectricityCost,
-        lastMonthElectricityCost: _lastMonthElectricityCost,
-        currentWaterCost: _currentWaterCost,
-        lastMonthWaterCost: _lastMonthWaterCost,
+      await _runNotificationChecks(
         cycleStart: startDate,
+        cycleEnd: endDate,
         silent: silentThisLoad,
       );
-
-      // sync ดูว่า scheduled notification (เตือนใกล้วันบิล) ถึงกำหนดยิงแล้ว
-      // หรือยัง ถ้าถึงแล้วจะถูกบันทึกเข้า history ให้เห็นในหน้า Notification
-      await NotificationService.instance.syncDeliveredScheduledNotifications();
-
-      // (Instant) เตือนล่วงหน้าถ้าคาดการณ์สิ้นรอบจะสูงกว่าเดือนก่อน
-      // ข้ามถ้ายังไม่มีข้อมูลพอ (_hasForecastData == false) เพราะ _forecastTotal
-      // ตอนนั้นคือยอดที่ใช้ไปแล้วเฉยๆ (มักต่ำมากตอนต้นรอบ) เทียบกับเดือนก่อน
-      // ไปก็จะไม่มีทาง "สูงกว่า" อยู่แล้วโดยไม่มีความหมายอะไร
-      if (_hasForecastData) {
-        await NotificationService.instance.checkForecastHigherThanLastMonth(
-          forecastTotal: _forecastTotal,
-          lastMonthTotal: _lastMonthElectricityCost + _lastMonthWaterCost,
-          cycleStart: startDate,
-          silent: silentThisLoad,
-        );
-      }
-
-      // อัปเดตจำนวนแจ้งเตือนที่ยังไม่อ่าน เพื่อโชว์ badge ตัวเลขที่ปุ่มกระดิ่ง
-      _unreadNotifications =
-          await NotificationService.instance.getUnreadCount();
     } catch (e) {
       debugPrint('Error loading dashboard: $e');
       _loadFailed = true;
@@ -360,7 +312,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // =====================================================================
-  // คำนวณยอดใช้งาน/ค่าใช้จ่ายเดือนนี้ + คาดการณ์สิ้นเดือน (แยกไฟฟ้า/น้ำ)
+  // เช็คแจ้งเตือนทั้งหมดหลังคำนวณข้อมูลเสร็จ — แยกจับ error ของตัวเอง
+  // เพราะแจ้งเตือนล้มเหลว (เช่น เครื่องไม่อนุญาตให้ตั้งเวลาแจ้งเตือน) ไม่ควร
+  // ทำให้หน้าหลักขึ้น "โหลดข้อมูลไม่สำเร็จ" ทั้งที่ข้อมูลโหลดได้ครบแล้ว
+  // =====================================================================
+  Future<void> _runNotificationChecks({
+    required DateTime cycleStart,
+    required DateTime cycleEnd,
+    required bool silent,
+  }) async {
+    final notifications = NotificationService.instance;
+    try {
+      // (Scheduled) เตือนใกล้วันตัดรอบบิล — ตั้งล่วงหน้าให้ OS จัดการเอง
+      await notifications.scheduleBillingReminder(
+        billingDate: cycleEnd,
+        daysBefore: 3,
+      );
+
+      // (Instant) เตือนยังไม่บันทึกมิเตอร์เกิน N วัน — ดูจาก log ล่าสุด
+      // (ใหม่ที่สุด) ของทุกรอบ ไม่ว่าไฟหรือน้ำ
+      final latestLogDates = [
+        _latestElectricityLog?.date,
+        _latestWaterLog?.date,
+      ].whereType<DateTime>().toList();
+      if (latestLogDates.isNotEmpty) {
+        latestLogDates.sort();
+        await notifications.checkMeterNotRecorded(
+          lastLogDate: latestLogDates.last,
+          silent: silent,
+        );
+      }
+
+      // (Instant) เตือนเมื่อค่าไฟ/น้ำรอบนี้สูงกว่าบิลเดือนก่อนเกิน 30%
+      await notifications.checkUsageSpike(
+        currentElectricityCost: _currentElectricityCost,
+        lastMonthElectricityCost: _lastMonthElectricityCost,
+        currentWaterCost: _currentWaterCost,
+        lastMonthWaterCost: _lastMonthWaterCost,
+        cycleStart: cycleStart,
+        silent: silent,
+      );
+
+      // sync ดูว่า scheduled notification (เตือนใกล้วันบิล) ถึงกำหนดยิงแล้ว
+      // หรือยัง ถ้าถึงแล้วจะถูกบันทึกเข้า history ให้เห็นในหน้า Notification
+      await notifications.syncDeliveredScheduledNotifications();
+
+      // (Instant) เตือนล่วงหน้าถ้าคาดการณ์สิ้นรอบจะสูงกว่าเดือนก่อน — ข้าม
+      // ถ้ายังไม่มีข้อมูลพอ เพราะ _forecastTotal ตอนนั้นคือยอดที่ใช้ไปแล้วเฉยๆ
+      if (_hasForecastData) {
+        await notifications.checkForecastHigherThanLastMonth(
+          forecastTotal: _forecastTotal,
+          lastMonthTotal: _lastMonthElectricityCost + _lastMonthWaterCost,
+          cycleStart: cycleStart,
+          silent: silent,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error running notification checks: $e');
+    }
+
+    // จำนวนแจ้งเตือนที่ยังไม่อ่าน (badge ที่ปุ่มกระดิ่ง) — อ่านจากเครื่อง
+    // อย่างเดียว ทำต่อได้แม้เช็คด้านบนจะล้มเหลว
+    try {
+      _unreadNotifications = await notifications.getUnreadCount();
+    } catch (e) {
+      debugPrint('Error reading unread notifications: $e');
+    }
+  }
+
+  // =====================================================================
+  // คำนวณยอดใช้งาน/ค่าใช้จ่ายรอบนี้ + คาดการณ์สิ้นรอบ (แยกไฟฟ้า/น้ำ)
   // =====================================================================
   Future<void> _calculateCurrentMonth() async {
     if (_electricityLogs.isNotEmpty) {
@@ -950,7 +971,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'ยังไม่ได้ตั้งค่ามิเตอร์ต้นรอบ',
+                  'ยังไม่ได้ตั้งเลขมิเตอร์ต้นรอบ',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14_5),
                 ),
               ),
@@ -977,7 +998,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 await _loadData();
               },
               icon: const Icon(Icons.arrow_forward, size: 18),
-              label: const Text('ตั้งค่ามิเตอร์ต้นรอบ'),
+              label: const Text('ตั้งเลขมิเตอร์ต้นรอบ'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: DashboardStyles.primaryGreen,
                 foregroundColor: Colors.white,
@@ -1094,7 +1115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(AppSpacing.v8),
               decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
+                color: AppColors.softGreenBg,
                 borderRadius: BorderRadius.circular(AppSpacing.v10),
               ),
               child: const Icon(Icons.bookmark_outline,
@@ -1103,7 +1124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(width: 10),
             const Expanded(
               child: Text(
-                'Fixed Cost รายจ่ายประจำ',
+                'รายจ่ายประจำ',
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: AppTypography.s14,
@@ -1156,7 +1177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.v7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E0),
+                  color: AppColors.softOrangeBg,
                   borderRadius: BorderRadius.circular(AppSpacing.v9),
                 ),
                 child: const Icon(Icons.summarize_outlined,
@@ -1181,7 +1202,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 10),
           _buildSummaryRow(
-            'Fixed Cost',
+            'รายจ่ายประจำ',
             '${formatter.format(_user?.fixedCost ?? 0)} บาท',
           ),
           const SizedBox(height: 16),
@@ -1192,7 +1213,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v13),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF3E0),
+              color: AppColors.softOrangeBg,
               borderRadius: BorderRadius.circular(AppSpacing.v12),
             ),
             child: Row(

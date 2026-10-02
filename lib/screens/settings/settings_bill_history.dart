@@ -957,7 +957,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                             children: [
                               Text(
                                 'ไฟ+น้ำ ${formatter.format(_total)} บาท '
-                                '+ ค่าใช้จ่ายคงที่ ${formatter.format(_fixedCost)} บาท',
+                                '+ รายจ่ายประจำ ${formatter.format(_fixedCost)} บาท',
                                 style: TextStyle(
                                   fontSize: AppTypography.s11,
                                   color: Colors.grey.shade600,

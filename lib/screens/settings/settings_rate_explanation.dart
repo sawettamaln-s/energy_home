@@ -203,7 +203,7 @@ class _ElectricityRateTab extends StatefulWidget {
 }
 
 class _ElectricityRateTabState extends State<_ElectricityRateTab> {
-  static const _amber = Color(0xFFF9A825);
+  static const _amber = AppColors.rateHighlight;
   static const _green = DashboardStyles.primaryGreen;
   double? _ftRate;
 
@@ -435,7 +435,7 @@ class _WaterRateTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF0288D1);
+    const blue = AppColors.rateWater;
     const green = DashboardStyles.primaryGreen;
     final isBangkok = area == 'bangkok';
 

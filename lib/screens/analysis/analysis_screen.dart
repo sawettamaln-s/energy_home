@@ -162,8 +162,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     // หน้า Dashboard/ปุ่มสลับมุมมองด้านบน หน่วยใช้เฉดทอง
                     // อ่อนกว่าในตระกูลสีเดียวกัน, Off-Peak อ่อนกว่านั้นอีกขั้น
                     costColor: AppColors.electricityBorder,
-                    unitColor: const Color(0xFFE8B86D),
-                    touOffPeakColor: const Color(0xFFF3D9B1),
+                    unitColor: AppColors.electricityUnit,
+                    touOffPeakColor: AppColors.electricityOffPeak,
                     currentCycle: _currentCycle?['electricity'],
                     onViewAppliances: () => _tabController.animateTo(2),
                     isTou: _isTou,
@@ -184,7 +184,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     // สีฟ้า #1E76C7 ให้ตรงกับกรอบการ์ดมิเตอร์น้ำ/ปุ่มสลับ
                     // มุมมองด้านบน หน่วยใช้น้ำเงินเข้มกว่าในตระกูลเดียวกัน
                     costColor: AppColors.waterBorder,
-                    unitColor: const Color(0xFF123F6D),
+                    unitColor: AppColors.waterUnit,
                     currentCycle: _currentCycle?['water'],
                     onViewAppliances: () => _tabController.animateTo(2),
                     trackAppliances: false,

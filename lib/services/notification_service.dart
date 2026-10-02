@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -106,7 +107,12 @@ class NotificationService {
   // ถ้าไม่มี user login อยู่ (เคสที่ไม่ควรเกิดในทางปฏิบัติ) fallback ไปใช้
   // 'guest' กันแอป crash
   // =====================================================================
-  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? 'guest';
+  // เปลี่ยนได้เฉพาะในเทส (กำหนด uid เองโดยไม่ต้องมี Firebase)
+  @visibleForTesting
+  String Function() uidProvider =
+      () => FirebaseAuth.instance.currentUser?.uid ?? 'guest';
+
+  String get _uid => uidProvider();
   String _scopedKey(String key) => '${_uid}_$key';
 
   // =====================================================================
@@ -365,9 +371,9 @@ class NotificationService {
 
     await _showAndLog(
       pluginId: idForecastHigher,
-      title: 'แนวโน้มค่าใช้จ่ายเดือนนี้สูงขึ้นค่ะ',
+      title: 'แนวโน้มค่าใช้จ่ายรอบนี้สูงขึ้นค่ะ',
       body:
-          'คาดว่าค่าใช้จ่ายสิ้นเดือนนี้จะสูงกว่าเดือนก่อนประมาณ ${percentChange.toStringAsFixed(0)}% '
+          'คาดว่าค่าไฟ+ค่าน้ำรอบบิลนี้จะสูงกว่าเดือนก่อนประมาณ ${percentChange.toStringAsFixed(0)}% '
           'ลองดูการใช้พลังงานตอนนี้เลยดีกว่าค่ะ',
       type: 'forecast',
       silent: silent,

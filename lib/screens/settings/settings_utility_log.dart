@@ -157,15 +157,15 @@ Widget _historySummaryCard({
     return InputDecoration(
       isDense: true,
       filled: true,
-      fillColor: const Color(0xFFFAF9F4),
+      fillColor: AppColors.inputFill,
       contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v7),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.v9),
-        borderSide: const BorderSide(color: Color(0xFFD8D5C8)),
+        borderSide: const BorderSide(color: AppColors.inputBorder),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.v9),
-        borderSide: const BorderSide(color: Color(0xFFD8D5C8)),
+        borderSide: const BorderSide(color: AppColors.inputBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.v9),

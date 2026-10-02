@@ -488,7 +488,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v16)),
-          title: Text(existing == null ? 'เพิ่มรายการ Fixed Cost' : 'แก้ไขรายการ'),
+          title: Text(existing == null ? 'เพิ่มรายจ่ายประจำ' : 'แก้ไขรายการ'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -631,7 +631,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
                   ),
                   child: Text(
                     hasEndDate
-                        ? 'จะไม่ถูกนับรวมในยอด Fixed Cost หลังวันที่สิ้นสุด'
+                        ? 'จะไม่ถูกนับรวมในยอดรายจ่ายประจำหลังวันที่สิ้นสุด'
                         : 'นับรวมทุกเดือนต่อเนื่อง ไม่มีกำหนดสิ้นสุด',
                     style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600),
                   ),
@@ -697,7 +697,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
 final confirmed = await showConfirmDialog(
       context,
       title: 'ลบรายการนี้?',
-      content: 'ต้องการลบ "${item.name}" ออกจาก Fixed Cost ใช่ไหม',
+      content: 'ต้องการลบ "${item.name}" ออกจากรายจ่ายประจำใช่ไหมคะ',
     );
     if (confirmed == true) {
       await widget.firestoreService.deleteFixedCostItem(widget.uid, item.id);
@@ -748,7 +748,7 @@ final confirmed = await showConfirmDialog(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'รวม Fixed Cost ต่อเดือน',
+                              'รวมรายจ่ายประจำต่อเดือน',
                               style: TextStyle(color: Colors.white70, fontSize: AppTypography.s12),
                             ),
                             const SizedBox(height: 4),
@@ -784,7 +784,7 @@ final confirmed = await showConfirmDialog(
                                     size: 48, color: Colors.grey.shade300),
                                 const SizedBox(height: 12),
                                 Text(
-                                  'ยังไม่มีรายการ Fixed Cost\nกดปุ่ม + เพื่อเพิ่มรายการแรกได้เลยค่ะ',
+                                  'ยังไม่มีรายจ่ายประจำ\nกดปุ่ม + เพื่อเพิ่มรายการแรกได้เลยค่ะ',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: Colors.grey.shade600),
                                 ),

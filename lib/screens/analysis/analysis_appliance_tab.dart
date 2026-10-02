@@ -77,18 +77,8 @@ class _ApplianceTab extends StatelessWidget {
 
     final insights = analysisService.generateApplianceInsights(breakdown);
 
-    // ยึดโทนเขียวของแบรนด์เป็นหลัก ไล่เฉดเขียวอ่อน-เข้ม สลับกับสีอุ่นคู่
-    // ตรงข้าม (ทอง/ส้ม/น้ำตาล) เรียงให้ชิ้นพายที่อยู่ติดกันสลับอุ่น-เย็น
-    // ชัดเจน แยกออกจากกันง่าย
-    final colors = [
-      _green, // เขียวหลักของแบรนด์
-      const Color(0xFFFFA726), // ส้มทอง
-      const Color(0xFF26A69A), // เขียวอมฟ้า (teal)
-      const Color(0xFFFFCA28), // เหลืองทอง
-      const Color(0xFF8D6E63), // น้ำตาลอบอุ่น
-      const Color(0xFF66BB6A), // เขียวอ่อน
-      const Color(0xFFD98E5B), // ส้มดิน
-    ];
+    // สีชิ้นพาย — ดูลำดับสีที่ AppColors.pieChartPalette
+    const colors = AppColors.pieChartPalette;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -286,7 +276,7 @@ class _PieLabelPill extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 92),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v5),
       decoration: BoxDecoration(
-        color: const Color(0xFFE4F2E4),
+        color: AppColors.softGreenBgAlt,
         borderRadius: BorderRadius.circular(AppSpacing.v20),
         boxShadow: [
           BoxShadow(color: Colors.grey.withValues(alpha: 0.18), blurRadius: 5)
