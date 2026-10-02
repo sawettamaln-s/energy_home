@@ -321,11 +321,11 @@ void main(List<String> args) async {
 
     // ---------- user doc update ----------
     final lastMonth = months.last;
-    // แก้บั๊ก: ห้าม +1 — "รอบที่กำลังเปิดอยู่" ถูกตั้งชื่อด้วยเดือนของวันตัดรอบ
+    // ห้าม +1 — "รอบที่กำลังเปิดอยู่" ถูกตั้งชื่อด้วยเดือนของวันตัดรอบ
     // ล่าสุดที่เพิ่งผ่านไป (ตรงกับ EnergyForecaster.getCycleStart) ซึ่งคือ
-    // lastMonth ตัวเดียวกับที่เพิ่ง import ไปเป๊ะ ไม่ใช่เดือนถัดไป — ของเดิม
-    // ที่ +1 ทำให้ user.startBillingMonth ไม่ตรงกับ matchesCurrentCycle()
-    // แอปเลยคิดว่ายังไม่ได้ตั้งเลขต้นรอบของรอบปัจจุบัน แล้วให้บันทึกซ้ำ
+    // lastMonth ตัวเดียวกับที่เพิ่ง import ไปเป๊ะ ไม่ใช่เดือนถัดไป — ถ้า +1
+    // user.startBillingMonth จะไม่ตรงกับ matchesCurrentCycle() แอปจะคิดว่า
+    // ยังไม่ได้ตั้งเลขต้นรอบของรอบปัจจุบัน แล้วให้บันทึกซ้ำ
     final userUpdate = <String, dynamic>{
       'billingDay': options.billingDay,
       'billingDayConfigured': true,

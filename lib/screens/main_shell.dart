@@ -17,15 +17,12 @@ import 'settings/settings_screen.dart';
 /// ก่อน ต้องกด back อีกทีถึงจะออกจากแอปจริงๆ (พฤติกรรมมาตรฐานของแอปที่มี
 /// bottom nav)
 class MainShell extends StatefulWidget {
-  final int initialIndex;
-
   // ส่งต่อให้ DashboardScreen เฉพาะตอนเพิ่ง setup เสร็จหมาดๆ (ดูคอมเมนต์ใน
   // DashboardScreen.justCompletedSetup)
   final bool justCompletedSetup;
 
   const MainShell({
     super.key,
-    this.initialIndex = 0,
     this.justCompletedSetup = false,
   });
 
@@ -34,7 +31,7 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  late int _currentIndex = widget.initialIndex;
+  int _currentIndex = 0;
 
   // สร้างทั้ง 4 หน้าครั้งเดียว (ตอน build ครั้งแรก) แล้วเก็บไว้ใน list นี้ตลอด
   // อายุของ MainShell — ห้ามสร้างใหม่ใน build() เด็ดขาด ไม่งั้น IndexedStack

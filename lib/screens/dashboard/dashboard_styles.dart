@@ -10,15 +10,11 @@ export '../../styles/responsive.dart';
 
 /// ===========================================================
 /// DashboardStyles
-/// รวมข้อความ / ค่าตกแต่งของหน้า Dashboard ไว้ที่เดียว
+/// สไตล์ที่ใช้ร่วมกันทั้งแอป (ไม่ได้ใช้แค่หน้า Dashboard) — สีอ้างอิงจาก
+/// AppColors, text style และกล่อง/เงาของการ์ดที่ใช้ซ้ำ
 ///
-/// ปรับ ก.ย. 2026: แยกสี (AppColors) และสเกลฟอนต์ (AppTypography)
-/// ออกไปเป็นไฟล์ของตัวเองใน lib/styles/ เพื่อให้แก้แต่ละหมวด (สี /
-/// ขนาดตัวอักษร / ระยะห่าง) ได้อย่างเป็นสัดส่วน ไม่ต้องไล่หาปนกับ
-/// logic การ์ด/เงาที่อยู่ในไฟล์นี้ — ไฟล์นี้ยังคง export ชื่อเดิมทั้งหมด
-/// ไว้ (DashboardStyles.xxx) เพื่อไม่ต้องแก้ import ในไฟล์อื่นที่ใช้อยู่
-/// ไฟล์ใหม่ที่ยังไม่ได้ปรับ สามารถ import ไฟล์นี้ไฟล์เดียวแล้วเรียกใช้
-/// AppColors / AppTypography / AppSpacing ได้เลยผ่าน export ด้านบน
+/// import ไฟล์นี้ไฟล์เดียวก็เรียกใช้ AppColors / AppTypography /
+/// AppSpacing / context.rf() ได้ครบผ่าน export ด้านบน
 /// ===========================================================
 class DashboardStyles {
   // ---------- สีหลักของแอป (ดูรายละเอียด/ที่มาของสีที่ AppColors) ----------
@@ -27,7 +23,7 @@ class DashboardStyles {
   static const Color textDark = AppColors.textDark;
   static const Color creamBorder = AppColors.creamBorder;
 
-  // ---------- พื้นหลังไฮไลท์ของหน้าเนื้อหา (ธีมใหม่) ----------
+  // ---------- พื้นหลังไฮไลท์ด้านบนของหน้าแดชบอร์ด ----------
   // ไล่เฉดเขียว-เหลืองอ่อนจากกึ่งกลางด้านบน จางลงมาเป็นพื้นครีม `background`
   // ใช้ RadialGradient วงกว้าง (แทนวงรีแบนแบบ CSS) เพื่อให้ดูเป็นแถบ
   // ไม่ใช่จุดแหลม — center อยู่เหนือกรอบจอ, radius ใหญ่พอให้ขอบจางกลืนกับ
@@ -47,7 +43,7 @@ class DashboardStyles {
   static const Color waterAccent = AppColors.waterAccent;
   static const Color waterFieldBg = AppColors.waterFieldBg;
 
-  // ---------- สีกรอบการ์ดมิเตอร์วันนี้ (เลย์เอาต์ใหม่ กรอบสีตามประเภท) ----------
+  // ---------- สีประจำไฟฟ้า/น้ำ (กรอบการ์ดมิเตอร์, ปุ่ม, หัวหน้าบันทึกมิเตอร์) ----------
   static const Color electricityBorder = AppColors.electricityBorder;
   static const Color waterBorder = AppColors.waterBorder;
 
@@ -55,7 +51,7 @@ class DashboardStyles {
   static const Color spikeUp = AppColors.spikeUp;
   static const Color spikeDown = AppColors.spikeDown;
 
-  // ---------- สีตัวอย่าง/hint ในช่องกรอกมิเตอร์ (จางลงตามที่ขอ) ----------
+  // ---------- ข้อความจาง: hint ในช่องกรอก และค่ารองใต้ตัวเลข ----------
   static TextStyle hintStyle =
       TextStyle(color: Colors.grey.shade400, fontSize: AppTypography.body);
   static TextStyle lastValueStyle =

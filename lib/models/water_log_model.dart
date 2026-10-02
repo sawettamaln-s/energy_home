@@ -4,8 +4,8 @@ class WaterLogModel {
   final DateTime date;
   final double meterValue; // หน่วยมิเตอร์ปัจจุบัน เช่น 178
   final double usedFromStart; // ใช้ไปจากต้นรอบ เช่น 30
-  final double usedFromLast; // เพิ่มจากครั้งล่าสุด เช่น 11
-  final double cost; // ค่าน้ำประมาณการ
+  final double usedFromLast; // เพิ่มจากครั้งล่าสุด เช่น 11 (ไม่ติดลบ)
+  final double cost; // ค่าน้ำประมาณการสะสมตั้งแต่ต้นรอบ (ไม่ใช่เฉพาะช่วงนี้)
 
   WaterLogModel({
     required this.id,

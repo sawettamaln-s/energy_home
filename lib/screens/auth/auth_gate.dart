@@ -80,10 +80,9 @@ class _UserGate extends StatefulWidget {
   State<_UserGate> createState() => _UserGateState();
 }
 
-// ไม่ใช้ FutureBuilder — ใส่ตัวจับ error (onError) ในบรรทัดเดียวกับตอนสร้าง
-// Future เลย (.then(..., onError: ...)) การแนบ error handler ทันทีแบบนี้
-// การันตีว่า error ถูก "handled" ตั้งแต่ frame เดียวกัน ไม่มีช่องให้หลุดเป็น
-// unhandled exception เหมือนที่เคยเจอตอนพึ่ง FutureBuilder เฉยๆ
+// ไม่ใช้ FutureBuilder — แนบตัวจับ error (onError) ตอนสร้าง Future เลย
+// (.then(..., onError: ...)) เพื่อให้ error ถูกจัดการทันที ไม่หลุดเป็น
+// unhandled exception
 enum _LoadStatus { loading, error, loaded }
 
 class _UserGateState extends State<_UserGate> {

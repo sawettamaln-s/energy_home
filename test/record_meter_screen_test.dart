@@ -89,6 +89,12 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  // ปุ่ม "ยืนยันบันทึก" กดได้ไหม (ปิดไว้เมื่อมีช่องที่เลขไม่ผ่านการเช็ค)
+  bool saveEnabled(WidgetTester tester) => tester
+      .widget<ElevatedButton>(find.ancestor(
+          of: find.text('ยืนยันบันทึก'), matching: find.byWidgetPredicate((w) => w is ElevatedButton)))
+      .enabled;
+
   Future<List<Map<String, dynamic>>> savedLogs(String collection) async {
     final snapshot = await fakeDb
         .collection('users')
@@ -147,9 +153,7 @@ void main() {
       expect(find.text(belowStartHelp), findsOneWidget);
       expect(find.text(startSetupButton), findsOneWidget);
       expect(find.text(historyButton), findsNothing);
-
-      await tapButton(tester, 'ยืนยันบันทึก');
-      expect(find.text('บันทึกสำเร็จ'), findsNothing);
+      expect(saveEnabled(tester), isFalse);
       expect(await savedLogs('electricity_logs'), isEmpty);
     });
 
@@ -164,9 +168,26 @@ void main() {
       expect(find.textContaining('ตั้งค่า › ประวัติการบันทึกมิเตอร์'), findsOneWidget);
       expect(find.text(historyButton), findsOneWidget);
       expect(find.text(startSetupButton), findsNothing);
-
-      await tapButton(tester, 'ยืนยันบันทึก');
+      expect(saveEnabled(tester), isFalse);
       expect(await savedLogs('electricity_logs'), isEmpty);
+    });
+
+    testWidgets('ปุ่มบันทึกปิดอยู่ -> พิมพ์แก้ให้ถูกแล้วปุ่มกลับมากดได้ และบันทึกได้',
+        (tester) async {
+      await openScreen(tester);
+      await enterAndCalc(tester, 0, '1050');
+      expect(saveEnabled(tester), isFalse);
+
+      // เริ่มพิมพ์แก้ปุ๊บ ปุ่มต้องกดได้ทันที ไม่ต้องรอคำนวณเสร็จ
+      await tester.enterText(find.byType(TextField).first, '1150');
+      await tester.pump();
+      expect(saveEnabled(tester), isTrue);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('ต้องไม่น้อยกว่า'), findsNothing);
+      await tapButton(tester, 'ยืนยันบันทึก');
+      expect((await savedLogs('electricity_logs')).single['meterValue'], 1150);
     });
 
     testWidgets('กรอกไม่ใช่ตัวเลข -> แจ้งรูปแบบไม่ถูกต้อง ไม่มีปุ่มแนะนำ',
@@ -178,13 +199,14 @@ void main() {
           findsOneWidget);
       expect(find.text(startSetupButton), findsNothing);
       expect(find.text(historyButton), findsNothing);
-
-      await tapButton(tester, 'ยืนยันบันทึก');
+      expect(saveEnabled(tester), isFalse);
       expect(await savedLogs('electricity_logs'), isEmpty);
     });
 
-    testWidgets('ไม่กรอกอะไรเลยแล้วกดบันทึก -> แจ้งให้กรอกก่อน', (tester) async {
+    testWidgets('ไม่กรอกอะไรเลยแล้วกดบันทึก -> ปุ่มยังกดได้ และแจ้งให้กรอกก่อน',
+        (tester) async {
       await openScreen(tester);
+      expect(saveEnabled(tester), isTrue);
       await tapButton(tester, 'ยืนยันบันทึก');
 
       expect(find.text('กรุณากรอกเลขมิเตอร์ไฟฟ้าก่อนบันทึกค่ะ'), findsOneWidget);
@@ -239,8 +261,7 @@ void main() {
           findsOneWidget);
       expect(find.textContaining('เลข Off-Peak (T2)'), findsNothing);
       expect(find.text(historyButton), findsOneWidget);
-
-      await tapButton(tester, 'ยืนยันบันทึก');
+      expect(saveEnabled(tester), isFalse);
       expect(await savedLogs('electricity_logs'), isEmpty);
     });
 
@@ -258,6 +279,7 @@ void main() {
           findsOneWidget);
       expect(find.text(startSetupButton), findsOneWidget);
       expect(find.text(historyButton), findsNothing);
+      expect(saveEnabled(tester), isFalse);
     });
 
     testWidgets('ไม่กรอกทั้งสองช่องแล้วกดบันทึก -> แจ้งให้กรอกอย่างน้อย 1 ช่อง',

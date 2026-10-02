@@ -22,10 +22,11 @@ class UserModel {
   final int startBillingMonth; // เดือนที่ตั้งต้น เช่น 5
   final int startBillingYear; // ปีที่ตั้งต้น เช่น 2026
 
-  // true = ตั้งค่ามิเตอร์ต้นรอบแล้ว, false = ตอนสมัครกด "ข้ามไปก่อน"
-  // (กันไม่ให้ Dashboard เอา 0 ไปคำนวณผิดตอนยังไม่ได้ตั้งค่า)
-  // startMeterConfigured = ตั้งไปแล้วอย่างน้อย 1 ยูทิลิตี้ (electricity || water)
-  // ส่วน 2 ตัวล่างคือ flag แยกรายยูทิลิตี้ เพราะตอนนี้ตั้งแค่ไฟหรือน้ำอย่างเดียวก็ได้
+  // ตั้งเลขมิเตอร์ต้นรอบแล้วหรือยัง (กันไม่ให้แดชบอร์ดเอา 0 ไปคำนวณ)
+  // startMeterConfigured = ตั้งแล้วอย่างน้อย 1 ฝั่ง (ไฟฟ้าหรือน้ำ)
+  // 2 ตัวล่างแยกรายฝั่ง เพราะตั้งแค่ไฟหรือน้ำอย่างเดียวก็ได้
+  // เป็น false เมื่อกด "ข้ามไปก่อน" ตอนสมัคร หรือล้าง/ลบเลขต้นรอบทิ้ง
+  // (การ์ดบนแดชบอร์ดยังเช็คเพิ่มว่าเลขต้นรอบตรงกับรอบปัจจุบันไหม)
   final bool startMeterConfigured;
   final bool electricityStartConfigured;
   final bool waterStartConfigured;
@@ -67,15 +68,15 @@ class UserModel {
       startOffPeakValue: (map['startOffPeakValue'] ?? 0).toDouble(),
       startBillingMonth: map['startBillingMonth'] ?? 0,
       startBillingYear: map['startBillingYear'] ?? 0,
-      // บัญชีเก่าไม่มี key นี้ -> default true (ตอนนั้นบังคับกรอกค่าตั้งต้นอยู่แล้ว)
+      // ไม่มี key นี้ = บัญชีที่สมัครตอนยังบังคับกรอกเลขต้นรอบ -> ถือว่า true
       startMeterConfigured: map['startMeterConfigured'] ?? true,
-      // บัญชีเก่าไม่มี flag แยกยูทิลิตี้ -> fallback ไปใช้ startMeterConfigured เดิม
+      // ไม่มี flag แยกรายฝั่ง -> ใช้ค่าเดียวกับ startMeterConfigured
       electricityStartConfigured: map['electricityStartConfigured'] ??
           map['startMeterConfigured'] ??
           true,
       waterStartConfigured:
           map['waterStartConfigured'] ?? map['startMeterConfigured'] ?? true,
-      // บัญชีเก่าไม่มี key นี้ -> default true (ตอนนั้นบังคับเลือกวันตัดรอบอยู่แล้ว)
+      // ไม่มี key นี้ = บัญชีที่สมัครตอนยังบังคับเลือกวันตัดรอบ -> ถือว่า true
       billingDayConfigured: map['billingDayConfigured'] ?? true,
     );
   }

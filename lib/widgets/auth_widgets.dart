@@ -220,7 +220,7 @@ class AuthGoogleButton extends StatelessWidget {
 }
 
 /// สไตล์ช่องกรอกกลาง — พื้นเทาอ่อนไม่มีเส้นขอบ ใช้เหมือนกันทุกช่องกรอกในกลุ่ม
-/// หน้า auth (login / register / เปลี่ยนรหัสผ่าน ฯลฯ)
+/// หน้า auth (login / register)
 InputDecoration authFieldDecoration({
   required String hint,
   required IconData icon,

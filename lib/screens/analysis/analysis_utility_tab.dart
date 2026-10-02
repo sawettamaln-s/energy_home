@@ -5,7 +5,7 @@ class _UtilityTab extends StatelessWidget {
   final List<BillModel> bills;
   final AnalysisService analysisService;
   final double Function(BillModel) selector; // ค่าใช้จ่าย (บาท)
-  // หน่วยที่ใช้จริง (electricityUsed/waterUsed) — เพิ่มใหม่สำหรับกราฟเทรนด์
+  // หน่วยที่ใช้จริง (electricityUsed/waterUsed) — ใช้กับกราฟเทรนด์โหมด
   // หน่วยที่ใช้ แยกจาก selector (ค่าใช้จ่าย) เพราะเป็นคนละมิติกัน บิลบาง
   // เดือนอาจมีค่าใช้จ่ายแต่ไม่มีหน่วย (เช่น บิลที่มาจากการตั้งเลขมิเตอร์
   // ต้นรอบครั้งแรกสุดของบัญชี ที่คำนวณ delta หน่วยที่ใช้ไม่ได้จริงๆ)
@@ -13,13 +13,14 @@ class _UtilityTab extends StatelessWidget {
   final String unitLabel; // หน่วยที่ใช้ เช่น 'หน่วย'
   final String title; // หัวข้อยาว เช่น 'ค่าไฟฟ้า' ใช้ในกราฟเทรนด์
   final String label; // หัวข้อสั้น เช่น 'ค่าไฟ' ใช้ในข้อความ insight
-  // สีประจำยูทิลิตี้ (ส้ม = ไฟฟ้า, ฟ้าอมเขียว = น้ำ) ใช้กับกราฟเทรนด์และ
-  // ปุ่มสลับมุมมอง (ค่าใช้จ่าย/หน่วย) ให้ตรงกับโทนสีที่ dashboard ใช้อยู่
-  // แล้ว (DashboardStyles.electricityBorder/waterBorder) ให้แยกออกได้ทันที
+  // สีประจำยูทิลิตี้ (น้ำตาล-ส้ม = ไฟฟ้า, ฟ้า = น้ำ) ใช้กับกราฟเทรนด์และ
+  // ปุ่มสลับมุมมอง (ค่าใช้จ่าย/หน่วย) ให้ตรงกับโทนสีที่ dashboard ใช้
+  // (DashboardStyles.electricityBorder/waterBorder) ให้แยกออกได้ทันที
   // ว่ากำลังดูแท็บไหนอยู่จากกราฟ
   final Color accentColor;
-  // พาเลตสีจริงของกราฟแท่งเทรนด์ ต่อโหมด "ค่าใช้จ่าย"/"หน่วย" — เลือกเฉด
-  // เฉพาะของแต่ละยูทิลิตี้ (ไฟฟ้า = แดง/เหลือง, น้ำ = น้ำเงิน) ตรงตาม swatch
+  // สีกราฟแท่งเทรนด์ แยกโหมด "ค่าใช้จ่าย"/"หน่วย" (+ Off-Peak สำหรับ TOU)
+  // — ไฟฟ้าใช้ตระกูลน้ำตาล-ส้ม/ทอง, น้ำใช้ตระกูลฟ้า/น้ำเงิน (กำหนดที่
+  // analysis_screen.dart)
   final Color costColor;
   final Color unitColor;
   final Color? touOffPeakColor;
@@ -292,8 +293,8 @@ class _UtilityTab extends StatelessWidget {
                   context,
                   title: 'ตัวเลขนี้คำนวณอย่างไร?',
                   message: 'คำนวณจากค่าใช้จ่ายเฉลี่ยต่อวันตั้งแต่ต้นรอบถึง'
-                      'วันนี้ คูณด้วยจำนวนวันที่เหลือในรอบ แล้วบวกกับยอดที่'
-                      'ใช้จริงไปแล้ว\n\n'
+                      'วันที่บันทึกมิเตอร์ล่าสุด คูณด้วยจำนวนวันที่เหลือในรอบ '
+                      'แล้วบวกกับยอดที่ใช้จริงไปแล้ว\n\n'
                       'หากใช้งานไม่สม่ำเสมอมาก (เช่น ต้นเดือนใช้น้อย ปลายเดือน'
                       'ใช้พุ่ง) ตัวเลขอาจคลาดเคลื่อนได้บ้าง',
                 ),
@@ -406,7 +407,7 @@ class _UtilityTab extends StatelessWidget {
         r.percentChange != null &&
         r.percentChange!.abs() >= _anomalyThresholdPercent;
 
-    // สีตามความหมายเดิมของการ์ด: ลด = เขียว, เพิ่ม = แดง,
+    // สีตามความหมาย: ลด = เขียว, เพิ่ม = แดง,
     // เปลี่ยนมากผิดปกติ = ส้ม, เท่ากัน/ไม่มีข้อมูล = เทา
     final Color tone = r == null || r.isUnchanged
         ? Colors.grey.shade600

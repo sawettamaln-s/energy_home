@@ -1,3 +1,5 @@
+/// บิล 1 เดือน — year/month คือเดือนของใบแจ้งหนี้ (วันตัดรอบที่ปิดรอบนั้น)
+/// ไม่ใช่เดือนที่รอบเริ่ม
 class BillModel {
   final String id;
   final String uid;
@@ -11,7 +13,10 @@ class BillModel {
   final double waterCost; // ค่าน้ำรวมทั้งเดือน
   final double fixedCost; // ค่าใช้จ่ายคงที่
   final double totalCost; // ยอดรวมทั้งหมด
-  final String source; // 'compiled' = ระบบสรุปจาก log อัตโนมัติ, 'imported' = กรอกย้อนหลังเอง
+  // ที่มาของบิล: 'compiled' = ระบบสรุปจาก log รายวันตอนปิดรอบ,
+  // 'imported' = ผู้ใช้กรอกย้อนหลังเองที่หน้าประวัติบิล,
+  // 'startMeter' = สร้างพร้อมการตั้งเลขมิเตอร์ต้นรอบ (แก้/ลบได้จากหน้านั้นเท่านั้น)
+  final String source;
 
   // ฟิลด์ derived สำหรับ query หา "บิลล่าสุด" ด้วย orderBy ฟิลด์เดียว
   // (year*100+month) แทนที่จะต้อง orderBy 2 ฟิลด์ (year, month) ซึ่ง

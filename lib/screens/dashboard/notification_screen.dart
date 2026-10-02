@@ -13,9 +13,10 @@ import 'dashboard_styles.dart';
 
 /// ===========================================================
 /// NotificationScreen
-/// พาร์ทนี้ทำหน้าที่: หน้า "ศูนย์การแจ้งเตือน" แบบแอปทั่วไป —
-/// แสดงประวัติแจ้งเตือนทั้งหมดที่เคยยิงไปแล้ว เรียงใหม่สุดบนสุด
-/// กดอ่านได้ทีละรายการ, ลัดด้วย "อ่านทั้งหมด", ลบทีละอัน/ลบทั้งหมด
+/// หน้า "ศูนย์การแจ้งเตือน" — แสดงประวัติแจ้งเตือนที่เคยยิง (เก็บในเครื่อง
+/// ล่าสุด 100 รายการ) จัดกลุ่มตามวัน ใหม่สุดบนสุด
+/// แตะเพื่อทำเครื่องหมายว่าอ่านแล้ว, "อ่านทั้งหมด", ปัดซ้ายเพื่อลบทีละอัน,
+/// "ลบทั้งหมด"
 /// ===========================================================
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -52,7 +53,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
     // แจ้งเตือนรอบบิลที่ขาดหาย (ดู notifyMissedCycles ใน notification_service.dart)
     // แตะแล้วพาไปหน้าประวัติบิลตรงๆ เลย เดือนที่ขาดจะโชว์เป็นแถว "- -"
-    // ให้กดแก้ไขกรอกย้อนหลังได้ทันที
+    // ให้กดแก้ไขกรอกย้อนหลังได้ทันที — ประเภทอื่นแตะแล้วแค่ทำเครื่องหมายว่าอ่าน
     if (item.type == 'missed_cycle' && mounted) {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
@@ -134,7 +135,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   // แปลง _items (เรียงใหม่สุดบนสุดอยู่แล้ว) เป็นกลุ่มตามวันที่ โดยคง
-  // ลำดับเดิมไว้ในแต่ละกลุ่ม — ใช้ LinkedHashMap ให้กลุ่มไม่สลับที่กันเอง
+  // ลำดับเดิมไว้ — Map ของ Dart จำลำดับการใส่ กลุ่มจึงเรียงใหม่ -> เก่าเหมือนกัน
   Map<String, List<NotificationItem>> _groupedItems() {
     final grouped = <String, List<NotificationItem>>{};
     for (final item in _items) {

@@ -126,17 +126,17 @@ class FirestoreService {
         .fold<double>(0, (acc, item) => acc + item.amount);
   }
 
-  // เวอร์ชัน public ของ _calcFixedCostForMonth — ให้หน้าจออื่นๆ ที่ต้องกรอก/แก้
-  // บิลของเดือนใดเดือนหนึ่งโดยเฉพาะ (เช่น settings_bill_history.dart ตอนเพิ่ม
-  // บิลย้อนหลังเอง) เรียกใช้ได้ตรงๆ แทนที่จะพึ่ง user.fixedCost ซึ่งเป็น cache
-  // ของ "เดือนปัจจุบัน" เท่านั้น (เจอบั๊กเดียวกับที่แก้ใน compileBill() มาก่อน)
+  // เวอร์ชัน public ของ _calcFixedCostForMonth — ให้หน้าจอที่กรอก/แก้บิลของ
+  // เดือนใดเดือนหนึ่ง (เช่น settings_bill_history.dart ตอนเพิ่มบิลย้อนหลัง)
+  // ได้ยอดของเดือนนั้นจริง ห้ามใช้ user.fixedCost แทน เพราะเป็นยอดของ
+  // "เดือนปัจจุบัน" เท่านั้น
   Future<double> calcFixedCostForMonth(String uid, DateTime month) {
     return _calcFixedCostForMonth(uid, month);
   }
 
   // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
 
-  // เก็บ snapshot ทุกครั้งที่มีการตั้ง/แก้ไขค่ามิเตอร์ต้นรอบ
+  // บันทึกเลขมิเตอร์ต้นรอบของรอบบิลหนึ่ง (id เดิม = เขียนทับรายการเดิม)
   Future<void> saveStartMeterRecord(StartMeterRecordModel record) async {
     await _db
         .collection('users')
@@ -147,7 +147,7 @@ class FirestoreService {
     DataRefreshBus.instance.notifyChanged();
   }
 
-  // ดึงประวัติทั้งหมด เรียงจากล่าสุดไปเก่าสุด
+  // ดึงประวัติทั้งหมด เรียงตามเวลาที่บันทึก (recordedAt) ล่าสุดก่อน
   Future<List<StartMeterRecordModel>> getStartMeterHistory(String uid) async {
     final snapshot = await _db
         .collection('users')
@@ -164,7 +164,7 @@ class FirestoreService {
     return records;
   }
 
-  // ลบรายการประวัติ (เผื่อบันทึกผิดแล้วอยากลบทิ้ง)
+  // ลบรายการประวัติเลขมิเตอร์ต้นรอบ 1 รอบ
   Future<void> deleteStartMeterRecord(String uid, String recordId) async {
     await _db
         .collection('users')
@@ -177,7 +177,7 @@ class FirestoreService {
 
   // ==================== BILLS ====================
 
-  // บันทึกบิลรายเดือน
+  // บันทึกบิลรายเดือน (id เดิม = เขียนทับบิลเดิม)
   Future<void> saveBill(BillModel bill) async {
     await _db
         .collection('users')
@@ -188,7 +188,7 @@ class FirestoreService {
     DataRefreshBus.instance.notifyChanged();
   }
 
-  // ลบบิล (ใช้สำหรับลบบิลย้อนหลังที่กรอกผิด)
+  // ลบบิล 1 ใบ
   Future<void> deleteBill(String uid, String billId) async {
     await _db
         .collection('users')
@@ -202,6 +202,10 @@ class FirestoreService {
   /// รวม logs ของรอบบิลที่ปิดแล้ว (startDate -> endDate) → สร้าง Bill
   /// หมายเหตุ: startDate/endDate ต้องเป็นช่วงของรอบบิลที่ "ปิดไปแล้ว"
   /// ไม่ใช่รอบที่กำลังดำเนินอยู่ตอนนี้ (ผู้เรียกเป็นคนคำนวณช่วงมาให้)
+  /// year/month คือเดือนของใบแจ้งหนี้ = เดือนของ endDate
+  ///
+  /// ยอดไฟ/น้ำ/หน่วยที่ใช้ เอาจาก log ล่าสุดของรอบ (cost/usedFromStart
+  /// ของ log เป็นค่าสะสมจากต้นรอบอยู่แล้ว) — ไม่มี log เลยจะไม่สร้างบิล
   ///
   /// fixedCost คำนวณเองจาก isActiveInMonth(year, month) ของรอบบิลที่กำลัง
   /// compile (ไม่รับเป็น parameter และไม่ใช้ user.fixedCost ซึ่งเป็น cache ของ
@@ -229,7 +233,7 @@ class FirestoreService {
       final fixedCost =
           await _calcFixedCostForMonth(uid, DateTime(year, month, 1));
 
-      // รวมค่า
+      // log เรียงใหม่สุดก่อน — ตัวแรกคือยอดสะสม ณ ตอนปิดรอบ
       double totalElec = eLogs.isNotEmpty ? eLogs.first.cost : 0;
       double totalWater = wLogs.isNotEmpty ? wLogs.first.cost : 0;
       double usedElec = eLogs.isNotEmpty ? eLogs.first.usedFromStart : 0;
@@ -240,18 +244,21 @@ class FirestoreService {
       // On-Peak/Off-Peak ถูกต้อง (หน้าวิเคราะห์ analysis_screen.dart ใช้ค่านี้
       // วาดกราฟแยกสองเส้น) เหมือนกับบิลที่มาจาก 'imported'/'startMeter'
       //
-      // ค่าฐานลบใช้ query start_meter_history หา record ที่
-      // billingMonth/billingYear ตรงกับรอบที่กำลัง compile (year, month
-      // ที่รับเข้ามา) — ไม่ใช้ user.startPeakValue/startOffPeakValue ตรงๆ
-      // เพราะค่านั้นคือค่าล่าสุดที่ user ตั้งไว้ ณ ตอนนี้เท่านั้น ถ้า user
-      // ไป re-setup มิเตอร์ใหม่กลางทาง ค่านี้จะถูกเขียนทับ และไม่ตรงกับรอบ
-      // เก่าที่ยังไม่ปิดที่กำลังจะ compile ทำให้ delta เพี้ยนได้
+      // ค่าฐานลบใช้ record ใน start_meter_history ที่เป็น "ต้นรอบ" ของรอบที่
+      // กำลัง compile — record ของรอบไหนเก็บเดือนที่รอบนั้นเริ่ม
+      // (billingMonth/Year = เดือนของ startDate) ห้ามใช้ year/month ที่รับเข้ามา
+      // เพราะนั่นคือเดือนปิดรอบ = ต้นรอบของ "รอบถัดไป" (หน่วยที่ใช้จะกลายเป็น ~0)
+      // และไม่ใช้ user.startPeakValue/startOffPeakValue ตรงๆ เพราะเป็นค่าของ
+      // รอบล่าสุดที่ตั้งไว้ ณ ตอนนี้ ถ้าผู้ใช้ตั้งต้นรอบใหม่ไปแล้วจะไม่ตรงกับรอบ
+      // ที่กำลัง compile
       double peakUsedElec = 0;
       double offPeakUsedElec = 0;
       if (user.meterType == 'tou' && eLogs.isNotEmpty) {
         final startHistory = await getStartMeterHistory(uid);
         final cycleStart = startHistory
-            .where((r) => r.billingMonth == month && r.billingYear == year)
+            .where((r) =>
+                r.billingMonth == startDate.month &&
+                r.billingYear == startDate.year)
             .toList();
 
         double? cycleStartPeak;
@@ -320,10 +327,9 @@ class FirestoreService {
   // orderBy ฟิลด์เดียว (yearMonth) จึงไม่ต้องสร้าง composite index เหมือน
   // การ orderBy('year').orderBy('month') สองฟิลด์พร้อมกัน
   //
-  // ข้อควรรู้: บิลเก่าที่ถูกสร้างก่อนมี field นี้ (ก่อน migrate) จะไม่มีค่า
-  // yearMonth ใน Firestore ทำให้ query นี้มองไม่เห็นบิลนั้น — ไม่กระทบ flow
-  // ปกติเพราะบิลใหม่ทุกตัว (ทั้ง compileBill และเพิ่มเองในหน้าประวัติบิล)
-  // จะมี field นี้ครบตั้งแต่ตอนนี้เป็นต้นไป
+  // ข้อควรรู้: บิลใน Firestore ที่ไม่มีฟิลด์ yearMonth จะไม่ถูก query นี้
+  // เห็น — BillModel.toMap() ใส่ฟิลด์นี้ให้ทุกครั้งที่บันทึก บิลที่บันทึก
+  // ผ่านแอปจึงมีครบ
   Future<BillModel?> getLatestBill(String uid) async {
     final snapshot = await _db
         .collection('users')
@@ -337,7 +343,7 @@ class FirestoreService {
     return BillModel.fromMap({...doc.data(), 'id': doc.id});
   }
 
-  // ดึงบิลทั้งหมด
+  // ดึงบิลทั้งหมด เรียงเดือนล่าสุดก่อน
   Future<List<BillModel>> getBills(String uid) async {
     final snapshot =
         await _db.collection('users').doc(uid).collection('bills').get();
@@ -346,7 +352,6 @@ class FirestoreService {
         .map((doc) => BillModel.fromMap({...doc.data(), 'id': doc.id}))
         .toList();
 
-    // เรียง manual
     bills.sort((a, b) {
       if (a.year != b.year) return b.year.compareTo(a.year);
       return b.month.compareTo(a.month);
@@ -539,10 +544,11 @@ class FirestoreService {
 
   // ==================== Migration: TOU compiled bills ====================
 
-  /// Migration ย้อนหลังสำหรับบั๊กที่แก้ไปใน compileBill(): บิล TOU ที่ระบบ
-  /// auto-compile ไปแล้วก่อนแพตช์ (source=='compiled') ไม่มี
-  /// electricityPeakUsed/electricityOffPeakUsed เก็บไว้เลย (ค้างเป็น 0)
-  /// ฟังก์ชันนี้ไล่คำนวณย้อนหลังให้จาก log รายวันที่มีอยู่จริง ไม่ใช่เดา
+  /// เครื่องมือแก้ข้อมูลครั้งเดียว (ไม่มีปุ่มเรียกใน UI): บิล TOU ที่ระบบ
+  /// compile ไว้ (source=='compiled') แต่ electricityPeakUsed/
+  /// electricityOffPeakUsed ค้างเป็น 0 — ไล่คำนวณให้ใหม่จาก log รายวันที่มี
+  /// อยู่จริง ไม่ใช่เดา (มีสคริปต์คู่กันที่ tool/migrate_tou_bills.dart ถ้า
+  /// แก้สูตรต้องแก้ทั้งสองที่)
   ///
   /// วิธีคำนวณ: ไล่ "เลขมิเตอร์ปิดรอบ" (log ล่าสุดของแต่ละรอบ) เป็นลูกโซ่
   /// ต่อกันไปทีละรอบ (รอบนี้ - รอบก่อนหน้า) แทนที่จะไปจับคู่กับ

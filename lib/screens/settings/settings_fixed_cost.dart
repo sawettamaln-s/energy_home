@@ -149,11 +149,10 @@ class _MonthYearField extends StatelessWidget {
   }
 }
 
-// เนื้อหา dialog เลือกปี+เดือน — การ์ดปฏิทินโครงตามภาพเรฟที่ส่งมา (ช่องเดือน/ปีคู่
-// ทรงแคปซูลมีลูกศรขึ้น-ลงกดปรับทีละสเต็ป) แต่ปรับสีจากส้ม-แดงในเรฟให้เป็นธีม
-// เขียวของแอป และตัดกริดวันในเดือนออกเพราะระบบเก็บข้อมูลแค่ระดับเดือน-ปี
-// ไม่ได้ลงถึงวันที่จริง ปีที่แสดงเป็น พ.ศ. ให้ตรงกับส่วนอื่นของแอป (เก็บเป็น
-// ค.ศ. ภายในเหมือนเดิม)
+// เนื้อหา dialog เลือกปี+เดือน — ช่องเดือน/ปีคู่ทรงแคปซูล มีลูกศรขึ้น-ลง
+// กดปรับทีละสเต็ป ใช้สีเขียวของแอป ไม่มีกริดวันในเดือน เพราะระบบเก็บข้อมูล
+// แค่ระดับเดือน-ปี ปีที่แสดงเป็น พ.ศ. ให้ตรงกับส่วนอื่นของแอป (เก็บเป็น
+// ค.ศ. ภายใน)
 // แสดงผลผ่าน showDialog เป็นการ์ดลอยกลางจอ (ไม่ใช่ bottom sheet) จึงไม่ต้องมี
 // หูจับลากหรือ SafeArea แบบที่ bottom sheet ต้องการ
 class _MonthYearPickerSheet extends StatefulWidget {
@@ -301,9 +300,9 @@ class _MonthYearPickerSheetState extends State<_MonthYearPickerSheet> {
   }
 }
 
-// ช่องแคปซูลโค้งมนแบบในภาพเรฟ แบ่ง 2 โซนคั่นด้วยเส้นบางๆ:
+// ช่องแคปซูลโค้งมน แบ่ง 2 โซนคั่นด้วยเส้นบางๆ:
 // - โซนซ้าย (ข้อความ + ไอคอน ▾) กดแล้วเด้ง dropdown ให้เลือกตรงได้เลย
-// - โซนขวา (▲▼) กดปรับทีละสเต็ปแบบเดิม แยกจากโซนซ้ายชัดเจน
+// - โซนขวา (▲▼) กดปรับทีละสเต็ป
 class _MonthYearSpinner extends StatelessWidget {
   final String text;
   final List<String> options;
@@ -476,7 +475,7 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
     final minDate = _fixedCostMinDate(existing?.startDate);
     final maxDate = _fixedCostMaxDate();
     // ช่วงเวลา: startDate เริ่มนับตั้งแต่เดือนนี้เป็น default, endDate = null
-    // หมายถึงต่อเนื่องไม่มีกำหนด (พฤติกรรมเดิมของรายการที่ไม่มีวันสิ้นสุด)
+    // หมายถึงต่อเนื่องไม่มีกำหนดสิ้นสุด
     DateTime startDate = _clampToMonthRange(
         existing?.startDate ?? DateTime.now(), minDate, maxDate);
     DateTime? endDate = existing?.endDate == null

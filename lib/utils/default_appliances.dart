@@ -1,9 +1,10 @@
+/// อุปกรณ์สามัญประจำบ้าน 1 รายการ ให้เลือกใส่ได้เร็วในหน้าอุปกรณ์
 class DefaultAppliance {
   final String name;
-  final String icon;
-  final double minWatt;
+  final String icon; // key ไอคอน (เก็บลง ApplianceModel.iconKey ตอนเลือก)
+  final double minWatt; // ช่วงกำลังไฟที่พบทั่วไป — โชว์เป็นคำแนะนำในรายการ
   final double maxWatt;
-  final double defaultWatt;
+  final double defaultWatt; // ค่าที่เติมให้ในช่องวัตต์ตอนเลือก
 
   DefaultAppliance({
     required this.name,

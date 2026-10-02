@@ -2,12 +2,14 @@ class ElectricityLogModel {
   final String id;
   final String uid;
   final DateTime date;
-  final double meterValue; // หน่วยมิเตอร์ปัจจุบัน เช่น 14,052
-  final double? peakMeterValue; // หน่วยมิเตอร์ Peak (TOU)
-  final double? offPeakMeterValue; // หน่วยมิเตอร์ Off-Peak (TOU)
+  // มิเตอร์ปกติ: เลขที่อ่านได้จากมิเตอร์ เช่น 14,052
+  // TOU: เก็บหน่วยที่ใช้รวมตั้งแต่ต้นรอบ (เลขมิเตอร์จริงอยู่ใน peak/offPeak ด้านล่าง)
+  final double meterValue;
+  final double? peakMeterValue; // เลขมิเตอร์ On-Peak (เฉพาะ TOU)
+  final double? offPeakMeterValue; // เลขมิเตอร์ Off-Peak (เฉพาะ TOU)
   final double usedFromStart; // ใช้ไปจากต้นรอบ เช่น 43
-  final double usedFromLast; // เพิ่มจากครั้งล่าสุด เช่น 29
-  final double cost; // ค่าไฟประมาณการ
+  final double usedFromLast; // เพิ่มจากครั้งล่าสุด เช่น 29 (ไม่ติดลบ)
+  final double cost; // ค่าไฟประมาณการสะสมตั้งแต่ต้นรอบ (ไม่ใช่เฉพาะช่วงนี้)
 
   ElectricityLogModel({
     required this.id,

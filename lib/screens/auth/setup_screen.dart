@@ -33,6 +33,8 @@ class _SetupScreenState extends State<SetupScreen> {
   static const int _totalSteps = 2;
   String _selectedArea = 'bangkok';
   String _selectedMeterType = 'normal';
+  // เดือนที่สมัคร — บันทึกเป็น startBillingMonth/Year ใช้เป็นจุดหยุดตอน
+  // แดชบอร์ดไล่ปิดบิลย้อนหลัง (ไม่ย้อนไปก่อนเริ่มใช้แอป)
   final int _selectedStartMonth = DateTime.now().month;
   final int _selectedStartYear = DateTime.now().year;
 
@@ -77,8 +79,8 @@ class _SetupScreenState extends State<SetupScreen> {
 
       if (!mounted) return;
 
-      // เซตอัพจบแค่ 2 ขั้นตอนนี้เสมอ วันตัดรอบบิล/ค่ามิเตอร์ยังไม่ตั้งทุกบัญชี →
-      // แวะหน้าสรุปเพื่อจูงไปตั้งค่าต่อเสมอ
+      // เข้าแอปหลักทันที — แดชบอร์ดจะโชว์การ์ดชวนตั้งเลขมิเตอร์ต้นรอบเอง
+      // เพราะบัญชีใหม่ยังไม่ได้ตั้งทุกบัญชี
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => const MainShell(justCompletedSetup: true),

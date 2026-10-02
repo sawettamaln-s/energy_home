@@ -272,7 +272,7 @@ class _ApplianceTab extends StatelessWidget {
 }
 
 // ป้ายชื่อรายการรอบวงกลม — จุดสีตรงกับสีชิ้นพาย + ชื่ออุปกรณ์ ในกล่องมน
-// ขอบขาว มีเงาบางๆ (ตาม ref ที่แนบมา) ตัดชื่อที่ยาวเกินด้วย ... กันป้ายเบียด
+// ขอบขาว มีเงาบางๆ ตัดชื่อที่ยาวเกินด้วย ... กันป้ายเบียด
 // ป้ายอื่นหรือล้นออกนอกการ์ด
 class _PieLabelPill extends StatelessWidget {
   final Color color;
@@ -424,7 +424,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
   }
 
   // หัวคอลัมน์ — ตัวหนังสือเทาเล็ก จัดตำแหน่งตามคอลัมน์ (ชื่ออุปกรณ์ชิดซ้าย,
-  // บาทชิดขวา, ที่เหลือกึ่งกลาง) ตาม ref
+  // บาทชิดขวา, ที่เหลือกึ่งกลาง)
   Widget _headerCell(String label,
       {bool alignLeft = false, bool alignRight = false}) {
     return TableCell(
@@ -479,7 +479,7 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
   }
 
   // คอลัมน์ตัวเลข (kWh / % / บาท) — กึ่งกลางเป็นค่าเริ่มต้น ยกเว้นคอลัมน์
-  // "บาท" ที่ชิดขวาตาม ref, สีเข้ม/หนาได้ถ้าระบุมา (ใช้กับคอลัมน์ %)
+  // "บาท" ที่ชิดขวา, สีเข้ม/หนาได้ถ้าระบุมา (ใช้กับคอลัมน์ %)
   Widget _dataCell(String text, {bool alignRight = false, bool bold = false, Color? color}) {
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,

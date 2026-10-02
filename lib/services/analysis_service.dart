@@ -39,7 +39,7 @@ class ComparisonResult {
   bool get isUnchanged => diff == 0;
 }
 
-/// ผลคาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่ยังไม่ปิด) ด้วย Moving Average
+/// ผลคาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่ยังไม่ปิด) จากอัตราเฉลี่ยต่อวัน
 /// ต่างจาก forecastNextMonth ที่คาดการณ์ "เดือนถัดไปทั้งเดือน" ด้วย seasonal curve
 /// (เมื่อรู้ area+meterType) หรือ linear regression (เมื่อไม่รู้)
 /// อันนี้ตอบคำถามว่า "ถ้าใช้ในอัตรานี้ต่อไปจนสิ้นรอบบิล จะจบที่เท่าไหร่"
@@ -331,9 +331,9 @@ class AnalysisService {
     return bills.sublist(bills.length - months);
   }
 
-  /// คาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่กำลังดำเนินอยู่ ยังไม่ปิด) ด้วย
-  /// Moving Average — ใช้ logic เดียวกับที่ dashboard_screen.dart ใช้คำนวณ
-  /// การ์ดคาดการณ์สิ้นเดือน เพื่อให้ตัวเลขตรงกันทั้งแอป
+  /// คาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่กำลังดำเนินอยู่ ยังไม่ปิด) จาก
+  /// อัตราเฉลี่ยต่อวัน (EnergyForecaster.projectToCycleEnd) ตัวเดียวกับที่
+  /// dashboard_screen.dart ใช้ เพื่อให้ตัวเลขตรงกันทั้งแอป
   ///
   /// คืนผลลัพธ์เป็น Map ที่มี key 'electricity' และ 'water'
   Future<Map<String, CurrentCycleForecast>> forecastCurrentCycle({
@@ -354,12 +354,13 @@ class AnalysisService {
     final wLogs =
         await firestoreService.getCurrentMonthWaterLogs(uid, startDate, endDate);
 
+    // log เรียงใหม่สุดก่อน — ตัวแรกคือยอดสะสม ณ วันที่บันทึกล่าสุด
     final electricity = _buildCycleForecast(
       currentCost: eLogs.isNotEmpty ? eLogs.first.cost : 0,
       currentUnits: eLogs.isNotEmpty ? eLogs.first.usedFromStart : 0,
-      logsCostDescending: eLogs.map((l) => l.cost).toList(),
-      dailyUnitsDelta:
-          eLogs.map((l) => l.usedFromLast).where((v) => v > 0).toList(),
+      lastRecordedAt: eLogs.isNotEmpty ? eLogs.first.date : null,
+      cycleStart: startDate,
+      cycleEnd: endDate,
       remainingDays: remainingDays,
       daysElapsed: daysElapsed,
       cycleLengthDays: cycleLengthDays,
@@ -368,9 +369,9 @@ class AnalysisService {
     final water = _buildCycleForecast(
       currentCost: wLogs.isNotEmpty ? wLogs.first.cost : 0,
       currentUnits: wLogs.isNotEmpty ? wLogs.first.usedFromStart : 0,
-      logsCostDescending: wLogs.map((l) => l.cost).toList(),
-      dailyUnitsDelta:
-          wLogs.map((l) => l.usedFromLast).where((v) => v > 0).toList(),
+      lastRecordedAt: wLogs.isNotEmpty ? wLogs.first.date : null,
+      cycleStart: startDate,
+      cycleEnd: endDate,
       remainingDays: remainingDays,
       daysElapsed: daysElapsed,
       cycleLengthDays: cycleLengthDays,
@@ -379,27 +380,31 @@ class AnalysisService {
     return {'electricity': electricity, 'water': water};
   }
 
+  // ยังหาอัตราไม่ได้ (ไม่มี log หรือบันทึกห่างจากต้นรอบไม่ถึง 1 วัน) ใช้ยอดที่
+  // ใช้ไปแล้วเป็นค่าคาดการณ์แทน
   CurrentCycleForecast _buildCycleForecast({
     required double currentCost,
     required double currentUnits,
-    required List<double> logsCostDescending,
-    required List<double> dailyUnitsDelta,
+    required DateTime? lastRecordedAt,
+    required DateTime cycleStart,
+    required DateTime cycleEnd,
     required int remainingDays,
     required int daysElapsed,
     required int cycleLengthDays,
   }) {
-    final dailyCostDeltas = _dailyCostDeltas(logsCostDescending);
+    double project(double currentTotal) {
+      if (lastRecordedAt == null) return currentTotal;
+      return EnergyForecaster.projectToCycleEnd(
+            currentTotal: currentTotal,
+            cycleStart: cycleStart,
+            cycleEnd: cycleEnd,
+            lastRecordedAt: lastRecordedAt,
+          ) ??
+          currentTotal;
+    }
 
-    final forecastCost = EnergyForecaster.movingAverage(
-      dailyUsage: dailyCostDeltas,
-      remainingDays: remainingDays,
-      currentTotal: currentCost,
-    );
-    final forecastUnits = EnergyForecaster.movingAverage(
-      dailyUsage: dailyUnitsDelta,
-      remainingDays: remainingDays,
-      currentTotal: currentUnits,
-    );
+    final forecastCost = project(currentCost);
+    final forecastUnits = project(currentUnits);
 
     return CurrentCycleForecast(
       currentCost: currentCost,
@@ -410,22 +415,6 @@ class AnalysisService {
       remainingDays: remainingDays,
       cycleLengthDays: cycleLengthDays,
     );
-  }
-
-  /// คำนวณ "บาทที่เพิ่มขึ้นต่อครั้งบันทึก" จากค่า cost สะสม (cumulative)
-  /// ของ log แต่ละตัว (เหมือน dashboard_screen.dart) เพราะ field `cost`
-  /// ในโมเดลเป็นยอดสะสมจากต้นรอบ ไม่ใช่ค่าต่อช่วงอยู่แล้ว — รับลิสต์ cost
-  /// ที่เรียงล่าสุดมาก่อน (ตามที่ FirestoreService คืนมา) แล้วกลับลำดับ
-  /// เป็นเก่า->ใหม่ก่อนหาผลต่าง
-  List<double> _dailyCostDeltas(List<double> costsDescending) {
-    if (costsDescending.length < 2) return [];
-    final ascending = costsDescending.reversed.toList();
-    final deltas = <double>[];
-    for (int i = 1; i < ascending.length; i++) {
-      final delta = ascending[i] - ascending[i - 1];
-      if (delta > 0) deltas.add(delta);
-    }
-    return deltas;
   }
 
   /// คำนวณ kWh ของอุปกรณ์ 1 ชิ้นในช่วง totalDaysInPeriod วัน

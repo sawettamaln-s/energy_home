@@ -15,6 +15,7 @@
 import 'package:energy_home/models/bill_model.dart';
 import 'package:energy_home/models/electricity_log_model.dart';
 import 'package:energy_home/models/fixed_cost_item_model.dart';
+import 'package:energy_home/models/start_meter_record_model.dart';
 import 'package:energy_home/models/user_model.dart';
 import 'package:energy_home/services/firestore_service.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -131,6 +132,64 @@ void main() {
 
     expect(bill.electricityPeakUsed, 0);
     expect(bill.electricityOffPeakUsed, 0);
+  });
+
+  test(
+      'มิเตอร์ TOU ที่ตั้งต้นรอบถัดไปไปแล้ว: ต้องลบด้วยต้นรอบของรอบที่ compile '
+      '(เดือนที่รอบเริ่ม) ไม่ใช่ต้นรอบถัดไป (เดือนปิดรอบ)', () async {
+    final firestore = FakeFirebaseFirestore();
+    final service = FirestoreService(firestore: firestore);
+    const uid = 'tou-next-cycle-set';
+
+    // ผู้ใช้ตั้งต้นรอบ ก.ค. (= เลขปิดรอบ มิ.ย.) ไปแล้ว ค่าบน user จึงเป็นของ ก.ค.
+    await service.createUser(UserModel(
+      uid: uid,
+      name: 'Tou User',
+      email: 'tou-next@example.com',
+      meterType: 'tou',
+      startPeakValue: 1120,
+      startOffPeakValue: 560,
+    ));
+    // ต้นรอบ มิ.ย. (รอบที่กำลัง compile) และต้นรอบ ก.ค. (รอบถัดไป)
+    await service.saveStartMeterRecord(StartMeterRecordModel(
+      id: 'start-jun',
+      uid: uid,
+      electricityValue: 0,
+      waterValue: 0,
+      peakValue: 1000,
+      offPeakValue: 500,
+      billingMonth: 6,
+      billingYear: 2026,
+      recordedAt: DateTime(2026, 6, 1),
+    ));
+    await service.saveStartMeterRecord(StartMeterRecordModel(
+      id: 'start-jul',
+      uid: uid,
+      electricityValue: 0,
+      waterValue: 0,
+      peakValue: 1120,
+      offPeakValue: 560,
+      billingMonth: 7,
+      billingYear: 2026,
+      recordedAt: DateTime(2026, 7, 1),
+    ));
+    await service.saveElectricityLog(ElectricityLogModel(
+      id: 'log-1',
+      uid: uid,
+      date: logDate,
+      meterValue: 180,
+      peakMeterValue: 1120,
+      offPeakMeterValue: 560,
+      usedFromStart: 180,
+      cost: 999,
+    ));
+
+    // แอปเรียก compileBill ด้วยเดือนปิดรอบ (ก.ค.) — ดู _loadData ใน dashboard
+    await service.compileBill(uid, 2026, 7, startDate, endDate);
+    final bill = (await service.getBills(uid)).single;
+
+    expect(bill.electricityPeakUsed, 120);
+    expect(bill.electricityOffPeakUsed, 60);
   });
 
   test(

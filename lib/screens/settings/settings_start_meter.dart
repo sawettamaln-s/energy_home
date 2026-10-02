@@ -937,7 +937,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                               ),
                             ),
                           ),
-                        // ตัดกล่องแบนเนอร์บอกโหมดแก้ไข/ตั้งใหม่ออก เพราะซ้ำกับสิ่งที่ส่วนเลือกเดือนสื่อสารอยู่แล้ว เหลือแค่ tag เล็กๆ
+                        // หัวข้อเดือน + tag เล็กบอกโหมด "แก้ไข"/"ตั้งใหม่"
                         Row(
                           children: [
                             const Text(
@@ -967,7 +967,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        // ไม่ให้เลือกเดือน/ปีอิสระอีกต่อไป เพราะระบบรู้อยู่แล้วว่าเดือนไหนควรตั้งจาก billingDay
+                        // ผู้ใช้เลือกเดือน/ปีเองไม่ได้ เพราะระบบรู้อยู่แล้วว่าเดือนไหนควรตั้งจาก billingDay
                         // โหมดแก้ไข: แสดงเป็นข้อความเฉยๆ ไม่ให้เปลี่ยน / โหมดตั้งใหม่: แสดงเดือนที่คำนวณอัตโนมัติเดือนเดียว
                         if (_isEditingCurrentCycle)
                           Container(
@@ -1333,7 +1333,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
         );
       }
     } else {
-      // อีกยูทิลิตี้ไม่มีข้อมูลอยู่แล้ว — ลบทั้งแถว/บิลได้เลยเหมือนเดิม
+      // อีกยูทิลิตี้ไม่มีข้อมูลอยู่แล้ว — ลบทั้งแถว/บิลได้เลย
       await widget.firestoreService.deleteStartMeterRecord(widget.uid, record.id);
       if (pairedBill != null && pairedBill.source == 'startMeter') {
         await widget.firestoreService.deleteBill(widget.uid, pairedBill.id);

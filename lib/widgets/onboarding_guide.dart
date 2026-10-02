@@ -13,7 +13,7 @@ import '../screens/dashboard/dashboard_styles.dart';
 class OnboardingGuide {
   static const String _prefKey = 'has_seen_onboarding_guide';
 
-  /// เรียกจาก initState ของ DashboardScreen (หรือหน้าแรกหลัง Setup Wizard)
+  /// เรียกจาก initState ของ DashboardScreen
   /// เช็คก่อนว่าเคยเห็นคู่มือนี้แล้วหรือยัง ถ้ายังไม่เคย ค่อยแสดง dialog
   static Future<void> showIfFirstTime(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
@@ -29,18 +29,6 @@ class OnboardingGuide {
 
     await prefs.setBool(_prefKey, true);
   }
-
-  /// เรียกตอนผู้ใช้กดเปิดคู่มือเองซ้ำ — ปุ่ม "คู่มือการใช้งาน" ในหน้า
-  /// ตั้งค่า (settings_screen.dart หมวด "ตั้งค่าระบบ") ไม่เช็ค flag ใด ๆ
-  /// เปิดได้เสมอไม่ว่าจะเคยเห็นมาก่อนหรือไม่
-  static Future<void> showAgain(BuildContext context) async {
-    if (!context.mounted) return;
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const _OnboardingDialog(),
-    );
-  }
 }
 
 class _OnboardingDialog extends StatefulWidget {
@@ -53,7 +41,7 @@ class _OnboardingDialog extends StatefulWidget {
 class _OnboardingDialogState extends State<_OnboardingDialog> {
   int _page = 0;
 
-  // เนื้อหาคู่มือ เหลือ 2 หน้า สรุปเฉพาะสิ่งที่จำเป็นต้องรู้ก่อนใช้งาน
+  // เนื้อหาคู่มือ 2 หน้า สรุปเฉพาะสิ่งที่จำเป็นต้องรู้ก่อนใช้งาน
   final List<_GuidePage> _pages = const [
     _GuidePage(
       icon: Icons.waving_hand_rounded,

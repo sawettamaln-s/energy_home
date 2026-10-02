@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EnergyCalculator {
+  // ค่า Ft ล่าสุดจาก app_config/electricity_rates (แก้ผ่าน Firebase Console)
+  // อ่านไม่ได้ (ออฟไลน์/ยังไม่มีเอกสาร) จะใช้ค่า default 0.1623 แทน
   static Future<double> getFtRate() async {
     try {
       final doc = await FirebaseFirestore.instance
@@ -88,7 +90,8 @@ class EnergyCalculator {
     return double.parse(total.toStringAsFixed(2));
   }
 
-  // คำนวณค่าไฟตามประเภทมิเตอร์
+  // คำนวณค่าไฟตามประเภทมิเตอร์ — TOU ใช้ peakUnits/offPeakUnits,
+  // มิเตอร์ปกติใช้ units
   static Future<double> calculateElectricityByType({
     required double units,
     required String meterType,
@@ -335,6 +338,7 @@ class EnergyCalculator {
     return double.parse(total.toStringAsFixed(2));
   }
 
+  // area 'bangkok' = กปน. (MWA), อื่นๆ = กปภ. (PWA)
   static double calculateWater(double units, String area) {
     if (area == 'bangkok') {
       return calculateWaterMWA(units);
@@ -343,6 +347,8 @@ class EnergyCalculator {
     }
   }
 
+  // หน่วยที่ใช้ = เลขใหม่ - เลขเดิม ปัดทศนิยม 2 ตำแหน่ง
+  // คืน 0 เมื่อเลขใหม่ไม่มากกว่าเลขเดิม (ไม่มีทางได้ค่าติดลบ)
   static double calculateUsed(double current, double previous) {
     if (current <= previous) return 0;
     return double.parse((current - previous).toStringAsFixed(2));

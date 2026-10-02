@@ -57,12 +57,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double _forecastElectricityCost = 0;
   double _forecastWaterCost = 0;
 
-  // true = มี log อย่างน้อย 2 ครั้งในรอบนี้ (ทั้งไฟหรือน้ำอย่างใดอย่างหนึ่ง)
-  // พอจะคำนวณ "บาท/วัน" จริงได้แล้ว ถ้า false แปลว่า movingAverage() คืน
-  // ค่าเท่ากับ currentTotal เป๊ะๆ (ดู EnergyForecaster.movingAverage เคส
-  // dailyUsage.isEmpty) ซึ่งไม่ใช่ "คาดการณ์" จริง แค่ยอดที่ใช้ไปแล้วเฉยๆ
-  // ใช้บอก UI ว่าควรเตือนผู้ใช้ว่ายังไม่มีข้อมูลพอ แทนที่จะโชว์เป็นยอด
-  // คาดการณ์จริงจังทั้งที่ยังไม่มีอัตราการใช้มาคำนวณเลย
+  // true = มี log ในรอบนี้ที่บันทึกห่างจากต้นรอบอย่างน้อย 1 วัน (ไฟหรือน้ำ
+  // อย่างใดอย่างหนึ่ง) พอจะคำนวณอัตรา "บาท/วัน" ได้แล้ว ถ้า false ยอด
+  // คาดการณ์จะเท่ากับยอดที่ใช้ไปแล้วเฉยๆ ซึ่งไม่ใช่การคาดการณ์จริง
+  // ใช้บอก UI ให้แจ้งผู้ใช้ว่ายังไม่มีข้อมูลพอ แทนการโชว์ตัวเลขคาดการณ์
   bool _hasForecastData = true;
 
   // ----- ยอดเดือนก่อน (ใช้เทียบ "พุ่งขึ้น") -----
@@ -118,11 +116,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // รายวันได้เลยตอนนี้ ระบบจะเอาเลขมิเตอร์วันนี้ไปลบกับ start ของรอบก่อน
   // (ที่เลขน้อยกว่ามาก) ได้ "หน่วยที่ใช้" ที่รวมทั้งรอบเก่า+รอบใหม่ปนกันมั่ว
   //
-  // ใช้สูตรเดียวกับ _AddStartMeterSheet/_StartMeterHistoryScreen ใน
-  // settings_start_meter.dart เป๊ะ (_expectedInvoiceMonth + เทียบ
-  // startBillingMonth/Year) เพื่อให้ทุกจุดของแอปตัดสิน "รอบปัจจุบัน" ตรงกัน
-  // หมด — เป็น field เดียวใช้ร่วมกันทั้งไฟและน้ำ (ไม่แยกรายยูทิลิตี้) เพราะ
-  // UserModel เก็บ startBillingMonth/Year ไว้แค่ชุดเดียว
+  // ใช้ EnergyForecaster.matchesCurrentCycle ตัวเดียวกับหน้าตั้งเลขมิเตอร์
+  // ต้นรอบ (settings_start_meter.dart) เพื่อให้ทุกจุดตัดสิน "รอบปัจจุบัน"
+  // ตรงกัน — ใช้ร่วมกันทั้งไฟและน้ำ เพราะ UserModel เก็บ
+  // startBillingMonth/Year ไว้แค่ชุดเดียว
   bool get _startMeterMatchesCurrentCycle {
     final user = _user;
     if (user == null) return false;
@@ -337,7 +334,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // หรือยัง ถ้าถึงแล้วจะถูกบันทึกเข้า history ให้เห็นในหน้า Notification
       await NotificationService.instance.syncDeliveredScheduledNotifications();
 
-      // (Instant) เตือนล่วงหน้าถ้าคาดการณ์สิ้นเดือนจะสูงกว่าเดือนก่อน
+      // (Instant) เตือนล่วงหน้าถ้าคาดการณ์สิ้นรอบจะสูงกว่าเดือนก่อน
       // ข้ามถ้ายังไม่มีข้อมูลพอ (_hasForecastData == false) เพราะ _forecastTotal
       // ตอนนั้นคือยอดที่ใช้ไปแล้วเฉยๆ (มักต่ำมากตอนต้นรอบ) เทียบกับเดือนก่อน
       // ไปก็จะไม่มีทาง "สูงกว่า" อยู่แล้วโดยไม่มีความหมายอะไร
@@ -384,53 +381,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _currentWaterCost = 0;
     }
 
+    // ----- คาดการณ์สิ้นรอบจากอัตราค่าใช้จ่ายเฉลี่ยต่อวัน -----
+    // cost ของ log เป็นยอดสะสมตั้งแต่ต้นรอบ จึงใช้ log ล่าสุดตัวเดียวพอ
+    // (ดู EnergyForecaster.projectToCycleEnd) — ฝั่งไหนยังหาอัตราไม่ได้
+    // ใช้ยอดที่ใช้ไปแล้วแทน
     final now = DateTime.now();
-    final remainingDays =
-        EnergyForecaster.getRemainingDays(now, _user?.billingDay ?? 30);
+    final billingDay = _user?.billingDay ?? 30;
+    final cycleStart = EnergyForecaster.getCycleStart(now, billingDay);
+    final cycleEnd = EnergyForecaster.getCycleEnd(now, billingDay);
 
-    // ----- ค่าเฉลี่ย "บาท/วัน" จริง -----
-    // ห้ามเอา dailyUsage (หน่วย/วัน) ไปบวกกับ currentTotal (บาท) ตรง ๆ ผ่าน
-    // EnergyForecaster.movingAverage เพราะยอดคาดการณ์จะไม่ใช่ "บาท" จริง
-    // (หน่วยคนละอย่างกัน) ต้องคำนวณผลต่างของ cost สะสม (field `cost` ใน log
-    // เป็นค่าสะสมจากต้นรอบเหมือน usedFromStart) ระหว่างแต่ละครั้งที่บันทึก
-    // ให้ได้ "บาทที่เพิ่มขึ้นต่อช่วง" จริง ๆ ก่อนป้อนเข้า movingAverage
-    final dailyElectricityCost =
-        _dailyCostDeltas(_electricityLogs.map((l) => l.cost).toList());
-    final dailyWaterCost =
-        _dailyCostDeltas(_waterLogs.map((l) => l.cost).toList());
+    double? project(double currentCost, DateTime? lastRecordedAt) =>
+        lastRecordedAt == null
+            ? null
+            : EnergyForecaster.projectToCycleEnd(
+                currentTotal: currentCost,
+                cycleStart: cycleStart,
+                cycleEnd: cycleEnd,
+                lastRecordedAt: lastRecordedAt,
+              );
 
-    _hasForecastData =
-        dailyElectricityCost.isNotEmpty || dailyWaterCost.isNotEmpty;
+    final eForecast = project(_currentElectricityCost, _cycleLatestElectricityLog?.date);
+    final wForecast = project(_currentWaterCost, _cycleLatestWaterLog?.date);
 
-    _forecastElectricityCost = EnergyForecaster.movingAverage(
-      dailyUsage: dailyElectricityCost,
-      remainingDays: remainingDays,
-      currentTotal: _currentElectricityCost,
-    );
-    _forecastWaterCost = EnergyForecaster.movingAverage(
-      dailyUsage: dailyWaterCost,
-      remainingDays: remainingDays,
-      currentTotal: _currentWaterCost,
-    );
+    _hasForecastData = eForecast != null || wForecast != null;
+    _forecastElectricityCost = eForecast ?? _currentElectricityCost;
+    _forecastWaterCost = wForecast ?? _currentWaterCost;
     _forecastTotal = _forecastElectricityCost + _forecastWaterCost;
-  }
-
-  // =====================================================================
-  // คำนวณ "บาทที่เพิ่มขึ้นต่อครั้งบันทึก" จากค่า cost สะสม (cumulative)
-  // ของ log แต่ละตัว เพราะ field `cost` ในโมเดลเป็นยอดสะสมจากต้นรอบ
-  // เหมือน usedFromStart ไม่ใช่ค่าต่อช่วงอยู่แล้ว — รับลิสต์ cost ที่เรียง
-  // ล่าสุดมาก่อน (ตามที่ FirestoreService คืนมา) แล้วกลับลำดับเป็นเก่า->ใหม่
-  // ก่อนหาผลต่าง
-  // =====================================================================
-  List<double> _dailyCostDeltas(List<double> costsDescending) {
-    if (costsDescending.length < 2) return [];
-    final ascending = costsDescending.reversed.toList();
-    final deltas = <double>[];
-    for (int i = 1; i < ascending.length; i++) {
-      final delta = ascending[i] - ascending[i - 1];
-      if (delta > 0) deltas.add(delta);
-    }
-    return deltas;
   }
 
   // กดปุ่ม notification ตรงหัวบาร์ -> เปิดหน้า Notification Center
@@ -519,17 +495,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // -------------------------------------------------
-                      // (1) Header: สวัสดี + ผ่านมา/เหลืออีก + ปุ่ม notification
-                      // จัด layout ใหม่ ให้ "สวัสดี" เด่นขึ้น มี avatar กลม
-                      // และ progress แถบเล็ก ๆ บอกความคืบหน้าของรอบบิล
+                      // (1) Header: avatar + คำทักทาย + ผ่านมา/เหลืออีก
+                      // (แถบ progress ของรอบบิล) + ปุ่ม notification
                       // -------------------------------------------------
                       _buildHeader(daysElapsed, remainingDays, cycleLengthDays),
 
                       const SizedBox(height: 18),
 
                       // -------------------------------------------------
-                      // (2) การ์ดค่าใช้จ่ายเดือนนี้
-                      // เพิ่ม: สัญลักษณ์พุ่งขึ้น + บรรทัดยอดคาดการณ์แยกไฟฟ้า/น้ำ
+                      // (2) การ์ดค่าใช้จ่ายรอบนี้ (ไฟฟ้า/น้ำ) + ยอดคาดการณ์สิ้นรอบ
                       // -------------------------------------------------
                       _buildCostSummaryCard(formatter),
 
@@ -557,12 +531,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // การ์ดไฟฟ้ากับน้ำอยู่คู่กันแบบ Row ซ้าย-ขวา — การ์ดแค่โชว์สรุป
                       // ค่าล่าสุด/ต้นรอบ + ปุ่มเดียวพาไปหน้าบันทึก (RecordMeterScreen)
                       // ใช้ IntrinsicHeight ให้การ์ดไฟ (TOU โชว์ 2 บรรทัดสรุป)
-                      // กับการ์ดน้ำ (1 บรรทัด) สูงเท่ากัน — เช็ค
-                      // startMeterConfigured ของแต่ละฝั่งแยกกัน (ดู
-                      // UserModel) ถ้ายังไม่ได้ตั้งเลยสักอย่าง โชว์การ์ดเต็ม
-                      // ความกว้าง แต่ถ้าตั้งไปแล้วอย่างน้อย 1 ฝั่ง ให้ใช้งาน
-                      // ฝั่งที่พร้อมได้ก่อนเลย ส่วนฝั่งที่ยังไม่พร้อมโชว์
-                      // การ์ดล็อกแยกแทนที่จะบล็อกทั้งคู่
+                      // กับการ์ดน้ำ (1 บรรทัด) สูงเท่ากัน
+                      // - ยังไม่ได้ตั้งเลขต้นรอบเลยสักฝั่ง -> การ์ดเต็มความกว้าง
+                      //   ชวนไปตั้งค่า
+                      // - ฝั่งที่พร้อม (_electricityMeterReady/_waterMeterReady:
+                      //   ตั้งแล้วและตรงกับรอบปัจจุบัน) -> การ์ดสรุป ใช้งานได้เลย
+                      // - ฝั่งที่ยังไม่พร้อม -> การ์ดล็อกเฉพาะฝั่งนั้น
                       _user?.startMeterConfigured == false
                           ? _buildStartMeterRequiredCard()
                           : IntrinsicHeight(
@@ -784,9 +758,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // =====================================================================
-  // (2) การ์ดค่าใช้จ่ายเดือนนี้
-  // พาร์ทนี้ทำหน้าที่: การ์ดเขียวบนสุด โชว์ยอดไฟฟ้า/น้ำปัจจุบัน 2 ช่อง
-  // ซ้าย-ขวา และแถบยอดคาดการณ์สิ้นเดือน (รวมไฟฟ้า+น้ำ) ต่อท้ายด้านล่าง
+  // (2) การ์ดค่าใช้จ่ายรอบนี้
+  // การ์ดเขียวบนสุด โชว์ยอดไฟฟ้า/น้ำที่ใช้ไปแล้ว 2 ช่องซ้าย-ขวา และแถบ
+  // ยอดคาดการณ์สิ้นรอบ (รวมไฟฟ้า+น้ำ ไม่รวม Fixed Cost) ต่อท้ายด้านล่าง
   // =====================================================================
   Widget _buildCostSummaryCard(NumberFormat formatter) {
     return Container(
@@ -843,12 +817,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          // ยอดคาดการณ์สิ้นเดือน — รวมไฟฟ้า+น้ำ แปะเป็น pill จางๆ บนพื้นเขียว
+          // ยอดคาดการณ์สิ้นรอบ — รวมไฟฟ้า+น้ำ แปะเป็น pill จางๆ บนพื้นเขียว
           // ให้เห็นตัวเลขปลายทางไม่ต้องรอเลื่อนไปหน้าวิเคราะห์ ถ้ายังไม่มีข้อมูล
           // พอคำนวณอัตรา (_hasForecastData == false) จะไม่โชว์เป็นตัวเลขคาดการณ์
-          // (เพราะจะเท่ากับยอดปัจจุบันพอดี ดูเหมือนระบบฟันธงว่าใช้เท่านี้พอ ทั้งที่
-          // ยังไม่มีอัตราการใช้มาคำนวณ) แต่โชว์ข้อความจางๆ บอกตรงๆ ว่าต้องบันทึก
-          // อีกอย่างน้อย 1 ครั้ง
+          // (เพราะจะเท่ากับยอดปัจจุบันพอดี ดูเหมือนระบบฟันธงว่าใช้เท่านี้พอ)
+          // แต่โชว์ข้อความจางๆ บอกว่าต้องบันทึกมิเตอร์หลังวันตัดรอบก่อน
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8, horizontal: AppSpacing.v12),
@@ -867,9 +840,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: Text(
                     _hasForecastData
-                        ? 'ยอดคาดการณ์สิ้นเดือน: '
+                        ? 'ยอดคาดการณ์สิ้นรอบบิล: '
                             '${formatter.format(_forecastTotal)} บาท'
-                        : 'บันทึกมิเตอร์อีกอย่างน้อย 1 ครั้งเพื่อเริ่มคาดการณ์',
+                        : 'บันทึกมิเตอร์หลังวันตัดรอบอย่างน้อย 1 วัน เพื่อเริ่มคาดการณ์',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: _hasForecastData ? 1 : 0.75),
                       fontSize: AppTypography.s12,
@@ -1283,22 +1256,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
 
-  Widget _buildSummaryRow(String label, String value,
-      {bool isBold = false, Color? color}) {
+  Widget _buildSummaryRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: color ?? DashboardStyles.textDark,
-              fontSize: isBold ? AppTypography.s15 : AppTypography.s13,
+            style: const TextStyle(
+              color: DashboardStyles.textDark,
+              fontSize: AppTypography.s13,
             )),
         Text(value,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: color ?? DashboardStyles.textDark,
-              fontSize: isBold ? AppTypography.s18 : AppTypography.s14,
+            style: const TextStyle(
+              color: DashboardStyles.textDark,
+              fontSize: AppTypography.s14,
             )),
       ],
     );
@@ -1307,13 +1277,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   // การ์ดสรุปมิเตอร์ (ไฟฟ้า/น้ำ) — ไม่มีช่องกรอกในการ์ด มีแค่โชว์ค่าล่าสุด/
   // ต้นรอบ แล้วกดปุ่มเดียวพาไปหน้าเต็มจอ RecordMeterScreen (ดูเหตุผลที่แยก
-  // หน้าออกไปที่ท้ายไฟล์ record_meter_screen.dart)
+  // หน้าที่ต้นไฟล์ record_meter_screen.dart)
   // =====================================================================
-  // ป้าย On-Peak/Off-Peak ทางซ้าย ค่าล่าสุดทางขวา — โชว์แค่ค่าล่าสุดอย่างเดียว
-  // ไม่มี "/ต้นรอบ" ต่อท้ายแล้ว ไม่ใส่ overflow/maxLines บังคับตัด ปล่อยให้ Text
-  // ห่อเองตามพื้นที่จริง ถ้าฟอนต์ระบบถูกซูม/ปรับใหญ่ขึ้นจะยืดหยุ่นตามนั้น
-  Widget _touMeterRow(
-      String label, double? current, double? start, NumberFormat formatter) {
+  // ป้าย On-Peak/Off-Peak ทางซ้าย ค่าล่าสุดทางขวา (ไม่โชว์ต้นรอบในแถวนี้)
+  // ไม่ใส่ overflow/maxLines บังคับตัด ปล่อยให้ Text ห่อเองตามพื้นที่จริง
+  // ถ้าฟอนต์ระบบถูกซูม/ปรับใหญ่ขึ้นจะยืดหยุ่นตามนั้น
+  Widget _touMeterRow(String label, double? current, NumberFormat formatter) {
     final c = current ?? 0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1389,9 +1358,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 12),
           if (isTou) ...[
-            _touMeterRow('On-Peak', lastPeak, _user?.startPeakValue, formatter),
+            _touMeterRow('On-Peak', lastPeak, formatter),
             const SizedBox(height: 6),
-            _touMeterRow('Off-Peak', lastOffPeak, _user?.startOffPeakValue, formatter),
+            _touMeterRow('Off-Peak', lastOffPeak, formatter),
           ] else ...[
             if (lastValue != null)
               RichText(

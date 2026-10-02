@@ -175,8 +175,8 @@ class _TrendChartCard extends StatefulWidget {
   final double Function(BillModel) costSelector;
   final double Function(BillModel) usedSelector;
   final Color accentColor;
-  // สีแท่งกราฟจริง แยกตามโหมด "ค่าใช้จ่าย" กับ "หน่วย/ลบ.ม." — รับเฉดจาก
-  // พาเลตที่เลือกไว้ต่อยูทิลิตี้ตรงๆ (ไฟฟ้า = แดง/เหลือง, น้ำ = น้ำเงิน)
+  // สีแท่งกราฟ แยกตามโหมด "ค่าใช้จ่าย" กับ "หน่วย/ลบ.ม." — รับมาจาก
+  // analysis_screen.dart (ไฟฟ้า = น้ำตาล-ส้ม/ทอง, น้ำ = ฟ้า/น้ำเงิน)
   final Color costColor;
   final Color unitColor;
   // TOU เท่านั้น — สี Off-Peak ของแท่งซ้อน ถ้าไม่ส่งมาจะ fallback เป็นเฉด
@@ -260,8 +260,7 @@ class _TrendChartCard extends StatefulWidget {
       forecastValues: forecasts,
       forecastLabels: forecastLabels,
       selector: selectorFor(showCost),
-      // สีแท่งกราฟจริงตามโหมดที่กำลังดู — ใช้เฉดตรงจากพาเลตที่เลือกไว้
-      // ไม่ผ่านการไล่เฉดอัตโนมัติ เพื่อให้สีตรงตาม swatch ที่เลือกเป๊ะๆ
+      // สีแท่งกราฟตามโหมดที่กำลังดู — ใช้สีที่ส่งมาตรงๆ ไม่ไล่เฉดอัตโนมัติ
       modeAccent: showCost ? costColor : unitColor,
       showStacked: showStackedFor(showCost),
       peakUsedSelector: peakUsedSelector,
@@ -787,10 +786,10 @@ class _TrendBars extends StatelessWidget {
                 ),
               ]);
             }
-            // บิลเก่าก่อนมีฟิลด์แยก peak/offpeak (หรือมิเตอร์
-            // เพิ่งสลับมาเป็น TOU) — ไม่มีข้อมูลให้ซ้อน แต่ยัง
-            // มียอดรวม โชว์เป็นแท่งทึบสีเทาแทนการปล่อยให้เดือน
-            // นั้นหายไปจากกราฟเงียบๆ
+            // บิลที่ไม่มีหน่วยแยก peak/offpeak (เช่น เดือนก่อนสลับ
+            // มาเป็นมิเตอร์ TOU) — ไม่มีข้อมูลให้ซ้อน แต่ยังมียอด
+            // รวม โชว์เป็นแท่งทึบสีเทาแทนการปล่อยให้เดือนนั้น
+            // หายไปจากกราฟเงียบๆ
             return BarChartGroupData(x: i, barRods: [
               BarChartRodData(
                 toY: values[i],

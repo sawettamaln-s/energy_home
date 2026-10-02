@@ -1,24 +1,21 @@
 class EnergyForecaster {
-  // ==================== Moving Average ====================
-  // ใช้คาดการณ์ยอดบิลก่อนสิ้นรอบเดือนปัจจุบัน
-  // โดยคำนวณอัตราการใช้เฉลี่ยต่อวัน แล้วประมาณวันที่เหลือ
-
-  static double movingAverage({
-    required List<double> dailyUsage, // ข้อมูลการใช้งานรายวัน
-    required int remainingDays, // จำนวนวันที่เหลือในรอบบิล
-    required double currentTotal, // ยอดที่ใช้ไปแล้วในรอบนี้
+  // ==================== คาดการณ์ยอดสิ้นรอบ (อัตราเฉลี่ยต่อวัน) ====================
+  // ใช้คาดการณ์ยอดของรอบบิลที่ยังไม่ปิด (ใช้ได้ทั้งบาทและหน่วย):
+  //   อัตราต่อวัน = ยอดสะสม ณ วันที่บันทึกล่าสุด ÷ จำนวนวันตั้งแต่ต้นรอบถึงวันนั้น
+  //   คาดการณ์    = ยอดสะสม + อัตราต่อวัน × จำนวนวันที่เหลือจากวันนั้นถึงวันตัดรอบ
+  // นับวันตามเวลาจริง จึงถูกต้องไม่ว่าจะบันทึกทุกวันหรือเว้นหลายวัน
+  // คืน null ถ้าบันทึกล่าสุดห่างจากต้นรอบไม่ถึง 1 วัน (ยังหาอัตราที่เชื่อถือได้ไม่ได้)
+  static double? projectToCycleEnd({
+    required double currentTotal, // ยอดสะสมตั้งแต่ต้นรอบ ณ วันที่บันทึกล่าสุด
+    required DateTime cycleStart,
+    required DateTime cycleEnd,
+    required DateTime lastRecordedAt, // วันเวลาที่บันทึกมิเตอร์ล่าสุดในรอบนี้
   }) {
-    if (dailyUsage.isEmpty) return currentTotal;
-
-    // คำนวณค่าเฉลี่ยต่อวัน
-    // SMA = (X1 + X2 + ... + Xn) / n
-    double sum = dailyUsage.reduce((a, b) => a + b);
-    double avgPerDay = sum / dailyUsage.length;
-
-    // คาดการณ์ยอดรวมสิ้นเดือน
-    // = ยอดที่ใช้จริงแล้ว + (ค่าเฉลี่ยต่อวัน × วันที่เหลือ)
-    double forecast = currentTotal + (avgPerDay * remainingDays);
-
+    final daysSoFar = lastRecordedAt.difference(cycleStart).inMinutes / 1440;
+    if (daysSoFar < 1) return null;
+    final daysLeft = cycleEnd.difference(lastRecordedAt).inMinutes / 1440;
+    final perDay = currentTotal / daysSoFar;
+    final forecast = currentTotal + perDay * (daysLeft > 0 ? daysLeft : 0);
     return double.parse(forecast.toStringAsFixed(2));
   }
 
@@ -69,7 +66,8 @@ class EnergyForecaster {
 
     return double.parse(forecast.toStringAsFixed(2));
   }
-    // ==================== Seasonal Curve (synthetic + จริงผสมกัน) ====================
+
+  // ==================== Seasonal Curve (synthetic + จริงผสมกัน) ====================
   // ใช้คาดการณ์เดือนถัดไป โดยเอาค่าเฉลี่ยล่าสุดของ user คูณกับ "ตัวคูณตามฤดูกาล"
   // ของเคสนั้น (ดู lib/utils/seasonal_curves.dart ที่ generate มาจาก
   // tool/forecast_synth/ — ผสมข้อมูลสมมติกับข้อมูลจริงเท่าที่มี)
@@ -155,7 +153,8 @@ class EnergyForecaster {
   }
 
   // จุดเริ่มต้นของรอบบิล "ก่อนหน้า" รอบที่ขึ้นต้นด้วย cycleStart ที่ให้มา
-  // ใช้ตอนต้องปิดบิลของรอบก่อนหน้า (ดู dashboard_screen.dart -> compileBill)
+  // ใช้ไล่ย้อนรอบบิลตอนปิดบิลรอบที่แล้ว/รอบที่ตกหล่น (ดู _loadData ใน
+  // dashboard_screen.dart)
   static DateTime getPreviousCycleStart(DateTime cycleStart, int billingDay) {
     final prevMonth = DateTime(cycleStart.year, cycleStart.month - 1, 1);
     return safeBillingDate(prevMonth.year, prevMonth.month, billingDay);

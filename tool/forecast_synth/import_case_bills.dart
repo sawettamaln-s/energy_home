@@ -152,7 +152,7 @@ void main(List<String> args) async {
         offPeakUsed = r.elecOffPeakUnits;
         // เท่ากับ eLogs.first.usedFromStart ที่แอปจริงคำนวณตอน
         // compileBill() (ดู record_meter_screen.dart: usedFromStart =
-        // peakUnits + offPeakUnits) — ถ้าปล่อยเป็น 0 แบบก่อนหน้านี้
+        // peakUnits + offPeakUnits) — ถ้าปล่อยเป็น 0
         // usedSelector ในหน้าวิเคราะห์ (b) => b.electricityUsed จะได้ 0
         // ทุกเดือน ทำให้ maxY ของกราฟตกไปใช้ fallback 8.0 ทั้งที่แท่งจริง
         // (จาก peak+offpeak stacked) สูงเป็นร้อย กราฟเลยทะลุกรอบ

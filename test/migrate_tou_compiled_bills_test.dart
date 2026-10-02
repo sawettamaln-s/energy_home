@@ -21,7 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   // billingDay = 30 (ค่า default ของแอป) ตลอดทุกเทสในไฟล์นี้ เพื่อให้ผลลัพธ์
-  // ของ _cutoffDate/getPreviousCycleStart คาดเดาได้ตรงกับที่คำนวณมือไว้:
+  // ของ safeBillingDate/getPreviousCycleStart คาดเดาได้ตรงกับที่คำนวณมือไว้:
   //   รอบ 1: 2026-01-30 (รวม) -> 2026-02-28 (ไม่รวม)  [ก.พ. 2026 มี 28 วัน]
   //   รอบ 2: 2026-02-28 (รวม) -> 2026-03-30 (ไม่รวม)
   const uid = 'tou-migration-user';

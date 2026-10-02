@@ -122,6 +122,14 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
   String _peakFieldError = '';
   String _offPeakFieldError = '';
 
+  // มีช่องที่เลขไม่ผ่านการเช็ค (ต่ำกว่าต้นรอบ/ค่าล่าสุด หรือไม่ใช่ตัวเลข) —
+  // ปิดปุ่มบันทึกไว้จนกว่าจะพิมพ์แก้ (การพิมพ์จะล้างสถานะนี้ทันที) ส่วนช่อง
+  // ว่างยังกดได้ เพื่อให้ขึ้นข้อความบอกว่าต้องกรอกอะไรก่อน
+  bool get _hasFieldError =>
+      _valueFieldError.isNotEmpty ||
+      _peakFieldError.isNotEmpty ||
+      _offPeakFieldError.isNotEmpty;
+
   bool _savedAtLeastOnce = false;
 
   // ผลคำนวณล่าสุด (จาก debounce หรือกดยืนยัน) — ใช้ทั้งโชว์ผลใต้ช่องกรอก
@@ -920,10 +928,12 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
             ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
-            onPressed: _isSaving ? null : _onConfirmTap,
+            onPressed: (_isSaving || _hasFieldError) ? null : _onConfirmTap,
             style: ElevatedButton.styleFrom(
               backgroundColor: _accent,
               foregroundColor: Colors.white,
+              disabledBackgroundColor: _accent.withValues(alpha: 0.35),
+              disabledForegroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.v14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
             ),

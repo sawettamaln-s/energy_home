@@ -2,32 +2,19 @@
 
 /// ===========================================================
 /// AppSpacing
-/// รวมค่าระยะห่าง/รัศมีขอบมนของแอปไว้ที่เดียว (เดิมแต่ละไฟล์เขียน
-/// EdgeInsets/BorderRadius เป็นตัวเลขลอยๆ ซ้ำกันหลายจุด)
+/// รวมค่าระยะห่าง/รัศมีขอบมนของแอปไว้ที่เดียว
 ///
-/// ใช้ AppSpacing.xs/sm/md/lg/xl ตอนต้องการค่าคงที่ (เหมือนเดิม)
-/// หรือ context.rs(AppSpacing.md) ตอนต้องการให้ระยะยืดหยุ่นตามจอ
+/// ใช้ AppSpacing.vN (N = จำนวน px) กับ EdgeInsets.all() และ
+/// BorderRadius/Radius.circular() หรือห่อด้วย context.rs(...) ถ้าต้องการให้
+/// ระยะยืดหยุ่นตามความกว้างจอ
 /// ===========================================================
 class AppSpacing {
   AppSpacing._();
 
-  // ---------- ระยะห่าง (อ้างอิงจอมาตรฐาน 375px) ----------
-  static const double xs = 4;
-  static const double sm = 8;
-  static const double md = 12;
-  static const double lg = 16;
-  static const double xl = 24;
-
-  // ---------- รัศมีขอบมน ----------
-  static const double radiusSm = 8;
-  static const double radiusMd = 12;
-  static const double radiusLg = 16;
-
-  // ---------- ค่าตัวเลขดิบทั้งหมดที่พบใช้อยู่ใน EdgeInsets.all() /
-  // BorderRadius.circular() / Radius.circular() ทั่วแอป (ก.ย. 2026) ----------
-  // ย้ายมาจากเลขลอยๆ ในแต่ละหน้า ให้มาอยู่ที่เดียว เก็บค่าเดิมไว้ทุกตัว
-  // เพื่อไม่ให้หน้าตาแอปเปลี่ยน — EdgeInsets.symmetric/only/fromLTRB และ
-  // SizedBox ยังไม่ได้ย้าย (ดูหมายเหตุท้ายไฟล์นี้)
+  // ---------- ค่าที่ใช้จริงใน EdgeInsets.all() / BorderRadius.circular() /
+  // Radius.circular() ทั่วแอป ----------
+  // EdgeInsets.symmetric/only/fromLTRB และ SizedBox ยังใช้ตัวเลขตรงๆ ได้
+  // (ดูหมายเหตุท้ายไฟล์)
   static const double v0 = 0;
   static const double v1 = 1;
   static const double v2 = 2;
@@ -52,8 +39,6 @@ class AppSpacing {
   static const double v54 = 54;
 }
 
-// หมายเหตุ (ก.ย. 2026): ตั้งใจไม่ย้าย EdgeInsets.symmetric/.only/.fromLTRB
-// และ SizedBox(height:/width:) เข้ามาในไฟล์นี้ทั้งหมด เพราะหลายจุดเป็น
-// ขนาดโครงสร้างเฉพาะจุด (เช่น ขนาดไอคอน, ความกว้างกราฟ) ไม่ใช่ค่า "ระยะห่าง"
-// ตามสัดส่วนจริงๆ — ถ้ายัดเข้าสเกลเดียวกันหมดจะทำให้ความหมายของโค้ดสับสน
-// กว่าเดิม ถ้าต้องการให้ไล่ทำต่อเฉพาะจุดที่เป็น padding จริง บอกได้
+// หมายเหตุ: EdgeInsets.symmetric/.only/.fromLTRB และ SizedBox(height:/width:)
+// ไม่บังคับให้ใช้ค่าจากไฟล์นี้ เพราะหลายจุดเป็นขนาดโครงสร้างเฉพาะที่ (เช่น
+// ขนาดไอคอน, ความกว้างกราฟ) ไม่ใช่ "ระยะห่าง" ตามสเกล

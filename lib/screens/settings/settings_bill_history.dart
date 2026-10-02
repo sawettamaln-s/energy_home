@@ -1,7 +1,8 @@
 part of 'settings_screen.dart';
 
-// สร้างตัวเลือก 6 เดือนย้อนหลัง อิงวันตัดรอบบิลจริง (billingDay) ไม่ใช่เดือนปฏิทิน
-// เป็นฟังก์ชันกลาง ให้ HistoricalBillListScreen เรียกใช้เช็ค "ครบ 6 เดือนหรือยัง" ได้ด้วย
+// สร้างรายการ 6 รอบบิลล่าสุด (รวมรอบปัจจุบัน) อิงวันตัดรอบบิลจริง (billingDay)
+// ไม่ใช่เดือนปฏิทิน — ผู้เรียกตัดรอบปัจจุบันออก (.skip(1)) เหลือ 5 เดือนย้อนหลัง
+// ใช้ทั้งเป็นตัวเลือกในฟอร์ม และเช็คว่ากรอกครบแล้วหรือยังใน HistoricalBillListScreen
 List<DateTime> _generateHistoricalMonthOptions(int billingDay) {
   final options = <DateTime>[];
   var cursor = EnergyForecaster.getCycleStart(DateTime.now(), billingDay);
@@ -15,7 +16,7 @@ List<DateTime> _generateHistoricalMonthOptions(int billingDay) {
 // หาเดือนที่ "ไม่มีบิลเลยไม่ว่า source ไหน" ไล่ย้อนจากรอบก่อนหน้ารอบปัจจุบันไป
 // จนถึงเดือนที่ user เริ่มตั้งค่าระบบครั้งแรก (startBillingMonth/Year) — ขอบเขต
 // เดียวกับที่ backfill loop ใน dashboard_screen.dart ใช้ตรวจจับรอบที่ขาด ตั้งใจ
-// ไม่จำกัดแค่ 6 เดือนแบบ _generateHistoricalMonthOptions (นั่นมีไว้จำกัดแค่ตอน
+// ไม่จำกัดแค่ 5 เดือนแบบ _generateHistoricalMonthOptions (นั่นมีไว้จำกัดแค่ตอน
 // "เพิ่มบิลใหม่เอง" ผ่านปุ่ม +) เพราะเดือนที่ระบบเคยแจ้งเตือนไปแล้วว่าขาด ต้องยัง
 // หาเจอในลิสต์นี้ได้เสมอไม่ว่าจะผ่านไปนานแค่ไหนก่อน user จะกดเข้ามาดู ไม่งั้น
 // กดตาม notification เข้ามาแล้วจะเจอทางตัน หาเดือนที่ต้องการกรอกไม่เจอ
@@ -45,7 +46,8 @@ List<DateTime> _generateAllMissingMonths(
 }
 
 // ==================== เพิ่ม/แก้ไขบันทึกบิลย้อนหลัง ====================
-// ไม่บังคับ • สูงสุด 6 เดือน — ใช้ให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก
+// ไม่บังคับ • เลือกได้ 5 เดือนย้อนหลัง (ไม่รวมรอบปัจจุบัน) — ใช้ให้หน้า
+// วิเคราะห์มีข้อมูลตั้งแต่วันแรก
 class _AddHistoricalBillSheet extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
@@ -339,8 +341,9 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
   double get _eCost => parseNumInput(_eCostCtrl.text);
   double get _wCost => parseNumInput(_wCostCtrl.text);
   bool get _isTou => _user?.meterType == 'tou';
-  // TOU: หน่วยที่ใช้ (ไฟ) = ผลรวม On-Peak/Off-Peak (auto-sum) แต่ยังเก็บลง
-  // BillModel.electricityUsed ตัวเดียวเหมือนเดิม เพราะหน้าวิเคราะห์/แดชบอร์ดอ้างอิงยอดรวมนี้
+  // TOU: หน่วยที่ใช้ (ไฟ) = ผลรวม On-Peak/Off-Peak (auto-sum) — บันทึกยอดรวม
+  // ลง BillModel.electricityUsed (หน้าวิเคราะห์/แดชบอร์ดใช้ยอดรวมนี้) และเก็บ
+  // แยกลง electricityPeakUsed/OffPeakUsed ด้วย
   double get _eUsed => _isTou
       ? parseNumInput(_ePeakUsedCtrl.text) + parseNumInput(_eOffPeakUsedCtrl.text)
       : parseNumInput(_eUsedCtrl.text);
@@ -655,8 +658,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                       style: const TextStyle(
                           fontSize: AppTypography.s18, fontWeight: FontWeight.bold),
                     ),
-                    // ตัดคำอธิบายยาวใต้หัวข้อออก (ซ้ำกับ _showHistoricalBillInfoPopup)
-                    // เหลือแค่ไอคอน info กดดูได้แทน ลดความรกตอนเปิดฟอร์มครั้งแรก
+                    // คำอธิบายฟอร์มอยู่ใน popup ของไอคอน info
+                    // (_showHistoricalBillInfoPopup) ไม่แปะไว้ใต้หัวข้อ ลดความรก
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       icon: Icon(Icons.info_outline,
@@ -735,8 +738,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                                   peakCtrl: _ePeakUsedCtrl,
                                   offPeakCtrl: _eOffPeakUsedCtrl,
                                   iconColor: DashboardStyles.electricityBorder,
-                                  // โน้ตนี้เห็นเฉพาะบิลเก่าก่อนมีฟิลด์แยก peak/offpeak
-                                  // (มียอดรวมแต่แยกไม่ได้) ถ้าเคยกรอกแบบแยกไว้แล้วจะ prefill จาก
+                                  // โน้ตนี้เห็นเฉพาะบิลที่มียอดรวมแต่ไม่มีหน่วยแยก
+                                  // peak/offpeak ถ้าเคยกรอกแบบแยกไว้แล้วจะ prefill จาก
                                   // electricityPeakUsed/OffPeakUsed แทน ไม่ต้องมีโน้ตนี้
                                   helperText: (widget.existingBill != null &&
                                           widget.existingBill!.electricityUsed >
@@ -1092,7 +1095,7 @@ class HistoricalBillListScreen extends StatefulWidget {
 class HistoricalBillListScreenState
     extends State<HistoricalBillListScreen> with SingleTickerProviderStateMixin {
   List<BillModel> _bills = [];
-  // เดือนที่ "ไม่มีบิลเลยไม่ว่า source ไหน" ในช่วง 5 เดือนย้อนหลัง — คือรอบที่
+  // เดือนที่ "ไม่มีบิลเลยไม่ว่า source ไหน" ย้อนไปจนถึงเดือนที่เริ่มใช้แอป — คือรอบที่
   // user ข้ามไปจริงๆ ไม่ได้เปิดแอปบันทึกเลยทั้งรอบ (ไม่ใช่แค่ยังไม่กรอกฟอร์มนี้)
   // ต่างจาก _bills ตรงที่ไม่มี Firestore doc รองรับจริง เป็นแค่ช่องว่างที่ตรวจพบ
   // ใน build() จะแปลงเป็น placeholder BillModel (source: 'missing') ชั่วคราว
@@ -1183,7 +1186,7 @@ class HistoricalBillListScreenState
   // หน้านี้มีไว้กรอกบิลย้อนหลัง "ก่อนสมัครใช้แอป" เท่านั้น ขอบเขตแค่ 5 เดือน
   // (ตัดเดือนของรอบปัจจุบันออกจาก dropdown แล้ว ดู _generateMonthOptions) พอกรอกครบ
   // ซ่อนปุ่ม (+) เพราะกดไปก็จะเจอแค่ "เดือนนี้มีบิลบันทึกไว้แล้ว" ทุกเดือน — แก้ไข/ลบเดิมได้ตามปกติ
-  bool get _allSixMonthsRecorded {
+  bool get _allMonthOptionsRecorded {
     final options = _generateHistoricalMonthOptions(_billingDay).skip(1);
     final taken =
         _bills.map((b) => '${b.year}-${b.month}').toSet();
@@ -1242,7 +1245,7 @@ final confirmed = await showConfirmDialog(
     final latestId = _bills.isNotEmpty ? _bills.first.id : null;
     // แปลง _missingMonths เป็น placeholder BillModel ชั่วคราว (source: 'missing')
     // ไม่มี Firestore doc จริงรองรับ — สร้างขึ้นแค่ตอน build() เพื่อโชว์เป็นแถว
-    // "- -" ในตาราง ผสมกับบิลจริงแล้วเรียงใหม่สุดก่อนเหมือนเดิม
+    // "- -" ในตาราง ผสมกับบิลจริงแล้วเรียงใหม่สุดก่อน
     final placeholderBills = _missingMonths
         .map((m) => BillModel(
               id: 'missing_${m.year}_${m.month}',
@@ -1317,7 +1320,7 @@ final confirmed = await showConfirmDialog(
                           ),
                         ),
                         const Spacer(),
-                        if (!_isLoading && _allSixMonthsRecorded)
+                        if (!_isLoading && _allMonthOptionsRecorded)
                           Text(
                             'ครบ 6 เดือนแล้ว',
                             style: TextStyle(
@@ -1361,7 +1364,7 @@ final confirmed = await showConfirmDialog(
                 ),
               ],
             ),
-      floatingActionButton: (_isLoading || _allSixMonthsRecorded)
+      floatingActionButton: (_isLoading || _allMonthOptionsRecorded)
           ? null
           : FloatingActionButton(
               onPressed: () => _openSheet(),

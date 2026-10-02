@@ -271,7 +271,7 @@ void main(List<String> args) async {
 
     // ---------- 4) เตรียม user doc update (billingDay + ต้นรอบถัดไป) ----------
     final lastRow = rows.last;
-    // แก้บั๊ก: ห้าม +1 — ดู comment เดียวกันใน generate_household.dart
+    // ห้าม +1 — ดู comment เดียวกันใน generate_household.dart
     // (เรื่อง getCycleStart/matchesCurrentCycle ทำให้ต้องบันทึกซ้ำ)
     final userUpdate = <String, dynamic>{
       'billingDay': options.billingDay,

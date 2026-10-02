@@ -37,7 +37,8 @@ part 'settings_rate_explanation.dart'; // อธิบายอัตราค�
 part 'settings_start_meter.dart'; // บันทึก + ประวัติมิเตอร์ต้นรอบ
 part 'settings_utility_log.dart'; // ประวัติมิเตอร์ไฟฟ้า/น้ำที่บันทึกแต่ละวัน
 
-// ทางลัดเปิดหน้าย่อยทันทีตอนเข้าหน้าตั้งค่า (ใช้จากหน้าเช็คลิสหลัง setup)
+// ทางลัดเปิดหน้าย่อยทันทีตอนเข้าหน้าตั้งค่า — billingDay = เปิด dialog เลือก
+// วันตัดรอบบิล (ใช้จากแบนเนอร์บนแดชบอร์ด และลิงก์ในฟอร์มตั้งเลขมิเตอร์ต้นรอบ)
 enum SettingsQuickAction { billingDay }
 
 class SettingsScreen extends StatefulWidget {
@@ -420,11 +421,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // -------------------------------------------------------------------
-  // บาร์ล่างแบบ floating pill — เหมือนกันทุกหน้า (วางโค้ดนี้ก๊อปไว้ทุกไฟล์)
-  // -------------------------------------------------------------------
-  // แต่ละหมวดมีไอคอน + สีประจำหมวด: เขียว = สีหลักของระบบ, ส้ม = โทนมิเตอร์ไฟฟ้า,
-  // ฟ้า = โทนมิเตอร์น้ำ, ม่วง = หมวดบัญชีผู้ใช้
+  // หัวหมวด: ไอคอนในกรอบสีจาง + ชื่อหมวด — ทุกหมวดใช้ _sectionColor (เขียว)
+  // ยกเว้น "โซนอันตราย" ที่ใช้สีแดง
   Widget _buildSectionHeader(
     String title, {
     required IconData icon,
@@ -512,7 +510,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-              // แก้ได้เฉพาะชื่อเหมือนเดิม — อีเมลไม่มีปุ่มแก้ไข
+              // แก้ได้เฉพาะชื่อ — อีเมลไม่มีปุ่มแก้ไข
               IconButton(
                 icon: const Icon(Icons.edit_outlined,
                     size: 18, color: Colors.grey),
@@ -994,7 +992,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisExtent: 46,
                   ),
                   // +1 ช่องแรกเป็นช่องว่าง เพื่อให้เลข 1 เริ่มเยื้องคอลัมน์ที่ 2
-                  // ตามแพทเทิร์นเลย์เอาต์ปฏิทินที่อ้างอิงมา
                   itemCount: 32,
                   itemBuilder: (context, i) {
                     if (i == 0) return const SizedBox.shrink();

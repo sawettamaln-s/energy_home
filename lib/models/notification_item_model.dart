@@ -8,7 +8,9 @@ class NotificationItem {
   final String id; // unique ต่อรายการ (ไม่ใช่ id ของ plugin)
   final String title;
   final String body;
-  final String type; // 'billing' | 'meter' | 'spike' | 'summary' | 'welcome' | 'forecast'
+  // 'billing' | 'meter' | 'missed_cycle' | 'spike' | 'forecast' | 'summary' | 'welcome'
+  // ใช้เลือกไอคอน/สี และสิ่งที่เกิดตอนแตะในหน้าแจ้งเตือน
+  final String type;
   final DateTime timestamp;
   final bool isRead;
 

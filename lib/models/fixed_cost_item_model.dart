@@ -44,8 +44,8 @@ class FixedCostItemModel {
       category: map['category'] ?? 'other',
       amount: (map['amount'] ?? 0).toDouble(),
       createdAt: createdAt,
-      // รายการเก่าก่อนมี field นี้จะไม่มี startDate/endDate ใน Firestore เลย
-      // → ตกกลับไปใช้ createdAt และ endDate = null (นับรวมต่อเนื่องเหมือนพฤติกรรมเดิม)
+      // รายการที่ไม่มี startDate/endDate ใน Firestore → เริ่มนับจาก createdAt
+      // และ endDate = null (นับรวมต่อเนื่องไม่มีกำหนดสิ้นสุด)
       startDate: DateTime.tryParse(map['startDate'] ?? '') ?? createdAt,
       endDate: map['endDate'] == null
           ? null

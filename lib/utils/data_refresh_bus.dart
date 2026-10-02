@@ -11,9 +11,12 @@ import 'package:flutter/foundation.dart';
 ///
 /// วิธีใช้: FirestoreService เรียก DataRefreshBus.instance.notifyChanged()
 /// ทุกครั้งหลังเขียน/ลบข้อมูลที่หน้าอื่นอาจต้องรู้ ฝั่งหน้าที่ต้อง auto
-/// refresh (เช่น DashboardScreen) ก็ addListener กับ
+/// refresh (DashboardScreen, AnalysisScreen) ก็ addListener กับ
 /// DataRefreshBus.instance.version ใน initState แล้วเรียกโหลดข้อมูลใหม่
 /// ทุกครั้งที่ค่าเปลี่ยน (อย่าลืม removeListener ใน dispose)
+///
+/// ข้อมูลอุปกรณ์ไม่ผ่านบัสนี้ เพราะหน้าที่ใช้ฟัง Firestore stream
+/// (getAppliances) ตรงอยู่แล้ว
 class DataRefreshBus {
   DataRefreshBus._();
   static final DataRefreshBus instance = DataRefreshBus._();
