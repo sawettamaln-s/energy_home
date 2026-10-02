@@ -244,7 +244,7 @@ class StartMeterPairedFields extends StatefulWidget {
 
   /// หัวข้อ/คำอธิบายรวมด้านบนสุด — title เป็น null ได้ถ้าหน้าที่เรียกมี
   /// header ของตัวเองอยู่แล้ว (settings_start_meter.dart ไม่ส่ง title มา
-  /// เพราะ sheet มีหัว "บันทึกเลขมิเตอร์ประจำเดือน" อยู่แล้ว) — ปุ่ม info
+  /// เพราะ sheet มีหัว "เลขมิเตอร์จากใบแจ้งหนี้" อยู่แล้ว) — ปุ่ม info
   /// ยังคงอยู่เสมอไม่ว่าจะมี title หรือไม่
   final String? title;
   final String subtitle;

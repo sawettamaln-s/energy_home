@@ -29,12 +29,12 @@ CI (`.github/workflows/flutter-ci.yml`) runs `flutter analyze` and then `flutter
 - **Billing logic:**
   - `compileBill()` turns a *closed* billing cycle's logs into a `BillModel`.
   - The fixed cost is recomputed for that cycle's month (`isActiveInMonth`). It does not come from the `user.fixedCost` cache, which only holds the current month's value.
-  - TOU peak/off-peak usage is calculated against the `start_meter_history` record for that cycle, not against the user's current start values.
+  - TOU peak/off-peak usage is calculated against the `start_meter_history` record whose billing month is the month the compiled cycle *started* (the bill's own month is the closing month = the next cycle's start), not against the user's current start values.
   - `migrateTouCompiledBills()` is a one-off admin fix with no UI entry point. `tool/migrate_tou_bills.dart` mirrors its logic, so changes to that calculation must be made in both places.
 - **Pure logic in `lib/utils/`** (no Firebase or widgets, so it's easy to test):
   - `calculator.dart` (`EnergyCalculator`): tariff tables and cost formulas. Only `getFtRate()` touches Firestore.
-  - `forecaster.dart` (`EnergyForecaster`): the single source of truth for billing-cycle boundaries and forecasting. It provides a moving average for the end of the current cycle, a seasonal curve for next month when area and meterType are known, and a linear regression fallback. Screens must not compute cycle boundaries on their own.
-  - `seasonal_curves.dart` is **generated**. Don't edit it by hand. Regenerate it through `tool/forecast_synth/` (Python pipeline: `blend_seasonal_curves.py` → `seasonal_curves.json` → `export_curves_to_dart.py`).
+  - `forecaster.dart` (`EnergyForecaster`): the single source of truth for billing-cycle boundaries and forecasting. It projects the end of the current cycle from the daily rate (`projectToCycleEnd`), forecasts next month with a seasonal curve when area and meterType are known, and falls back to linear regression. Screens must not compute cycle boundaries on their own.
+  - `seasonal_curves.dart` is **generated** from real monthly residential statistics (EPPO electricity for MEA/PEA, MWA water). Don't edit it by hand. Regenerate it with `python tool/seasonal_curves/build_seasonal_curves.py` (add `--fetch` to re-download the source data).
 - **Styling:** `lib/styles/` holds the colors, spacing and typography. `responsive.dart` provides `context.rf()` and `context.rs()`, which scale against a 375px base width. Use them for new layouts. `DashboardStyles.primaryGreen` seeds the theme.
 
 ## Tools (`tool/`)
@@ -42,4 +42,5 @@ CI (`.github/workflows/flutter-ci.yml`) runs `flutter analyze` and then `flutter
 These are standalone `dart run` scripts, not part of the app:
 - `backtest_forecast.dart` runs a walk-forward backtest of linear regression against the seasonal forecast, using the real functions from `lib/utils`.
 - `migrate_tou_bills.dart`: see `tool/README_migrate_tou_bills.md`. Always run it as a dry run first; `--apply` writes to Firestore.
-- `forecast_synth/` generates synthetic household data and seasonal curves.
+- `seasonal_curves/` (Python): `build_seasonal_curves.py` builds the seasonal curves; `backtest_forecast_methods.py` reports MAPE of the forecast methods on the same real data.
+- `forecast_synth/` generates synthetic demo accounts and imports them into Firestore.

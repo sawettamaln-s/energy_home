@@ -911,7 +911,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                           Expanded(
                             child: Text(
                               'มีบิลของ${thaiMonths[_currentCycleMonth.month - 1]} '
-                              '${_currentCycleMonth.year}? ไปกรอกที่หน้าเลขมิเตอร์ต้นรอบ',
+                              '${_currentCycleMonth.year}? ไปกรอกที่หน้าเลขมิเตอร์จากใบแจ้งหนี้',
                               style: TextStyle(
                                   fontSize: AppTypography.s11_5,
                                   color: Colors.grey.shade600,
@@ -1477,9 +1477,9 @@ final confirmed = await showConfirmDialog(
               subtitle: 'รวม ${formatter.format(b.totalCost)} บาท',
               locked: true,
               lockedMessage: 'บิลนี้มาจากการตั้งเลขมิเตอร์ต้นรอบ '
-                  'แก้ไข/ลบได้ที่หน้า "เลขมิเตอร์ต้นรอบ" เท่านั้น เพื่อไม่ให้'
+                  'แก้ไข/ลบได้ที่หน้า "เลขมิเตอร์จากใบแจ้งหนี้" เท่านั้น เพื่อไม่ให้'
                   'เลขมิเตอร์สะสมกับบิลไม่ตรงกัน',
-              lockedActionLabel: 'ไปหน้าเลขมิเตอร์ต้นรอบ',
+              lockedActionLabel: 'ไปหน้าเลขมิเตอร์จากใบแจ้งหนี้',
               onLockedAction: () => _goToStartMeterFor(b),
             );
             return;

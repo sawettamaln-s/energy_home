@@ -16,7 +16,7 @@ import '../models/notification_item_model.dart';
 /// รวมการจัดการ local notification ทั้งหมดของแอปไว้ที่เดียว
 /// แบ่งเป็น 2 ประเภท:
 /// 1) Scheduled  -> ตั้งเวลาล่วงหน้า ทำงานแม้ปิดแอป (OS เป็นคนสั่งเตือน)
-///    ใช้กับ: เตือนใกล้วันตัดรอบบิล
+///    ใช้กับ: เตือนเช้าวันตัดรอบบิล
 /// 2) Instant    -> ยิงทันทีตอนแดชบอร์ดโหลดข้อมูล (เปิดแอป/ข้อมูลเปลี่ยน)
 ///    แล้วตรวจพบเงื่อนไข ใช้กับ: ยังไม่บันทึกมิเตอร์นาน, ค่าใช้จ่ายพุ่งขึ้น,
 ///    คาดการณ์สิ้นรอบสูงกว่าเดือนก่อน, สรุปจบรอบบิล, รอบบิลที่ไม่มีข้อมูล,
@@ -59,7 +59,7 @@ class NotificationService {
   // (แยกตามบัญชีที่ล็อกอิน) ไม่ sync ข้ามเครื่อง
   //
   // toggle ที่ผู้ใช้ตั้งได้:
-  //   'billing' -> เตือนใกล้วันตัดรอบบิล
+  //   'billing' -> เตือนเช้าวันตัดรอบบิล
   //   'meter'   -> เตือนยังไม่บันทึกมิเตอร์ + รอบบิลที่ไม่มีข้อมูล
   //   'spike'   -> ค่าใช้จ่ายพุ่งขึ้น + คาดการณ์สิ้นรอบสูงกว่าเดือนก่อน
   //   'summary' -> สรุปยอดท้ายรอบบิล
@@ -202,33 +202,46 @@ class NotificationService {
   }
 
   // =====================================================================
-  // (Scheduled) เตือนใกล้วันตัดรอบบิล
-  // ใช้ zonedSchedule -> OS จะจัดการเตือนให้แม้ปิดแอปสนิท
+  // (Scheduled) เตือนเช้าวันตัดรอบบิล (09:00) ให้บันทึกเลขมิเตอร์จาก
+  // ใบแจ้งหนี้ใบใหม่เพื่อเริ่มรอบบิลใหม่
+  // ใช้ zonedSchedule -> OS จะจัดการเตือนให้แม้ปิดแอปสนิท ตั้งไว้ทีละครั้ง
+  // (id เดียวกัน เขียนทับของเดิม) และตั้งใหม่ทุกครั้งที่แดชบอร์ดโหลด
   // หมายเหตุ: รายการนี้จะไม่ขึ้นใน history ทันที (ยังไม่ถูกยิงจริง)
   // จะถูกบันทึกก็ตอนที่ผู้ใช้เปิดแอปแล้วระบบ sync เข้า history ให้
-  // (ดู syncDeliveredScheduledNotifications)
+  // (ดู syncDeliveredScheduledNotifications — ต้องเรียกก่อนเมธอดนี้)
   // =====================================================================
+  static const String billingReminderTitle = 'ถึงวันตัดรอบบิลแล้วค่ะ';
+  static const String billingReminderBody =
+      'ได้ใบแจ้งหนี้ใบใหม่แล้ว อย่าลืมบันทึกเลขมิเตอร์จากใบแจ้งหนี้ '
+      'เพื่อเริ่มรอบบิลใหม่นะคะ';
+
+  // เวลาที่ควรเตือนครั้งถัดไป: 09:00 ของวันตัดรอบ — ถ้าวันนี้คือวันตัดรอบ
+  // (cycleStart) และยังไม่ถึง 09:00 ใช้ของวันนี้ ไม่งั้นใช้วันตัดรอบครั้งถัดไป
+  @visibleForTesting
+  static DateTime billingReminderTime({
+    required DateTime cycleStart,
+    required DateTime cycleEnd,
+    required DateTime now,
+  }) {
+    DateTime at9(DateTime d) => DateTime(d.year, d.month, d.day, 9);
+    return now.isBefore(at9(cycleStart)) ? at9(cycleStart) : at9(cycleEnd);
+  }
+
   Future<void> scheduleBillingReminder({
-    required DateTime billingDate,
-    int daysBefore = 3,
+    required DateTime cycleStart,
+    required DateTime cycleEnd,
   }) async {
     if (!await isTypeEnabled('billing')) return;
 
-    final reminderDate = billingDate.subtract(Duration(days: daysBefore));
-    if (reminderDate.isBefore(DateTime.now())) return;
-
+    final target = billingReminderTime(
+        cycleStart: cycleStart, cycleEnd: cycleEnd, now: DateTime.now());
     final scheduledTime = tz.TZDateTime(
-      tz.local,
-      reminderDate.year,
-      reminderDate.month,
-      reminderDate.day,
-      9, // เตือนตอน 9 โมงเช้า
-    );
+        tz.local, target.year, target.month, target.day, target.hour);
 
     await _plugin.zonedSchedule(
       idBillingReminder,
-      'ใกล้ถึงวันตัดรอบบิลแล้ว',
-      'เหลืออีก $daysBefore วันจะตัดรอบบิล อย่าลืมตรวจสอบมิเตอร์ให้เรียบร้อย',
+      billingReminderTitle,
+      billingReminderBody,
       scheduledTime,
       _details(),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -247,6 +260,8 @@ class NotificationService {
   // เรียกตอนเปิดแอป (ทุกครั้งที่ _loadData ทำงาน) เพื่อเช็คว่า scheduled
   // notification ที่ตั้งไว้ "ถึงเวลาแล้ว" หรือยัง ถ้าถึงแล้วให้บันทึกเข้า
   // history เพื่อให้หน้า Notification Center เห็นรายการนี้ด้วย
+  // ต้องเรียกก่อน scheduleBillingReminder ไม่งั้นกำหนดการที่ส่งไปแล้วจะถูก
+  // เขียนทับด้วยกำหนดการใหม่ก่อนได้บันทึกเข้า history
   Future<void> syncDeliveredScheduledNotifications() async {
     final prefs = await SharedPreferences.getInstance();
     final key = _scopedKey('pending_billing_reminder_time');
@@ -259,8 +274,8 @@ class NotificationService {
     if (DateTime.now().isAfter(pendingTime)) {
       await _addToHistory(NotificationItem(
         id: const Uuid().v4(),
-        title: 'ใกล้ถึงวันตัดรอบบิลแล้วค่ะ',
-        body: 'ถึงกำหนดที่คุณตั้งเตือนไว้ก่อนวันตัดรอบบิลแล้วนะคะ',
+        title: billingReminderTitle,
+        body: billingReminderBody,
         type: 'billing',
         timestamp: pendingTime,
       ));

@@ -874,7 +874,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'บันทึกเลขมิเตอร์ประจำเดือน',
+                        'เลขมิเตอร์จากใบแจ้งหนี้',
                         style:
                             TextStyle(fontSize: AppTypography.s18, fontWeight: FontWeight.bold),
                       ),
@@ -1376,7 +1376,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
     return Scaffold(
       backgroundColor: DashboardStyles.background,
       appBar: AppTopBar(
-        title: 'บันทึกเลขมิเตอร์ประจำเดือน',
+        title: 'เลขมิเตอร์จากใบแจ้งหนี้',
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),

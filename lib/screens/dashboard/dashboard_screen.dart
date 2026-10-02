@@ -323,10 +323,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }) async {
     final notifications = NotificationService.instance;
     try {
-      // (Scheduled) เตือนใกล้วันตัดรอบบิล — ตั้งล่วงหน้าให้ OS จัดการเอง
+      // บันทึกเตือนรอบบิลที่ส่งไปแล้วเข้าประวัติก่อน แล้วค่อยตั้งรอบถัดไป
+      // (ถ้าตั้งก่อน กำหนดการเดิมจะถูกเขียนทับจนไม่ได้เข้าประวัติ)
+      await notifications.syncDeliveredScheduledNotifications();
+
+      // (Scheduled) เตือนเช้าวันตัดรอบบิล — ตั้งล่วงหน้าให้ OS จัดการเอง
       await notifications.scheduleBillingReminder(
-        billingDate: cycleEnd,
-        daysBefore: 3,
+        cycleStart: cycleStart,
+        cycleEnd: cycleEnd,
       );
 
       // (Instant) เตือนยังไม่บันทึกมิเตอร์เกิน N วัน — ดูจาก log ล่าสุด
@@ -352,10 +356,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         cycleStart: cycleStart,
         silent: silent,
       );
-
-      // sync ดูว่า scheduled notification (เตือนใกล้วันบิล) ถึงกำหนดยิงแล้ว
-      // หรือยัง ถ้าถึงแล้วจะถูกบันทึกเข้า history ให้เห็นในหน้า Notification
-      await notifications.syncDeliveredScheduledNotifications();
 
       // (Instant) เตือนล่วงหน้าถ้าคาดการณ์สิ้นรอบจะสูงกว่าเดือนก่อน — ข้าม
       // ถ้ายังไม่มีข้อมูลพอ เพราะ _forecastTotal ตอนนั้นคือยอดที่ใช้ไปแล้วเฉยๆ
@@ -538,13 +538,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 10),
 
                       // -------------------------------------------------
-                      // ตัวเตือนวันตัดรอบบิล — วางไว้ตรงนี้เพราะเกี่ยวข้องกับ
-                      // ขั้นตอน "บันทึกมิเตอร์วันนี้ / ตั้งค่ามิเตอร์ต้นรอบ"
-                      // (ทั้งคู่คือสิ่งที่ user ใหม่ต้องตั้งค่าก่อนใช้งานจริง)
-                      // โชว์เฉพาะบัญชีที่ยังไม่เคยกดเลือกวันตัดรอบบิลเอง
-                      // (billingDayConfigured == false)
+                      // ตัวเตือนวันตัดรอบบิล — โชว์เฉพาะบัญชีที่ยังไม่เคยเลือก
+                      // วันตัดรอบเอง แต่ตั้งเลขมิเตอร์ต้นรอบไปแล้ว (ถ้ายังไม่ได้
+                      // ตั้งเลขต้นรอบ การ์ดเช็คลิสต์ด้านล่างมีขั้นนี้อยู่แล้ว)
                       // -------------------------------------------------
-                      if (_user?.billingDayConfigured == false) ...[
+                      if (_user?.billingDayConfigured == false &&
+                          _user?.startMeterConfigured != false) ...[
                         _buildBillingDayReminderBanner(),
                         const SizedBox(height: 10),
                       ],
@@ -553,13 +552,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       // ค่าล่าสุด/ต้นรอบ + ปุ่มเดียวพาไปหน้าบันทึก (RecordMeterScreen)
                       // ใช้ IntrinsicHeight ให้การ์ดไฟ (TOU โชว์ 2 บรรทัดสรุป)
                       // กับการ์ดน้ำ (1 บรรทัด) สูงเท่ากัน
-                      // - ยังไม่ได้ตั้งเลขต้นรอบเลยสักฝั่ง -> การ์ดเต็มความกว้าง
-                      //   ชวนไปตั้งค่า
+                      // - ยังไม่ได้ตั้งเลขต้นรอบเลยสักฝั่ง -> การ์ดเช็คลิสต์
+                      //   เริ่มต้นใช้งาน 3 ขั้นตอน
                       // - ฝั่งที่พร้อม (_electricityMeterReady/_waterMeterReady:
                       //   ตั้งแล้วและตรงกับรอบปัจจุบัน) -> การ์ดสรุป ใช้งานได้เลย
                       // - ฝั่งที่ยังไม่พร้อม -> การ์ดล็อกเฉพาะฝั่งนั้น
                       _user?.startMeterConfigured == false
-                          ? _buildStartMeterRequiredCard()
+                          ? _buildSetupChecklistCard()
                           : IntrinsicHeight(
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -881,7 +880,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // =====================================================================
   // แบนเนอร์เล็กเตือนให้ตั้งวันตัดรอบบิล — ต่างจาก
-  // _buildStartMeterRequiredCard() ตรงที่ไม่บล็อกการใช้งานอะไรเลย (ระบบยัง
+  // การ์ดเช็คลิสต์ตรงที่ไม่บล็อกการใช้งานอะไรเลย (ระบบยัง
   // ใช้ default 30 คำนวณให้ได้อยู่) จึงออกแบบให้เด่นน้อยกว่า เป็นแถบบางๆ
   // กดแล้วพาไปหน้าตั้งค่า พร้อมเปิด dialog เลือกวันตัดรอบบิลให้เลย
   // (ใช้ SettingsQuickAction.billingDay ตัวเดียวกับที่หน้าอื่นเรียกใช้อยู่
@@ -929,16 +928,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // =====================================================================
-  // การ์ดเตือนให้ตั้งค่ามิเตอร์ต้นรอบก่อน — แสดงแทนช่องกรอกมิเตอร์ปกติ
-  // เฉพาะตอนที่ยังไม่ได้ตั้งเลยสักฝั่ง (electricityStartConfigured และ
-  // waterStartConfigured เป็น false ทั้งคู่ = startMeterConfigured false)
-  // ถ้าตั้งไปแล้วอย่างน้อย 1 ฝั่ง จะไม่โชว์การ์ดนี้อีกต่อไป แต่ไปโชว์
-  // _buildMeterLockedCard() แยกเฉพาะฝั่งที่ยังไม่ได้ตั้งแทน (ดูจุดเรียกใช้
-  // ใน build()) เพราะถ้าปล่อยให้กรอกเลย ระบบจะเอาเลขมิเตอร์สะสมจริงทั้งก้อน
-  // (เช่น 15,234 หน่วย) ไปคำนวณเป็น "หน่วยที่ใช้เดือนนี้" ทันที ทำให้ค่าไฟ/
-  // น้ำรอบแรกเพี้ยนมหาศาล และไปกระทบข้อมูลคาดการณ์ในหน้าวิเคราะห์ด้วย
+  // การ์ดเช็คลิสต์ "เริ่มต้นใช้งาน 3 ขั้นตอน" — แสดงแทนการ์ดมิเตอร์ตอนที่
+  // ยังไม่ได้ตั้งเลขมิเตอร์ต้นรอบเลยสักฝั่ง (startMeterConfigured false)
+  // แต่ละขั้นกดแล้วพาไปหน้านั้นได้ทันที ลำดับตรงกับคู่มือและเมนูในหน้าตั้งค่า:
+  //   1) วันตัดรอบบิล — ติ๊กถูกเมื่อผู้ใช้เลือกวันเองแล้ว (billingDayConfigured)
+  //   2) เลขมิเตอร์จากใบแจ้งหนี้ — ทำเสร็จแล้วการ์ดนี้จะหายไป
+  //   3) บิลเดือนเก่า (ไม่บังคับ) — ไม่มีติ๊กถูก เพราะทำหรือไม่ทำก็ได้
+  // ระหว่างนี้ห้ามบันทึกมิเตอร์รายวัน เพราะถ้าไม่มีเลขตั้งต้น ระบบจะเอาเลข
+  // มิเตอร์สะสมทั้งก้อน (เช่น 15,234 หน่วย) ไปนับเป็น "หน่วยที่ใช้รอบนี้"
   // =====================================================================
-  Widget _buildStartMeterRequiredCard() {
+  Widget _buildSetupChecklistCard() {
+    final user = _user;
+    final billingDayDone = user?.billingDayConfigured ?? false;
+
+    Future<void> openAndReload(Future<void> Function() open) async {
+      await open();
+      await _loadData();
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.v18),
@@ -965,51 +972,124 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: DashboardStyles.primaryGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppSpacing.v8),
                 ),
-                child: const Icon(Icons.speed_outlined,
+                child: const Icon(Icons.checklist_rounded,
                     color: DashboardStyles.primaryGreen, size: 20),
               ),
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'ยังไม่ได้ตั้งเลขมิเตอร์ต้นรอบ',
+                  'เริ่มต้นใช้งาน 3 ขั้นตอน',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14_5),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          // โฟกัสที่ "ผลลัพธ์ที่ยังทำไม่ได้" แทนการเดาสาเหตุที่มา (ผู้ใช้
-          // อาจมาจากหลายทาง ไม่ใช่แค่ข้ามขั้นตอนตอนสมัครเสมอไป)
-          const Text(
-            'ระบบยังคำนวณค่าไฟ/ค่าน้ำให้ไม่ได้ เพราะยังไม่มีเลขมิเตอร์ตั้งต้น',
-            style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey, height: 1.5),
+          Text(
+            'ทำขั้นที่ 1–2 ให้ครบ หน้าหลักจะเริ่มคำนวณค่าไฟ/ค่าน้ำให้ค่ะ '
+            'เตรียมใบแจ้งหนี้ใบล่าสุดไว้ได้เลย',
+            style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600, height: 1.5),
           ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                await openStartMeterSetup(
+          const SizedBox(height: 12),
+          _setupStep(
+            number: 1,
+            title: 'ตั้งวันตัดรอบบิล',
+            description: 'เลือกวันที่จดเลขมิเตอร์บนใบแจ้งหนี้',
+            done: billingDayDone,
+            onTap: () => openAndReload(() => Navigator.push(
                   context,
-                  _user!.uid,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(
+                        quickAction: SettingsQuickAction.billingDay),
+                  ),
+                )),
+          ),
+          _setupStep(
+            number: 2,
+            title: 'เลขมิเตอร์จากใบแจ้งหนี้',
+            description: 'กรอกเลขมิเตอร์และยอดเงินจากใบแจ้งหนี้ล่าสุด',
+            done: false,
+            onTap: () => openAndReload(() => openStartMeterSetup(
+                  context,
+                  user!.uid,
                   _firestoreService,
-                  _user?.meterType == 'tou',
-                );
-                await _loadData();
-              },
-              icon: const Icon(Icons.arrow_forward, size: 18),
-              label: const Text('ตั้งเลขมิเตอร์ต้นรอบ'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: DashboardStyles.primaryGreen,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.v10),
-                ),
-              ),
-            ),
+                  user.meterType == 'tou',
+                )),
+          ),
+          _setupStep(
+            number: 3,
+            title: 'เพิ่มบิลเดือนเก่า (ไม่บังคับ)',
+            description: 'ย้อนหลังได้ 5 เดือน ให้หน้าวิเคราะห์มีข้อมูลทันที',
+            done: false,
+            onTap: () => openAndReload(() => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => HistoricalBillListScreen(
+                      uid: user!.uid,
+                      firestoreService: _firestoreService,
+                    ),
+                  ),
+                )),
           ),
         ],
+      ),
+    );
+  }
+
+  // แถวขั้นตอนในการ์ดเช็คลิสต์ — วงกลมเลขขั้น (เสร็จแล้วเป็นติ๊กถูก) +
+  // ชื่อขั้น + คำอธิบายสั้น แตะทั้งแถวเพื่อไปทำขั้นนั้น
+  Widget _setupStep({
+    required int number,
+    required String title,
+    required String description,
+    required bool done,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppSpacing.v10),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8),
+        child: Row(
+          children: [
+            Container(
+              width: 26,
+              height: 26,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: done
+                    ? DashboardStyles.primaryGreen
+                    : DashboardStyles.primaryGreen.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: done
+                  ? const Icon(Icons.check, size: 15, color: Colors.white)
+                  : Text('$number',
+                      style: const TextStyle(
+                          fontSize: AppTypography.s12_5,
+                          fontWeight: FontWeight.bold,
+                          color: DashboardStyles.primaryGreen)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                        fontSize: AppTypography.s13_5,
+                        fontWeight: FontWeight.w600,
+                        color: done ? Colors.grey.shade500 : DashboardStyles.textDark,
+                      )),
+                  const SizedBox(height: 2),
+                  Text(done ? 'ตั้งแล้ว แตะเพื่อเปลี่ยน' : description,
+                      style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -1017,7 +1097,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // =====================================================================
   // การ์ดล็อก — โชว์แทนการ์ดสรุปมิเตอร์ปกติ เฉพาะฝั่งที่ยังไม่ได้ตั้งเลข
   // มิเตอร์ต้นรอบ (electricityStartConfigured / waterStartConfigured เป็น
-  // false) ในขณะที่อีกฝั่งตั้งไปแล้ว ไม่ใช้ _buildStartMeterRequiredCard()
+  // false) ในขณะที่อีกฝั่งตั้งไปแล้ว ไม่ใช้การ์ดเช็คลิสต์ (_buildSetupChecklistCard)
   // บล็อกทั้งคู่ เพราะฝั่งที่กรอกครบแล้วควรใช้งานได้เลย ไม่ต้องรอรอบอีกฝั่ง
   // (เคสมีบิลแค่ใบเดียวในมือ) ขนาด/โครงให้ใกล้เคียง _buildMeterSummaryCard
   // เพื่อให้สูงเท่ากันตอนอยู่ใน Row เดียวกัน

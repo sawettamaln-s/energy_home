@@ -4,7 +4,7 @@
 //
 // ทุกเคสเรียกแบบ silent: true — บันทึกลงประวัติแต่ไม่ยิงแจ้งเตือนจริงผ่าน
 // plugin (ซึ่งต้องรันบนเครื่องจริง) จึงตรวจผลได้จากประวัติแจ้งเตือนในเครื่อง
-// ส่วนการตั้งเวลาเตือนใกล้วันตัดรอบ (zonedSchedule) ต้องทดสอบบนเครื่องจริง
+// ส่วนการตั้งเวลาเตือนวันตัดรอบ (zonedSchedule) ต้องทดสอบบนเครื่องจริง
 import 'package:energy_home/services/notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -157,6 +157,57 @@ void main() {
       expect(history.first.body, contains('6/2026'));
       expect(history.first.body, isNot(contains('5/2026')));
       expect(await service.isCycleFlaggedMissing('5/2026'), isTrue);
+    });
+  });
+
+  group('เตือนเช้าวันตัดรอบบิล', () {
+    final start = DateTime(2026, 6, 30);
+    final end = DateTime(2026, 7, 30);
+
+    test('กลางรอบ -> ตั้งเตือน 09:00 ของวันตัดรอบครั้งถัดไป', () {
+      expect(
+        NotificationService.billingReminderTime(
+            cycleStart: start, cycleEnd: end, now: DateTime(2026, 7, 10, 14)),
+        DateTime(2026, 7, 30, 9),
+      );
+    });
+
+    test('วันตัดรอบก่อน 09:00 -> เตือนของวันนี้', () {
+      expect(
+        NotificationService.billingReminderTime(
+            cycleStart: start, cycleEnd: end, now: DateTime(2026, 6, 30, 7)),
+        DateTime(2026, 6, 30, 9),
+      );
+    });
+
+    test('วันตัดรอบหลัง 09:00 -> ข้ามไปรอบถัดไป', () {
+      expect(
+        NotificationService.billingReminderTime(
+            cycleStart: start, cycleEnd: end, now: DateTime(2026, 6, 30, 10)),
+        DateTime(2026, 7, 30, 9),
+      );
+    });
+
+    test('กำหนดการที่ผ่านไปแล้ว -> บันทึกเข้าประวัติครั้งเดียว', () async {
+      SharedPreferences.setMockInitialValues({
+        'user-1_pending_billing_reminder_time':
+            DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+      });
+      await service.syncDeliveredScheduledNotifications();
+      await service.syncDeliveredScheduledNotifications();
+
+      final history = await service.getHistory();
+      expect(history.map((e) => e.type), ['billing']);
+      expect(history.single.title, NotificationService.billingReminderTitle);
+    });
+
+    test('กำหนดการที่ยังไม่ถึง -> ยังไม่เข้าประวัติ', () async {
+      SharedPreferences.setMockInitialValues({
+        'user-1_pending_billing_reminder_time':
+            DateTime.now().add(const Duration(days: 3)).toIso8601String(),
+      });
+      await service.syncDeliveredScheduledNotifications();
+      expect(await historyTypes(), isEmpty);
     });
   });
 

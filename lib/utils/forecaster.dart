@@ -67,10 +67,10 @@ class EnergyForecaster {
     return double.parse(forecast.toStringAsFixed(2));
   }
 
-  // ==================== Seasonal Curve (synthetic + จริงผสมกัน) ====================
+  // ==================== Seasonal Curve ====================
   // ใช้คาดการณ์เดือนถัดไป โดยเอาค่าเฉลี่ยล่าสุดของ user คูณกับ "ตัวคูณตามฤดูกาล"
-  // ของเคสนั้น (ดู lib/utils/seasonal_curves.dart ที่ generate มาจาก
-  // tool/forecast_synth/ — ผสมข้อมูลสมมติกับข้อมูลจริงเท่าที่มี)
+  // ของเคสนั้น (ดู lib/utils/seasonal_curves.dart ที่สร้างจากสถิติการใช้จริง
+  // รายเดือนของภาคที่อยู่อาศัย ด้วย tool/seasonal_curves/)
 
   static double seasonalForecast({
     required List<double> recentMonthlyValues, // ค่าใช้จ่ายย้อนหลังไม่กี่เดือนล่าสุดของ user คนนี้

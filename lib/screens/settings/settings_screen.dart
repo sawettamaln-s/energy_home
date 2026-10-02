@@ -585,8 +585,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // หน้าเดียวรวมประวัติ + เพิ่มค่าใหม่ (มีปุ่ม + ในหน้านั้น)
           _buildSettingsTile(
             icon: Icons.history,
-            title: 'บันทึกเลขมิเตอร์ประจำเดือน',
-            subtitle: 'กรอกเลขมิเตอร์ทุกเดือนที่บิลมา เพื่อใช้คำนวณ',
+            title: 'เลขมิเตอร์จากใบแจ้งหนี้',
+            subtitle: 'กรอกทุกครั้งที่ได้ใบแจ้งหนี้ใหม่ ใช้เป็นจุดเริ่มคำนวณรอบบิล',
             color: _sectionColor,
             onTap: () => _showStartMeterHistory(),
           ),
@@ -653,8 +653,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(height: 1, indent: 56),
           _notifTypeToggle(
             icon: Icons.event_available_outlined,
-            title: 'ใกล้วันตัดรอบบิล',
-            subtitle: 'เตือนล่วงหน้าก่อนถึงวันตัดรอบบิลของคุณ',
+            title: 'ถึงวันตัดรอบบิล',
+            subtitle: 'เตือนเช้าวันตัดรอบ ให้บันทึกเลขมิเตอร์จากใบแจ้งหนี้ใหม่',
             type: 'billing',
             enabled: granted,
           ),

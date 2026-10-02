@@ -214,8 +214,8 @@ class AnalysisService {
   /// คาดการณ์ "แนวโน้มระยะยาว" ของเดือนถัดไป
   ///
   /// ถ้าใส่ area+meterType มา (รู้ area/meterType ของ user คนนี้) จะใช้
-  /// "seasonal curve" (ผสมข้อมูลสมมติ+จริง จาก tool/forecast_synth/) ซึ่งจับ
-  /// รูปแบบฤดูกาลได้ ต่างจาก linear regression ที่จับไม่ได้
+  /// "seasonal curve" (สร้างจากสถิติการใช้จริงรายเดือน ดู tool/seasonal_curves/)
+  /// ซึ่งจับรูปแบบฤดูกาลได้ ต่างจาก linear regression ที่จับไม่ได้
   ///
   /// ถ้าไม่ใส่ area/meterType มา จะ fallback ไปใช้ linear regression
   double forecastNextMonth(
