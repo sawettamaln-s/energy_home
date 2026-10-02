@@ -547,6 +547,9 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         ].join(' และ ')}'
             'ที่กรอกไว้ต่ำกว่ารอบก่อนหน้า ถ้าไม่ได้เพิ่งเปลี่ยนมิเตอร์ตัวใหม่ '
             'อาจเป็นการกรอกผิด ต้องการบันทึกต่อเลยไหมคะ?',
+        confirmLabel: 'บันทึกต่อ',
+        cancelLabel: 'กลับไปแก้ไข',
+        confirmColor: DashboardStyles.primaryGreen,
       );
       if (confirm != true || !mounted) return;
     }
