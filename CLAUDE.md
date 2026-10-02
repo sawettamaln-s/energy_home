@@ -43,4 +43,4 @@ These are standalone `dart run` scripts, not part of the app:
 - `backtest_forecast.dart` runs a walk-forward backtest of linear regression against the seasonal forecast, using the real functions from `lib/utils`.
 - `migrate_tou_bills.dart`: see `tool/README_migrate_tou_bills.md`. Always run it as a dry run first; `--apply` writes to Firestore.
 - `seasonal_curves/` (Python): `build_seasonal_curves.py` builds the seasonal curves; `backtest_forecast_methods.py` reports MAPE of the forecast methods on the same real data.
-- `forecast_synth/` generates synthetic demo accounts and imports them into Firestore.
+- `demo_data/generate_demo_account.dart` fills an existing account with demo data for one of the 4 cases (`bangkok_normal`, `bangkok_tou`, `upcountry_normal`, `upcountry_tou`) using the app's own cycle rules and seasonal curves. Dry run by default; `--apply` writes, `--reset` clears the account's data first.
