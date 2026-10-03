@@ -1229,11 +1229,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // -------------------------------------------------------------------
   // การ์ดยอดรวม — พื้นขาว กรอบครีม
+  // ยอดที่ใช้ไปแล้วของรอบนี้ + รายจ่ายประจำ (ยังไม่ใช่ยอดบิลทั้งรอบ) ถ้ามี
+  // ข้อมูลพอคาดการณ์ ต่อท้ายด้วยยอดคาดการณ์ทั้งรอบรวมรายจ่ายประจำ
   // -------------------------------------------------------------------
   Widget _buildSummaryCard(NumberFormat formatter) {
     final cycleEnd =
         EnergyForecaster.getCycleEnd(DateTime.now(), _user?.billingDay ?? 30);
     final cycleEndBuddhistYear = cycleEnd.year + 543;
+    final fixedCost = _user?.fixedCost ?? 0;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.v18),
@@ -1266,7 +1269,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'ยอดสรุปบิลรอบถัดไป (${thaiMonths[cycleEnd.month - 1]} $cycleEndBuddhistYear)',
+                  'ยอดรวมถึงตอนนี้ (บิล ${thaiMonths[cycleEnd.month - 1]} $cycleEndBuddhistYear)',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: AppTypography.s14_5,
@@ -1277,18 +1280,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 18),
           _buildSummaryRow(
-            'ค่าไฟ + น้ำ (ปัจจุบัน)',
+            'ค่าไฟ + น้ำ (ใช้ไปแล้ว)',
             '${formatter.format(_currentElectricityCost + _currentWaterCost)} บาท',
           ),
           const SizedBox(height: 10),
           _buildSummaryRow(
             'รายจ่ายประจำ',
-            '${formatter.format(_user?.fixedCost ?? 0)} บาท',
+            '${formatter.format(fixedCost)} บาท',
           ),
           const SizedBox(height: 16),
           const Divider(height: 1, color: DashboardStyles.creamBorder),
           const SizedBox(height: 16),
-          // แถบ "รวมทั้งสิ้น" — แยกเป็นกล่องไฮไลต์ ให้รู้สึกเป็นยอดสุดท้ายจริง ๆ
+          // แถบ "รวมถึงตอนนี้" — แยกเป็นกล่องไฮไลต์ ให้เห็นยอดรวมชัด
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v13),
@@ -1300,7 +1303,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'รวมทั้งสิ้น',
+                  'รวมถึงตอนนี้',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: AppTypography.s15,
@@ -1308,7 +1311,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 Text(
-                  '${formatter.format((_currentElectricityCost + _currentWaterCost) + (_user?.fixedCost ?? 0))} บาท',
+                  '${formatter.format((_currentElectricityCost + _currentWaterCost) + fixedCost)} บาท',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: AppTypography.s19,
@@ -1318,6 +1321,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+          if (_hasForecastData) ...[
+            const SizedBox(height: 12),
+            _buildSummaryRow(
+              'คาดว่าบิลทั้งรอบ (รวมรายจ่ายประจำ)',
+              '${formatter.format(_forecastTotal + fixedCost)} บาท',
+            ),
+          ],
         ],
       ),
     );

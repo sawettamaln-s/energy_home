@@ -51,6 +51,9 @@ class CurrentCycleForecast {
   final int daysElapsed; // ผ่านมาแล้วกี่วันในรอบนี้
   final int remainingDays; // เหลืออีกกี่วันจะตัดรอบ
   final int cycleLengthDays; // รอบบิลนี้ยาวกี่วันทั้งหมด
+  // เดือนของใบแจ้งหนี้รอบนี้ (= เดือนของวันตัดรอบ วันที่ 1) ตรงกับ year/month
+  // ของบิลที่ระบบจะปิดให้เมื่อจบรอบ
+  final DateTime billMonth;
 
   CurrentCycleForecast({
     required this.currentCost,
@@ -60,6 +63,7 @@ class CurrentCycleForecast {
     required this.daysElapsed,
     required this.remainingDays,
     required this.cycleLengthDays,
+    required this.billMonth,
   });
 
   /// ความคืบหน้าของรอบบิล 0.0 - 1.0 (ใช้ทำ progress bar)
@@ -218,32 +222,41 @@ class AnalysisService {
   /// ซึ่งจับรูปแบบฤดูกาลได้ ต่างจาก linear regression ที่จับไม่ได้
   ///
   /// ถ้าไม่ใส่ area/meterType มา จะ fallback ไปใช้ linear regression
+  ///
+  /// [targetMonth] = เดือนของบิลที่จะคาดการณ์ (วันที่ 1) ไม่ใส่ = เดือนถัดจาก
+  /// บิลล่าสุด ต้องอยู่หลังบิลล่าสุด
   double forecastNextMonth(
     List<BillModel> bills, {
     required double Function(BillModel) selector,
     String? area,
     String? meterType,
     bool isWater = false,
+    DateTime? targetMonth,
   }) {
     if (bills.isEmpty) return 0;
     final monthlyValues = bills.map(selector).toList();
+    final current = bills.last;
+    final target =
+        targetMonth ?? DateTime(current.year, current.month + 1, 1);
 
     final curve = _resolveCurve(area: area, meterType: meterType, isWater: isWater);
     if (curve != null) {
-      final current = bills.last;
-      final targetMonth = DateTime(current.year, current.month + 1, 1).month;
       final recentBills = _recentWindow(bills);
       return EnergyForecaster.seasonalForecast(
         recentMonthlyValues: recentBills.map(selector).toList(),
         recentMonths: recentBills.map((b) => b.month).toList(),
         curve: curve,
-        forecastMonth: targetMonth,
+        forecastMonth: target.month,
       );
     }
 
+    // เส้นแนวโน้มนับบิลเป็นจุดที่ 1..n — เป้าหมายห่างจากบิลล่าสุดกี่เดือน
+    // ก็เลื่อนจุดที่ทายออกไปเท่านั้น
+    final monthsAhead = (target.year * 12 + target.month) -
+        (current.year * 12 + current.month);
     return EnergyForecaster.linearRegression(
       monthlyValues: monthlyValues,
-      forecastMonth: monthlyValues.length + 1,
+      forecastMonth: monthlyValues.length + (monthsAhead < 1 ? 1 : monthsAhead),
     );
   }
 
@@ -414,6 +427,7 @@ class AnalysisService {
       daysElapsed: daysElapsed,
       remainingDays: remainingDays,
       cycleLengthDays: cycleLengthDays,
+      billMonth: DateTime(cycleEnd.year, cycleEnd.month, 1),
     );
   }
 
@@ -468,7 +482,6 @@ class AnalysisService {
     required double Function(BillModel) selector,
     required ComparisonResult? mom,
     required ComparisonResult? yoy,
-    required double forecastNextMonth,
     CurrentCycleForecast? currentCycle,
     bool trackAppliances = true,
   }) {

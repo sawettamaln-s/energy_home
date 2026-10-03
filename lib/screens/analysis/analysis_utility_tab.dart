@@ -83,30 +83,38 @@ class _UtilityTab extends StatelessWidget {
     final mom = analysisService.compareMoM(bills, selector: selector);
     final yoy = analysisService.compareYoY(bills, selector: selector);
     final avg6 = analysisService.compareToAverage(bills, selector: selector);
+    final nextBillMonth = _nextBillMonth;
     final forecast = analysisService.forecastNextMonth(
       bills,
       selector: selector,
       area: area,
       meterType: meterType,
       isWater: isWater,
+      targetMonth: nextBillMonth,
     );
-    final multiMonthForecast = analysisService.forecastNextMonths(
-      bills,
-      selector: selector,
-      months: 3,
-      area: area,
-      meterType: meterType,
-      isWater: isWater,
+    final multiMonthForecast = _withCurrentCycle(
+      analysisService.forecastNextMonths(
+        bills,
+        selector: selector,
+        months: 3,
+        area: area,
+        meterType: meterType,
+        isWater: isWater,
+      ),
+      (c) => c.forecastCost,
     );
     // คาดการณ์ฝั่ง "หน่วยที่ใช้" (กราฟเทรนด์สลับโหมดได้) — เส้นฤดูกาลสร้างจาก
     // ยอดหน่วยอยู่แล้ว (tool/seasonal_curves) ยอดรวมทั้งเดือนไม่แยก On/Off-Peak
-    final multiMonthUsedForecast = analysisService.forecastNextMonths(
-      bills,
-      selector: usedSelector,
-      months: 3,
-      area: area,
-      meterType: meterType,
-      isWater: isWater,
+    final multiMonthUsedForecast = _withCurrentCycle(
+      analysisService.forecastNextMonths(
+        bills,
+        selector: usedSelector,
+        months: 3,
+        area: area,
+        meterType: meterType,
+        isWater: isWater,
+      ),
+      (c) => c.forecastUnits,
     );
 
     final insights = analysisService.generateUtilityInsights(
@@ -115,7 +123,6 @@ class _UtilityTab extends StatelessWidget {
       selector: selector,
       mom: mom,
       yoy: yoy,
-      forecastNextMonth: forecast,
       currentCycle: currentCycle,
       trackAppliances: trackAppliances,
     );
@@ -242,6 +249,7 @@ class _UtilityTab extends StatelessWidget {
         if (bills.isNotEmpty) ...[
           const SizedBox(height: 10),
           _forecastCard(context, forecast,
+              targetMonth: nextBillMonth!,
               lowConfidence: forecastLowConfidence,
               usesSeasonalCurve: usesSeasonalCurve),
         ],
@@ -251,6 +259,40 @@ class _UtilityTab extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  // เดือนของบิลที่การ์ด "คาดการณ์บิลรอบถัดไป" ทาย = บิลถัดจากรอบที่กำลังใช้อยู่
+  // (บิลของรอบนี้มีการ์ด "คาดการณ์ยอดบิลรอบนี้" อยู่แล้ว) ถ้ามีบิลที่ใหม่กว่า
+  // นั้นอยู่แล้วใช้เดือนถัดจากบิลล่าสุด — ไม่มีบิลเลยคืน null
+  DateTime? get _nextBillMonth {
+    if (bills.isEmpty) return null;
+    final afterLastBill = DateTime(bills.last.year, bills.last.month + 1, 1);
+    final c = currentCycle;
+    if (c == null) return afterLastBill;
+    final afterCycle = DateTime(c.billMonth.year, c.billMonth.month + 1, 1);
+    return afterCycle.isAfter(afterLastBill) ? afterCycle : afterLastBill;
+  }
+
+  String get _currentCycleNote =>
+      'ส่วนบิลของรอบที่กำลังใช้อยู่ ดูได้ที่การ์ด "คาดการณ์ยอดบิลรอบนี้" ด้านบน '
+      '(แสดงเมื่อบันทึกมิเตอร์ในรอบนี้แล้ว)';
+
+  // แท่งคาดการณ์ในกราฟเทรนด์เริ่มจากเดือนถัดจากบิลล่าสุด — แท่งที่ตรงกับบิล
+  // ของรอบที่กำลังใช้อยู่ใช้ตัวเลขเดียวกับการ์ด "คาดการณ์ยอดบิลรอบนี้" (อัตรา
+  // ต่อวันจากบันทึกจริง) แทนค่าจากรูปแบบฤดูกาล ตัวเลขของบิลใบเดียวกันจึงตรงกัน
+  // ทั้งหน้า (รอบนี้ยังไม่มีบันทึกใช้ค่าจากรูปแบบฤดูกาลตามเดิม)
+  List<double> _withCurrentCycle(
+    List<double> forecasts,
+    double Function(CurrentCycleForecast) pick,
+  ) {
+    final c = currentCycle;
+    if (c == null || !c.hasData || bills.isEmpty) return forecasts;
+    return [
+      for (var i = 0; i < forecasts.length; i++)
+        DateTime(bills.last.year, bills.last.month + i + 1, 1) == c.billMonth
+            ? pick(c)
+            : forecasts[i],
+    ];
   }
 
   Widget _currentCycleCard(BuildContext context) {
@@ -282,9 +324,13 @@ class _UtilityTab extends StatelessWidget {
                 child: Icon(Icons.timelapse, color: accentColor, size: 15),
               ),
               const SizedBox(width: 8),
-              const Text('คาดการณ์ยอดบิลรอบนี้',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                    'คาดการณ์ยอดบิลรอบนี้ • ${_thaiMonthShort[c.billMonth.month - 1]}',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
+              ),
               Text('ผ่านมาแล้ว $progressPercent%',
                   style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
               const SizedBox(width: 8),
@@ -583,11 +629,15 @@ class _UtilityTab extends StatelessWidget {
   Widget _forecastCard(
     BuildContext context,
     double forecast, {
+    required DateTime targetMonth,
     required bool lowConfidence,
     required bool usesSeasonalCurve,
   }) {
     final comparedToLastBill =
         bills.isNotEmpty ? selector(bills.last) : null;
+    final lastBillName =
+        bills.isNotEmpty ? _thaiMonthShort[bills.last.month - 1] : '';
+    final targetName = _thaiMonthShort[targetMonth.month - 1];
     final comparison = comparedToLastBill != null && comparedToLastBill > 0
         ? ComparisonResult(
             currentValue: forecast, previousValue: comparedToLastBill)
@@ -602,12 +652,9 @@ class _UtilityTab extends StatelessWidget {
         avg6ForAnomalyCheck.percentChange != null &&
         avg6ForAnomalyCheck.percentChange!.abs() >= 70;
 
-    final targetMonth = bills.isNotEmpty
-        ? DateTime(bills.last.year, bills.last.month + 1, 1).month
-        : null;
-    final seasonalFactor = (usesSeasonalCurve && targetMonth != null)
+    final seasonalFactor = usesSeasonalCurve
         ? analysisService.seasonalFactorForMonth(
-            month: targetMonth,
+            month: targetMonth.month,
             area: area,
             meterType: meterType,
             isWater: isWater,
@@ -622,9 +669,8 @@ class _UtilityTab extends StatelessWidget {
                 ? DashboardStyles.spikeUp
                 : DashboardStyles.spikeDown));
 
-    final (IconData badgeIcon, Color badgeColor) = targetMonth != null
-        ? _seasonVisual(_seasonFor(targetMonth))
-        : (Icons.insights, _green);
+    final (IconData badgeIcon, Color badgeColor) =
+        _seasonVisual(_seasonFor(targetMonth.month));
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.v16),
@@ -652,9 +698,7 @@ class _UtilityTab extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  targetMonth != null
-                      ? 'คาดการณ์เดือนหน้า • ${_thaiMonthShort[targetMonth - 1]}'
-                      : 'คาดการณ์เดือนหน้า',
+                  'คาดการณ์บิลรอบถัดไป • $targetName',
                   style: TextStyle(
                       fontSize: AppTypography.s13,
                       fontWeight: FontWeight.w700,
@@ -669,14 +713,16 @@ class _UtilityTab extends StatelessWidget {
                   message: usesSeasonalCurve
                       ? 'เอาค่าเฉลี่ย$labelย้อนหลังไม่กี่เดือนล่าสุดของคุณ '
                           'มาปรับด้วยรูปแบบฤดูกาล (เช่น เดือนร้อนมักใช้ไฟ'
-                          'มากกว่าเดือนหนาว) เพื่อทายเดือนถัดไปให้ใกล้เคียง'
+                          'มากกว่าเดือนหนาว) เพื่อทายบิล $targetName ให้ใกล้เคียง'
                           'ความจริงมากกว่าการลากเส้นแนวโน้มตรงๆ\n\n'
                           'รูปแบบฤดูกาลคำนวณจากสถิติการใช้ไฟฟ้า/น้ำประปาจริง'
                           'ของบ้านอยู่อาศัยรายเดือนย้อนหลังหลายปี (ข้อมูลเปิด'
-                          'ของ สนพ. และ กปน.) แยกตามพื้นที่ของคุณ'
+                          'ของ สนพ. และ กปน.) แยกตามพื้นที่ของคุณ\n\n'
+                          '$_currentCycleNote'
                       : 'ประมาณแนวโน้มจากยอด$labelย้อนหลังทั้งหมดที่บันทึกไว้ '
-                          'แล้วลากเส้นแนวโน้มนั้นต่อไปยังเดือนถัดไป\n\n'
-                          'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขนี้จะยิ่งแม่นยำขึ้น',
+                          'แล้วลากเส้นแนวโน้มนั้นต่อไปยังบิล $targetName\n\n'
+                          'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขนี้จะยิ่งแม่นยำขึ้น\n\n'
+                          '$_currentCycleNote',
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.v6),
@@ -690,11 +736,11 @@ class _UtilityTab extends StatelessWidget {
           Text('${_fmt.format(forecast)} บาท',
               style: const TextStyle(
                   fontWeight: FontWeight.bold, fontSize: AppTypography.s24, color: _green)),
-          if (seasonalFactor != null && targetMonth != null)
+          if (seasonalFactor != null)
             Padding(
               padding: const EdgeInsets.only(top: AppSpacing.v4),
               child: Text(
-                _seasonReasonText(targetMonth, seasonalFactor),
+                _seasonReasonText(targetMonth.month, seasonalFactor),
                 style: TextStyle(
                     fontSize: AppTypography.s11_5, color: Colors.grey.shade700, height: 1.4),
               ),
@@ -721,8 +767,8 @@ class _UtilityTab extends StatelessWidget {
                 Expanded(
                   child: Text(
                     comparison.isUnchanged
-                        ? 'ไม่เปลี่ยนแปลงจากเดือนนี้'
-                        : '${comparison.isIncrease ? 'สูงกว่า' : 'ประหยัดกว่า'}เดือนนี้ประมาณ '
+                        ? 'ใกล้เคียงกับบิล $lastBillName'
+                        : '${comparison.isIncrease ? 'สูงกว่า' : 'ประหยัดกว่า'}บิล $lastBillName ประมาณ '
                             '${comparison.percentChange != null ? '${comparison.percentChange!.abs().toStringAsFixed(0)}% ' : ''}'
                             '(${comparison.isIncrease ? '+' : '-'}${_fmt.format(comparison.diff.abs())} บาท)',
                     style: TextStyle(
@@ -906,6 +952,6 @@ class _UtilityTab extends StatelessWidget {
 }
 
 // =====================================================================
-// ไอคอนฤดูกาลของการ์ดคาดการณ์เดือนหน้า: ร้อน = พระอาทิตย์, ฝน = ร่ม,
+// ไอคอนฤดูกาลของการ์ดคาดการณ์บิลรอบถัดไป: ร้อน = พระอาทิตย์, ฝน = ร่ม,
 // หนาว = เกล็ดหิมะ (ช่วงเดือนตรงกับ _seasonName)
 enum _Season { summer, rainy, cool }

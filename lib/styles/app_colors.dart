@@ -76,7 +76,7 @@ class AppColors {
     Color(0xFFD98E5B), // ส้มดิน
   ];
 
-  // ---------- ฤดูกาล (การ์ดคาดการณ์เดือนหน้า) ----------
+  // ---------- ฤดูกาล (การ์ดคาดการณ์บิลรอบถัดไป) ----------
   static const Color seasonSummer = Color(0xFFF57C00);
   static const Color seasonRainy = Color(0xFF1E88E5);
   static const Color seasonCool = Color(0xFF0097A7);

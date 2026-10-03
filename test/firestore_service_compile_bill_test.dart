@@ -9,6 +9,8 @@
 //   3) มิเตอร์ TOU แต่ log ของรอบนี้มีค่ามิเตอร์ <= ค่าต้นรอบ (เช่น ยังไม่ได้
 //      บันทึกการใช้จริง หรือมิเตอร์เพิ่งเปลี่ยน) -> ต้องได้ 0 ไม่ใช่ค่าติดลบ
 //      (พึ่ง guard ของ EnergyCalculator.calculateUsed() ที่มีอยู่แล้ว)
+// และครอบการประมาณยอดจากบันทึกครั้งสุดท้ายไปถึงวันตัดรอบ, การเลือกเลข
+// ต้นรอบของรอบที่ compile และ fixedCost ของรอบนั้น
 //
 // ใช้ FakeFirebaseFirestore แทนของจริง ไม่ต้องพึ่ง Firebase.initializeApp()
 // ตามแพทเทิร์นเดียวกับ test/widget_test.dart
@@ -17,6 +19,7 @@ import 'package:energy_home/models/electricity_log_model.dart';
 import 'package:energy_home/models/fixed_cost_item_model.dart';
 import 'package:energy_home/models/start_meter_record_model.dart';
 import 'package:energy_home/models/user_model.dart';
+import 'package:energy_home/models/water_log_model.dart';
 import 'package:energy_home/services/firestore_service.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,7 +28,9 @@ void main() {
   // ช่วงรอบบิลเดียวกันที่ใช้ทดสอบทุกเคส (1 มิ.ย. - 1 ก.ค. 2026)
   final startDate = DateTime(2026, 6, 1);
   final endDate = DateTime(2026, 7, 1);
-  final logDate = DateTime(2026, 6, 15);
+  // บันทึกไม่ถึง 1 นาทีก่อนวันตัดรอบ — ส่วนที่ประมาณเพิ่มถึงวันตัดรอบเป็น 0
+  // เคสที่ไม่ได้ทดสอบการประมาณจึงเทียบยอดจาก log ได้ตรงๆ
+  final logDate = DateTime(2026, 6, 30, 23, 59, 30);
 
   Future<BillModel> compileAndFetch(
     FirestoreService service,
@@ -190,6 +195,54 @@ void main() {
 
     expect(bill.electricityPeakUsed, 120);
     expect(bill.electricityOffPeakUsed, 60);
+  });
+
+  test(
+      'บันทึกครั้งสุดท้ายก่อนวันตัดรอบ: ประมาณยอดถึงวันตัดรอบด้วยอัตราต่อวัน '
+      '(ไฟกับน้ำใช้วันที่ของ log ตัวเอง)', () async {
+    final firestore = FakeFirebaseFirestore();
+    final service = FirestoreService(firestore: firestore);
+    const uid = 'project-user';
+
+    await service.createUser(UserModel(
+      uid: uid,
+      name: 'Project User',
+      email: 'project@example.com',
+      meterType: 'tou',
+      startPeakValue: 1000,
+      startOffPeakValue: 500,
+    ));
+
+    // ไฟ: บันทึกวันที่ 16 มิ.ย. (ผ่านไป 15 วันจากรอบ 30 วัน) → ยอดคูณ 2
+    await service.saveElectricityLog(ElectricityLogModel(
+      id: 'e-1',
+      uid: uid,
+      date: DateTime(2026, 6, 16),
+      meterValue: 90,
+      peakMeterValue: 1060,
+      offPeakMeterValue: 530,
+      usedFromStart: 90,
+      cost: 400,
+    ));
+    // น้ำ: บันทึกวันที่ 11 มิ.ย. (ผ่านไป 10 วัน) → ยอดคูณ 3
+    await service.saveWaterLog(WaterLogModel(
+      id: 'w-1',
+      uid: uid,
+      date: DateTime(2026, 6, 11),
+      meterValue: 105,
+      usedFromStart: 5,
+      cost: 50,
+    ));
+
+    final bill = await compileAndFetch(service, uid);
+
+    expect(bill.electricityCost, 800);
+    expect(bill.electricityUsed, 180);
+    expect(bill.electricityPeakUsed, 120);
+    expect(bill.electricityOffPeakUsed, 60);
+    expect(bill.waterCost, 150);
+    expect(bill.waterUsed, 15);
+    expect(bill.totalCost, 950);
   });
 
   test(

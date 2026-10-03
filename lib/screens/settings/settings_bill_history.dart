@@ -1053,8 +1053,8 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
         const Text(
           'สำหรับเพิ่มบิลของเดือนก่อนๆ ที่ไม่มีข้อมูลในระบบ ไม่ว่าจะเป็นเดือน'
           'ก่อนเริ่มใช้แอป (กรอกได้สูงสุด 6 เดือนผ่านปุ่ม +) หรือเดือนที่ใช้แอป'
-          'อยู่แล้วแต่ดันลืมบันทึกไปทั้งเดือน (ระบบจะโชว์เป็นแถว "ยังไม่ได้'
-          'บันทึก" ให้กดกรอกได้เลย) เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไป'
+          'อยู่แล้วแต่ดันลืมบันทึกไปทั้งเดือน (ระบบจะโชว์เป็นแถว "(ยังไม่'
+          'กรอก)" ให้กดกรอกได้เลย) เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไป'
           'เปรียบเทียบได้ครบถ้วน',
           style: TextStyle(fontSize: AppTypography.s13_5, height: 1.6),
         ),
@@ -1070,6 +1070,14 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
         _infoWarningBox(
           'กรอกยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียว ไม่ใช่เลขสะสม'
           'บนมิเตอร์ (ดูวิธีกรอกละเอียดได้จากไอคอน "!" ข้างช่องกรอก)',
+        ),
+        const SizedBox(height: 14),
+        _infoSectionHeader('เดือนที่ขึ้นว่า (ประมาณ)', icon: Icons.info_outline),
+        const SizedBox(height: 4),
+        const Text(
+          'คือบิลที่ระบบปิดให้เองเมื่อจบรอบ โดยประมาณจากเลขมิเตอร์ที่บันทึกไว้'
+          'จนถึงวันตัดรอบ กดที่แถวแล้วเลือกแก้ไข เพื่อใส่ยอดจากใบแจ้งหนี้จริงได้ค่ะ',
+          style: TextStyle(fontSize: AppTypography.s13_5, height: 1.6),
         ),
       ],
     ),
@@ -1125,18 +1133,15 @@ class HistoricalBillListScreenState
   Future<void> _load() async {
     setState(() => _isLoading = true);
     final user = await widget.firestoreService.getUser(widget.uid);
+    // โชว์บิลทุกแหล่ง: กรอกเองในหน้านี้ (imported), มาจากหน้าเลขมิเตอร์ต้นรอบ
+    // (startMeter — แก้/ลบตรงนี้ไม่ได้ ดู _isStartMeterBill) และระบบปิดให้จาก
+    // บันทึกมิเตอร์ (compiled — แก้ทับเป็นยอดจากใบแจ้งหนี้ได้ ดู _isCompiledBill)
+    // ชุดเดียวกับที่ฟอร์มใช้กันเดือนซ้ำ ปุ่ม (+) จึงตัดสินจากข้อมูลเดียวกัน
     final all = await widget.firestoreService.getBills(widget.uid);
-    // โชว์ทั้งบิลที่กรอกเองในหน้านี้ (imported) และบิลที่ auto-create มาจาก
-    // หน้าเลขมิเตอร์ต้นรอบ (startMeter) — ตัวหลังแก้ไข/ลบตรงนี้ไม่ได้ (ดู _isStartMeterBill + onRowTap)
-    final relevant = all
-        .where((b) => b.source == 'imported' || b.source == 'startMeter')
-        .toList();
 
     final billingDay = user?.billingDay ?? 30;
-    // หาเดือนที่ "ไม่มีบิลเลย" เทียบกับบิลทุก source (รวม 'compiled' ด้วย ไม่ใช่
-    // แค่ relevant) กันไม่ให้เดือนที่ระบบ compile ให้เองสำเร็จแล้วถูกเข้าใจผิดว่า
-    // "ขาด" — ไล่ย้อนไปจนถึงเดือนเริ่มระบบ ไม่ใช่แค่ 5 เดือนล่าสุด (ดู
-    // _generateAllMissingMonths ด้านบนว่าทำไมถึงต้องไม่จำกัด)
+    // หาเดือนที่ "ไม่มีบิลเลย" ไล่ย้อนไปจนถึงเดือนเริ่มระบบ ไม่ใช่แค่ 5 เดือน
+    // ล่าสุด (ดู _generateAllMissingMonths ด้านบนว่าทำไมถึงต้องไม่จำกัด)
     final takenAnySource = all.map((b) => '${b.year}-${b.month}').toSet();
     final missing = _generateAllMissingMonths(
       billingDay,
@@ -1149,7 +1154,7 @@ class HistoricalBillListScreenState
       setState(() {
         _user = user;
         _billingDay = billingDay;
-        _bills = relevant;
+        _bills = all;
         _missingMonths = missing;
         _isLoading = false;
       });
@@ -1167,6 +1172,11 @@ class HistoricalBillListScreenState
   // กับ StartMeterRecordModel (เลขมิเตอร์สะสม) ไม่ตรงกัน ต้องไปจัดการที่หน้าเลขมิเตอร์ต้นรอบแทน
   bool _isStartMeterBill(BillModel bill) => bill.source == 'startMeter';
 
+  // บิลที่ระบบปิดให้เมื่อจบรอบ (ประมาณจากบันทึกมิเตอร์ถึงวันตัดรอบ) — แก้ทับ
+  // ด้วยยอดจากใบแจ้งหนี้ได้ แต่ไม่ให้ลบ เพราะเปิดหน้าหลักครั้งถัดไประบบจะ
+  // ปิดบิลเดือนที่ว่างให้ใหม่
+  bool _isCompiledBill(BillModel bill) => bill.source == 'compiled';
+
   // พาไปหน้า/ฟอร์มที่ถูกต้องสำหรับแก้ไขบิลที่มาจากเลขมิเตอร์ต้นรอบ — รอบปัจจุบัน
   // เปิดฟอร์มแก้ไขตรงๆ ได้เลย รอบเก่าที่ปิดไปแล้วคำนวณ delta ใหม่ไม่ถูกต้อง พาไปหน้าประวัติแทน
   Future<void> _goToStartMeterFor(BillModel bill) async {
@@ -1183,9 +1193,9 @@ class HistoricalBillListScreenState
     }
   }
 
-  // หน้านี้มีไว้กรอกบิลย้อนหลัง "ก่อนสมัครใช้แอป" เท่านั้น ขอบเขตแค่ 5 เดือน
-  // (ตัดเดือนของรอบปัจจุบันออกจาก dropdown แล้ว ดู _generateMonthOptions) พอกรอกครบ
-  // ซ่อนปุ่ม (+) เพราะกดไปก็จะเจอแค่ "เดือนนี้มีบิลบันทึกไว้แล้ว" ทุกเดือน — แก้ไข/ลบเดิมได้ตามปกติ
+  // ปุ่ม (+) เพิ่มบิลได้แค่ 5 เดือนย้อนหลัง (ตัดเดือนของรอบปัจจุบันออกจาก
+  // dropdown แล้ว ดู _generateMonthOptions) พอทุกเดือนมีบิลแล้ว (นับทุกแหล่ง
+  // เหมือนฟอร์ม) ซ่อนปุ่ม เพราะกดไปก็จะเจอแค่ "มีบิลแล้ว" ทุกเดือน — แก้ไขของเดิมได้ตามปกติ
   bool get _allMonthOptionsRecorded {
     final options = _generateHistoricalMonthOptions(_billingDay).skip(1);
     final taken =
@@ -1257,14 +1267,10 @@ final confirmed = await showConfirmDialog(
         .toList();
     final displayBills = [..._bills, ...placeholderBills]
       ..sort((a, b) => b.yearMonth.compareTo(a.yearMonth));
-    // รวม placeholder เข้าทั้งสองแท็บเสมอ (ไม่รู้ว่าขาดฝั่งไฟหรือน้ำ อาจขาดทั้งคู่)
-    // ต่างจากบิลจริงที่กรองด้วย cost > 0 ตามปกติ เพื่อแยกว่าเดือนนั้นมีข้อมูลฝั่งไหนบ้าง
-    final electricBills = displayBills
-        .where((b) => b.electricityCost > 0 || b.source == 'missing')
-        .toList();
-    final waterBills = displayBills
-        .where((b) => b.waterCost > 0 || b.source == 'missing')
-        .toList();
+    // ทั้งสองแท็บแสดงทุกแถว (placeholder ไม่รู้ว่าขาดฝั่งไหน อาจขาดทั้งคู่) แถวที่
+    // ฝั่งนั้นยังไม่มียอดขึ้น "(ยังไม่กรอก)" — การ์ดสรุปนับเฉพาะเดือนที่มียอดฝั่งนั้นจริง
+    final electricCount = _bills.where((b) => b.electricityCost > 0).length;
+    final waterCount = _bills.where((b) => b.waterCost > 0).length;
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
@@ -1297,7 +1303,7 @@ final confirmed = await showConfirmDialog(
                   final isWater = _tabController.index == 1;
                   final accent = isWater ? Colors.blue : Colors.orange;
                   final icon = isWater ? Icons.water_drop : Icons.bolt;
-                  final tabBills = isWater ? waterBills : electricBills;
+                  final recordedCount = isWater ? waterCount : electricCount;
                   return Container(
                     margin: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v8),
                     padding: const EdgeInsets.symmetric(
@@ -1312,7 +1318,7 @@ final confirmed = await showConfirmDialog(
                         Icon(icon, color: accent, size: 22),
                         const SizedBox(width: 10),
                         Text(
-                          '${tabBills.length} เดือน',
+                          '$recordedCount เดือน',
                           style: TextStyle(
                             color: accent,
                             fontWeight: FontWeight.w600,
@@ -1339,7 +1345,7 @@ final confirmed = await showConfirmDialog(
                     controller: _tabController,
                     children: [
                       _buildTable(
-                        bills: _bills,
+                        bills: displayBills,
                         latestId: latestId,
                         accent: Colors.orange,
                         unitLabel: 'หน่วยที่ใช้',
@@ -1350,7 +1356,7 @@ final confirmed = await showConfirmDialog(
                         isTouTable: _isTou,
                       ),
                       _buildTable(
-                        bills: _bills,
+                        bills: displayBills,
                         latestId: latestId,
                         accent: Colors.blue,
                         unitLabel: 'ลบ.ม.ที่ใช้',
@@ -1424,7 +1430,7 @@ final confirmed = await showConfirmDialog(
             switch (col) {
               case 0:
                 return '${thaiMonths[b.month - 1]} ${b.year}'
-                    '${missing ? ' (ยังไม่กรอก)' : ''}';
+                    '${missing ? ' (ยังไม่กรอก)' : _isCompiledBill(b) ? ' (ประมาณ)' : ''}';
               case 1:
                 return b.electricityPeakUsed > 0
                     ? formatter.format(b.electricityPeakUsed)
@@ -1446,7 +1452,7 @@ final confirmed = await showConfirmDialog(
           switch (col) {
             case 0:
               return '${thaiMonths[b.month - 1]} ${b.year}'
-                  '${missing ? ' (ยังไม่กรอก)' : ''}';
+                  '${missing ? ' (ยังไม่กรอก)' : _isCompiledBill(b) ? ' (ประมาณ)' : ''}';
             case 1:
               final used = usedOf(b);
               return used > 0 ? formatter.format(used) : '-';
@@ -1481,6 +1487,19 @@ final confirmed = await showConfirmDialog(
                   'เลขมิเตอร์สะสมกับบิลไม่ตรงกัน',
               lockedActionLabel: 'ไปหน้าเลขมิเตอร์จากใบแจ้งหนี้',
               onLockedAction: () => _goToStartMeterFor(b),
+            );
+            return;
+          }
+          // บิลที่ระบบปิดให้ — แก้ทับเป็นยอดจากใบแจ้งหนี้ได้ (บันทึกแล้วกลายเป็น
+          // บิลที่กรอกเอง) แต่ไม่มีปุ่มลบ (ดู _isCompiledBill)
+          if (_isCompiledBill(b)) {
+            showTableRowActions(
+              context,
+              title: '${thaiMonths[b.month - 1]} ${b.year}',
+              subtitle: 'รวม ${formatter.format(b.totalCost)} บาท • ระบบปิดบิลให้'
+                  'จากบันทึกมิเตอร์ (ประมาณถึงวันตัดรอบ) กดแก้ไขเพื่อใส่ยอด'
+                  'จากใบแจ้งหนี้จริงได้ค่ะ',
+              onEdit: () => _openSheet(existingBill: b),
             );
             return;
           }
