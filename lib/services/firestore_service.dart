@@ -9,6 +9,7 @@ import '../models/start_meter_record_model.dart';
 import '../models/user_model.dart';
 import '../models/water_log_model.dart';
 import '../utils/calculator.dart';
+import '../utils/cycle_projection.dart';
 import '../utils/data_refresh_bus.dart';
 import '../utils/forecaster.dart';
 
@@ -206,8 +207,8 @@ class FirestoreService {
   ///
   /// ยอดไฟ/น้ำ/หน่วยที่ใช้ เริ่มจาก log ล่าสุดของรอบ (cost/usedFromStart
   /// ของ log เป็นค่าสะสมจากต้นรอบอยู่แล้ว) แล้วประมาณส่วนที่เหลือจนถึงวันตัด
-  /// รอบด้วย EnergyForecaster.projectToCycleEnd (สูตรเดียวกับการ์ด "คาดว่าจะ
-  /// จบรอบที่") เพราะบันทึกครั้งสุดท้ายมักไม่ตรงวันตัดรอบ ถ้าใช้ยอดดิบบิลจะต่ำ
+  /// รอบด้วย projectElectricityToCycleEnd/projectWaterToCycleEnd (สูตรเดียวกับ
+  /// การ์ด "คาดว่าจะจบรอบที่") เพราะบันทึกครั้งสุดท้ายมักไม่ตรงวันตัดรอบ ถ้าใช้ยอดดิบบิลจะต่ำ
   /// กว่าจริง เมื่อผู้ใช้ตั้งเลขต้นรอบใหม่จากใบแจ้งหนี้ บิล 'startMeter' จะเขียน
   /// ทับด้วยยอดจริง — ไม่มี log เลยจะไม่สร้างบิล
   ///
@@ -237,33 +238,13 @@ class FirestoreService {
       final fixedCost =
           await _calcFixedCostForMonth(uid, DateTime(year, month, 1));
 
-      // ประมาณยอดสะสมจากวันที่บันทึกล่าสุดไปถึงวันตัดรอบ (ไฟกับน้ำบันทึกคนละ
-      // วันได้ จึงใช้วันที่ของ log แต่ละฝั่งเอง) — บันทึกห่างจากต้นรอบไม่ถึง
-      // 1 วันใช้ยอดดิบ
-      double toCycleEnd(double total, DateTime lastRecordedAt) =>
-          EnergyForecaster.projectToCycleEnd(
-            currentTotal: total,
-            cycleStart: startDate,
-            cycleEnd: endDate,
-            lastRecordedAt: lastRecordedAt,
-          ) ??
-          total;
-
       // log เรียงใหม่สุดก่อน — ตัวแรกคือยอดสะสม ณ วันที่บันทึกล่าสุดของรอบ
       final eLast = eLogs.isNotEmpty ? eLogs.first : null;
       final wLast = wLogs.isNotEmpty ? wLogs.first : null;
-      final totalElec = eLast != null ? toCycleEnd(eLast.cost, eLast.date) : 0.0;
-      final totalWater =
-          wLast != null ? toCycleEnd(wLast.cost, wLast.date) : 0.0;
-      final usedElec =
-          eLast != null ? toCycleEnd(eLast.usedFromStart, eLast.date) : 0.0;
-      final usedWater =
-          wLast != null ? toCycleEnd(wLast.usedFromStart, wLast.date) : 0.0;
 
-      // สำหรับมิเตอร์ TOU: คำนวณ electricityPeakUsed/electricityOffPeakUsed
-      // แยกจากค่ามิเตอร์ต้นรอบ เพื่อให้บิลที่ compile อัตโนมัติมีค่าแยก
-      // On-Peak/Off-Peak ถูกต้อง (หน้าวิเคราะห์ analysis_screen.dart ใช้ค่านี้
-      // วาดกราฟแยกสองเส้น) เหมือนกับบิลที่มาจาก 'imported'/'startMeter'
+      // สำหรับมิเตอร์ TOU: ต้องรู้เลขต้นรอบ On-Peak/Off-Peak เพื่อแยกหน่วยสองช่วง
+      // (หน้าวิเคราะห์ analysis_screen.dart ใช้ค่านี้วาดกราฟแยกสองเส้น และ
+      // ใช้คิดค่าไฟ TOU ของหน่วยที่ประมาณถึงวันตัดรอบ)
       //
       // ค่าฐานลบใช้ record ใน start_meter_history ที่เป็น "ต้นรอบ" ของรอบที่
       // กำลัง compile — record ของรอบไหนเก็บเดือนที่รอบนั้นเริ่ม
@@ -272,8 +253,8 @@ class FirestoreService {
       // และไม่ใช้ user.startPeakValue/startOffPeakValue ตรงๆ เพราะเป็นค่าของ
       // รอบล่าสุดที่ตั้งไว้ ณ ตอนนี้ ถ้าผู้ใช้ตั้งต้นรอบใหม่ไปแล้วจะไม่ตรงกับรอบ
       // ที่กำลัง compile
-      double peakUsedElec = 0;
-      double offPeakUsedElec = 0;
+      double cycleStartPeak = user.startPeakValue;
+      double cycleStartOffPeak = user.startOffPeakValue;
       if (user.meterType == 'tou' && eLast != null) {
         final startHistory = await getStartMeterHistory(uid);
         final cycleStart = startHistory
@@ -281,29 +262,34 @@ class FirestoreService {
                 r.billingMonth == startDate.month &&
                 r.billingYear == startDate.year)
             .toList();
-
-        double? cycleStartPeak;
-        double? cycleStartOffPeak;
+        // ไม่เจอ record ของรอบนี้ (เช่น log เก่าก่อนเคยตั้ง TOU) ใช้ค่าบน user
+        // ปัจจุบันเป็นทางเลือกสุดท้าย ดีกว่าไม่มีค่าให้เลย
         if (cycleStart.isNotEmpty) {
           cycleStartPeak = cycleStart.first.peakValue;
           cycleStartOffPeak = cycleStart.first.offPeakValue;
         }
-
-        // ถ้าไม่เจอ record ของรอบนี้เลย (เช่น log เก่าก่อนเคยตั้ง TOU) ค่อย
-        // fallback ไปใช้ user.startPeakValue/startOffPeakValue ปัจจุบัน
-        // เป็นทางเลือกสุดท้าย ดีกว่าไม่มีค่าให้เลย
-        cycleStartPeak ??= user.startPeakValue;
-        cycleStartOffPeak ??= user.startOffPeakValue;
-
-        peakUsedElec = toCycleEnd(
-            EnergyCalculator.calculateUsed(
-                eLast.peakMeterValue ?? 0, cycleStartPeak),
-            eLast.date);
-        offPeakUsedElec = toCycleEnd(
-            EnergyCalculator.calculateUsed(
-                eLast.offPeakMeterValue ?? 0, cycleStartOffPeak),
-            eLast.date);
       }
+
+      // ประมาณหน่วยจากวันที่บันทึกล่าสุดไปถึงวันตัดรอบ แล้วคิดเงินด้วยตาราง
+      // อัตราจริง (ดู cycle_projection.dart) — ไฟกับน้ำบันทึกคนละวันได้ จึงใช้
+      // วันที่ของ log แต่ละฝั่งเอง
+      final elec = await projectElectricityToCycleEnd(
+        latest: eLast,
+        cycleStart: startDate,
+        cycleEnd: endDate,
+        meterType: user.meterType,
+        area: user.area,
+        startPeak: cycleStartPeak,
+        startOffPeak: cycleStartOffPeak,
+      );
+      final water = projectWaterToCycleEnd(
+        latest: wLast,
+        cycleStart: startDate,
+        cycleEnd: endDate,
+        area: user.area,
+      );
+      final totalElec = elec.cost;
+      final totalWater = water.cost;
 
       // สร้าง Bill โดยใช้ id แบบตายตัวผูกกับ (year, month) — saveBill()
       // เขียนด้วย .doc(bill.id).set() (ไม่ใช่ .add()) ต่อให้ compileBill()
@@ -315,10 +301,10 @@ class FirestoreService {
         uid: uid,
         year: year,
         month: month,
-        electricityUsed: usedElec,
-        electricityPeakUsed: peakUsedElec,
-        electricityOffPeakUsed: offPeakUsedElec,
-        waterUsed: usedWater,
+        electricityUsed: elec.units,
+        electricityPeakUsed: elec.peakUnits,
+        electricityOffPeakUsed: elec.offPeakUnits,
+        waterUsed: water.units,
         electricityCost: totalElec,
         waterCost: totalWater,
         fixedCost: fixedCost,

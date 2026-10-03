@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
 import '../utils/appliance_rate.dart';
+import '../utils/cycle_projection.dart';
 import '../utils/forecaster.dart';
 import '../utils/seasonal_curves.dart';
 import 'firestore_service.dart';
@@ -360,15 +361,20 @@ class AnalysisService {
     return bills.sublist(bills.length - months);
   }
 
-  /// คาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่กำลังดำเนินอยู่ ยังไม่ปิด) จาก
-  /// อัตราเฉลี่ยต่อวัน (EnergyForecaster.projectToCycleEnd) ตัวเดียวกับที่
-  /// dashboard_screen.dart ใช้ เพื่อให้ตัวเลขตรงกันทั้งแอป
+  /// คาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่กำลังดำเนินอยู่ ยังไม่ปิด) ด้วย
+  /// projectElectricityToCycleEnd/projectWaterToCycleEnd (cycle_projection.dart)
+  /// ตัวเดียวกับที่ dashboard_screen.dart ใช้ เพื่อให้ตัวเลขตรงกันทั้งแอป
+  /// [startPeak]/[startOffPeak] = เลขต้นรอบของรอบปัจจุบัน (TOU เท่านั้น)
   ///
   /// คืนผลลัพธ์เป็น Map ที่มี key 'electricity' และ 'water'
   Future<Map<String, CurrentCycleForecast>> forecastCurrentCycle({
     required String uid,
     required FirestoreService firestoreService,
     required int billingDay,
+    required String area,
+    required String meterType,
+    double startPeak = 0,
+    double startOffPeak = 0,
   }) async {
     final now = DateTime.now();
     final startDate = EnergyForecaster.getCycleStart(now, billingDay);
@@ -377,6 +383,7 @@ class AnalysisService {
         EnergyForecaster.getCycleLengthDays(now, billingDay);
     final daysElapsed = EnergyForecaster.getDaysElapsed(now, billingDay);
     final remainingDays = EnergyForecaster.getRemainingDays(now, billingDay);
+    final billMonth = DateTime(endDate.year, endDate.month, 1);
 
     final eLogs = await firestoreService.getCurrentMonthElectricityLogs(
         uid, startDate, endDate);
@@ -384,67 +391,41 @@ class AnalysisService {
         await firestoreService.getCurrentMonthWaterLogs(uid, startDate, endDate);
 
     // log เรียงใหม่สุดก่อน — ตัวแรกคือยอดสะสม ณ วันที่บันทึกล่าสุด
-    final electricity = _buildCycleForecast(
-      currentCost: eLogs.isNotEmpty ? eLogs.first.cost : 0,
-      currentUnits: eLogs.isNotEmpty ? eLogs.first.usedFromStart : 0,
-      lastRecordedAt: eLogs.isNotEmpty ? eLogs.first.date : null,
+    final eLast = eLogs.isNotEmpty ? eLogs.first : null;
+    final wLast = wLogs.isNotEmpty ? wLogs.first : null;
+    final eProjection = await projectElectricityToCycleEnd(
+      latest: eLast,
       cycleStart: startDate,
       cycleEnd: endDate,
-      remainingDays: remainingDays,
-      daysElapsed: daysElapsed,
-      cycleLengthDays: cycleLengthDays,
+      meterType: meterType,
+      area: area,
+      startPeak: startPeak,
+      startOffPeak: startOffPeak,
     );
-
-    final water = _buildCycleForecast(
-      currentCost: wLogs.isNotEmpty ? wLogs.first.cost : 0,
-      currentUnits: wLogs.isNotEmpty ? wLogs.first.usedFromStart : 0,
-      lastRecordedAt: wLogs.isNotEmpty ? wLogs.first.date : null,
+    final wProjection = projectWaterToCycleEnd(
+      latest: wLast,
       cycleStart: startDate,
       cycleEnd: endDate,
-      remainingDays: remainingDays,
-      daysElapsed: daysElapsed,
-      cycleLengthDays: cycleLengthDays,
+      area: area,
     );
 
-    return {'electricity': electricity, 'water': water};
-  }
+    CurrentCycleForecast build(
+            double currentCost, double currentUnits, CycleProjection p) =>
+        CurrentCycleForecast(
+          currentCost: currentCost,
+          forecastCost: p.cost,
+          currentUnits: currentUnits,
+          forecastUnits: p.units,
+          daysElapsed: daysElapsed,
+          remainingDays: remainingDays,
+          cycleLengthDays: cycleLengthDays,
+          billMonth: billMonth,
+        );
 
-  // ยังหาอัตราไม่ได้ (ไม่มี log หรือบันทึกห่างจากต้นรอบไม่ถึง 1 วัน) ใช้ยอดที่
-  // ใช้ไปแล้วเป็นค่าคาดการณ์แทน
-  CurrentCycleForecast _buildCycleForecast({
-    required double currentCost,
-    required double currentUnits,
-    required DateTime? lastRecordedAt,
-    required DateTime cycleStart,
-    required DateTime cycleEnd,
-    required int remainingDays,
-    required int daysElapsed,
-    required int cycleLengthDays,
-  }) {
-    double project(double currentTotal) {
-      if (lastRecordedAt == null) return currentTotal;
-      return EnergyForecaster.projectToCycleEnd(
-            currentTotal: currentTotal,
-            cycleStart: cycleStart,
-            cycleEnd: cycleEnd,
-            lastRecordedAt: lastRecordedAt,
-          ) ??
-          currentTotal;
-    }
-
-    final forecastCost = project(currentCost);
-    final forecastUnits = project(currentUnits);
-
-    return CurrentCycleForecast(
-      currentCost: currentCost,
-      forecastCost: forecastCost,
-      currentUnits: currentUnits,
-      forecastUnits: forecastUnits,
-      daysElapsed: daysElapsed,
-      remainingDays: remainingDays,
-      cycleLengthDays: cycleLengthDays,
-      billMonth: DateTime(cycleEnd.year, cycleEnd.month, 1),
-    );
+    return {
+      'electricity': build(eLast?.cost ?? 0, eLast?.usedFromStart ?? 0, eProjection),
+      'water': build(wLast?.cost ?? 0, wLast?.usedFromStart ?? 0, wProjection),
+    };
   }
 
   /// คำนวณ kWh ของอุปกรณ์ 1 ชิ้นในช่วง totalDaysInPeriod วัน

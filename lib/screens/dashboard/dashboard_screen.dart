@@ -2,11 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/bill_model.dart';
 import '../../models/electricity_log_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/cycle_projection.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../utils/forecaster.dart';
 import '../../utils/thai_date_utils.dart';
@@ -58,7 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double _forecastWaterCost = 0;
 
   // true = มี log ในรอบนี้ที่บันทึกห่างจากต้นรอบอย่างน้อย 1 วัน (ไฟหรือน้ำ
-  // อย่างใดอย่างหนึ่ง) พอจะคำนวณอัตรา "บาท/วัน" ได้แล้ว ถ้า false ยอด
+  // อย่างใดอย่างหนึ่ง) พอจะคำนวณอัตรา "หน่วย/วัน" ได้แล้ว ถ้า false ยอด
   // คาดการณ์จะเท่ากับยอดที่ใช้ไปแล้วเฉยๆ ซึ่งไม่ใช่การคาดการณ์จริง
   // ใช้บอก UI ให้แจ้งผู้ใช้ว่ายังไม่มีข้อมูลพอ แทนการโชว์ตัวเลขคาดการณ์
   bool _hasForecastData = true;
@@ -78,6 +80,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // เช็คแค่ "ครั้งแรก" ที่ _loadData() รัน (ไม่ใช่ทุกครั้งที่ pull-to-refresh)
   // ใช้คู่กับ widget.justCompletedSetup เพื่อทำให้แจ้งเตือนเงียบแค่รอบเดียว
   bool _isFirstLoad = true;
+
+  // กันโหลดซ้อนกัน — ดู _loadData/_runBackgroundTasks
+  bool _loadInFlight = false;
+  bool _reloadPending = false;
+  bool _backgroundInFlight = false;
+
+  // รายจ่ายประจำของเดือนบิลรอบนี้ (ไม่ใช่ user.fixedCost ที่เป็นยอดของเดือน
+  // ปฏิทินปัจจุบัน) — ตรงกับที่ compileBill จะใส่ในบิลของรอบนี้
+  double _billFixedCost = 0;
 
   @override
   void initState() {
@@ -166,9 +177,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // =====================================================================
-  // โหลดข้อมูล: user, log ล่าสุด, log เดือนนี้, ปิดบิลเดือนก่อนถ้ายังไม่ปิด
+  // โหลดข้อมูลที่หน้าจอต้องใช้ แล้วแสดงผลทันที — งานที่ไม่จำเป็นต่อการแสดงผล
+  // (ปิดบิลรอบที่จบ, ไล่รอบที่ขาด, แจ้งเตือน) ทำต่อเบื้องหลังใน
+  // _runBackgroundTasks หลังหน้าจอแสดงแล้ว
+  //
+  // ถ้ามีคำขอโหลดใหม่เข้ามาระหว่างที่กำลังโหลด (เช่น ปิดบิลแล้ว DataRefreshBus
+  // แจ้งกลับมา) จะโหลดซ้ำอีกรอบหลังรอบนี้จบ ไม่โหลดซ้อนกัน
   // =====================================================================
   Future<void> _loadData() async {
+    if (_loadInFlight) {
+      _reloadPending = true;
+      return;
+    }
+    _loadInFlight = true;
     setState(() {
       _isLoading = true;
       _loadFailed = false;
@@ -176,28 +197,97 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // เงียบเฉพาะโหลดรอบแรกจริงๆ หลังสมัครสมาชิกเสร็จ — รอบถัดไป (pull-to-
     // refresh, กลับมาเปิดแอปใหม่) ยิง popup ตามปกติ
     final bool silentThisLoad = widget.justCompletedSetup && _isFirstLoad;
+    DateTime? startDate;
+    DateTime? endDate;
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      // sync ยอด fixed cost ให้ตรงกับเดือนปัจจุบันก่อนอ่าน user เพราะรายการที่
-      // ตั้ง endDate ไว้อาจ "หมดอายุ" ไปแล้วโดยไม่มี save/delete มา trigger recalc
-      await _firestoreService.recalcFixedCostTotalForToday(uid);
+      // ต้องรู้ billingDay ก่อนถึงจะรู้ขอบเขตรอบบิล
       _user = await _firestoreService.getUser(uid);
-
-      _latestElectricityLog =
-          await _firestoreService.getLatestElectricityLog(uid);
-      _latestWaterLog = await _firestoreService.getLatestWaterLog(uid);
       final now = DateTime.now();
       final billingDay = _user?.billingDay ?? 30;
-      final DateTime startDate =
-          EnergyForecaster.getCycleStart(now, billingDay);
-      final DateTime endDate = EnergyForecaster.getCycleEnd(now, billingDay);
+      final cycleStart = EnergyForecaster.getCycleStart(now, billingDay);
+      final cycleEnd = EnergyForecaster.getCycleEnd(now, billingDay);
+      startDate = cycleStart;
+      endDate = cycleEnd;
 
+      // ที่เหลือไม่ขึ้นต่อกัน โหลดพร้อมกัน
+      final results = await Future.wait<Object?>([
+        _firestoreService.getLatestElectricityLog(uid),
+        _firestoreService.getLatestWaterLog(uid),
+        _firestoreService.getCurrentMonthElectricityLogs(
+            uid, cycleStart, cycleEnd),
+        _firestoreService.getCurrentMonthWaterLogs(uid, cycleStart, cycleEnd),
+        // บิลล่าสุด (ที่ปิดไปแล้ว) ใช้เทียบ "พุ่งขึ้น/ลดลง" — query เฉพาะใบเดียว
+        // อ่านไม่ได้ถือว่ายังไม่มีบิล ไม่ทำให้ทั้งหน้าโหลดไม่สำเร็จ
+        _firestoreService
+            .getLatestBill(uid)
+            .then<BillModel?>((b) => b, onError: (_) => null),
+        // รายจ่ายประจำของเดือนบิลรอบนี้ (= เดือนของวันตัดรอบ) ใช้กติกาเดียวกับ
+        // compileBill ยอดบนหน้าหลักจึงตรงกับบิลที่จะปิดออกมา
+        _firestoreService.calcFixedCostForMonth(
+            uid, DateTime(cycleEnd.year, cycleEnd.month, 1)),
+      ]);
+      _latestElectricityLog = results[0] as ElectricityLogModel?;
+      _latestWaterLog = results[1] as WaterLogModel?;
+      _electricityLogs = results[2] as List<ElectricityLogModel>;
+      _waterLogs = results[3] as List<WaterLogModel>;
+      final latestBill = results[4] as BillModel?;
+      _lastMonthElectricityCost = latestBill?.electricityCost ?? 0;
+      _lastMonthWaterCost = latestBill?.waterCost ?? 0;
+      _billFixedCost = results[5] as double;
+
+      await _calculateCurrentMonth();
+    } catch (e) {
+      debugPrint('Error loading dashboard: $e');
+      _loadFailed = true;
+    } finally {
+      _isFirstLoad = false;
+      _loadInFlight = false;
+      if (mounted) setState(() => _isLoading = false);
+    }
+
+    if (!mounted) return;
+    if (_reloadPending) {
+      _reloadPending = false;
+      _loadData();
+      return;
+    }
+    if (!_loadFailed && startDate != null && endDate != null) {
+      _runBackgroundTasks(
+        cycleStart: startDate,
+        cycleEnd: endDate,
+        silent: silentThisLoad,
+      );
+    }
+  }
+
+  // =====================================================================
+  // งานเบื้องหลังหลังหน้าจอแสดงแล้ว — ไม่บล็อกการแสดงผล และถ้าล้มเหลวก็ไม่ทำให้
+  // หน้าหลักขึ้น "โหลดข้อมูลไม่สำเร็จ" ปิดบิลแล้ว saveBill จะแจ้ง
+  // DataRefreshBus ให้หน้านี้โหลดตัวเลขใหม่เอง
+  // =====================================================================
+  Future<void> _runBackgroundTasks({
+    required DateTime cycleStart,
+    required DateTime cycleEnd,
+    required bool silent,
+  }) async {
+    if (_backgroundInFlight) return;
+    _backgroundInFlight = true;
+    try {
+      final uid = _user?.uid;
+      if (uid == null) return;
+      final billingDay = _user?.billingDay ?? 30;
+
+      // sync ยอดรายจ่ายประจำที่ cache ไว้บน user ให้ตรงกับเดือนปัจจุบัน (หน้า
+      // ตั้งค่าใช้) เพราะรายการที่ตั้ง endDate ไว้อาจหมดอายุไปโดยไม่มีการแก้ไข
+      await _firestoreService.recalcFixedCostTotalForToday(uid);
+
+      // ----- ปิดบิลรอบที่เพิ่งจบ -----
       final prevCycleStart =
-          EnergyForecaster.getPreviousCycleStart(startDate, billingDay);
-      final prevCycleEnd = startDate;
+          EnergyForecaster.getPreviousCycleStart(cycleStart, billingDay);
+      final prevCycleEnd = cycleStart;
       final billExists = await _firestoreService.billExistsForMonth(
           uid, prevCycleEnd.year, prevCycleEnd.month);
-      final bool billJustCreated = !billExists;
       if (!billExists) {
         await _firestoreService.compileBill(
           uid,
@@ -206,124 +296,112 @@ class _DashboardScreenState extends State<DashboardScreen> {
           prevCycleStart,
           prevCycleEnd,
         );
-      }
-
-      // ----- Backfill รอบบิลที่ขาดหายไปก่อนหน้า prevCycleStart -----
-      // ถ้า user ไม่ได้เปิดแอปข้าม 2-3 รอบบิลติดกัน รอบที่อยู่ตรงกลางจะไม่มีใครไป
-      // compile ให้ ที่นี่จึงไล่ย้อนต่อจาก prevCycleStart ไปเรื่อยๆ จนกว่าจะ
-      // (1) เจอบิลที่ compile ไว้แล้ว (แปลว่าตามทันประวัติแล้ว) หรือ (2) ย้อนไปถึง
-      // เดือนที่ user เริ่มตั้งค่าระบบครั้งแรก (startBillingMonth/Year) หรือ
-      // (3) ชนเพดานความปลอดภัย
-      // รอบไหนไล่ compile แล้วไม่มี log เลย (user ไม่ได้บันทึกจริงๆ ในรอบนั้น)
-      // จะถูกเก็บไว้แจ้งเตือน ไม่ใช่ปล่อยให้หายไปเงียบๆ
-      final missedCycles = <String>[];
-      DateTime backfillCycleEnd = prevCycleStart;
-      const maxBackfillLookback = 24; // กันลูปยาวเกินไปถ้าข้อมูล user ผิดปกติ
-      for (var i = 0; i < maxBackfillLookback; i++) {
-        final backfillCycleStart =
-            EnergyForecaster.getPreviousCycleStart(backfillCycleEnd, billingDay);
-
-        final startY = _user?.startBillingYear ?? 0;
-        final startM = _user?.startBillingMonth ?? 0;
-        if (startY != 0 &&
-            (backfillCycleEnd.year < startY ||
-                (backfillCycleEnd.year == startY &&
-                    backfillCycleEnd.month < startM))) {
-          break;
-        }
-
-        final monthKey = '${backfillCycleEnd.month}/${backfillCycleEnd.year}';
-        // รอบนี้เคยไล่เช็คแล้วครั้งก่อนๆ ว่าไม่มี log เลย และแจ้งเตือนไปแล้ว —
-        // ไม่มีทาง log ย้อนหลังเข้ามาเองได้อีกสำหรับรอบที่ปิดไปแล้ว (นอกจาก user
-        // ไปกรอกผ่านหน้าประวัติบิลตรงๆ ซึ่งสร้าง bill doc เองอยู่แล้ว ไม่ต้องพึ่ง
-        // compileBill) ข้ามรอบนี้ไปเลย กัน query+compile ซ้ำเปล่าๆ ทุกครั้งที่เปิดแอป
-        // แต่ยัง "ไม่ break" เพราะรอบที่เก่ากว่านี้อาจยังไม่เคยถูกเช็คเลยก็ได้
-        final alreadyFlagged = await NotificationService.instance
-            .isCycleFlaggedMissing(monthKey);
-        if (alreadyFlagged) {
-          backfillCycleEnd = backfillCycleStart;
-          continue;
-        }
-
-        final alreadyExists = await _firestoreService.billExistsForMonth(
-            uid, backfillCycleEnd.year, backfillCycleEnd.month);
-        if (alreadyExists) break; // ตามทันประวัติที่ compile ไปก่อนหน้านี้แล้ว
-
-        await _firestoreService.compileBill(
-          uid,
-          backfillCycleEnd.year,
-          backfillCycleEnd.month,
-          backfillCycleStart,
-          backfillCycleEnd,
-        );
-
-        final createdNow = await _firestoreService.billExistsForMonth(
-            uid, backfillCycleEnd.year, backfillCycleEnd.month);
-        if (!createdNow) {
-          // ไม่มี log เลยในรอบนี้ = รอบที่ user ไม่ได้บันทึกจริงๆ
-          missedCycles.add(monthKey);
-        }
-
-        backfillCycleEnd = backfillCycleStart;
-      }
-      if (missedCycles.isNotEmpty) {
-        await NotificationService.instance.notifyMissedCycles(
-          months: missedCycles,
-          silent: silentThisLoad,
-        );
-      }
-
-      // ดึงยอดบิลเดือนก่อน (ที่ปิดไปแล้ว) มาเทียบ "พุ่งขึ้น/ลดลง"
-      // ใช้ getLatestBill() ที่ query เฉพาะบิลล่าสุดตัวเดียวจาก Firestore
-      // โดยตรง (orderBy yearMonth + limit 1) ไม่โหลดบิลทั้งหมดมาเรียงฝั่ง client
-      // — ยิ่งมีบิลสะสมมากขึ้นเรื่อยๆ ยิ่งประหยัด
-      try {
+        // แจ้งสรุปจบรอบเฉพาะตอนที่บิลรอบนั้นเพิ่งถูกสร้างในครั้งนี้ (key กันซ้ำ
+        // ผูกกับ billId) และใช้บิลนี้เทียบ "พุ่งขึ้น" ในการเช็คแจ้งเตือนด้านล่าง
         final latestBill = await _firestoreService.getLatestBill(uid);
-        if (latestBill != null) {
+        if (latestBill != null &&
+            latestBill.year == prevCycleEnd.year &&
+            latestBill.month == prevCycleEnd.month) {
           _lastMonthElectricityCost = latestBill.electricityCost;
           _lastMonthWaterCost = latestBill.waterCost;
-
-          // ----- แจ้งเตือนสรุปจบรอบบิล -----
-          // ยิงเฉพาะตอนที่บิลของรอบก่อนหน้านี้ "ถูกสร้างใหม่" ในการโหลดครั้งนี้
-          // (กันไม่ให้เตือนซ้ำทุกครั้งที่เปิดแอป เพราะ key กันซ้ำผูกกับ billId)
-          if (billJustCreated &&
-              latestBill.year == prevCycleEnd.year &&
-              latestBill.month == prevCycleEnd.month) {
-            await NotificationService.instance.notifyCycleSummary(
-              billId: latestBill.id,
-              totalCost: latestBill.totalCost,
-              year: latestBill.year,
-              month: latestBill.month,
-              silent: silentThisLoad,
-            );
-          }
-        } else {
-          _lastMonthElectricityCost = 0;
-          _lastMonthWaterCost = 0;
+          await NotificationService.instance.notifyCycleSummary(
+            billId: latestBill.id,
+            totalCost: latestBill.totalCost,
+            year: latestBill.year,
+            month: latestBill.month,
+            silent: silent,
+          );
         }
-      } catch (_) {
-        _lastMonthElectricityCost = 0;
-        _lastMonthWaterCost = 0;
       }
 
-      _electricityLogs = await _firestoreService.getCurrentMonthElectricityLogs(
-          uid, startDate, endDate);
-      _waterLogs = await _firestoreService.getCurrentMonthWaterLogs(
-          uid, startDate, endDate);
-
-      await _calculateCurrentMonth();
+      await _backfillMissedCycles(
+        uid: uid,
+        billingDay: billingDay,
+        from: prevCycleStart,
+        silent: silent,
+      );
 
       await _runNotificationChecks(
-        cycleStart: startDate,
-        cycleEnd: endDate,
-        silent: silentThisLoad,
+        cycleStart: cycleStart,
+        cycleEnd: cycleEnd,
+        silent: silent,
       );
     } catch (e) {
-      debugPrint('Error loading dashboard: $e');
-      _loadFailed = true;
+      debugPrint('Dashboard background tasks failed: $e');
     } finally {
-      _isFirstLoad = false;
-      if (mounted) setState(() => _isLoading = false);
+      _backgroundInFlight = false;
+    }
+  }
+
+  // ----- Backfill รอบบิลที่ขาดหายไปก่อนหน้า [from] -----
+  // ถ้า user ไม่ได้เปิดแอปข้าม 2-3 รอบบิลติดกัน รอบที่อยู่ตรงกลางจะไม่มีใครไป
+  // compile ให้ ที่นี่จึงไล่ย้อนต่อจาก [from] ไปเรื่อยๆ จนกว่าจะ
+  // (1) เจอบิลที่ compile ไว้แล้ว (แปลว่าตามทันประวัติแล้ว) หรือ (2) ย้อนไปถึง
+  // เดือนที่ user เริ่มตั้งค่าระบบครั้งแรก (startBillingMonth/Year) หรือ
+  // (3) ชนเพดานความปลอดภัย
+  // รอบไหนไล่ compile แล้วไม่มี log เลย (user ไม่ได้บันทึกจริงๆ ในรอบนั้น)
+  // จะถูกเก็บไว้แจ้งเตือน ไม่ใช่ปล่อยให้หายไปเงียบๆ
+  Future<void> _backfillMissedCycles({
+    required String uid,
+    required int billingDay,
+    required DateTime from,
+    required bool silent,
+  }) async {
+    final missedCycles = <String>[];
+    DateTime backfillCycleEnd = from;
+    const maxBackfillLookback = 24; // กันลูปยาวเกินไปถ้าข้อมูล user ผิดปกติ
+    for (var i = 0; i < maxBackfillLookback; i++) {
+      final backfillCycleStart =
+          EnergyForecaster.getPreviousCycleStart(backfillCycleEnd, billingDay);
+
+      final startY = _user?.startBillingYear ?? 0;
+      final startM = _user?.startBillingMonth ?? 0;
+      if (startY != 0 &&
+          (backfillCycleEnd.year < startY ||
+              (backfillCycleEnd.year == startY &&
+                  backfillCycleEnd.month < startM))) {
+        break;
+      }
+
+      final monthKey = '${backfillCycleEnd.month}/${backfillCycleEnd.year}';
+      // รอบนี้เคยไล่เช็คแล้วครั้งก่อนๆ ว่าไม่มี log เลย และแจ้งเตือนไปแล้ว —
+      // ไม่มีทาง log ย้อนหลังเข้ามาเองได้อีกสำหรับรอบที่ปิดไปแล้ว (นอกจาก user
+      // ไปกรอกผ่านหน้าประวัติบิลตรงๆ ซึ่งสร้าง bill doc เองอยู่แล้ว ไม่ต้องพึ่ง
+      // compileBill) ข้ามรอบนี้ไปเลย กัน query+compile ซ้ำเปล่าๆ ทุกครั้งที่เปิดแอป
+      // แต่ยัง "ไม่ break" เพราะรอบที่เก่ากว่านี้อาจยังไม่เคยถูกเช็คเลยก็ได้
+      final alreadyFlagged =
+          await NotificationService.instance.isCycleFlaggedMissing(monthKey);
+      if (alreadyFlagged) {
+        backfillCycleEnd = backfillCycleStart;
+        continue;
+      }
+
+      final alreadyExists = await _firestoreService.billExistsForMonth(
+          uid, backfillCycleEnd.year, backfillCycleEnd.month);
+      if (alreadyExists) break; // ตามทันประวัติที่ compile ไปก่อนหน้านี้แล้ว
+
+      await _firestoreService.compileBill(
+        uid,
+        backfillCycleEnd.year,
+        backfillCycleEnd.month,
+        backfillCycleStart,
+        backfillCycleEnd,
+      );
+
+      final createdNow = await _firestoreService.billExistsForMonth(
+          uid, backfillCycleEnd.year, backfillCycleEnd.month);
+      if (!createdNow) {
+        // ไม่มี log เลยในรอบนี้ = รอบที่ user ไม่ได้บันทึกจริงๆ
+        missedCycles.add(monthKey);
+      }
+
+      backfillCycleEnd = backfillCycleStart;
+    }
+    if (missedCycles.isNotEmpty) {
+      await NotificationService.instance.notifyMissedCycles(
+        months: missedCycles,
+        silent: silent,
+      );
     }
   }
 
@@ -425,31 +503,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _currentWaterCost = 0;
     }
 
-    // ----- คาดการณ์สิ้นรอบจากอัตราค่าใช้จ่ายเฉลี่ยต่อวัน -----
-    // cost ของ log เป็นยอดสะสมตั้งแต่ต้นรอบ จึงใช้ log ล่าสุดตัวเดียวพอ
-    // (ดู EnergyForecaster.projectToCycleEnd) — ฝั่งไหนยังหาอัตราไม่ได้
-    // ใช้ยอดที่ใช้ไปแล้วแทน
+    // ----- คาดการณ์สิ้นรอบ: ประมาณหน่วยจากอัตราต่อวัน แล้วคิดเงินด้วยตาราง
+    // อัตราจริง (ดู cycle_projection.dart) — log เป็นยอดสะสมตั้งแต่ต้นรอบ จึงใช้
+    // log ล่าสุดตัวเดียวพอ ฝั่งไหนยังหาอัตราไม่ได้ใช้ยอดที่ใช้ไปแล้วแทน
     final now = DateTime.now();
     final billingDay = _user?.billingDay ?? 30;
     final cycleStart = EnergyForecaster.getCycleStart(now, billingDay);
     final cycleEnd = EnergyForecaster.getCycleEnd(now, billingDay);
+    final area = _user?.area ?? 'bangkok';
 
-    double? project(double currentCost, DateTime? lastRecordedAt) =>
-        lastRecordedAt == null
-            ? null
-            : EnergyForecaster.projectToCycleEnd(
-                currentTotal: currentCost,
-                cycleStart: cycleStart,
-                cycleEnd: cycleEnd,
-                lastRecordedAt: lastRecordedAt,
-              );
+    final elec = await projectElectricityToCycleEnd(
+      latest: _cycleLatestElectricityLog,
+      cycleStart: cycleStart,
+      cycleEnd: cycleEnd,
+      meterType: _user?.meterType ?? 'normal',
+      area: area,
+      startPeak: _user?.startPeakValue ?? 0,
+      startOffPeak: _user?.startOffPeakValue ?? 0,
+    );
+    final water = projectWaterToCycleEnd(
+      latest: _cycleLatestWaterLog,
+      cycleStart: cycleStart,
+      cycleEnd: cycleEnd,
+      area: area,
+    );
 
-    final eForecast = project(_currentElectricityCost, _cycleLatestElectricityLog?.date);
-    final wForecast = project(_currentWaterCost, _cycleLatestWaterLog?.date);
-
-    _hasForecastData = eForecast != null || wForecast != null;
-    _forecastElectricityCost = eForecast ?? _currentElectricityCost;
-    _forecastWaterCost = wForecast ?? _currentWaterCost;
+    _hasForecastData = elec.projected || water.projected;
+    _forecastElectricityCost = elec.cost;
+    _forecastWaterCost = water.cost;
     _forecastTotal = _forecastElectricityCost + _forecastWaterCost;
   }
 
@@ -522,7 +603,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: DashboardStyles.background,
       body: Container(
         decoration: DashboardStyles.pageHighlight(),
-        child: _isLoading
+        // วงหมุนเต็มจอเฉพาะโหลดครั้งแรก — โหลดซ้ำ (pull-to-refresh, ข้อมูล
+        // เปลี่ยนจากหน้าอื่น, ปิดบิลเบื้องหลังเสร็จ) แสดงข้อมูลเดิมไว้จนตัวเลข
+        // ใหม่มา ไม่กะพริบเป็นหน้าว่าง
+        child: _isLoading && _user == null
           ? const Center(
               child: CircularProgressIndicator(
                   color: DashboardStyles.primaryGreen))
@@ -1235,7 +1319,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             Text(
-              '${formatter.format(_user?.fixedCost ?? 0)} บาท',
+              '${formatter.format(_billFixedCost)} บาท',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: AppTypography.s15,
@@ -1259,7 +1343,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final cycleEnd =
         EnergyForecaster.getCycleEnd(DateTime.now(), _user?.billingDay ?? 30);
     final cycleEndBuddhistYear = cycleEnd.year + 543;
-    final fixedCost = _user?.fixedCost ?? 0;
+    final fixedCost = _billFixedCost;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.v18),

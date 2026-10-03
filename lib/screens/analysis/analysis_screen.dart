@@ -99,6 +99,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         uid: uid,
         firestoreService: _firestoreService,
         billingDay: billingDay,
+        area: user?.area ?? 'bangkok',
+        meterType: user?.meterType ?? 'normal',
+        startPeak: user?.startPeakValue ?? 0,
+        startOffPeak: user?.startOffPeakValue ?? 0,
       );
 
       _applianceSub?.cancel();

@@ -21,6 +21,7 @@ import 'package:energy_home/models/start_meter_record_model.dart';
 import 'package:energy_home/models/user_model.dart';
 import 'package:energy_home/models/water_log_model.dart';
 import 'package:energy_home/services/firestore_service.dart';
+import 'package:energy_home/utils/calculator.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -236,13 +237,17 @@ void main() {
 
     final bill = await compileAndFetch(service, uid);
 
-    expect(bill.electricityCost, 800);
+    // หน่วยประมาณถึงวันตัดรอบ แล้วคิดเงินด้วยตารางอัตราจริง (ไม่ใช่ยอดเงิน x2/x3)
+    final expectedElec = await EnergyCalculator.calculateElectricityTOU(
+        peakUnits: 120, offPeakUnits: 60);
+    final expectedWater = EnergyCalculator.calculateWater(15, 'bangkok');
     expect(bill.electricityUsed, 180);
     expect(bill.electricityPeakUsed, 120);
     expect(bill.electricityOffPeakUsed, 60);
-    expect(bill.waterCost, 150);
+    expect(bill.electricityCost, expectedElec);
     expect(bill.waterUsed, 15);
-    expect(bill.totalCost, 950);
+    expect(bill.waterCost, expectedWater);
+    expect(bill.totalCost, expectedElec + expectedWater);
   });
 
   test(
