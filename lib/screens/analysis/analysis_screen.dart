@@ -10,6 +10,7 @@ import '../../models/appliance_model.dart';
 import '../../models/bill_model.dart';
 import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/appliance_rate.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/app_top_bar.dart';
@@ -195,6 +196,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                   _ApplianceTab(
                     appliances: _appliances,
                     analysisService: _analysisService,
+                    rate: ApplianceRate.fromBills(_bills),
                   ),
                 ],
               ),

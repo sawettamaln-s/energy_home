@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../screens/dashboard/dashboard_styles.dart';
+import '../utils/appliance_rate.dart';
+import '../utils/thai_date_utils.dart';
 
 /// Dialog แบบ "ไอคอน info + หัวข้อ + ข้อความ + ปุ่มเข้าใจแล้ว" ที่ใช้ซ้ำ
 /// ทั่วแอป — คู่กับ showConfirmDialog ใน confirm_dialog.dart
@@ -51,8 +53,23 @@ void showInfoDialog(
 }
 
 /// Popup อธิบายที่มาของตัวเลขประมาณการค่าไฟอุปกรณ์ — ใช้ร่วมกันระหว่าง
-/// appliance_screen.dart และ analysis_appliance_tab.dart
-void showApplianceEstimateInfoDialog(BuildContext context) {
+/// appliance_screen.dart และ analysis_appliance_tab.dart — [rate] คืออัตราที่
+/// หน้านั้นใช้คำนวณจริง (จากบิลล่าสุดของผู้ใช้ หรือค่าเฉลี่ยประมาณการ)
+void showApplianceEstimateInfoDialog(
+  BuildContext context, {
+  ApplianceRate rate = ApplianceRate.fallback,
+}) {
+  final bill = rate.sourceBill;
+  final rateText = rate.perUnit.toStringAsFixed(2);
+  final rateExplanation = bill != null
+      ? 'อัตรานี้คิดจากบิลค่าไฟล่าสุดของคุณ (${thaiMonths[bill.month - 1]} '
+          '${bill.year + 543}: ค่าไฟ ${bill.electricityCost.toStringAsFixed(2)} บาท '
+          '÷ ${bill.electricityUsed.toStringAsFixed(0)} หน่วย) ซึ่งรวมอัตราขั้นบันได '
+          'ค่า Ft ค่าบริการ และ VAT ตามการใช้จริงของบ้านคุณแล้ว ใช้เทียบสัดส่วน'
+          'ระหว่างอุปกรณ์ได้ แต่ยอดรวมอาจไม่ตรงกับบิลทุกประการ'
+      : 'ยังไม่มีบิลที่มีทั้งค่าไฟและหน่วยที่ใช้ จึงใช้ค่าเฉลี่ยประมาณการ '
+          '(รวม Ft และ VAT) ไปก่อน เมื่อมีบิลแล้วระบบจะเปลี่ยนไปใช้อัตราเฉลี่ย'
+          'จากบิลล่าสุดของคุณเอง';
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
@@ -71,13 +88,12 @@ void showApplianceEstimateInfoDialog(BuildContext context) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'ใช้สูตรมาตรฐานเดียวกับที่การไฟฟ้าและเว็บคำนวณค่าไฟทั่วไปใช้\n\n'
               'หน่วยไฟ/วัน = (วัตต์ × ชั่วโมงที่เปิด ÷ 1,000)\n'
-              'ค่าไฟ = หน่วยไฟ × อัตราเฉลี่ยประมาณการ 4.5 บาท/หน่วย\n\n'
-              'อัตรานี้เป็นค่าเฉลี่ยโดยประมาณ (รวม Ft และ VAT) ไม่ใช่อัตราขั้นบันไดจริง '
-              'จึงอาจไม่ตรงกับยอดบิลทุกประการ แต่ใช้เทียบสัดส่วนระหว่างอุปกรณ์ได้',
-              style: TextStyle(fontSize: AppTypography.s13_5, height: 1.5),
+              'ค่าไฟ = หน่วยไฟ × อัตราเฉลี่ย $rateText บาท/หน่วย\n\n'
+              '$rateExplanation',
+              style: const TextStyle(fontSize: AppTypography.s13_5, height: 1.5),
             ),
             const SizedBox(height: 12),
             Container(

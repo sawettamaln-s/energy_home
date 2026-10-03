@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../models/appliance_model.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/appliance_rate.dart';
+import '../../utils/data_refresh_bus.dart';
 import '../../utils/default_appliances.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
@@ -75,6 +77,9 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   List<ApplianceModel> _appliances = [];
   bool _isLoading = true;
+  // อัตราค่าไฟต่อหน่วยที่ใช้ประมาณค่าไฟของอุปกรณ์ — จากบิลล่าสุดของผู้ใช้
+  // (ดู ApplianceRate) โหลดใหม่เมื่อบิลเปลี่ยนผ่าน DataRefreshBus
+  ApplianceRate _rate = ApplianceRate.fallback;
 
 // เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
 // ป้องกัน setState หลัง widget dispose ไปแล้ว (memory leak / error ตอนสลับแท็บบ่อยๆ)
@@ -84,12 +89,26 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _loadRate();
+    DataRefreshBus.instance.version.addListener(_loadRate);
   }
 
   @override
   void dispose() {
+    DataRefreshBus.instance.version.removeListener(_loadRate);
     _applianceSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadRate() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final bills = await _firestoreService.getBills(uid);
+      if (mounted) setState(() => _rate = ApplianceRate.fromBills(bills));
+    } catch (_) {
+      // โหลดบิลไม่ได้ ใช้อัตราเดิมต่อไป (ค่าเริ่มต้นคือค่าเฉลี่ยประมาณการ)
+    }
   }
 
   Future<void> _loadData() async {
@@ -122,15 +141,15 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     for (final s in a.schedules) {
       kWh += (a.watt * s.hoursPerDay) / 1000;
     }
-    return kWh * 4.5;
+    return kWh * _rate.perUnit;
   }
 
-  // ใช้อัตราเฉลี่ยประมาณการ 4.5 บาท/หน่วย (รวม Ft + VAT คร่าวๆ) ตลอดทั้งไฟล์
+  // ทุกตัวเลขในไฟล์ใช้อัตราเดียวกัน (_rate) — ดู ApplianceRate
   double _estimateApplianceMonthlyCost(ApplianceModel a) =>
-      _kWhForPeriod(a, 30) * 4.5;
+      _kWhForPeriod(a, 30) * _rate.perUnit;
 
   double _estimateApplianceYearlyCost(ApplianceModel a) =>
-      _kWhForPeriod(a, 365) * 4.5;
+      _kWhForPeriod(a, 365) * _rate.perUnit;
 
   double get _totalMonthlyCost {
     double total = 0;
@@ -243,6 +262,35 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+
+                // ---- อัตราที่ใช้คำนวณ (กดดูที่มาได้) ----
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.v16, 0, AppSpacing.v16, AppSpacing.v8),
+                  child: InkWell(
+                    onTap: () =>
+                        showApplianceEstimateInfoDialog(context, rate: _rate),
+                    borderRadius: BorderRadius.circular(AppSpacing.v8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            size: 14, color: Colors.grey.shade600),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _rate.isFromBill
+                                ? 'คิดจากอัตราเฉลี่ยบิลล่าสุดของคุณ '
+                                    '${_rate.perUnit.toStringAsFixed(2)} บาท/หน่วย'
+                                : 'คิดจากอัตราเฉลี่ยประมาณการ '
+                                    '${_rate.perUnit.toStringAsFixed(2)} บาท/หน่วย',
+                            style: TextStyle(
+                                fontSize: AppTypography.s11_5,
+                                color: Colors.grey.shade600),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -520,6 +568,7 @@ Future<void> _confirmDelete(ApplianceModel a) async {
       builder: (context) => _AddApplianceSheet(
         firestoreService: _firestoreService,
         onAdded: _loadData,
+        rate: _rate,
       ),
     );
   }
@@ -533,6 +582,7 @@ Future<void> _confirmDelete(ApplianceModel a) async {
       builder: (context) => _AddApplianceSheet(
         firestoreService: _firestoreService,
         onAdded: _loadData,
+        rate: _rate,
         existing: a,
       ),
     );
@@ -658,10 +708,12 @@ class _AddApplianceSheet extends StatefulWidget {
   final FirestoreService firestoreService;
   final VoidCallback onAdded;
   final ApplianceModel? existing;
+  final ApplianceRate rate;
 
   const _AddApplianceSheet({
     required this.firestoreService,
     required this.onAdded,
+    required this.rate,
     this.existing,
   });
 
@@ -1034,7 +1086,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
   // มักเป็นค่าสูงสุด ไม่ใช่ค่าเฉลี่ยที่ใช้จริงตลอดเวลาที่เปิด
   // =====================================================================
   void _showEstimateInfoPopup() {
-    showApplianceEstimateInfoDialog(context);
+    showApplianceEstimateInfoDialog(context, rate: widget.rate);
   }
 
   Widget _buildEstimateCard() {
@@ -1043,8 +1095,8 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     final activeDaysPerWeek = _selectedDays.isEmpty ? 7 : _selectedDays.length;
 
     double kWhPerDay = (watt * hours) / 1000;
-    double costPerDay =
-        kWhPerDay * 4.5; // อัตราเฉลี่ยประมาณการ (เฉพาะวันที่ใช้)
+    // ค่าไฟเฉพาะวันที่ใช้ ด้วยอัตราเดียวกับหน้ารายการ (ดู ApplianceRate)
+    double costPerDay = kWhPerDay * widget.rate.perUnit;
     double costPerMonth = costPerDay * (activeDaysPerWeek / 7) * 30;
     double costPerYear = costPerDay * (activeDaysPerWeek / 7) * 365;
 

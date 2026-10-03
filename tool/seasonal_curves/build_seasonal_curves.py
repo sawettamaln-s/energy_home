@@ -10,8 +10,11 @@
   - น้ำ กทม.+ปริมณฑล   : กปน. (MWA) "สถิติการใช้น้ำประปา" แยกตามกลุ่มผู้ใช้น้ำ
     https://gdcatalog.go.th/dataset/gdpublish-cus-consumption
     (CLASS_GROUP_CODE = 1 ที่อยู่อาศัย, ลบ.ม.)
-  - น้ำ ภูมิภาค          : กปภ. ไม่เปิดเผยข้อมูลรายเดือนแยกประเภทผู้ใช้ จึงใช้
-    รูปแบบของ กปน. แทน (ข้อจำกัดที่ต้องระบุในรายงาน)
+  - น้ำ ภูมิภาค          : กปภ. (PWA) "สถิติการให้บริการรายเดือน" ปริมาณน้ำจำหน่าย
+    https://www.pwa.co.th/support-units/service  (ทุกเขต, ลบ.ม., ตั้งแต่ ม.ค. 2022)
+    เป็นยอดรวมทุกประเภทผู้ใช้ (กปภ. ไม่เปิดเผยยอดแยกที่อยู่อาศัยรายเดือน) —
+    ข้อจำกัดที่ต้องระบุในรายงาน แต่สะท้อนฤดูกาลของพื้นที่ภูมิภาคเองได้ตรงกว่า
+    การยืมรูปแบบของ กปน.
   ข้อมูลทั้งหมดเป็นยอด "ออกบิล" ของเดือนนั้น ตรงกับวิธีที่แอปตั้งชื่อบิล
   ด้วยเดือนของใบแจ้งหนี้
 
@@ -64,6 +67,10 @@ MWA_YEAR_FILES = {  # ปี พ.ศ. -> path ของไฟล์รายป�
     2568: '645cbbfe-1c02-4c76-9439-8e51d266908a/download/con_by_district_2568.csv',
 }
 
+# กปภ.: ไฟล์ CSV ของสถิติรายเดือน "ทุกเขต" — {ym} = ปี ค.ศ. + เดือน เช่น 202501
+PWA_URL = 'https://www.pwa.co.th/support-units/service/all-{ym}'
+PWA_FIRST = (2022, 1)  # เดือนแรกที่ กปภ. เปิดเผยข้อมูล
+
 MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
           'August', 'September', 'October', 'November', 'December']
 
@@ -75,6 +82,7 @@ SERIES_FILES = {
     'elec_bangkok': 'elec_mea_residential.csv',
     'elec_upcountry': 'elec_pea_residential.csv',
     'water_bangkok': 'water_mwa_residential.csv',
+    'water_upcountry': 'water_pwa_total.csv',
 }
 
 
@@ -122,6 +130,32 @@ def fetch():
             water[(be_year - 543, int(float(row[i_month])))] += float(row[i_value])
     _write_series('water_mwa_residential.csv', water, 'm3')
 
+    _write_series('water_pwa_total.csv', _fetch_pwa(), 'm3')
+
+
+def _fetch_pwa():
+    """ปริมาณน้ำจำหน่ายรายเดือนของ กปภ. ตั้งแต่ PWA_FIRST จนถึงเดือนล่าสุดที่ครบ
+
+    หน้าเว็บคืนยอด 0 สำหรับเดือนที่ยังไม่มีข้อมูล และเดือนล่าสุดที่มีตัวเลข
+    มักเป็นยอดระหว่างเดือนที่ยังรวบรวมไม่ครบ จึงตัดเดือนล่าสุดทิ้งเสมอ
+    """
+    rows = {}
+    year, month = PWA_FIRST
+    while True:
+        text = _download(PWA_URL.format(ym=f'{year}{month:02d}'))
+        value = 0.0
+        for r in csv.reader(io.StringIO(text)):
+            if r and r[0].strip() == 'ปริมาณน้ำจำหน่าย':
+                value = float(r[1].replace(',', ''))
+        if value <= 0:
+            break
+        rows[(year, month)] = value
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    print(f'ดาวน์โหลด กปภ. {len(rows)} เดือน')
+    if rows:
+        rows.pop(max(rows))
+    return rows
+
 
 def read_series(name):
     rows = {}
@@ -156,6 +190,7 @@ def build_curves(years=CURVE_YEARS):
     elec_bkk = seasonal_index(series['elec_bangkok'], years)
     elec_up = seasonal_index(series['elec_upcountry'], years)
     water_bkk = seasonal_index(series['water_bangkok'], years)
+    water_up = seasonal_index(series['water_upcountry'], years)
     return {
         'elec': {
             'bangkok_normal': elec_bkk, 'bangkok_tou': elec_bkk,
@@ -163,8 +198,7 @@ def build_curves(years=CURVE_YEARS):
         },
         'water': {
             'bangkok_normal': water_bkk, 'bangkok_tou': water_bkk,
-            # กปภ. ไม่มีข้อมูลรายเดือนแยกที่อยู่อาศัย — ใช้รูปแบบ กปน. แทน
-            'upcountry_normal': water_bkk, 'upcountry_tou': water_bkk,
+            'upcountry_normal': water_up, 'upcountry_tou': water_up,
         },
     }
 
@@ -184,12 +218,13 @@ def write_outputs(curves):
         '// จากสถิติการใช้ไฟฟ้า/น้ำประปาจริงของภาคที่อยู่อาศัยรายเดือน:',
         '//   ไฟฟ้า: สนพ. (EPPO) การใช้ไฟฟ้าในพื้นที่ กฟน./กฟภ. ตามสาขา (Residential)',
         '//   น้ำ  : กปน. (MWA) สถิติการใช้น้ำประปา กลุ่มที่อยู่อาศัย',
-        f'// ปีที่ใช้ (ค.ศ.): {years_label}',
+        '//          กปภ. (PWA) ปริมาณน้ำจำหน่ายรายเดือน (รวมทุกประเภทผู้ใช้)',
+        f'// ปีที่ใช้ (ค.ศ.): {years_label} (กปภ. มีข้อมูลตั้งแต่ 2022)',
         '',
         '/// ตัวคูณตามฤดูกาลของแต่ละเคส (ม.ค.=index 0 ... ธ.ค.=index 11)',
         '/// ค่าเฉลี่ยรวม 12 เดือน = 1.0 เสมอ — มากกว่า 1 = เดือนที่ใช้มากกว่าปกติ',
         '/// มิเตอร์ TOU ใช้รูปแบบเดียวกับมิเตอร์ปกติของภาคเดียวกัน (สถิติไม่ได้แยก)',
-        '/// น้ำภูมิภาคใช้รูปแบบของ กปน. (กปภ. ไม่เปิดเผยข้อมูลรายเดือนแยกที่อยู่อาศัย)',
+        '/// น้ำภูมิภาคใช้ยอดรวมทุกประเภทผู้ใช้ของ กปภ. (ไม่เปิดเผยยอดแยกที่อยู่อาศัย)',
         'class SeasonalCurves {',
     ]
     for kind in ('elec', 'water'):
@@ -225,7 +260,7 @@ def main():
     month_names = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
                    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
     for kind, key in (('elec', 'bangkok_normal'), ('elec', 'upcountry_normal'),
-                      ('water', 'bangkok_normal')):
+                      ('water', 'bangkok_normal'), ('water', 'upcountry_normal')):
         vals = curves[kind][key]
         print(f'{kind:5} {key:17}', ' '.join(f'{n}:{v:.3f}' for n, v in zip(month_names, vals)))
     write_outputs(curves)

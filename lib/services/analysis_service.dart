@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
+import '../utils/appliance_rate.dart';
 import '../utils/forecaster.dart';
 import '../utils/seasonal_curves.dart';
 import 'firestore_service.dart';
@@ -10,7 +11,7 @@ import 'firestore_service.dart';
 class ApplianceUsage {
   final ApplianceModel appliance;
   final double kWh;
-  final double cost; // ประมาณการด้วยอัตราเฉลี่ย (ตรงกับหน้าอุปกรณ์ใช้ 4.5 บาท/หน่วย)
+  final double cost; // ประมาณการด้วยอัตราเฉลี่ยต่อหน่วยเดียวกับหน้าอุปกรณ์ (ApplianceRate)
   double percentOfTotal = 0; // จะถูกเซ็ตหลังคำนวณรวมทุกอุปกรณ์แล้ว
 
   ApplianceUsage({
@@ -459,13 +460,14 @@ class AnalysisService {
 
   /// จัดอันดับอุปกรณ์ตามการใช้พลังงาน (มาก -> น้อย) พร้อม % ของยอดรวม
   /// totalDaysInPeriod: 30 = รายเดือน, 365 = รายปี
-  /// avgRatePerUnit: อัตราค่าไฟเฉลี่ยประมาณการ บาท/หน่วย (ดีฟอลต์ 4.5 ให้ตรงกับหน้าอุปกรณ์)
+  /// avgRatePerUnit: อัตราค่าไฟเฉลี่ย บาท/หน่วย — ผู้เรียกส่งอัตราจาก ApplianceRate
+  /// ตัวเดียวกับหน้าอุปกรณ์ ไม่ส่ง = ค่าเฉลี่ยประมาณการ
   ///
   /// นับเฉพาะอุปกรณ์ที่มีตารางการใช้งาน (schedules ไม่ว่าง) เท่านั้น
   List<ApplianceUsage> applianceBreakdown(
     List<ApplianceModel> appliances, {
     int totalDaysInPeriod = 30,
-    double avgRatePerUnit = 4.5,
+    double avgRatePerUnit = ApplianceRate.defaultPerUnit,
   }) {
     final active = appliances.where((a) => a.schedules.isNotEmpty);
 

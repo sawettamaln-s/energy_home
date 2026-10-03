@@ -4,15 +4,22 @@ part of 'analysis_screen.dart';
 class _ApplianceTab extends StatelessWidget {
   final List<ApplianceModel> appliances;
   final AnalysisService analysisService;
+  // อัตราค่าไฟต่อหน่วยเดียวกับหน้าอุปกรณ์ (จากบิลล่าสุดของผู้ใช้)
+  final ApplianceRate rate;
 
   static const _green = DashboardStyles.primaryGreen;
   final _fmt = NumberFormat('#,##0.00');
 
-  _ApplianceTab({required this.appliances, required this.analysisService});
+  _ApplianceTab({
+    required this.appliances,
+    required this.analysisService,
+    required this.rate,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final breakdown = analysisService.applianceBreakdown(appliances);
+    final breakdown = analysisService.applianceBreakdown(appliances,
+        avgRatePerUnit: rate.perUnit);
 
     if (breakdown.isEmpty) {
       return LayoutBuilder(
@@ -154,7 +161,7 @@ class _ApplianceTab extends StatelessWidget {
         _ApplianceRankingList(breakdown: breakdown, colors: colors, fmt: _fmt),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: () => showApplianceEstimateInfoDialog(context),
+          onTap: () => showApplianceEstimateInfoDialog(context, rate: rate),
           child: Row(
             children: [
               Icon(Icons.info_outline, size: 13, color: Colors.grey.shade500),

@@ -48,7 +48,8 @@ CI (`.github/workflows/flutter-ci.yml`) runs `flutter analyze` and then `flutter
 - **Pure logic in `lib/utils/`** (no Firebase or widgets, so it's easy to test):
   - `calculator.dart` (`EnergyCalculator`): tariff tables and cost formulas. Only `getFtRate()` touches Firestore. `calculateUsed` never returns a negative value.
   - `forecaster.dart` (`EnergyForecaster`): cycle boundaries, the end-of-cycle projection from the daily rate (`projectToCycleEnd`), the seasonal next-month forecast, and the linear regression fallback used when area/meterType are unknown.
-  - `seasonal_curves.dart` is **generated** from real monthly residential statistics (EPPO electricity for MEA/PEA, MWA water). Don't edit it by hand. Regenerate it with `python tool/seasonal_curves/build_seasonal_curves.py` (add `--fetch` to re-download the source data).
+  - `appliance_rate.dart` (`ApplianceRate`): the baht/unit rate for appliance estimates = electricity cost ÷ units of the latest usable bill, falling back to 4.5. The appliance screen and the analysis appliance tab must use the same rate.
+  - `seasonal_curves.dart` is **generated** from real monthly residential statistics (EPPO residential electricity for MEA/PEA, MWA residential water for Bangkok, PWA total water sold for upcountry — PWA publishes no residential split). Don't edit it by hand. Regenerate it with `python tool/seasonal_curves/build_seasonal_curves.py` (add `--fetch` to re-download the source data).
 - **Styling:** `lib/styles/` holds colors, typography (`AppTypography.sN`) and spacing (`AppSpacing.vN`). `responsive.dart` provides `context.rf()`/`context.rs()`, which scale against a 375px base width. `DashboardStyles` (exported with all style files) holds shared text styles and card decorations.
 
 ## Tools (`tool/`)

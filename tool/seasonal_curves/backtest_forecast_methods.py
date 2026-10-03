@@ -5,6 +5,9 @@
 วิธีทดสอบ: แบ่งข้อมูลตามเวลา (time-based holdout) ไม่ให้ข้อมูลอนาคตรั่วเข้า
   - ช่วงฝึก (สร้าง seasonal curve): 2016-2022 ไม่รวม 2020-2021
   - ช่วงทดสอบ: ทุกเดือนตั้งแต่ ม.ค. 2023 ถึงเดือนล่าสุดที่มีข้อมูล
+  - น้ำภูมิภาค (กปภ. มีข้อมูลตั้งแต่ 2022): ฝึก 2022-2023 ทดสอบตั้งแต่ ม.ค. 2024
+    และเทียบเพิ่มกับการยืมรูปแบบของ กปน. (seasonal-mwa) เพื่อยืนยันว่ารูปแบบ
+    ของภูมิภาคเองแม่นกว่า
   แต่ละเดือนทดสอบ ให้แต่ละวิธีทายจากข้อมูลก่อนหน้าเดือนนั้นเท่านั้น
   (walk-forward / one-step-ahead) แล้วเทียบกับค่าจริง
 
@@ -29,6 +32,11 @@ from build_seasonal_curves import SERIES_FILES, read_series, seasonal_index
 
 TRAIN_YEARS = [y for y in range(2016, 2023) if y not in (2020, 2021)]
 TEST_FROM = (2023, 1)
+
+# ชุดข้อมูลที่เริ่มช้ากว่า ใช้ช่วงฝึก/ทดสอบของตัวเอง
+SPLITS = {
+    'water_upcountry': ([2022, 2023], (2024, 1)),
+}
 
 
 def seasonal_forecast(recent_values, recent_months, curve, target_month):
@@ -57,19 +65,21 @@ def lewis_label(mape):
     return 'ไม่แม่นยำ'
 
 
-def evaluate(series):
-    curve = seasonal_index(series, TRAIN_YEARS)
+def evaluate(series, train_years=TRAIN_YEARS, test_from=TEST_FROM, extra_curves=None):
+    curve = seasonal_index(series, train_years)
+    curves = {'seasonal': curve, **(extra_curves or {})}
     keys = sorted(series)
-    errors = {'seasonal': [], 'linear': [], 'naive': []}
+    errors = {**{m: [] for m in curves}, 'linear': [], 'naive': []}
     for i, key in enumerate(keys):
-        if key < TEST_FROM or i < 12:
+        if key < test_from or i < 12:
             continue
         actual = series[key]
         history = [series[k] for k in keys[:i]]
         last3_keys = keys[i - 3:i]
         preds = {
-            'seasonal': seasonal_forecast([series[k] for k in last3_keys],
-                                          [k[1] for k in last3_keys], curve, key[1]),
+            **{m: seasonal_forecast([series[k] for k in last3_keys],
+                                    [k[1] for k in last3_keys], c, key[1])
+               for m, c in curves.items()},
             'linear': linear_forecast(history[-12:]),
             'naive': history[-1],
         }
@@ -80,13 +90,16 @@ def evaluate(series):
 
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
-    print('MAPE ของการคาดการณ์เดือนถัดไป (ช่วงทดสอบ ม.ค. 2023 เป็นต้นไป)\n')
+    print('MAPE ของการคาดการณ์เดือนถัดไป (walk-forward)\n')
+    mwa_curve = seasonal_index(read_series(SERIES_FILES['water_bangkok']), TRAIN_YEARS)
     for name, file in SERIES_FILES.items():
-        result, n = evaluate(read_series(file))
-        print(f'{name} ({n} เดือนทดสอบ)')
-        for method in ('seasonal', 'linear', 'naive'):
+        train_years, test_from = SPLITS.get(name, (TRAIN_YEARS, TEST_FROM))
+        extra = {'seasonal-mwa': mwa_curve} if name == 'water_upcountry' else None
+        result, n = evaluate(read_series(file), train_years, test_from, extra)
+        print(f'{name} ({n} เดือนทดสอบ ตั้งแต่ {test_from[1]}/{test_from[0]})')
+        for method in result:
             mape = result[method]
-            print(f'  {method:9} MAPE = {mape:5.2f}%  ({lewis_label(mape)})')
+            print(f'  {method:12} MAPE = {mape:5.2f}%  ({lewis_label(mape)})')
         print()
 
 
