@@ -40,6 +40,7 @@ double? _project(double total, DateTime cycleStart, DateTime cycleEnd,
     );
 
 // [startPeak]/[startOffPeak] = เลขมิเตอร์ต้นรอบของรอบที่ log นี้อยู่ (TOU เท่านั้น)
+// [tariff] = ประเภทอัตราของมิเตอร์ปกติ (UserModel.electricityTariff)
 Future<CycleProjection> projectElectricityToCycleEnd({
   required ElectricityLogModel? latest,
   required DateTime cycleStart,
@@ -48,6 +49,7 @@ Future<CycleProjection> projectElectricityToCycleEnd({
   required String area,
   double startPeak = 0,
   double startOffPeak = 0,
+  String tariff = EnergyCalculator.tariffStandard,
 }) async {
   if (latest == null) return CycleProjection.empty;
   final isTou = meterType == 'tou';
@@ -85,6 +87,7 @@ Future<CycleProjection> projectElectricityToCycleEnd({
           area: area,
           peakUnits: peak,
           offPeakUnits: offPeak,
+          tariff: tariff,
         );
   return CycleProjection(
     units: units,

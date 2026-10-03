@@ -66,6 +66,8 @@ class RecordMeterScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
   final String area; // 'bangkok' หรือ 'province' — เลือกสูตร/ผู้ให้บริการ
+  // ประเภทอัตราค่าไฟของมิเตอร์ปกติ (UserModel.electricityTariff) ไม่มีผลกับ TOU
+  final String tariff;
 
   final double startValue; // หน่วยต้นรอบ (ไฟปกติ/น้ำ)
   // ค่าล่าสุด = เลขที่บันทึกครั้งล่าสุดในรอบบิลนี้ ถ้ารอบนี้ยังไม่ได้บันทึก
@@ -87,6 +89,7 @@ class RecordMeterScreen extends StatefulWidget {
     required this.uid,
     required this.firestoreService,
     required this.area,
+    this.tariff = EnergyCalculator.tariffStandard,
     this.startValue = 0,
     this.lastValue = 0,
     this.startPeak = 0,
@@ -392,6 +395,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
         units: usedFromStart,
         meterType: 'normal',
         area: widget.area,
+        tariff: widget.tariff,
       );
     } else {
       cost = EnergyCalculator.calculateWater(usedFromStart, widget.area);

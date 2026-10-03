@@ -176,6 +176,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       area: user.area,
       peakUnits: peakUnits,
       offPeakUnits: offPeakUnits,
+      tariff: user.electricityTariff,
     );
     if (!mounted) return;
     setState(() => _eCostCtrl.text = cost.toStringAsFixed(2));
@@ -754,6 +755,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
             units: usedFromStart,
             meterType: 'normal',
             area: user.area,
+            tariff: user.electricityTariff,
           );
         }
         await widget.firestoreService.saveElectricityLog(

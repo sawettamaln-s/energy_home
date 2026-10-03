@@ -103,6 +103,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         meterType: user?.meterType ?? 'normal',
         startPeak: user?.startPeakValue ?? 0,
         startOffPeak: user?.startOffPeakValue ?? 0,
+        tariff: user?.electricityTariff ?? 'standard',
       );
 
       _applianceSub?.cancel();

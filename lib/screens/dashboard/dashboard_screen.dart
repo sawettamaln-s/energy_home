@@ -8,9 +8,11 @@ import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/calculator.dart';
 import '../../utils/cycle_projection.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../utils/forecaster.dart';
+import '../../utils/tariff_advisor.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/onboarding_guide.dart';
@@ -321,6 +323,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
         silent: silent,
       );
 
+      // แนะนำให้ตรวจประเภทอัตราค่าไฟ เมื่อบิล 3 เดือนล่าสุดเข้าเงื่อนไขเปลี่ยน
+      // ประเภท (มิเตอร์ปกติเท่านั้น) — แจ้งครั้งเดียวต่อบิลล่าสุด 1 ใบ
+      final user = _user;
+      if (user != null && user.meterType != 'tou') {
+        final hint = TariffAdvisor.check(
+          bills: await _firestoreService.getBills(uid),
+          currentTariff: user.electricityTariff,
+          meterType: user.meterType,
+        );
+        if (hint != null) {
+          final isNew = await NotificationService.instance
+              .notifyTariffHint(hint: hint, silent: silent);
+          // คำแนะนำใหม่ → popup พร้อมปุ่มไปปรับ (ผู้ใช้เลือกไว้ทีหลังได้)
+          if (isNew && !silent && mounted) {
+            await showTariffHintPopup(
+              context,
+              hint: hint,
+              user: user,
+              firestoreService: _firestoreService,
+            );
+          }
+        }
+      }
+
       await _runNotificationChecks(
         cycleStart: cycleStart,
         cycleEnd: cycleEnd,
@@ -520,6 +546,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       area: area,
       startPeak: _user?.startPeakValue ?? 0,
       startOffPeak: _user?.startOffPeakValue ?? 0,
+      tariff: _user?.electricityTariff ?? EnergyCalculator.tariffStandard,
     );
     final water = projectWaterToCycleEnd(
       latest: _cycleLatestWaterLog,
@@ -1664,6 +1691,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           uid: _user!.uid,
           firestoreService: _firestoreService,
           area: _user?.area ?? 'bangkok',
+          tariff: _user?.electricityTariff ?? EnergyCalculator.tariffStandard,
           startValue: isElectricity ? (_user?.startElectricityValue ?? 0) : (_user?.startWaterValue ?? 0),
           lastValue: isElectricity
               ? (_cycleLatestElectricityLog?.meterValue ?? _user?.startElectricityValue ?? 0)

@@ -47,19 +47,61 @@ class EnergyCalculator {
     return cost;
   }
 
+  // ประเภทอัตราค่าไฟของมิเตอร์ปกติ (ผู้ใช้เลือกตามใบแจ้งหนี้ — UserModel.electricityTariff)
+  // tariffStandard = ประเภท 1.2 / 1.1.2 (ค่าเริ่มต้น บ้านส่วนใหญ่ที่มิเตอร์เกิน
+  //   5 แอมแปร์ หรือใช้เกิน 150 หน่วย/เดือน)
+  // tariffSmall    = ประเภท 1.1.1 (มิเตอร์ไม่เกิน 5 แอมแปร์ ที่ใช้ไม่เกิน 150
+  //   หน่วย/เดือนติดต่อกัน 3 เดือน)
+  static const String tariffStandard = 'standard';
+  static const String tariffSmall = 'small';
+
+  // อัตราขั้นบันไดประเภท 1.1.1
+  static const double smallTier1Rate = 2.3488; // 1-15 หน่วย
+  static const double smallTier2Rate = 2.9882; // 16-25 หน่วย
+  static const double smallTier3Rate = 3.2405; // 26-35 หน่วย
+  static const double smallTier4Rate = 3.6237; // 36-100 หน่วย
+  static const double smallTier5Rate = 3.7171; // 101-150 หน่วย
+  static const double smallTier6Rate = 4.2218; // 151-400 หน่วย
+  static const double smallTier7Rate = 4.4217; // 401 หน่วยขึ้นไป
+  static const double smallServiceFee = 8.19;
+
+  static double _calculateEnergyRateSmall(double units) {
+    // (หน่วยสูงสุดของขั้น, อัตรา) ไล่จากขั้นแรก
+    const tiers = [
+      (15.0, smallTier1Rate),
+      (25.0, smallTier2Rate),
+      (35.0, smallTier3Rate),
+      (100.0, smallTier4Rate),
+      (150.0, smallTier5Rate),
+      (400.0, smallTier6Rate),
+      (double.infinity, smallTier7Rate),
+    ];
+    double cost = 0;
+    double lower = 0;
+    for (final (upper, rate) in tiers) {
+      if (units <= lower) break;
+      cost += ((units < upper ? units : upper) - lower) * rate;
+      lower = upper;
+    }
+    return cost;
+  }
+
   // คำนวณค่าไฟฟ้าแบบปกติ
-  // area: 'bangkok' = MEA, 'province' = PEA
-  // หมายเหตุ: แอปเซตค่าไฟทั้ง MEA และ PEA ไว้ที่ประเภท 1.2 / 1.1.2 (ใช้เกิน
-  // 150 หน่วยต่อเดือน) เป็นค่าเริ่มต้นเสมอ เพราะบ้านส่วนใหญ่ในปัจจุบันมีแอร์
-  // และเครื่องทำน้ำอุ่น ทำให้ใช้ไฟฟ้าเกิน 150 หน่วยต่อเดือนอยู่แล้ว
+  // area: 'bangkok' = MEA, 'province' = PEA (ทั้งสองใช้ตารางอัตราเดียวกัน)
+  // tariff: ประเภทอัตรา (ดู tariffStandard/tariffSmall) ไม่ส่ง = 1.2 / 1.1.2
   static Future<double> calculateElectricity(
-      double units, String area) async {
+    double units,
+    String area, {
+    String tariff = tariffStandard,
+  }) async {
     if (units <= 0) return 0;
 
     final ftRate = await getFtRate();
-    // ทั้ง MEA (bangkok) และ PEA (province) ใช้อัตราประเภท 1.2 / 1.1.2 เสมอ
-    double energyCost = _calculateEnergyRateOver150(units);
-    double serviceFee = electricityServiceFee;
+    final isSmall = tariff == tariffSmall;
+    double energyCost = isSmall
+        ? _calculateEnergyRateSmall(units)
+        : _calculateEnergyRateOver150(units);
+    double serviceFee = isSmall ? smallServiceFee : electricityServiceFee;
 
     double ftCost = units * ftRate;
     double total = (energyCost + serviceFee + ftCost) * vatRate;
@@ -91,13 +133,14 @@ class EnergyCalculator {
   }
 
   // คำนวณค่าไฟตามประเภทมิเตอร์ — TOU ใช้ peakUnits/offPeakUnits,
-  // มิเตอร์ปกติใช้ units
+  // มิเตอร์ปกติใช้ units ตามประเภทอัตรา [tariff] (TOU ไม่ใช้ค่านี้)
   static Future<double> calculateElectricityByType({
     required double units,
     required String meterType,
     required String area,
     double peakUnits = 0,
     double offPeakUnits = 0,
+    String tariff = tariffStandard,
   }) async {
     if (meterType == 'tou') {
       return calculateElectricityTOU(
@@ -105,7 +148,7 @@ class EnergyCalculator {
         offPeakUnits: offPeakUnits,
       );
     } else {
-      return calculateElectricity(units, area);
+      return calculateElectricity(units, area, tariff: tariff);
     }
   }
   // ==================== ค่าน้ำประปา ====================

@@ -4,6 +4,9 @@ class UserModel {
   final String email;
   final String area; // 'bangkok' = เขต MEA, 'province' = เขต PEA
   final String meterType; // 'normal' หรือ 'tou'
+  // ประเภทอัตราค่าไฟของมิเตอร์ปกติตามใบแจ้งหนี้ — EnergyCalculator.tariffStandard
+  // (1.2 / 1.1.2 ค่าเริ่มต้น) หรือ tariffSmall (1.1.1) ไม่มีผลกับ TOU
+  final String electricityTariff;
 
   // วันตัดรอบบิล — ใช้ร่วมกันทั้งไฟและน้ำ (ตัดสินใจแล้วว่าไม่แยกรายยูทิลิตี้
   // เพราะแอปนี้เป็นแค่ตัวประมาณการ ไม่ต้องเป๊ะระดับบิลจริงที่วันตัดรอบไฟ/น้ำ
@@ -39,6 +42,7 @@ class UserModel {
     required this.email,
     this.area = 'bangkok',
     this.meterType = 'normal',
+    this.electricityTariff = 'standard',
     this.billingDay = 30,
     this.fixedCost = 0,
     this.startElectricityValue = 0,
@@ -60,6 +64,7 @@ class UserModel {
       email: map['email'] ?? '',
       area: map['area'] ?? 'bangkok',
       meterType: map['meterType'] ?? 'normal',
+      electricityTariff: map['electricityTariff'] ?? 'standard',
       billingDay: map['billingDay'] ?? 30,
       fixedCost: (map['fixedCost'] ?? 0).toDouble(),
       startElectricityValue: (map['startElectricityValue'] ?? 0).toDouble(),
@@ -88,6 +93,7 @@ class UserModel {
       'email': email,
       'area': area,
       'meterType': meterType,
+      'electricityTariff': electricityTariff,
       'billingDay': billingDay,
       'fixedCost': fixedCost,
       'startElectricityValue': startElectricityValue,

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
 import '../utils/appliance_rate.dart';
+import '../utils/calculator.dart';
 import '../utils/cycle_projection.dart';
 import '../utils/forecaster.dart';
 import '../utils/seasonal_curves.dart';
@@ -375,6 +376,7 @@ class AnalysisService {
     required String meterType,
     double startPeak = 0,
     double startOffPeak = 0,
+    String tariff = EnergyCalculator.tariffStandard,
   }) async {
     final now = DateTime.now();
     final startDate = EnergyForecaster.getCycleStart(now, billingDay);
@@ -401,6 +403,7 @@ class AnalysisService {
       area: area,
       startPeak: startPeak,
       startOffPeak: startOffPeak,
+      tariff: tariff,
     );
     final wProjection = projectWaterToCycleEnd(
       latest: wLast,

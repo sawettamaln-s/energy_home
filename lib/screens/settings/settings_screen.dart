@@ -17,6 +17,7 @@ import '../../services/google_auth_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
+import '../../utils/tariff_advisor.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/app_top_bar.dart';
@@ -35,6 +36,7 @@ part 'settings_bill_history.dart'; // เพิ่ม/แก้ไข/ดูร�
 part 'settings_fixed_cost.dart'; // รายการค่าใช้จ่ายคงที่
 part 'settings_rate_explanation.dart'; // อธิบายอัตราค่าไฟฟ้า/น้ำ (ไฟฟ้า+น้ำ)
 part 'settings_start_meter.dart'; // บันทึก + ประวัติมิเตอร์ต้นรอบ
+part 'settings_tariff.dart'; // ประเภทอัตราค่าไฟ + popup แนะนำให้ตรวจประเภท
 part 'settings_utility_log.dart'; // ประวัติมิเตอร์ไฟฟ้า/น้ำที่บันทึกแต่ละวัน
 
 // ทางลัดเปิดหน้าย่อยทันทีตอนเข้าหน้าตั้งค่า — billingDay = เปิด dialog เลือก
@@ -581,6 +583,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: _sectionColor,
             onTap: () => _showEditBillingDay(),
           ),
+          // ประเภทอัตราใช้กับมิเตอร์ปกติเท่านั้น (TOU มีอัตราของตัวเอง)
+          if (_user != null && _user!.meterType != 'tou') ...[
+            const Divider(height: 1, indent: 56),
+            _buildSettingsTile(
+              icon: Icons.receipt,
+              title: 'ประเภทอัตราค่าไฟ',
+              subtitle: '${tariffLabel(_user!.electricityTariff)} (ดูได้จากใบแจ้งหนี้)',
+              color: _sectionColor,
+              onTap: () => showElectricityTariffDialog(
+                context,
+                user: _user!,
+                firestoreService: _firestoreService,
+                onSaved: _loadUser,
+              ),
+            ),
+          ],
           const Divider(height: 1, indent: 56),
           // หน้าเดียวรวมประวัติ + เพิ่มค่าใหม่ (มีปุ่ม + ในหน้านั้น)
           _buildSettingsTile(
@@ -675,7 +693,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _notifTypeToggle(
             icon: Icons.summarize_outlined,
             title: 'สรุปยอดท้ายรอบบิล',
-            subtitle: 'แจ้งสรุปค่าใช้จ่ายทันทีที่จบรอบบิลแต่ละเดือน',
+            subtitle: 'แจ้งสรุปค่าใช้จ่ายทันทีที่จบรอบบิล และแนะนำเมื่อควรตรวจประเภทอัตราค่าไฟ',
             type: 'summary',
             enabled: granted,
             isLast: true,
@@ -1249,6 +1267,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context) => _RateExplanationScreen(
           area: _user?.area ?? 'bangkok',
           meterType: _user?.meterType ?? 'normal',
+          tariff: _user?.electricityTariff ?? EnergyCalculator.tariffStandard,
         ),
       ),
     );

@@ -135,6 +135,45 @@ class FirestoreService {
     return _calcFixedCostForMonth(uid, month);
   }
 
+  // ==================== ประเภทอัตราค่าไฟ ====================
+
+  // เปลี่ยนประเภทอัตราค่าไฟ (UserModel.electricityTariff) แล้วคิดเงินของ log
+  // ไฟฟ้าทุกอันในรอบบิลปัจจุบันใหม่ด้วยประเภทใหม่ — หน่วยที่บันทึกไว้ไม่เปลี่ยน
+  // จึงสลับไป-กลับกี่ครั้งก็ได้ตัวเลขเดิม บิลของรอบที่ปิดแล้วไม่ถูกแตะ (เป็นยอด
+  // ตามประเภทที่ใช้ตอนรอบนั้น) มิเตอร์ TOU ไม่ใช้ประเภทอัตรานี้ จึงไม่คำนวณใหม่
+  Future<void> setElectricityTariff(
+    UserModel user,
+    String tariff, {
+    DateTime? now,
+  }) async {
+    if (user.meterType != 'tou') {
+      final today = now ?? DateTime.now();
+      final startDate = EnergyForecaster.getCycleStart(today, user.billingDay);
+      final endDate = EnergyForecaster.getCycleEnd(today, user.billingDay);
+      final logs =
+          await getCurrentMonthElectricityLogs(user.uid, startDate, endDate);
+      if (logs.isNotEmpty) {
+        final batch = _db.batch();
+        for (final log in logs) {
+          final cost = await EnergyCalculator.calculateElectricity(
+              log.usedFromStart, user.area,
+              tariff: tariff);
+          batch.update(
+            _db
+                .collection('users')
+                .doc(user.uid)
+                .collection('electricity_logs')
+                .doc(log.id),
+            {'cost': cost},
+          );
+        }
+        await batch.commit();
+      }
+    }
+    // updateUser แจ้ง DataRefreshBus ครั้งเดียวหลังเขียนครบ
+    await updateUser(user.uid, {'electricityTariff': tariff});
+  }
+
   // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
 
   // บันทึกเลขมิเตอร์ต้นรอบของรอบบิลหนึ่ง (id เดิม = เขียนทับรายการเดิม)
@@ -281,6 +320,7 @@ class FirestoreService {
         area: user.area,
         startPeak: cycleStartPeak,
         startOffPeak: cycleStartOffPeak,
+        tariff: user.electricityTariff,
       );
       final water = projectWaterToCycleEnd(
         latest: wLast,

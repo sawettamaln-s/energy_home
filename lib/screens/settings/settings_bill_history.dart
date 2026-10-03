@@ -197,6 +197,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
       area: _user!.area,
       peakUnits: peakUnits,
       offPeakUnits: offPeakUnits,
+      tariff: _user!.electricityTariff,
     );
     if (!mounted) return;
     setState(() => _eCostCtrl.text = cost.toStringAsFixed(2));

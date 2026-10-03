@@ -6,10 +6,12 @@ part of 'settings_screen.dart';
 class _RateExplanationScreen extends StatefulWidget {
   final String area; // 'bangkok' (MEA/MWA) หรือ 'province' (PEA/PWA)
   final String meterType; // 'normal' หรือ 'tou'
+  final String tariff; // ประเภทอัตราของมิเตอร์ปกติ (UserModel.electricityTariff)
 
   const _RateExplanationScreen({
     required this.area,
     required this.meterType,
+    required this.tariff,
   });
 
   @override
@@ -53,7 +55,10 @@ class _RateExplanationScreenState extends State<_RateExplanationScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _ElectricityRateTab(area: widget.area, meterType: widget.meterType),
+          _ElectricityRateTab(
+              area: widget.area,
+              meterType: widget.meterType,
+              tariff: widget.tariff),
           _WaterRateTab(area: widget.area),
         ],
       ),
@@ -195,8 +200,13 @@ Widget _currentSettingBanner({
 class _ElectricityRateTab extends StatefulWidget {
   final String area;
   final String meterType;
+  final String tariff;
 
-  const _ElectricityRateTab({required this.area, required this.meterType});
+  const _ElectricityRateTab({
+    required this.area,
+    required this.meterType,
+    required this.tariff,
+  });
 
   @override
   State<_ElectricityRateTab> createState() => _ElectricityRateTabState();
@@ -224,6 +234,7 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
   Widget build(BuildContext context) {
     final isTou = widget.meterType == 'tou';
     final isBangkok = widget.area == 'bangkok';
+    final isSmall = widget.tariff == EnergyCalculator.tariffSmall;
 
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.v16),
@@ -274,29 +285,17 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
                 title: isTou
                     ? 'อัตรา TOU (Peak / Off-Peak)'
                     : 'ตารางอัตราค่าไฟฟ้า',
-                infoTitle: isTou
-                    ? null
-                    : (isBangkok
-                        ? 'ระบบเซตไว้ยังไง (กทม./นนทบุรี/สมุทรปราการ)'
-                        : 'ระบบเซตไว้ยังไง (ต่างจังหวัด)'),
+                infoTitle: isTou ? null : 'ระบบเซตไว้ยังไง',
                 infoMessage: isTou
                     ? null
-                    : (isBangkok
-                        ? 'การไฟฟ้านครหลวง (MEA) แบ่งประเภทผู้ใช้ไฟตาม '
-                            '"ขนาดมิเตอร์" ไม่ได้ดูจากจำนวนหน่วยที่ใช้ต่อ'
-                            'เดือน — มิเตอร์ 5 แอมป์ จัดเป็นประเภท 1.1 '
-                            'ส่วนมิเตอร์ 15 แอมป์ขึ้นไป จัดเป็นประเภท 1.2 '
-                            'เสมอไม่ว่าจะใช้ไฟกี่หน่วยก็ตาม เนื่องจากบ้าน'
-                            'ส่วนใหญ่ในปัจจุบันติดตั้งมิเตอร์ 15 แอมป์ขึ้นไป'
-                            'กันแล้ว แอปจึงตั้งค่าคำนวณด้วยอัตราประเภท 1.2 '
-                            '(ตารางที่เห็นด้านล่าง) ให้อัตโนมัติเลย'
-                        : 'การไฟฟ้าส่วนภูมิภาค (PEA) แบ่งประเภทผู้ใช้ไฟตาม '
-                            '"จำนวนหน่วยที่ใช้ต่อเดือน" — ใช้ไม่เกิน 150 '
-                            'หน่วย จัดเป็นประเภท 1.1.1 ใช้เกิน 150 หน่วย '
-                            'จัดเป็นประเภท 1.1.2 เนื่องจากบ้านส่วนใหญ่ในปัจจุบัน'
-                            'มีทั้งแอร์และเครื่องทำน้ำอุ่น ทำให้ใช้ไฟเกิน 150 '
-                            'หน่วยต่อเดือนอยู่แล้ว แอปจึงตั้งค่าคำนวณด้วยอัตรา'
-                            'ประเภท 1.1.2 (ตารางที่เห็นด้านล่าง) ให้อัตโนมัติเลย'),
+                    : 'การไฟฟ้าจัดประเภทอัตราตามขนาดมิเตอร์และการใช้ย้อนหลัง — '
+                        'มิเตอร์ไม่เกิน 5 แอมแปร์ที่ใช้ไม่เกิน 150 หน่วย/เดือน '
+                        'ติดต่อกัน 3 เดือน เป็นประเภท 1.1.1 (อัตราถูกกว่า) '
+                        'นอกนั้นซึ่งเป็นบ้านส่วนใหญ่เป็นประเภท 1.1.2 / 1.2\n\n'
+                        'ประเภทที่ใช้คิดเงินพิมพ์อยู่บนใบแจ้งหนี้ เปลี่ยนให้ตรงได้ที่ '
+                        'ตั้งค่า > ประเภทอัตราค่าไฟ ตอนนี้แอปคิดด้วย'
+                        '${isSmall ? 'ประเภท 1.1.1' : 'ประเภท 1.1.2 / 1.2'} '
+                        '(ตารางด้านล่าง)',
               ),
               const SizedBox(height: 8),
               if (isTou) ...[
@@ -316,26 +315,46 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
                     pricePerUnit: '${EnergyCalculator.electricityServiceFee.toStringAsFixed(2)} บาท',
                     isAlt: false,
                     color: _green),
-              ] else if (isBangkok) ...[
+              ] else if (isSmall) ...[
                 _tierRow(
-                    range: '1 - 150 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.electricityTier1Rate.toStringAsFixed(4)} บาท/หน่วย',
+                    range: '1 - 15 หน่วย',
+                    pricePerUnit: '${EnergyCalculator.smallTier1Rate.toStringAsFixed(4)} บาท/หน่วย',
+                    isAlt: false,
+                    color: _green),
+                _tierRow(
+                    range: '16 - 25 หน่วย',
+                    pricePerUnit: '${EnergyCalculator.smallTier2Rate.toStringAsFixed(4)} บาท/หน่วย',
+                    isAlt: true,
+                    color: _green),
+                _tierRow(
+                    range: '26 - 35 หน่วย',
+                    pricePerUnit: '${EnergyCalculator.smallTier3Rate.toStringAsFixed(4)} บาท/หน่วย',
+                    isAlt: false,
+                    color: _green),
+                _tierRow(
+                    range: '36 - 100 หน่วย',
+                    pricePerUnit: '${EnergyCalculator.smallTier4Rate.toStringAsFixed(4)} บาท/หน่วย',
+                    isAlt: true,
+                    color: _green),
+                _tierRow(
+                    range: '101 - 150 หน่วย',
+                    pricePerUnit: '${EnergyCalculator.smallTier5Rate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: false,
                     color: _green),
                 _tierRow(
                     range: '151 - 400 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.electricityTier2Rate.toStringAsFixed(4)} บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.smallTier6Rate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: true,
                     color: _green),
                 _tierRow(
                     range: '401 หน่วยขึ้นไป',
-                    pricePerUnit: '${EnergyCalculator.electricityTier3Rate.toStringAsFixed(4)} บาท/หน่วย',
+                    pricePerUnit: '${EnergyCalculator.smallTier7Rate.toStringAsFixed(4)} บาท/หน่วย',
                     isAlt: false,
                     color: _green),
                 const Divider(height: 20),
                 _tierRow(
                     range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '${EnergyCalculator.electricityServiceFee.toStringAsFixed(2)} บาท',
+                    pricePerUnit: '${EnergyCalculator.smallServiceFee.toStringAsFixed(2)} บาท',
                     isAlt: true,
                     color: _green),
               ] else ...[
