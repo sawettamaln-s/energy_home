@@ -25,14 +25,20 @@ class EnergyForecaster {
 
   static double linearRegression({
     required List<double> monthlyValues, // ค่าใช้จ่ายย้อนหลังรายเดือน
-    required int forecastMonth, // เดือนที่ต้องการคาดการณ์
+    required int forecastMonth, // เดือนที่ต้องการคาดการณ์ (สเกลเดียวกับ X)
+    // ลำดับเดือนจริงของแต่ละค่า (ตำแหน่งตรงกับ monthlyValues) เช่น [1, 2, 5]
+    // เมื่อเดือน 3-4 ไม่มีข้อมูล — ไม่ส่ง = ถือว่าเดือนติดกัน 1, 2, 3, ...
+    List<int>? monthIndexes,
   }) {
     if (monthlyValues.isEmpty) return 0;
     if (monthlyValues.length == 1) return monthlyValues[0];
+    if (monthIndexes != null && monthIndexes.length != monthlyValues.length) {
+      throw ArgumentError('monthIndexes ต้องมีความยาวเท่ากับ monthlyValues');
+    }
 
     int n = monthlyValues.length;
 
-    // สร้างข้อมูล X (เดือนที่ 1, 2, 3, ...)
+    // สร้างข้อมูล X (ลำดับเดือน — เว้นช่องตามเดือนที่ขาดถ้าส่ง monthIndexes มา)
     // และ Y (ค่าใช้จ่ายแต่ละเดือน)
     double sumX = 0;
     double sumY = 0;
@@ -40,7 +46,7 @@ class EnergyForecaster {
     double sumX2 = 0;
 
     for (int i = 0; i < n; i++) {
-      double x = (i + 1).toDouble();
+      double x = (monthIndexes?[i] ?? i + 1).toDouble();
       double y = monthlyValues[i];
 
       sumX += x;

@@ -140,8 +140,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool get _waterMeterReady =>
       (_user?.waterStartConfigured ?? true) && _startMeterMatchesCurrentCycle;
 
-  static const _staleCycleMessage =
-      'ตัดรอบบิลใหม่แล้ว ต้องตั้งเลขมิเตอร์ต้นรอบใหม่ก่อนบันทึกค่ะ';
+  // ข้อความบนการ์ดล็อกเมื่อเลขต้นรอบที่ตั้งไว้ไม่ตรงกับรอบปัจจุบัน — บอกวันที่
+  // รอบปัจจุบันเริ่มเสมอ ถ้าเลขต้นรอบเป็นของรอบที่ "ใหม่กว่า" รอบปัจจุบัน แปลว่า
+  // วันตัดรอบบิลถูกเปลี่ยน (รอบบิลไม่มีทางเดินถอยหลังเอง) จึงบอกสาเหตุนั้นแทน
+  // การบอกว่าขึ้นรอบใหม่
+  String get _staleCycleMessage {
+    final user = _user;
+    final cycleStart =
+        EnergyForecaster.getCycleStart(DateTime.now(), user?.billingDay ?? 30);
+    final startDate = '${cycleStart.day} ${thaiMonths[cycleStart.month - 1]}';
+    final startKey =
+        (user?.startBillingYear ?? 0) * 12 + (user?.startBillingMonth ?? 0);
+    final currentKey = cycleStart.year * 12 + cycleStart.month;
+    if (startKey > currentKey) {
+      return 'วันตัดรอบบิลเปลี่ยนแล้ว รอบปัจจุบันเริ่ม $startDate '
+          'ต้องตั้งเลขมิเตอร์ต้นรอบใหม่ก่อนบันทึกค่ะ';
+    }
+    return 'รอบบิลใหม่เริ่ม $startDate แล้ว ต้องตั้งเลขมิเตอร์ต้นรอบใหม่ก่อนบันทึกค่ะ';
+  }
 
   @override
   void dispose() {
@@ -334,18 +350,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       // (Instant) เตือนยังไม่บันทึกมิเตอร์เกิน N วัน — ดูจาก log ล่าสุด
-      // (ใหม่ที่สุด) ของทุกรอบ ไม่ว่าไฟหรือน้ำ
+      // (ใหม่ที่สุด) ของทุกรอบ ไม่ว่าไฟหรือน้ำ และวันที่ตั้งเลขมิเตอร์ต้นรอบ
+      // ครั้งล่าสุด (ผู้ใช้ที่ยังไม่เคยบันทึกเลยนับจากวันนั้น)
       final latestLogDates = [
         _latestElectricityLog?.date,
         _latestWaterLog?.date,
-      ].whereType<DateTime>().toList();
-      if (latestLogDates.isNotEmpty) {
-        latestLogDates.sort();
-        await notifications.checkMeterNotRecorded(
-          lastLogDate: latestLogDates.last,
-          silent: silent,
-        );
+      ].whereType<DateTime>().toList()
+        ..sort();
+      DateTime? startMeterSetAt;
+      final uid = _user?.uid;
+      if (uid != null && (_user?.startMeterConfigured ?? false)) {
+        // ประวัติเรียงตามเวลาที่บันทึก ใหม่สุดก่อน
+        final history = await _firestoreService.getStartMeterHistory(uid);
+        if (history.isNotEmpty) startMeterSetAt = history.first.recordedAt;
       }
+      await notifications.checkMeterNotRecorded(
+        lastLogDate: latestLogDates.isNotEmpty ? latestLogDates.last : null,
+        startMeterSetAt: startMeterSetAt,
+        silent: silent,
+      );
 
       // (Instant) เตือนเมื่อค่าไฟ/น้ำรอบนี้สูงกว่าบิลเดือนก่อนเกิน 30%
       await notifications.checkUsageSpike(

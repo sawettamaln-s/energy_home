@@ -285,24 +285,36 @@ class NotificationService {
 
   // =====================================================================
   // (Instant) เตือนยังไม่บันทึกมิเตอร์เกิน N วัน
+  // นับจากเหตุการณ์ล่าสุดระหว่างบันทึกมิเตอร์ครั้งล่าสุด (lastLogDate) กับการตั้ง
+  // เลขมิเตอร์ต้นรอบครั้งล่าสุด (startMeterSetAt) — ผู้ใช้ที่ตั้งเลขต้นรอบแล้ว
+  // แต่ยังไม่เคยบันทึกเลยก็ได้รับเตือน และการตั้งเลขต้นรอบใหม่นับเป็นการบันทึก
   // กันสแปม: เตือนได้สูงสุดวันละ 1 ครั้ง
   // =====================================================================
   Future<void> checkMeterNotRecorded({
     required DateTime? lastLogDate,
+    DateTime? startMeterSetAt,
     int thresholdDays = 5,
     bool silent = false,
   }) async {
     if (!await isTypeEnabled('meter')) return;
-    if (lastLogDate == null) return;
-    final daysSince = DateTime.now().difference(lastLogDate).inDays;
+    final references = [lastLogDate, startMeterSetAt].whereType<DateTime>().toList();
+    if (references.isEmpty) return;
+    references.sort();
+    final daysSince = DateTime.now().difference(references.last).inDays;
     if (daysSince < thresholdDays) return;
     if (await _alreadyNotifiedToday('meter_reminder')) return;
 
+    // ยังไม่เคยบันทึกเลย (หรือบันทึกล่าสุดเก่ากว่าการตั้งเลขต้นรอบ) นับจากวันตั้ง
+    // เลขต้นรอบ จึงบอกตามนั้น
+    final fromStartMeter = lastLogDate == null ||
+        (startMeterSetAt != null && startMeterSetAt.isAfter(lastLogDate));
     await _showAndLog(
       pluginId: idMeterReminder,
       title: 'ยังไม่ได้บันทึกมิเตอร์เลยค่ะ',
-      body:
-          'คุณยังไม่ได้บันทึกค่ามิเตอร์มา $daysSince วันแล้วนะคะ ลองเปิดแอปบันทึกดูนะคะ',
+      body: fromStartMeter
+          ? 'ตั้งเลขมิเตอร์ต้นรอบไว้ $daysSince วันแล้ว ยังไม่ได้บันทึกมิเตอร์เลยนะคะ '
+              'ลองเปิดแอปบันทึกดูนะคะ'
+          : 'คุณยังไม่ได้บันทึกค่ามิเตอร์มา $daysSince วันแล้วนะคะ ลองเปิดแอปบันทึกดูนะคะ',
       type: 'meter',
       silent: silent,
     );

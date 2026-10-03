@@ -1037,6 +1037,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           final wasUnconfigured =
                               _user?.billingDayConfigured == false;
 
+                          // เลขต้นรอบที่ตั้งไว้ตรงกับรอบปัจจุบันอยู่ แต่วันตัดรอบ
+                          // ใหม่ทำให้รอบปัจจุบันเริ่มคนละเดือน — บอกผลก่อนว่าต้อง
+                          // ตั้งเลขต้นรอบใหม่ (การ์ดบันทึกมิเตอร์บนหน้าหลักจะล็อก)
+                          final user = _user;
+                          if (user != null &&
+                              !wasUnconfigured &&
+                              user.startMeterConfigured &&
+                              selectedDay != user.billingDay) {
+                            final matchesNow =
+                                EnergyForecaster.matchesCurrentCycle(
+                              billingMonth: user.startBillingMonth,
+                              billingYear: user.startBillingYear,
+                              billingDay: user.billingDay,
+                            );
+                            final matchesAfter =
+                                EnergyForecaster.matchesCurrentCycle(
+                              billingMonth: user.startBillingMonth,
+                              billingYear: user.startBillingYear,
+                              billingDay: selectedDay,
+                            );
+                            if (matchesNow && !matchesAfter) {
+                              final newStart = EnergyForecaster.getCycleStart(
+                                  DateTime.now(), selectedDay);
+                              final confirmed = await showConfirmDialog(
+                                context,
+                                title: 'เปลี่ยนวันตัดรอบบิล?',
+                                content: 'เมื่อเปลี่ยนเป็นวันที่ $selectedDay '
+                                    'รอบบิลปัจจุบันจะเริ่ม ${newStart.day} '
+                                    '${thaiMonths[newStart.month - 1]} '
+                                    '${newStart.year + 543} ซึ่งไม่ตรงกับเลข'
+                                    'มิเตอร์ต้นรอบที่ตั้งไว้ ต้องตั้งเลขมิเตอร์'
+                                    'ต้นรอบใหม่ก่อนบันทึกมิเตอร์ต่อค่ะ',
+                                confirmLabel: 'เปลี่ยน',
+                                confirmColor: DashboardStyles.primaryGreen,
+                              );
+                              if (!confirmed || !context.mounted) return;
+                            }
+                          }
+
                           final updates = <String, dynamic>{
                             'billingDay': selectedDay,
                             // ผู้ใช้กดเลือกวันเองจริงแล้วตรงนี้ (ไม่ว่าจะ

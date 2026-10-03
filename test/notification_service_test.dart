@@ -83,6 +83,28 @@ void main() {
           silent: true);
       expect(await historyTypes(), isEmpty);
     });
+
+    test('ยังไม่เคยบันทึก แต่ตั้งเลขต้นรอบไว้ 6 วันแล้ว -> เตือน', () async {
+      await service.checkMeterNotRecorded(
+          lastLogDate: null,
+          startMeterSetAt: DateTime.now().subtract(const Duration(days: 6)),
+          silent: true);
+      expect(await historyTypes(), ['meter']);
+    });
+
+    test('ยังไม่เคยบันทึกและยังไม่ได้ตั้งเลขต้นรอบ -> ไม่เตือน', () async {
+      await service.checkMeterNotRecorded(lastLogDate: null, silent: true);
+      expect(await historyTypes(), isEmpty);
+    });
+
+    test('บันทึกล่าสุดนานแล้ว แต่เพิ่งตั้งเลขต้นรอบใหม่ 2 วันก่อน -> ไม่เตือน',
+        () async {
+      await service.checkMeterNotRecorded(
+          lastLogDate: DateTime.now().subtract(const Duration(days: 20)),
+          startMeterSetAt: DateTime.now().subtract(const Duration(days: 2)),
+          silent: true);
+      expect(await historyTypes(), isEmpty);
+    });
   });
 
   group('เตือนค่าใช้จ่ายพุ่งขึ้น (เทียบบิลเดือนก่อน)', () {

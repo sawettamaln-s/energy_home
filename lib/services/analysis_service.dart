@@ -250,15 +250,26 @@ class AnalysisService {
       );
     }
 
-    // เส้นแนวโน้มนับบิลเป็นจุดที่ 1..n — เป้าหมายห่างจากบิลล่าสุดกี่เดือน
-    // ก็เลื่อนจุดที่ทายออกไปเท่านั้น
-    final monthsAhead = (target.year * 12 + target.month) -
-        (current.year * 12 + current.month);
+    // เส้นแนวโน้มวางบิลตามลำดับเดือนจริง (เดือนที่ขาดเว้นช่องไว้) และทายที่
+    // ลำดับเดือนของเป้าหมาย — เป้าหมายต้องอยู่หลังบิลล่าสุดอย่างน้อย 1 เดือน
+    final lastIndex = _monthIndex(bills, current.year, current.month);
+    final targetIndex = _monthIndex(bills, target.year, target.month);
     return EnergyForecaster.linearRegression(
       monthlyValues: monthlyValues,
-      forecastMonth: monthlyValues.length + (monthsAhead < 1 ? 1 : monthsAhead),
+      monthIndexes: _monthIndexes(bills),
+      forecastMonth: targetIndex > lastIndex ? targetIndex : lastIndex + 1,
     );
   }
+
+  // ลำดับเดือนของ year/month นับจากบิลแรกสุด (บิลแรก = 1) — ใช้เป็นแกน X ของ
+  // เส้นแนวโน้ม ให้เดือนที่ขาดหายเว้นช่องตามจริง ไม่ถูกบีบให้ติดกัน
+  int _monthIndex(List<BillModel> bills, int year, int month) {
+    final first = bills.first;
+    return (year * 12 + month) - (first.year * 12 + first.month) + 1;
+  }
+
+  List<int> _monthIndexes(List<BillModel> bills) =>
+      [for (final b in bills) _monthIndex(bills, b.year, b.month)];
 
   /// คาดการณ์แนวโน้มหลายเดือนล่วงหน้า
   ///
@@ -295,11 +306,15 @@ class AnalysisService {
       });
     }
 
+    final current = bills.last;
+    final lastIndex = _monthIndex(bills, current.year, current.month);
+    final monthIndexes = _monthIndexes(bills);
     return List.generate(
       months,
       (i) => EnergyForecaster.linearRegression(
         monthlyValues: monthlyValues,
-        forecastMonth: monthlyValues.length + i + 1,
+        monthIndexes: monthIndexes,
+        forecastMonth: lastIndex + i + 1,
       ),
     );
   }
