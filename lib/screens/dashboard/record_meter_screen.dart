@@ -10,15 +10,13 @@ import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/data_refresh_bus.dart';
+import '../../utils/meter_reading_check.dart';
 import '../../utils/thai_date_utils.dart';
 import '../settings/settings_screen.dart'
     show openStartMeterSetup, openUtilityHistory;
 import 'dashboard_styles.dart';
 
 enum MeterKind { electricity, water }
-
-// ผลการเช็คช่วงของเลขที่กรอก — none = ผ่าน
-enum _RangeIssue { none, invalid, belowStart, belowLast }
 
 // รายการประวัติแบบย่อ ใช้โชว์ในหน้าสำเร็จ — หน้านี้เรียกใช้ทั้งฝั่งไฟฟ้า
 // และน้ำ แต่ ElectricityLogModel/WaterLogModel มีฟิลด์คนละชุด จึงแปลงเป็น
@@ -120,7 +118,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
   // (TOU เช็คทีละช่อง) ถ้าไม่ผ่านจะบล็อกการบันทึก — ข้อความสีแดงแสดงใต้ช่อง
   // ที่ผิด ส่วนคำแนะนำ + ปุ่มด้านล่างเลือกตาม _rangeIssue (ต่ำกว่าต้นรอบ
   // มาก่อน เพราะต้องแก้ต้นรอบก่อนถึงจะเทียบกับค่าล่าสุดได้)
-  _RangeIssue _rangeIssue = _RangeIssue.none;
+  MeterRangeIssue _rangeIssue = MeterRangeIssue.none;
   String _valueFieldError = '';
   String _peakFieldError = '';
   String _offPeakFieldError = '';
@@ -207,64 +205,10 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
   }
 
   void _resetRangeFlags() {
-    _rangeIssue = _RangeIssue.none;
+    _rangeIssue = MeterRangeIssue.none;
     _valueFieldError = '';
     _peakFieldError = '';
     _offPeakFieldError = '';
-  }
-
-  // เช็คข้อความที่กรอก 1 ช่อง — แปลงเป็นตัวเลข แล้วเทียบกับต้นรอบ/ค่าล่าสุด
-  // คืนค่าที่ใช้คำนวณ + issue ของช่องนั้น + ข้อความ (ว่าง = ผ่าน)
-  // ช่องว่างใช้ค่า fallback แทน (TOU เว้นช่องได้ = ช่วงนั้นไม่ได้ใช้เพิ่ม)
-  // label ว่าง = มิเตอร์ปกติ/น้ำ
-  ({double value, _RangeIssue issue, String message}) _checkField({
-    required String label,
-    required String text,
-    required double fallback,
-    required double start,
-    required double last,
-  }) {
-    if (text.trim().isEmpty) {
-      return (value: fallback, issue: _RangeIssue.none, message: '');
-    }
-    final value = double.tryParse(text.replaceAll(',', '').trim());
-    if (value == null) {
-      return (
-        value: 0,
-        issue: _RangeIssue.invalid,
-        message: 'รูปแบบตัวเลขไม่ถูกต้อง กรุณากรอกเฉพาะตัวเลขค่ะ',
-      );
-    }
-
-    final formatter = NumberFormat('#,##0.##');
-    // ชื่อช่อง TOU ลงท้ายด้วยวงเล็บ ต้องเว้นวรรคก่อนข้อความต่อท้าย
-    final subject = label.isEmpty ? 'เลขมิเตอร์' : 'เลข $label ';
-    if (value < start) {
-      return (
-        value: value,
-        issue: _RangeIssue.belowStart,
-        message:
-            '$subjectต้องไม่น้อยกว่าเลขต้นรอบบิล (${formatter.format(start)} $_unit) ค่ะ',
-      );
-    }
-    if (value < last) {
-      return (
-        value: value,
-        issue: _RangeIssue.belowLast,
-        message:
-            '$subjectต้องไม่น้อยกว่าค่าที่บันทึกล่าสุด (${formatter.format(last)} $_unit) ค่ะ',
-      );
-    }
-    return (value: value, issue: _RangeIssue.none, message: '');
-  }
-
-  // เลือกคำแนะนำ + ปุ่มด้านล่างจาก issue ของทุกช่อง — ต่ำกว่าต้นรอบมาก่อน
-  // (ต้องแก้ต้นรอบก่อนถึงจะเทียบกับค่าล่าสุดได้) ส่วน invalid ไม่มีคำแนะนำ
-  // เพิ่ม เพราะข้อความใต้ช่องบอกวิธีแก้อยู่แล้ว
-  _RangeIssue _helpIssueOf(List<_RangeIssue> issues) {
-    if (issues.contains(_RangeIssue.belowStart)) return _RangeIssue.belowStart;
-    if (issues.contains(_RangeIssue.belowLast)) return _RangeIssue.belowLast;
-    return _RangeIssue.none;
   }
 
   // คำนวณผลลัพธ์จากค่าที่กรอกตอนนี้ — ใช้ทั้งตอน debounce (showEmptyError:
@@ -288,22 +232,24 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
         return;
       }
 
-      final peakCheck = _checkField(
+      final peakCheck = MeterReadingCheck.check(
+        unit: _unit,
         label: 'On-Peak (T1)',
         text: _peakCtrl.text,
         fallback: widget.lastPeak,
         start: widget.startPeak,
         last: widget.lastPeak,
       );
-      final offPeakCheck = _checkField(
+      final offPeakCheck = MeterReadingCheck.check(
+        unit: _unit,
         label: 'Off-Peak (T2)',
         text: _offPeakCtrl.text,
         fallback: widget.lastOffPeak,
         start: widget.startOffPeak,
         last: widget.lastOffPeak,
       );
-      if (peakCheck.issue != _RangeIssue.none ||
-          offPeakCheck.issue != _RangeIssue.none) {
+      if (peakCheck.issue != MeterRangeIssue.none ||
+          offPeakCheck.issue != MeterRangeIssue.none) {
         if (mounted) {
           setState(() {
             _isCalculating = false;
@@ -312,7 +258,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
             _resetRangeFlags();
             _peakFieldError = peakCheck.message;
             _offPeakFieldError = offPeakCheck.message;
-            _rangeIssue = _helpIssueOf([peakCheck.issue, offPeakCheck.issue]);
+            _rangeIssue = MeterReadingCheck.helpIssueOf([peakCheck.issue, offPeakCheck.issue]);
           });
         }
         return;
@@ -364,14 +310,15 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
     }
     // ไม่ต้องเช็ค <= 0 แยก — ค่าติดลบหรือ 0 จะไม่ผ่านการเทียบกับต้นรอบเอง
     // (ยกเว้นต้นรอบเป็น 0 ซึ่งการบันทึก 0 ก็แปลว่ายังไม่ได้ใช้ ถือว่าถูกต้อง)
-    final check = _checkField(
+    final check = MeterReadingCheck.check(
+      unit: _unit,
       label: '',
       text: _valueCtrl.text,
       fallback: widget.lastValue,
       start: widget.startValue,
       last: widget.lastValue,
     );
-    if (check.issue != _RangeIssue.none) {
+    if (check.issue != MeterRangeIssue.none) {
       if (mounted) {
         setState(() {
           _isCalculating = false;
@@ -379,7 +326,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
           _error = '';
           _resetRangeFlags();
           _valueFieldError = check.message;
-          _rangeIssue = _helpIssueOf([check.issue]);
+          _rangeIssue = MeterReadingCheck.helpIssueOf([check.issue]);
         });
       }
       return;
@@ -914,14 +861,14 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
               padding: const EdgeInsets.only(top: AppSpacing.v14),
               child: Text(_error, style: const TextStyle(color: Colors.red, fontSize: AppTypography.s12_5)),
             ),
-          if (_rangeIssue == _RangeIssue.belowStart)
+          if (_rangeIssue == MeterRangeIssue.belowStart)
             _rangeIssueHelp(
               message: 'หากเพิ่งเปลี่ยนมิเตอร์ใหม่ กรุณาตั้งเลขมิเตอร์ต้นรอบใหม่ก่อนบันทึกค่ะ',
               buttonIcon: Icons.refresh,
               buttonLabel: 'ตั้งเลขมิเตอร์ต้นรอบใหม่',
               onPressed: _openStartMeterSetup,
             ),
-          if (_rangeIssue == _RangeIssue.belowLast)
+          if (_rangeIssue == MeterRangeIssue.belowLast)
             _rangeIssueHelp(
               message: 'หากตรวจสอบแล้วว่าเลขที่กรอกถูกต้อง แสดงว่าการบันทึกครั้งล่าสุด'
                   'อาจคลาดเคลื่อน กรุณาลบรายการดังกล่าวที่ ตั้งค่า › ประวัติการบันทึกมิเตอร์ '

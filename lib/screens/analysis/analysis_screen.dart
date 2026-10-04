@@ -18,7 +18,9 @@ import '../../widgets/info_dialog.dart';
 import '../dashboard/dashboard_styles.dart';
 
 part 'analysis_appliance_tab.dart'; // แท็บอุปกรณ์ — พาย์ชาร์ต + อันดับอุปกรณ์กินไฟ
+part 'analysis_trend_bars.dart'; // ตัววาดกราฟแท่ง (ใช้ร่วมการ์ดกับหน้าประวัติ)
 part 'analysis_trend_chart.dart'; // การ์ดกราฟเทรนด์ค่าใช้จ่าย/หน่วยที่ใช้ (สลับมุมมองได้)
+part 'analysis_trend_history.dart'; // หน้าประวัติกราฟเทรนด์รายปี
 part 'analysis_utility_tab.dart'; // แท็บไฟฟ้า/น้ำ — สรุปรอบปัจจุบัน, กราฟเทรนด์, การเปรียบเทียบ/คาดการณ์
 
 class AnalysisScreen extends StatefulWidget {
