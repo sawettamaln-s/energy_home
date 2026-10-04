@@ -358,20 +358,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
               const SizedBox(width: 4),
               GestureDetector(
                 onTap: onInfoTap,
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: DashboardStyles.primaryGreen.withValues(alpha: 0.12),
-                  ),
-                  child: const Text('!',
-                      style: TextStyle(
-                          fontSize: AppTypography.s10,
-                          fontWeight: FontWeight.bold,
-                          color: DashboardStyles.primaryGreen)),
-                ),
+                child: const Icon(Icons.info_outline,
+                    size: 16, color: DashboardStyles.primaryGreen),
               ),
             ],
           ],
@@ -497,15 +485,15 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
           Container(
             padding: const EdgeInsets.all(AppSpacing.v10),
             decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.08),
+              color: AppColors.warning.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(AppSpacing.v10),
             ),
-            child: Row(
+            child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.warning_amber_rounded,
-                    size: 16, color: Colors.orange.shade800),
-                const SizedBox(width: 8),
+                    size: 16, color: AppColors.warningIcon),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'ห้ามกรอก "เลขอ่านครั้งหลัง" (เลขสะสมบนมิเตอร์) เนื่องจากฟอร์มนี้'
@@ -515,7 +503,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                     style: TextStyle(
                         fontSize: AppTypography.s12_5,
                         height: 1.5,
-                        color: Colors.orange.shade900),
+                        color: AppColors.warningText),
                   ),
                 ),
               ],

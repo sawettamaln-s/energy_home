@@ -417,6 +417,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
+  // ตั้งค่าระบบ = ค่าที่ตั้งครั้งเดียวแล้วนานๆ เปลี่ยน (วันตัดรอบ, ประเภทอัตรา,
+  // รายจ่ายประจำ) ส่วนข้อมูลที่กรอกตามรอบบิลอยู่ในการ์ด "ข้อมูลและบิล"
   Widget _buildSettingsCard() {
     return Container(
       decoration: BoxDecoration(
@@ -433,14 +435,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          _buildSettingsTile(
-            icon: Icons.attach_money,
-            title: 'รายจ่ายประจำ',
-            subtitle: 'ค่าใช้จ่ายที่คงที่ทุกเดือน',
-            color: _sectionColor,
-            onTap: () => _showEditFixedCost(),
-          ),
-          const Divider(height: 1, indent: 56),
           _buildSettingsTile(
             icon: Icons.calendar_today,
             title: 'วันตัดรอบบิล',
@@ -470,21 +464,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
           const Divider(height: 1, indent: 56),
-          // หน้าเดียวรวมประวัติ + เพิ่มค่าใหม่ (มีปุ่ม + ในหน้านั้น)
           _buildSettingsTile(
-            icon: Icons.history,
-            title: 'เลขมิเตอร์จากใบแจ้งหนี้',
-            subtitle: 'กรอกทุกครั้งที่ได้ใบแจ้งหนี้ใหม่ ใช้เป็นจุดเริ่มคำนวณรอบบิล',
+            icon: Icons.attach_money,
+            title: 'รายจ่ายประจำ',
+            subtitle: 'ค่าใช้จ่ายที่คงที่ทุกเดือน',
             color: _sectionColor,
-            onTap: () => _showStartMeterHistory(),
-          ),
-          const Divider(height: 1, indent: 56),
-          _buildSettingsTile(
-            icon: Icons.receipt_long,
-            title: 'เพิ่มบิลเดือนเก่าเข้าระบบ',
-            subtitle: 'เพิ่ม แก้ไข หรือลบบิลในอดีต',
-            color: _sectionColor,
-            onTap: () => _showHistoricalBillList(),
+            onTap: () => _showEditFixedCost(),
           ),
         ],
       ),
@@ -623,6 +608,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ข้อมูลและบิล = ข้อมูลที่กรอก/ดูตามรอบบิล เรียงตามลำดับใช้งาน: เลขจาก
+  // ใบแจ้งหนี้ → ประวัติบันทึกมิเตอร์ → บิลเดือนเก่า → อัตราที่ใช้คิดเงิน
   Widget _buildDataCard() {
     return Container(
       decoration: BoxDecoration(
@@ -639,12 +626,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
+          // หน้าเดียวรวมประวัติ + เพิ่มค่าใหม่ (มีปุ่ม + ในหน้านั้น)
+          _buildSettingsTile(
+            icon: Icons.history,
+            title: 'เลขมิเตอร์จากใบแจ้งหนี้',
+            subtitle: 'กรอกทุกครั้งที่ได้ใบแจ้งหนี้ใหม่ ใช้เป็นจุดเริ่มคำนวณรอบบิล',
+            color: _sectionColor,
+            onTap: () => _showStartMeterHistory(),
+          ),
+          const Divider(height: 1, indent: 56),
           _buildSettingsTile(
             icon: Icons.bolt,
             title: 'ประวัติการบันทึกมิเตอร์',
             subtitle: 'ดูและจัดการประวัติการบันทึก ไฟฟ้า-น้ำ',
             color: _sectionColor,
             onTap: () => _showUtilityHistory(),
+          ),
+          const Divider(height: 1, indent: 56),
+          _buildSettingsTile(
+            icon: Icons.receipt_long,
+            title: 'เพิ่มบิลเดือนเก่าเข้าระบบ',
+            subtitle: 'เพิ่ม แก้ไข หรือลบบิลในอดีต',
+            color: _sectionColor,
+            onTap: () => _showHistoricalBillList(),
           ),
           const Divider(height: 1, indent: 56),
           // ให้ผู้ใช้เข้าใจว่าตัวเลขในบิลมาจากไหน — โชว์ตารางอัตราขั้นบันได/TOU

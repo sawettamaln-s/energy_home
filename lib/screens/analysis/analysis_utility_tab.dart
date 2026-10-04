@@ -345,20 +345,7 @@ class _UtilityTab extends StatelessWidget {
                       'หากใช้งานไม่สม่ำเสมอมาก (เช่น ต้นเดือนใช้น้อย ปลายเดือน'
                       'ใช้พุ่ง) ตัวเลขอาจคลาดเคลื่อนได้บ้าง',
                 ),
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _green.withValues(alpha: 0.12),
-                  ),
-                  child: const Text('!',
-                      style: TextStyle(
-                          color: _green,
-                          fontSize: AppTypography.s11,
-                          fontWeight: FontWeight.bold)),
-                ),
+                child: const Icon(Icons.info_outline, size: 18, color: _green),
               ),
             ],
           ),
@@ -459,7 +446,7 @@ class _UtilityTab extends StatelessWidget {
     final Color tone = r == null || r.isUnchanged
         ? Colors.grey.shade600
         : isAnomaly
-            ? Colors.orange.shade800
+            ? AppColors.warningIcon
             : (r.isIncrease ? DashboardStyles.spikeUp : DashboardStyles.spikeDown);
     final IconData icon = r == null || r.isUnchanged
         ? Icons.remove
@@ -727,7 +714,7 @@ class _UtilityTab extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.v6),
-                  child: Icon(Icons.info_outline_rounded,
+                  child: Icon(Icons.info_outline,
                       size: 20, color: _green.withValues(alpha: 0.7)),
                 ),
               ),
@@ -790,22 +777,22 @@ class _UtilityTab extends StatelessWidget {
               margin: const EdgeInsets.only(top: AppSpacing.v10),
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v6),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.10),
+                color: AppColors.warning.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(AppSpacing.v8),
               ),
-              child: Row(
+              child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.info_outline,
-                      size: 13, color: Colors.orange.shade800),
-                  const SizedBox(width: 5),
+                      size: 13, color: AppColors.warningIcon),
+                  SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       'เดือนล่าสุดที่ใช้เทียบมีค่าผิดปกติจากค่าเฉลี่ย '
                       'ตัวเลขเทียบด้านบนอาจดูต่างจากปกติมากกว่าที่ควรจะเป็น',
                       style: TextStyle(
                           fontSize: AppTypography.s10_5,
-                          color: Colors.orange.shade800,
+                          color: AppColors.warningIcon,
                           height: 1.4),
                     ),
                   ),
@@ -818,14 +805,14 @@ class _UtilityTab extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v4),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.12),
+                color: AppColors.warning.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppSpacing.v6),
               ),
               child: Text(
                 'ประมาณการเบื้องต้น (มีข้อมูล ${bills.length} เดือน)',
-                style: TextStyle(
+                style: const TextStyle(
                     fontSize: AppTypography.s10_5,
-                    color: Colors.orange.shade900,
+                    color: AppColors.warningText,
                     fontWeight: FontWeight.w600),
               ),
             ),
@@ -945,7 +932,7 @@ class _UtilityTab extends StatelessWidget {
       case InsightLevel.good:
         return _green;
       case InsightLevel.warning:
-        return Colors.orange.shade800;
+        return AppColors.warningIcon;
       case InsightLevel.neutral:
         return Colors.grey.shade600;
     }

@@ -210,7 +210,7 @@ class _ApplianceTab extends StatelessWidget {
                                 : Icons.info_outline,
                             size: 16,
                             color: i.level == InsightLevel.warning
-                                ? Colors.orange.shade800
+                                ? AppColors.warningIcon
                                 : Colors.grey.shade600,
                           ),
                           const SizedBox(width: 8),

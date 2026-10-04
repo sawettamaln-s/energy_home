@@ -374,7 +374,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ส่วนหัวการ์ด — ชื่อการ์ดอยู่ซ้าย ปุ่ม "!" อธิบายวิธีคำนวณอยู่มุมขวาบน
+          // ส่วนหัวการ์ด — ชื่อการ์ดอยู่ซ้าย ปุ่ม ⓘ อธิบายวิธีคำนวณอยู่มุมขวาบน
           // กดที่หัวการ์ด (ไอคอน/ชื่อ) เพื่อเปิดหน้าประวัติทั้งหมดได้เช่นกัน ส่วน
           // ตัวกราฟไม่ครอบ เพื่อให้แตะแท่งดู tooltip ได้ตามปกติ
           InkWell(
@@ -406,20 +406,8 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                     onTap: _showForecastInfo,
                     child: Padding(
                       padding: const EdgeInsets.all(AppSpacing.v4),
-                      child: Container(
-                        width: 18,
-                        height: 18,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: widget.accentColor.withValues(alpha: 0.15),
-                        ),
-                        child: Text('!',
-                            style: TextStyle(
-                                color: widget.accentColor,
-                                fontSize: AppTypography.s11,
-                                fontWeight: FontWeight.bold)),
-                      ),
+                      child: Icon(Icons.info_outline,
+                          size: 18, color: widget.accentColor),
                     ),
                   ),
               ],
@@ -528,15 +516,15 @@ class _TrendChartCardState extends State<_TrendChartCard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v4),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.12),
+                color: AppColors.warning.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppSpacing.v6),
               ),
               child: Text(
                 'ประมาณการเบื้องต้น (มีข้อมูล ${widget.bills.length} เดือน) '
                 'ยิ่งเดือนไกลยิ่งไม่แน่นอน',
-                style: TextStyle(
+                style: const TextStyle(
                     fontSize: AppTypography.s10_5,
-                    color: Colors.orange.shade900,
+                    color: AppColors.warningText,
                     fontWeight: FontWeight.w600),
               ),
             ),

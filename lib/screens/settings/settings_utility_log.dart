@@ -544,7 +544,7 @@ class _ElectricityLogTabState extends State<_ElectricityLogTab> {
       );
     }
 
-    const accent = Colors.orange;
+    const accent = AppColors.electricityBorder;
     final currentCycleLogs =
         _logs.where((l) => !l.date.isBefore(_cycleStart!)).toList();
     final currentCycleCost =
@@ -770,7 +770,7 @@ class _WaterLogTabState extends State<_WaterLogTab> {
       );
     }
 
-    const accent = Colors.blue;
+    const accent = AppColors.waterBorder;
     final currentCycleLogs =
         _logs.where((l) => !l.date.isBefore(_cycleStart!)).toList();
     final currentCycleCost =

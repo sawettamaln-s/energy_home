@@ -99,15 +99,15 @@ void showApplianceEstimateInfoDialog(
             Container(
               padding: const EdgeInsets.all(AppSpacing.v10),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.08),
+                color: AppColors.warning.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(AppSpacing.v10),
               ),
-              child: Row(
+              child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.warning_amber_rounded,
-                      size: 16, color: Colors.orange.shade800),
-                  const SizedBox(width: 8),
+                      size: 16, color: AppColors.warningIcon),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'อุปกรณ์ที่มีคอมเพรสเซอร์ เช่น ตู้เย็นหรือแอร์ วัตต์ที่ระบุบนฉลาก '
@@ -119,7 +119,7 @@ void showApplianceEstimateInfoDialog(
                       style: TextStyle(
                           fontSize: AppTypography.s12_5,
                           height: 1.5,
-                          color: Colors.orange.shade900),
+                          color: AppColors.warningText),
                     ),
                   ),
                 ],

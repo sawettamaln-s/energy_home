@@ -10,7 +10,7 @@ Energy Home: a Flutter app (thesis/education project) for tracking household ele
 
 - Code comments, UI strings and docs are in Thai. Comments describe current behavior only, with no history ("เดิมเป็น X เปลี่ยนเป็น Y").
 - UI text is polite Thai ending in "ค่ะ". Use one term per concept: วันตัดรอบบิล (billing day), เลขมิเตอร์ต้นรอบ (cycle start reading; its settings page is "เลขมิเตอร์จากใบแจ้งหนี้"), รายจ่ายประจำ (fixed costs), สิ้นรอบบิล (end of cycle, not "สิ้นเดือน").
-- Colors live only in `lib/styles/app_colors.dart` (`AppColors`, mirrored by `DashboardStyles`). Don't hardcode new `Color(0x...)` values in screens. Material `Colors.grey.shadeN` etc. are fine.
+- Colors live only in `lib/styles/app_colors.dart` (`AppColors`, mirrored by `DashboardStyles`). Don't hardcode new `Color(0x...)` values in screens. Material `Colors.grey.shadeN` etc. are fine. Electricity/water accents use `AppColors.electricityBorder`/`waterBorder`; warning boxes use `AppColors.warning` (background alpha), `warningIcon`, `warningText`, `warningBorder`. Info buttons use `Icons.info_outline`.
 - Changes that alter app behavior, data or flow get confirmed with the user before they're made.
 
 ## Commands

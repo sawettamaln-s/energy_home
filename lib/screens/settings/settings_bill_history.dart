@@ -66,19 +66,19 @@ Widget _infoWarningBox(String text) {
   return Container(
     padding: const EdgeInsets.all(AppSpacing.v10),
     decoration: BoxDecoration(
-      color: Colors.orange.withValues(alpha: 0.08),
+      color: AppColors.warning.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(AppSpacing.v10),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
+        const Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.warningIcon),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
-                fontSize: AppTypography.s12_5, height: 1.5, color: Colors.orange.shade900),
+            style: const TextStyle(
+                fontSize: AppTypography.s12_5, height: 1.5, color: AppColors.warningText),
           ),
         ),
       ],
@@ -115,7 +115,7 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
         const SizedBox(height: 12),
         _infoWarningBox(
           'กรอกยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียว ไม่ใช่เลขสะสม'
-          'บนมิเตอร์ (ดูวิธีกรอกละเอียดได้จากไอคอน "!" ข้างช่องกรอก)',
+          'บนมิเตอร์ (ดูวิธีกรอกละเอียดได้จากไอคอน ⓘ ข้างช่องกรอก)',
         ),
         const SizedBox(height: 14),
         _infoSectionHeader('เดือนที่ขึ้นว่า (ประมาณ)', icon: Icons.info_outline),
@@ -347,7 +347,7 @@ final confirmed = await showConfirmDialog(
                 // การ์ดสรุปด้านบน — สไตล์เดียวกับแถบสรุปในหน้าประวัติมิเตอร์ไฟฟ้า/ประปา
                 Builder(builder: (context) {
                   final isWater = _tabController.index == 1;
-                  final accent = isWater ? Colors.blue : Colors.orange;
+                  final accent = isWater ? AppColors.waterBorder : AppColors.electricityBorder;
                   final icon = isWater ? Icons.water_drop : Icons.bolt;
                   final recordedCount = isWater ? waterCount : electricCount;
                   return Container(
@@ -393,7 +393,7 @@ final confirmed = await showConfirmDialog(
                       _buildTable(
                         bills: displayBills,
                         latestId: latestId,
-                        accent: Colors.orange,
+                        accent: AppColors.electricityBorder,
                         unitLabel: 'หน่วยที่ใช้',
                         costLabel: 'ค่าไฟ',
                         emptyIcon: Icons.bolt,
@@ -404,7 +404,7 @@ final confirmed = await showConfirmDialog(
                       _buildTable(
                         bills: displayBills,
                         latestId: latestId,
-                        accent: Colors.blue,
+                        accent: AppColors.waterBorder,
                         unitLabel: 'ลบ.ม.ที่ใช้',
                         costLabel: 'ค่าน้ำ',
                         emptyIcon: Icons.water_drop,

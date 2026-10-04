@@ -1,22 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../utils/thai_date_utils.dart';
 import '../dashboard_loader.dart';
 import '../dashboard_styles.dart';
 
 // =====================================================================
-// การ์ดค่าใช้จ่ายรอบนี้ — การ์ดเขียวบนสุด โชว์ยอดไฟฟ้า/น้ำที่ใช้ไปแล้ว 2 ช่อง
-// ซ้าย-ขวา และแถบยอดคาดการณ์สิ้นรอบ (รวมไฟฟ้า+น้ำ ไม่รวมรายจ่ายประจำ)
+// การ์ดสรุปบิลรอบนี้ — การ์ดเขียวบนสุดใบเดียวที่รวมตัวเลขค่าใช้จ่ายทั้งหมด:
+//   1) ค่าไฟ/ค่าน้ำที่ใช้ไปแล้ว 2 ช่องซ้าย-ขวา
+//   2) รายจ่ายประจำของเดือนบิล (แตะเพื่อไปจัดการ) + รวมถึงตอนนี้
+//   3) แถบคาดการณ์บิลทั้งรอบ (รวมรายจ่ายประจำ)
 // =====================================================================
 class CostSummaryCard extends StatelessWidget {
   final DashboardData data;
+  final VoidCallback onFixedCostTap;
 
-  const CostSummaryCard({super.key, required this.data});
+  const CostSummaryCard({
+    super.key,
+    required this.data,
+    required this.onFixedCostTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat('#,##0.00');
     final hasForecast = data.hasForecastData;
+    final cycleEnd = data.cycleEnd;
+    final fixedCost = data.billFixedCost;
+    final usedSoFar = data.currentElectricityCost + data.currentWaterCost;
+    const muted = TextStyle(color: Colors.white70, fontSize: AppTypography.s13);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.v20),
@@ -39,8 +52,10 @@ class CostSummaryCard extends StatelessWidget {
               Icon(Icons.receipt_long_outlined,
                   color: Colors.white.withValues(alpha: 0.85), size: 16),
               const SizedBox(width: 6),
-              const Text('ประมาณการรอบบิลนี้',
-                  style: TextStyle(
+              Text(
+                  'ประมาณการบิล ${thaiMonths[cycleEnd.month - 1]} '
+                  '${cycleEnd.year + 543}',
+                  style: const TextStyle(
                       color: Colors.white70,
                       fontSize: AppTypography.s13,
                       fontWeight: FontWeight.w500)),
@@ -70,10 +85,44 @@ class CostSummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          // ยอดคาดการณ์สิ้นรอบ — pill จางๆ บนพื้นเขียว ถ้ายังไม่มีข้อมูลพอ
-          // คำนวณอัตรา จะไม่โชว์เป็นตัวเลขคาดการณ์ (เพราะจะเท่ากับยอดปัจจุบัน
-          // พอดี ดูเหมือนระบบฟันธงว่าใช้เท่านี้พอ) แต่บอกว่าต้องบันทึกมิเตอร์
-          // หลังวันตัดรอบก่อน
+          Divider(height: 1, color: Colors.white.withValues(alpha: 0.2)),
+          // รายจ่ายประจำ — แตะทั้งแถวเพื่อไปหน้ารายจ่ายประจำ
+          InkWell(
+            onTap: onFixedCostTap,
+            borderRadius: BorderRadius.circular(AppSpacing.v8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
+              child: Row(
+                children: [
+                  const Expanded(child: Text('รายจ่ายประจำ', style: muted)),
+                  Text('${formatter.format(fixedCost)} บาท', style: muted),
+                  const Icon(Icons.chevron_right,
+                      color: Colors.white70, size: 18),
+                ],
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text('รวมถึงตอนนี้',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: AppTypography.s14,
+                        fontWeight: FontWeight.w600)),
+              ),
+              Text('${formatter.format(usedSoFar + fixedCost)} บาท',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: AppTypography.s17,
+                      fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // คาดการณ์บิลทั้งรอบ — pill จางๆ บนพื้นเขียว ถ้ายังไม่มีข้อมูลพอคำนวณ
+          // อัตรา จะไม่โชว์เป็นตัวเลขคาดการณ์ (เพราะจะเท่ากับยอดปัจจุบันพอดี
+          // ดูเหมือนระบบฟันธงว่าใช้เท่านี้พอ) แต่บอกว่าต้องบันทึกมิเตอร์หลังวัน
+          // ตัดรอบก่อน
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -93,8 +142,8 @@ class CostSummaryCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     hasForecast
-                        ? 'ยอดคาดการณ์สิ้นรอบบิล: '
-                            '${formatter.format(data.forecastTotal)} บาท'
+                        ? 'คาดว่าบิลทั้งรอบ (รวมรายจ่ายประจำ): '
+                            '${formatter.format(data.forecastTotal + fixedCost)} บาท'
                         : 'บันทึกมิเตอร์หลังวันตัดรอบอย่างน้อย 1 วัน เพื่อเริ่มคาดการณ์',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: hasForecast ? 1 : 0.75),

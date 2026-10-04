@@ -260,7 +260,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                 // การ์ดสรุปด้านบน แยกแสดงตามแท็บที่เลือก (ไฟฟ้า/ประปา)
                 Builder(builder: (context) {
                   final isWater = _tabController.index == 1;
-                  final accent = isWater ? Colors.blue : Colors.orange;
+                  final accent = isWater ? AppColors.waterBorder : AppColors.electricityBorder;
                   final icon = isWater ? Icons.water_drop : Icons.bolt;
                   final tabRecords = isWater ? waterRecords : electricRecords;
                   return Container(
@@ -306,7 +306,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                       _buildTable(
                         records: electricRecords,
                         latestId: latestId,
-                        accent: Colors.orange,
+                        accent: AppColors.electricityBorder,
                         unitLabel: 'หน่วยสะสม',
                         emptyIcon: Icons.bolt,
                         valueOf: (r) => r.electricityValue,
@@ -316,7 +316,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen>
                       _buildTable(
                         records: waterRecords,
                         latestId: latestId,
-                        accent: Colors.blue,
+                        accent: AppColors.waterBorder,
                         unitLabel: 'ลบ.ม.สะสม',
                         emptyIcon: Icons.water_drop,
                         valueOf: (r) => r.waterValue,

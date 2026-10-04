@@ -566,15 +566,15 @@ class _ElectricityRateTabState extends State<_ElectricityRateTab> {
                   margin: const EdgeInsets.only(top: AppSpacing.v8),
                   padding: const EdgeInsets.all(AppSpacing.v8),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.10),
+                    color: AppColors.warning.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(AppSpacing.v8),
                   ),
-                  child: Text(
+                  child: const Text(
                     'ค่า Ft งวดใหม่อาจยังไม่ได้อัปเดตในแอป ยอดค่าไฟที่คำนวณ'
                     'อาจคลาดจากบิลจริงเล็กน้อยค่ะ',
                     style: TextStyle(
                         fontSize: AppTypography.s12,
-                        color: Colors.orange.shade900),
+                        color: AppColors.warningText),
                   ),
                 ),
             ],

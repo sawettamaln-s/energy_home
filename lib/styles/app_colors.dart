@@ -53,6 +53,14 @@ class AppColors {
   static const Color softAmberBg = Color(0xFFFFF8E1);
   static const Color softRedBg = Color(0xFFFFEBEE);
 
+  // ---------- กล่องเตือน/ข้อควรระวัง (โทนส้ม) ----------
+  // ใช้ warning.withValues(alpha: ...) เป็นพื้นกล่อง ไอคอนใช้ warningIcon
+  // ข้อความใช้ warningText (เข้มกว่า อ่านง่ายบนพื้นจาง)
+  static const Color warning = Color(0xFFFF9800);
+  static const Color warningIcon = Color(0xFFEF6C00);
+  static const Color warningText = Color(0xFFE65100);
+  static const Color warningBorder = Color(0xFFFFCC80);
+
   // ---------- ระดับความหนัก (เบา -> หนัก) เช่น ชั่วโมงใช้งานของอุปกรณ์ ----------
   static const Color levelMedium = Color(0xFFF9A825); // เหลืองทอง
   static const Color levelHigh = Color(0xFFEF6C00); // ส้ม

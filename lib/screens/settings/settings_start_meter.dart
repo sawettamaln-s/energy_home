@@ -957,16 +957,16 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
+                              color: AppColors.softOrangeBg,
                               borderRadius: BorderRadius.circular(AppSpacing.v10),
                               border:
-                                  Border.all(color: Colors.orange.shade200),
+                                  Border.all(color: AppColors.warningBorder),
                             ),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.warning_amber_rounded,
-                                    size: 18, color: Colors.orange.shade800),
+                                const Icon(Icons.warning_amber_rounded,
+                                    size: 18, color: AppColors.warningIcon),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -978,9 +978,9 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                                     ].join(' และ ')}'
                                         ' กรุณาตรวจสอบว่าพิมพ์ถูกไหมค่ะ '
                                         '(เลขมิเตอร์สะสมควรเพิ่มขึ้นทุกรอบ)',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                         fontSize: AppTypography.s11_5,
-                                        color: Colors.orange.shade900),
+                                        color: AppColors.warningText),
                                   ),
                                 ),
                               ],

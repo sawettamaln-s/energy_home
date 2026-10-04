@@ -11,9 +11,9 @@ import 'dashboard_loader.dart';
 import 'dashboard_styles.dart';
 import 'notification_screen.dart';
 import 'record_meter_screen.dart';
-import 'widgets/bill_summary_cards.dart';
 import 'widgets/cost_summary_card.dart';
 import 'widgets/dashboard_header.dart';
+import 'widgets/load_error_view.dart';
 import 'widgets/meter_cards.dart';
 import 'widgets/setup_checklist_card.dart';
 
@@ -288,8 +288,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 18),
 
-        // (2) การ์ดค่าใช้จ่ายรอบนี้ (ไฟฟ้า/น้ำ) + ยอดคาดการณ์สิ้นรอบ
-        CostSummaryCard(data: data),
+        // (2) การ์ดสรุปบิลรอบนี้: ไฟ/น้ำที่ใช้ไปแล้ว + รายจ่ายประจำ (แตะเพื่อ
+        // ไปหน้ารายจ่ายประจำ) + รวมถึงตอนนี้ + คาดการณ์บิลทั้งรอบ
+        CostSummaryCard(
+          data: data,
+          onFixedCostTap: () =>
+              _openSettings(const SettingsScreen(openFixedCostOnStart: true)),
+        ),
         const SizedBox(height: 20),
 
         // (3) บันทึกมิเตอร์วันนี้
@@ -338,16 +343,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
         const SizedBox(height: 16),
-
-        // (4) รายจ่ายประจำ: กดแล้วพาไปหน้ารายจ่ายประจำในตั้งค่าโดยตรง
-        FixedCostRow(
-          amount: data.billFixedCost,
-          onTap: () =>
-              _openSettings(const SettingsScreen(openFixedCostOnStart: true)),
-        ),
-        const SizedBox(height: 16),
-
-        BillSummaryCard(data: data),
       ],
     );
   }

@@ -78,11 +78,12 @@ void main() {
         meterValue: 1050, usedFromStart: 50, cost: 250));
     await pumpDashboard(tester);
 
-    expect(find.text('ประมาณการรอบบิลนี้'), findsOneWidget);
-    // ยอดใช้ไปแล้วขึ้นทั้งการ์ดเขียว และการ์ดยอดรวม (ยังไม่มีรายจ่ายประจำ)
-    expect(find.text('250.00 บาท'), findsWidgets);
+    expect(find.textContaining('ประมาณการบิล'), findsOneWidget);
+    // ค่าไฟที่ใช้ไปแล้ว และรวมถึงตอนนี้ (ยังไม่มีรายจ่ายประจำ) เป็นยอดเดียวกัน
+    expect(find.text('250.00 บาท'), findsNWidgets(2));
+    expect(find.text('รวมถึงตอนนี้'), findsOneWidget);
+    expect(find.textContaining('คาดว่าบิลทั้งรอบ'), findsOneWidget);
     expect(find.text('บันทึกมิเตอร์'), findsNWidgets(2));
-    expect(find.textContaining('ยอดรวมถึงตอนนี้'), findsOneWidget);
   });
 
   testWidgets('เลขต้นรอบเป็นของรอบก่อน -> การ์ดล็อกให้ตั้งรอบใหม่',
