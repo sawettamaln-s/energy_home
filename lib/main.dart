@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'screens/auth/auth_gate.dart';
-import 'screens/dashboard/dashboard_styles.dart';
+import 'styles/app_theme.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -24,12 +24,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Energy Home',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: DashboardStyles.primaryGreen,
-        ),
-        useMaterial3: true,
-      ),
+      // ธีมกลางของทั้งแอป (ฟอนต์ สี รูปทรงปุ่ม/ช่องกรอก/หน้าต่าง) — ดู AppTheme
+      theme: AppTheme.light(),
       // จำกัดสเกลฟอนต์ของระบบ (การตั้งค่า "ขนาดตัวอักษร" ในมือถือ) ไว้ไม่ให้
       // เล็ก/ใหญ่เกินไป กันเลย์เอาต์ที่ยังไม่ได้ใช้ context.rf()/AppTypography.
       // scaled() (ส่วนใหญ่ของแอปตอนนี้) ล้น/บี้กันบนจอเล็กหรือเครื่องที่ผู้ใช้

@@ -5,6 +5,7 @@ import '../../styles/app_typography.dart';
 
 export '../../styles/app_colors.dart';
 export '../../styles/app_spacing.dart';
+export '../../styles/app_theme.dart';
 export '../../styles/app_typography.dart';
 export '../../styles/responsive.dart';
 

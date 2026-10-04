@@ -1,127 +1,131 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../widgets/ui/animated_amount.dart';
+import '../../../widgets/ui/app_card.dart';
+import '../../../widgets/ui/icon_badge.dart';
 import '../dashboard_styles.dart';
 import '../record_meter_screen.dart';
 
 // =====================================================================
-// การ์ดสรุปมิเตอร์ (ไฟฟ้า/น้ำ) — ไม่มีช่องกรอกในการ์ด มีแค่โชว์ค่าล่าสุด/
-// ต้นรอบ แล้วกดปุ่มเดียวพาไปหน้าเต็มจอ RecordMeterScreen (ดูเหตุผลที่แยก
-// หน้าที่ต้นไฟล์ record_meter_screen.dart)
-// ค่าล่าสุด = เลขที่บันทึกครั้งล่าสุดในรอบนี้ ถ้ายังไม่ได้บันทึก ผู้เรียกส่ง
-// ค่าต้นรอบมาแทน
+// การ์ดไฟฟ้า/น้ำของรอบนี้ — เล่าเรื่องของประเภทนั้นจบในใบเดียว: ค่าใช้จ่าย
+// ที่ใช้ไปแล้ว, ปริมาณที่ใช้, (TOU) สัดส่วน On-Peak, จดมิเตอร์ล่าสุดเมื่อไร
+// และปุ่มไปหน้าเต็มจอ RecordMeterScreen (ดูเหตุผลที่แยกหน้าที่ต้นไฟล์
+// record_meter_screen.dart) เลขมิเตอร์ดิบ (ล่าสุด/ต้นรอบ) ดูได้ในหน้าบันทึก
 // =====================================================================
 class MeterSummaryCard extends StatelessWidget {
   final MeterKind kind;
   final bool isTou; // ใช้เฉพาะ kind == electricity
-  final double? lastValue; // มิเตอร์ปกติ/น้ำ
-  final double? startValue; // มิเตอร์ปกติ/น้ำ
-  final double? lastPeak; // TOU
-  final double? lastOffPeak; // TOU
+  final double cost; // ค่าใช้จ่ายสะสมตั้งแต่ต้นรอบ
+  final double units; // ปริมาณที่ใช้สะสมตั้งแต่ต้นรอบ
+  // สัดส่วนหน่วย On-Peak (0–1) ของรอบนี้ — null = ไม่ใช่ TOU หรือยังไม่ได้จด
+  final double? peakShare;
+  // วันที่จดมิเตอร์ครั้งล่าสุดในรอบนี้ — null = รอบนี้ยังไม่ได้จด
+  final DateTime? lastRecorded;
   final VoidCallback onRecord;
 
   const MeterSummaryCard({
     super.key,
     required this.kind,
     this.isTou = false,
-    this.lastValue,
-    this.startValue,
-    this.lastPeak,
-    this.lastOffPeak,
+    required this.cost,
+    required this.units,
+    this.peakShare,
+    this.lastRecorded,
     required this.onRecord,
   });
 
+  // "จดล่าสุด" แบบนับวันตามปฏิทิน (ไม่สนเวลา): วันนี้ / เมื่อวาน / n วันก่อน
+  static String lastRecordedText(DateTime? date, DateTime now) {
+    if (date == null) return 'รอบนี้ยังไม่ได้จด';
+    final days = DateTime(now.year, now.month, now.day)
+        .difference(DateTime(date.year, date.month, date.day))
+        .inDays;
+    if (days <= 0) return 'จดล่าสุด วันนี้';
+    if (days == 1) return 'จดล่าสุด เมื่อวาน';
+    return 'จดล่าสุด $days วันก่อน';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,##0.##');
     final isElectricity = kind == MeterKind.electricity;
-    final borderColor = isElectricity
+    final accent = isElectricity
         ? DashboardStyles.electricityBorder
         : DashboardStyles.waterBorder;
-    final badgeBg = isElectricity
-        ? DashboardStyles.electricityFieldBg
-        : DashboardStyles.waterFieldBg;
     final unit = isElectricity ? 'หน่วย' : 'ลบ.ม.';
-    final title = isElectricity ? (isTou ? 'ไฟฟ้า (TOU)' : 'ไฟฟ้า') : 'น้ำ';
-    final icon = isElectricity ? Icons.bolt : Icons.water_drop;
+    final title = isElectricity ? (isTou ? 'ไฟฟ้า (TOU)' : 'ไฟฟ้า') : 'น้ำประปา';
+    final icon = isElectricity ? Icons.bolt_rounded : Icons.water_drop_rounded;
+    final caption =
+        TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600);
+    final share = peakShare;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.v14),
-      decoration: DashboardStyles.accentCard(borderColor),
+    return AppCard(
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration:
-                    BoxDecoration(color: badgeBg, shape: BoxShape.circle),
-                child: Icon(icon, color: borderColor, size: 16),
-              ),
-              const SizedBox(width: 8),
+              IconBadge(icon: icon, color: accent, size: 34),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(title,
-                    style: TextStyle(
-                        color: borderColor,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: AppTypography.s13_5),
-                    overflow: TextOverflow.ellipsis),
+                        fontSize: AppTypography.s14,
+                        color: AppColors.textDark)),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (isTou) ...[
-            _TouMeterRow(label: 'On-Peak', value: lastPeak, formatter: formatter),
-            const SizedBox(height: 6),
-            _TouMeterRow(
-                label: 'Off-Peak', value: lastOffPeak, formatter: formatter),
-          ] else ...[
-            if (lastValue != null)
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(color: DashboardStyles.textDark),
-                  children: [
-                    TextSpan(
-                        text: formatter.format(lastValue),
-                        style: const TextStyle(
-                            fontSize: AppTypography.s20,
-                            fontWeight: FontWeight.w600)),
-                    TextSpan(
-                        text: ' $unit',
-                        style: TextStyle(
-                            fontSize: AppTypography.s12,
-                            color: Colors.grey.shade600)),
-                  ],
-                ),
-              ),
-            if (startValue != null)
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.v2),
-                child: Text('ต้นรอบ ${formatter.format(startValue)} $unit',
-                    style: DashboardStyles.lastValueStyle),
-              ),
+          const SizedBox(height: 14),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: AnimatedAmount(
+              value: cost,
+              style: const TextStyle(
+                  fontSize: AppTypography.s20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text('ใช้ ${_format(units)} $unit', style: caption),
+          if (share != null) ...[
+            const SizedBox(height: 10),
+            _PeakShareBar(share: share, color: accent),
           ],
+          const Spacer(),
           const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.schedule_rounded,
+                  size: 14, color: Colors.grey.shade500),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(lastRecordedText(lastRecorded, DateTime.now()),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: caption),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: onRecord,
               style: ElevatedButton.styleFrom(
-                backgroundColor: badgeBg,
-                foregroundColor: borderColor,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v9),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.v10)),
+                backgroundColor: accent.withValues(alpha: 0.12),
+                foregroundColor: accent,
+                minimumSize: const Size(0, 42),
+                padding: const EdgeInsets.symmetric(vertical: 10),
               ),
-              icon: const Icon(Icons.edit_note, size: 16),
+              icon: const Icon(Icons.edit_note_rounded, size: 18),
               label: const Text('บันทึกมิเตอร์',
-                  style: TextStyle(
-                      fontSize: AppTypography.s12_5,
-                      fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: AppTypography.s13)),
             ),
           ),
         ],
@@ -130,49 +134,55 @@ class MeterSummaryCard extends StatelessWidget {
   }
 }
 
-// ป้าย On-Peak/Off-Peak ทางซ้าย ค่าล่าสุดทางขวา (ไม่โชว์ต้นรอบในแถวนี้)
-// ไม่ใส่ overflow/maxLines บังคับตัด ปล่อยให้ Text ห่อเองตามพื้นที่จริง
-// ถ้าฟอนต์ระบบถูกซูม/ปรับใหญ่ขึ้นจะยืดหยุ่นตามนั้น
-class _TouMeterRow extends StatelessWidget {
-  final String label;
-  final double? value;
-  final NumberFormat formatter;
+// ปริมาณ: คั่นหลักพัน ทศนิยมไม่เกิน 2 ตำแหน่ง (ไม่แสดง .00)
+String _format(double v) => NumberFormat('#,##0.##').format(v);
 
-  const _TouMeterRow({
-    required this.label,
-    required this.value,
-    required this.formatter,
-  });
+// แถบสัดส่วน On-Peak (สีเข้ม) กับ Off-Peak (สีจาง) ของ TOU + ป้าย % On-Peak
+// ใช้แถบกับตัวเลขตัวเดียวแทนหน่วยแยกสองช่วง การ์ดครึ่งจอจะได้ไม่แน่น
+class _PeakShareBar extends StatelessWidget {
+  final double share; // 0–1
+  final Color color;
+
+  const _PeakShareBar({required this.share, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    final peakFlex = (share * 1000).round();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
-        const Spacer(),
-        Flexible(
-          child: Text(
-            formatter.format(value ?? 0),
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-                fontSize: AppTypography.s15,
-                fontWeight: FontWeight.w600,
-                color: DashboardStyles.textDark),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: SizedBox(
+            height: 6,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (peakFlex > 0)
+                  Expanded(flex: peakFlex, child: Container(color: color)),
+                if (peakFlex < 1000)
+                  Expanded(
+                      flex: 1000 - peakFlex,
+                      child: Container(color: color.withValues(alpha: 0.22))),
+              ],
+            ),
           ),
         ),
+        const SizedBox(height: 4),
+        Text('On-Peak ${(share * 100).round()}%',
+            style: TextStyle(
+                fontSize: AppTypography.s11,
+                fontWeight: FontWeight.w600,
+                color: color)),
       ],
     );
   }
 }
 
 // =====================================================================
-// การ์ดล็อก — โชว์แทนการ์ดสรุปมิเตอร์ เฉพาะฝั่งที่ยังไม่พร้อมบันทึก (ยังไม่
-// เคยตั้งเลขต้นรอบ หรือเลขต้นรอบเป็นของรอบก่อน) ในขณะที่อีกฝั่งพร้อมแล้ว ไม่
-// บล็อกทั้งคู่ด้วยการ์ดเช็คลิสต์ เพราะฝั่งที่กรอกครบแล้วควรใช้งานได้เลย ขนาด/
-// โครงใกล้เคียง MeterSummaryCard ให้สูงเท่ากันตอนอยู่ใน Row เดียวกัน
+// การ์ดล็อก — โชว์แทนการ์ดมิเตอร์ เฉพาะฝั่งที่ยังไม่พร้อมบันทึก (ยังไม่เคยตั้ง
+// เลขต้นรอบ หรือเลขต้นรอบเป็นของรอบก่อน) ในขณะที่อีกฝั่งพร้อมแล้ว ไม่บล็อก
+// ทั้งคู่ด้วยการ์ดเช็คลิสต์ เพราะฝั่งที่กรอกครบแล้วควรใช้งานได้เลย
 // =====================================================================
 class MeterLockedCard extends StatelessWidget {
   final String title;
@@ -197,50 +207,50 @@ class MeterLockedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isStaleCycle = message != null;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.v14),
-      decoration:
-          DashboardStyles.accentCard(borderColor.withValues(alpha: 0.4)),
+    return AppCard(
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: accent.withValues(alpha: 0.5), size: 18),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  color: accent.withValues(alpha: 0.5),
-                  fontWeight: FontWeight.bold,
-                  fontSize: AppTypography.s14,
-                ),
+              IconBadge(
+                  icon: Icons.lock_outline_rounded,
+                  color: borderColor.withValues(alpha: 0.7),
+                  size: 34),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(title,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: AppTypography.s14,
+                        color: Colors.grey.shade600)),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             message ?? 'ยังไม่ได้ตั้งเลขมิเตอร์ต้นรอบฝั่งนี้',
             style: TextStyle(
-                fontSize: AppTypography.s11_5, color: Colors.grey.shade600),
+                fontSize: AppTypography.s12,
+                height: 1.45,
+                color: Colors.grey.shade700),
           ),
           const Spacer(),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: onSetStartMeter,
               style: OutlinedButton.styleFrom(
-                foregroundColor: accent,
-                side: BorderSide(color: accent.withValues(alpha: 0.5)),
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.v10),
-                ),
+                foregroundColor: borderColor,
+                side: BorderSide(color: borderColor.withValues(alpha: 0.5)),
+                minimumSize: const Size(0, 42),
               ),
-              icon: Icon(isStaleCycle ? Icons.refresh : Icons.add, size: 16),
+              icon: Icon(isStaleCycle ? Icons.refresh_rounded : Icons.add_rounded,
+                  size: 18),
               label: Text(isStaleCycle ? 'ตั้งรอบใหม่' : 'ตั้งเลย',
-                  style: const TextStyle(fontSize: AppTypography.s12_5)),
+                  style: const TextStyle(fontSize: AppTypography.s13)),
             ),
           ),
         ],
@@ -250,9 +260,8 @@ class MeterLockedCard extends StatelessWidget {
 }
 
 // =====================================================================
-// แบนเนอร์เล็กเตือนให้ตั้งวันตัดรอบบิล — ต่างจากการ์ดเช็คลิสต์ตรงที่ไม่บล็อก
-// การใช้งานอะไรเลย (ระบบยังใช้ default 30 คำนวณให้ได้อยู่) จึงออกแบบให้เด่น
-// น้อยกว่า เป็นแถบบางๆ กดแล้วพาไปตั้งวันตัดรอบบิล
+// แถบเตือนให้ตั้งวันตัดรอบบิล — ไม่บล็อกการใช้งานอะไร (ระบบยังใช้ค่าเริ่มต้น
+// วันที่ 30 คำนวณได้อยู่) จึงเป็นแถบบางๆ สีจาง กดแล้วพาไปตั้งวันตัดรอบบิล
 // =====================================================================
 class BillingDayReminderBanner extends StatelessWidget {
   final VoidCallback onTap;
@@ -261,33 +270,31 @@ class BillingDayReminderBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppSpacing.v12),
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.v14, vertical: AppSpacing.v12),
-        decoration: BoxDecoration(
-          color: DashboardStyles.primaryGreen.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(AppSpacing.v12),
-          border: Border.all(
-              color: DashboardStyles.primaryGreen.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.event_repeat,
-                color: DashboardStyles.primaryGreen, size: 19),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                'ยังไม่ได้ตั้งวันตัดรอบบิล แตะเพื่อตั้งค่า',
-                style: TextStyle(
-                    fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
+    return Material(
+      color: AppColors.primaryGreen.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              const IconBadge(
+                  icon: Icons.event_repeat_rounded,
+                  color: AppColors.primaryGreen,
+                  size: 32),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'ยังไม่ได้ตั้งวันตัดรอบบิล แตะเพื่อตั้งค่า',
+                  style: TextStyle(
+                      fontSize: AppTypography.s13, fontWeight: FontWeight.w600),
+                ),
               ),
-            ),
-            Icon(Icons.arrow_forward_ios, size: 13, color: Colors.grey.shade500),
-          ],
+              Icon(Icons.chevron_right_rounded, color: Colors.grey.shade500),
+            ],
+          ),
         ),
       ),
     );

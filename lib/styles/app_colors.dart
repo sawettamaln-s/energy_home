@@ -12,6 +12,12 @@ class AppColors {
   // ---------- สีหลักของแอป ----------
   static const Color background = Color(0xFFF7F5EC);
   static const Color primaryGreen = Color(0xFF2B4E24);
+  // เขียวอ่อนกว่า primaryGreen หนึ่งขั้น — ใช้คู่กันเป็นไล่เฉดของการ์ดเด่น
+  static const Color primaryGreenLight = Color(0xFF41703A);
+  // ไอคอน/ข้อความบนการ์ดเขียวเด่น: แนวโน้มสูงขึ้น (ส้มอ่อน ไม่ใช้แดงให้ตกใจ)
+  // และแนวโน้มลดลง/ใกล้เคียง (เขียวอ่อน) — อ่านออกบนพื้นเขียวเข้ม
+  static const Color onHeroUp = Color(0xFFFFD08A);
+  static const Color onHeroDown = Color(0xFFBDE8B5);
   static const Color textDark = Color(0xFF333333);
   static const Color creamBorder = Color(0xFFE9DCC5);
 

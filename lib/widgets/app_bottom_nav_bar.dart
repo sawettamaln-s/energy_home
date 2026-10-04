@@ -19,11 +19,12 @@ class AppBottomNavBar extends StatelessWidget {
 
   const AppBottomNavBar({super.key, required this.currentIndex, this.onTap});
 
+  // ไอคอนเส้น = ยังไม่เลือก, ไอคอนทึบ = หน้าที่อยู่ตอนนี้
   static const _items = [
-    (icon: Icons.dashboard_rounded, label: 'หน้าหลัก'),
-    (icon: Icons.bar_chart_rounded, label: 'วิเคราะห์'),
-    (icon: Icons.electrical_services, label: 'อุปกรณ์'),
-    (icon: Icons.settings_rounded, label: 'ตั้งค่า'),
+    (icon: Icons.home_outlined, active: Icons.home_rounded, label: 'หน้าหลัก'),
+    (icon: Icons.bar_chart_outlined, active: Icons.bar_chart_rounded, label: 'วิเคราะห์'),
+    (icon: Icons.electrical_services_outlined, active: Icons.electrical_services, label: 'อุปกรณ์'),
+    (icon: Icons.settings_outlined, active: Icons.settings_rounded, label: 'ตั้งค่า'),
   ];
 
   // map index -> หน้าปลายทาง (ลำดับต้องตรงกับ _items ด้านบนเสมอ)
@@ -54,68 +55,70 @@ class AppBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v0, AppSpacing.v16, AppSpacing.v16),
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8, horizontal: AppSpacing.v8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(_items.length, (index) {
-          final isSelected = index == currentIndex;
-          final item = _items[index];
-          return Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => _onTap(context, index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.v4),
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? DashboardStyles.primaryGreen.withValues(alpha: 0.12)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppSpacing.v18),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      item.icon,
-                      size: 22,
-                      color: isSelected
-                          ? DashboardStyles.primaryGreen
-                          : Colors.grey.shade500,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: AppTypography.s11,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected
-                            ? DashboardStyles.primaryGreen
-                            : Colors.grey.shade500,
+    // บาร์ลอยพื้นขาวมุมมน — หน้าที่เลือกอยู่มีแคปซูลเขียวจางรองไอคอน (แบบ
+    // Material 3) ป้ายชื่อแสดงทุกปุ่มเสมอ ผู้ใช้ไม่ต้องเดาความหมายไอคอน
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryGreen.withValues(alpha: 0.10),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: List.generate(_items.length, (index) {
+            final isSelected = index == currentIndex;
+            final item = _items[index];
+            final color =
+                isSelected ? AppColors.primaryGreen : Colors.grey.shade500;
+            return Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                onTap: () => _onTap(context, index),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        width: isSelected ? 56 : 40,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primaryGreen.withValues(alpha: 0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Icon(isSelected ? item.active : item.icon,
+                            size: 22, color: color),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          fontSize: AppTypography.s11,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../widgets/ui/app_card.dart';
+import '../../../widgets/ui/icon_badge.dart';
 import '../dashboard_styles.dart';
 
 // =====================================================================
@@ -9,6 +11,7 @@ import '../dashboard_styles.dart';
 //   1) วันตัดรอบบิล — ติ๊กถูกเมื่อผู้ใช้เลือกวันเองแล้ว (billingDayDone)
 //   2) เลขมิเตอร์จากใบแจ้งหนี้ — ทำเสร็จแล้วการ์ดนี้จะหายไป
 //   3) บิลเดือนเก่า (ไม่บังคับ) — ไม่มีติ๊กถูก เพราะทำหรือไม่ทำก็ได้
+// แถบความคืบหน้านับเฉพาะ 2 ขั้นที่จำเป็น
 // ระหว่างนี้ห้ามบันทึกมิเตอร์รายวัน เพราะถ้าไม่มีเลขตั้งต้น ระบบจะเอาเลข
 // มิเตอร์สะสมทั้งก้อน (เช่น 15,234 หน่วย) ไปนับเป็น "หน่วยที่ใช้รอบนี้"
 // =====================================================================
@@ -28,61 +31,73 @@ class SetupChecklistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.v18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v14),
-        border: Border.all(
-            color: DashboardStyles.primaryGreen.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    final doneRequired = billingDayDone ? 1 : 0;
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.v8),
-                decoration: BoxDecoration(
-                  color: DashboardStyles.primaryGreen.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppSpacing.v8),
-                ),
-                child: const Icon(Icons.checklist_rounded,
-                    color: DashboardStyles.primaryGreen, size: 20),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'เริ่มต้นใช้งาน 3 ขั้นตอน',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: AppTypography.s14_5),
+              const IconBadge(
+                  icon: Icons.checklist_rounded, color: AppColors.primaryGreen),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'เริ่มต้นใช้งาน 3 ขั้นตอน',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: AppTypography.s15),
+                    ),
+                    Text(
+                      'เตรียมใบแจ้งหนี้ใบล่าสุดไว้ได้เลยค่ะ',
+                      style: TextStyle(
+                          fontSize: AppTypography.s12,
+                          color: Colors.grey.shade600),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'ทำขั้นที่ 1–2 ให้ครบ หน้าหลักจะเริ่มคำนวณค่าไฟ/ค่าน้ำให้ค่ะ '
-            'เตรียมใบแจ้งหนี้ใบล่าสุดไว้ได้เลย',
-            style: TextStyle(
-                fontSize: AppTypography.s12_5,
-                color: Colors.grey.shade600,
-                height: 1.5),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: doneRequired / 2,
+                    minHeight: 6,
+                    backgroundColor:
+                        AppColors.primaryGreen.withValues(alpha: 0.1),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text('ทำแล้ว $doneRequired/2',
+                  style: TextStyle(
+                      fontSize: AppTypography.s11_5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700)),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
+          Text(
+            'ทำขั้นที่ 1–2 ให้ครบ หน้าหลักจะเริ่มคำนวณค่าไฟ/ค่าน้ำให้ค่ะ',
+            style: TextStyle(
+                fontSize: AppTypography.s11_5, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 6),
           _SetupStep(
             number: 1,
             title: 'ตั้งวันตัดรอบบิล',
             description: 'เลือกวันที่จดเลขมิเตอร์บนใบแจ้งหนี้',
             done: billingDayDone,
+            highlight: !billingDayDone,
             onTap: onBillingDay,
           ),
           _SetupStep(
@@ -90,6 +105,7 @@ class SetupChecklistCard extends StatelessWidget {
             title: 'เลขมิเตอร์จากใบแจ้งหนี้',
             description: 'กรอกเลขมิเตอร์และยอดเงินจากใบแจ้งหนี้ล่าสุด',
             done: false,
+            highlight: billingDayDone,
             onTap: onStartMeter,
           ),
           _SetupStep(
@@ -105,13 +121,14 @@ class SetupChecklistCard extends StatelessWidget {
   }
 }
 
-// แถวขั้นตอนในการ์ดเช็คลิสต์ — วงกลมเลขขั้น (เสร็จแล้วเป็นติ๊กถูก) +
-// ชื่อขั้น + คำอธิบายสั้น แตะทั้งแถวเพื่อไปทำขั้นนั้น
+// แถวขั้นตอนในการ์ดเช็คลิสต์ — วงกลมเลขขั้น (เสร็จแล้วเป็นติ๊กถูก) + ชื่อขั้น
+// + คำอธิบายสั้น แตะทั้งแถวเพื่อไปทำขั้นนั้น [highlight] = ขั้นถัดไปที่ควรทำ
 class _SetupStep extends StatelessWidget {
   final int number;
   final String title;
   final String description;
   final bool done;
+  final bool highlight;
   final VoidCallback onTap;
 
   const _SetupStep({
@@ -119,35 +136,39 @@ class _SetupStep extends StatelessWidget {
     required this.title,
     required this.description,
     required this.done,
+    this.highlight = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(AppSpacing.v10),
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
         child: Row(
           children: [
-            Container(
-              width: 26,
-              height: 26,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 28,
+              height: 28,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: done
-                    ? DashboardStyles.primaryGreen
-                    : DashboardStyles.primaryGreen.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
+                color: done || highlight
+                    ? AppColors.primaryGreen
+                    : AppColors.primaryGreen.withValues(alpha: 0.1),
               ),
               child: done
-                  ? const Icon(Icons.check, size: 15, color: Colors.white)
+                  ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
                   : Text('$number',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: AppTypography.s12_5,
-                          fontWeight: FontWeight.bold,
-                          color: DashboardStyles.primaryGreen)),
+                          fontWeight: FontWeight.w700,
+                          color: highlight
+                              ? Colors.white
+                              : AppColors.primaryGreen)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -158,9 +179,8 @@ class _SetupStep extends StatelessWidget {
                       style: TextStyle(
                         fontSize: AppTypography.s13_5,
                         fontWeight: FontWeight.w600,
-                        color: done
-                            ? Colors.grey.shade500
-                            : DashboardStyles.textDark,
+                        color: done ? Colors.grey.shade500 : AppColors.textDark,
+                        decoration: done ? TextDecoration.lineThrough : null,
                       )),
                   const SizedBox(height: 2),
                   Text(done ? 'ตั้งแล้ว แตะเพื่อเปลี่ยน' : description,
@@ -170,7 +190,7 @@ class _SetupStep extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+            Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
           ],
         ),
       ),

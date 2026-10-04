@@ -32,6 +32,10 @@ class DashboardData {
   // ยอดของบิลล่าสุดที่ปิดแล้ว ใช้เทียบ "พุ่งขึ้น"
   final double lastMonthElectricityCost;
   final double lastMonthWaterCost;
+  // หน่วยเฉลี่ยต่อวันของบิลล่าสุด (เส้นอ้างอิงในกราฟรายวัน) — null = ไม่มีบิล
+  // หรือบิลนั้นไม่มีหน่วยที่ใช้
+  final double? lastBillElectricityPerDay;
+  final double? lastBillWaterPerDay;
   // รายจ่ายประจำของเดือนบิลรอบนี้ (ไม่ใช่ user.fixedCost ที่เป็นยอดของเดือน
   // ปฏิทินปัจจุบัน) — ตรงกับที่ compileBill จะใส่ในบิลของรอบนี้
   final double billFixedCost;
@@ -54,6 +58,8 @@ class DashboardData {
     this.waterLogs = const [],
     this.lastMonthElectricityCost = 0,
     this.lastMonthWaterCost = 0,
+    this.lastBillElectricityPerDay,
+    this.lastBillWaterPerDay,
     this.billFixedCost = 0,
     this.forecastElectricityCost = 0,
     this.forecastWaterCost = 0,
@@ -75,7 +81,31 @@ class DashboardData {
   double get currentWaterUnits => cycleLatestWaterLog?.usedFromStart ?? 0;
   double get forecastTotal => forecastElectricityCost + forecastWaterCost;
 
+  // ยอดคาดการณ์ค่าไฟ+ค่าน้ำทั้งรอบ เทียบกับค่าไฟ+ค่าน้ำของบิลล่าสุด (เป็น %)
+  // ไม่รวมรายจ่ายประจำทั้งสองฝั่ง — null = ยังไม่คาดการณ์ หรือไม่มีบิลก่อนให้เทียบ
+  double? get forecastChangeVsLastBill {
+    final last = lastMonthElectricityCost + lastMonthWaterCost;
+    if (!hasForecastData || last <= 0) return null;
+    return (forecastTotal - last) / last * 100;
+  }
+
   bool get isTou => user?.meterType == 'tou';
+
+  // สัดส่วนหน่วย On-Peak (0–1) ที่ใช้ในรอบนี้ของมิเตอร์ TOU = เลขล่าสุดลบ
+  // เลขต้นรอบของแต่ละช่วง — null = ไม่ใช่ TOU, รอบนี้ยังไม่ได้จด หรือยังไม่มี
+  // หน่วยที่ใช้เลย
+  double? get cyclePeakShare {
+    final log = cycleLatestElectricityLog;
+    final u = user;
+    if (!isTou || log == null || u == null) return null;
+    final peak = ((log.peakMeterValue ?? u.startPeakValue) - u.startPeakValue)
+        .clamp(0.0, double.infinity);
+    final offPeak =
+        ((log.offPeakMeterValue ?? u.startOffPeakValue) - u.startOffPeakValue)
+            .clamp(0.0, double.infinity);
+    final total = peak + offPeak;
+    return total > 0 ? peak / total : null;
+  }
 
   // ค่ามิเตอร์ต้นรอบที่ตั้งไว้ยังตรงกับรอบบิลปัจจุบันไหม — flag
   // electricityStartConfigured/waterStartConfigured บอกแค่ว่าเคยตั้งหรือยัง
@@ -159,6 +189,16 @@ class DashboardLoader {
   })  : firestoreService = firestoreService ?? FirestoreService(),
         notifications = notifications ?? NotificationService.instance;
 
+  // หน่วยต่อวันของบิล = หน่วยทั้งรอบ ÷ จำนวนวันของรอบนั้น (บิลตั้งชื่อตาม
+  // เดือนที่ปิดรอบ รอบจึงจบที่วันตัดรอบของเดือนบิล)
+  static double? _perDay(BillModel? bill, double? used, int billingDay) {
+    if (bill == null || used == null || used <= 0) return null;
+    final end = EnergyForecaster.safeBillingDate(bill.year, bill.month, billingDay);
+    final start = EnergyForecaster.getPreviousCycleStart(end, billingDay);
+    final days = end.difference(start).inDays;
+    return days > 0 ? used / days : null;
+  }
+
   Future<DashboardData> load(String uid, {DateTime? now}) async {
     final today = now ?? DateTime.now();
     // ต้องรู้ billingDay ก่อนถึงจะรู้ขอบเขตรอบบิล
@@ -217,6 +257,9 @@ class DashboardLoader {
       waterLogs: waterLogs,
       lastMonthElectricityCost: latestBill?.electricityCost ?? 0,
       lastMonthWaterCost: latestBill?.waterCost ?? 0,
+      lastBillElectricityPerDay:
+          _perDay(latestBill, latestBill?.electricityUsed, billingDay),
+      lastBillWaterPerDay: _perDay(latestBill, latestBill?.waterUsed, billingDay),
       billFixedCost: results[5] as double,
       forecastElectricityCost: elec.cost,
       forecastWaterCost: water.cost,

@@ -6,13 +6,16 @@ import '../../utils/data_refresh_bus.dart';
 import '../../utils/forecaster.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/onboarding_guide.dart';
+import '../../widgets/ui/fade_slide_in.dart';
 import '../settings/settings_screen.dart';
 import 'dashboard_loader.dart';
 import 'dashboard_styles.dart';
 import 'notification_screen.dart';
 import 'record_meter_screen.dart';
-import 'widgets/cost_summary_card.dart';
+import 'widgets/bill_hero_card.dart';
+import 'widgets/daily_usage_card.dart';
 import 'widgets/dashboard_header.dart';
+import 'widgets/fixed_cost_tile.dart';
 import 'widgets/load_error_view.dart';
 import 'widgets/meter_cards.dart';
 import 'widgets/setup_checklist_card.dart';
@@ -274,75 +277,121 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final now = DateTime.now();
     final billingDay = user?.billingDay ?? 30;
 
+    // ส่วนต่างๆ ค่อยๆ เข้าจอทีละส่วนตอนเปิดหน้าครั้งแรก (โหลดซ้ำไม่เล่นใหม่)
+    Widget stagger(int order, Widget child) => FadeSlideIn(
+        delay: Duration(milliseconds: 70 * order), child: child);
+
+    final showChecklist = user?.startMeterConfigured == false;
+    final Widget meterSection = showChecklist
+        // ยังไม่ได้ตั้งเลขต้นรอบเลยสักฝั่ง -> การ์ดเช็คลิสต์ 3 ขั้นตอน
+        ? SetupChecklistCard(
+            billingDayDone: user?.billingDayConfigured ?? false,
+            onBillingDay: () => _openSettings(const SettingsScreen(
+                quickAction: SettingsQuickAction.billingDay)),
+            onStartMeter: _openStartMeterSetup,
+            onPastBills: () => _openAndReload(() => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => HistoricalBillListScreen(
+                      uid: user!.uid,
+                      firestoreService: _firestoreService,
+                    ),
+                  ),
+                )),
+          )
+        // การ์ดไฟฟ้า/น้ำคู่กัน: ฝั่งที่พร้อมเป็นการ์ดมิเตอร์ ฝั่งที่ยังไม่พร้อม
+        // เป็นการ์ดล็อก (IntrinsicHeight ให้สองการ์ดสูงเท่ากัน)
+        : IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _electricityCard(data)),
+                const SizedBox(width: 12),
+                Expanded(child: _waterCard(data)),
+              ],
+            ),
+          );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // (1) Header: avatar + คำทักทาย + ผ่านมา/เหลืออีก + ปุ่มแจ้งเตือน
-        DashboardHeader(
-          user: user,
-          daysElapsed: EnergyForecaster.getDaysElapsed(now, billingDay),
-          remainingDays: EnergyForecaster.getRemainingDays(now, billingDay),
-          cycleLengthDays: EnergyForecaster.getCycleLengthDays(now, billingDay),
-          unreadNotifications: _unreadNotifications,
-          onNotificationTap: _onNotificationTap,
+        // (1) Header: วันที่ + คำทักทาย + ปุ่มแจ้งเตือน
+        stagger(
+          0,
+          DashboardHeader(
+            user: user,
+            unreadNotifications: _unreadNotifications,
+            onNotificationTap: _onNotificationTap,
+          ),
         ),
         const SizedBox(height: 18),
 
-        // (2) การ์ดสรุปบิลรอบนี้: ไฟ/น้ำที่ใช้ไปแล้ว + รายจ่ายประจำ (แตะเพื่อ
-        // ไปหน้ารายจ่ายประจำ) + รวมถึงตอนนี้ + คาดการณ์บิลทั้งรอบ
-        CostSummaryCard(
-          data: data,
-          onFixedCostTap: () =>
-              _openSettings(const SettingsScreen(openFixedCostOnStart: true)),
+        // (2) การ์ดสรุปบิลรอบนี้: วันที่เหลือ + คาดการณ์บิลทั้งรอบ + รวมถึงตอนนี้
+        stagger(
+          1,
+          BillHeroCard(
+            data: data,
+            remainingDays: EnergyForecaster.getRemainingDays(now, billingDay),
+            daysElapsed: EnergyForecaster.getDaysElapsed(now, billingDay),
+            cycleLengthDays:
+                EnergyForecaster.getCycleLengthDays(now, billingDay),
+          ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
 
-        // (3) บันทึกมิเตอร์วันนี้
-        const Text('บันทึกมิเตอร์วันนี้', style: DashboardStyles.sectionTitle),
-        const SizedBox(height: 10),
+        // (3) ไฟฟ้าและน้ำรอบนี้ (การ์ดเช็คลิสต์มีหัวข้อของตัวเองอยู่แล้ว)
+        if (!showChecklist) ...[
+          stagger(
+            2,
+            const Text('ไฟฟ้าและน้ำรอบนี้',
+                style: TextStyle(
+                    fontSize: AppTypography.s16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark)),
+          ),
+          const SizedBox(height: 10),
+        ],
 
         // ตัวเตือนวันตัดรอบบิล — โชว์เฉพาะบัญชีที่ยังไม่เคยเลือกวันตัดรอบเอง
         // แต่ตั้งเลขมิเตอร์ต้นรอบไปแล้ว (ถ้ายังไม่ได้ตั้งเลขต้นรอบ การ์ดเช็คลิสต์
         // ด้านล่างมีขั้นนี้อยู่แล้ว)
         if (user?.billingDayConfigured == false &&
             user?.startMeterConfigured != false) ...[
-          BillingDayReminderBanner(
-            onTap: () => _openSettings(const SettingsScreen(
-                quickAction: SettingsQuickAction.billingDay)),
+          stagger(
+            3,
+            BillingDayReminderBanner(
+              onTap: () => _openSettings(const SettingsScreen(
+                  quickAction: SettingsQuickAction.billingDay)),
+            ),
           ),
           const SizedBox(height: 10),
         ],
 
-        // ยังไม่ได้ตั้งเลขต้นรอบเลยสักฝั่ง -> การ์ดเช็คลิสต์ 3 ขั้นตอน
-        // ไม่งั้นการ์ดไฟฟ้า/น้ำคู่กัน: ฝั่งที่พร้อมเป็นการ์ดสรุป ฝั่งที่ยังไม่
-        // พร้อมเป็นการ์ดล็อก (IntrinsicHeight ให้สองการ์ดสูงเท่ากัน)
-        user?.startMeterConfigured == false
-            ? SetupChecklistCard(
-                billingDayDone: user?.billingDayConfigured ?? false,
-                onBillingDay: () => _openSettings(const SettingsScreen(
-                    quickAction: SettingsQuickAction.billingDay)),
-                onStartMeter: _openStartMeterSetup,
-                onPastBills: () => _openAndReload(() => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => HistoricalBillListScreen(
-                          uid: user!.uid,
-                          firestoreService: _firestoreService,
-                        ),
-                      ),
-                    )),
-              )
-            : IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: _electricityCard(data)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _waterCard(data)),
-                  ],
-                ),
-              ),
+        stagger(3, meterSection),
+        const SizedBox(height: 12),
+
+        // (4) รายจ่ายประจำของรอบนี้ (แตะเพื่อไปจัดการ)
+        stagger(
+          4,
+          FixedCostTile(
+            amount: data.billFixedCost,
+            onTap: () =>
+                _openSettings(const SettingsScreen(openFixedCostOnStart: true)),
+          ),
+        ),
         const SizedBox(height: 16),
+
+        // (5) การใช้รายวันของรอบนี้ (ผู้ใช้ใหม่ยังไม่มีข้อมูลให้แสดง)
+        if (!showChecklist) ...[
+          stagger(
+            5,
+            DailyUsageCard(
+              data: data,
+              cycleDays: data.cycleEnd.difference(data.cycleStart).inDays,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
       ],
     );
   }
@@ -361,15 +410,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onSetStartMeter: _openStartMeterSetup,
       );
     }
-    final log = data.cycleLatestElectricityLog;
     return MeterSummaryCard(
       kind: MeterKind.electricity,
       isTou: data.isTou,
-      lastValue: data.isTou ? null : (log?.meterValue ?? user?.startElectricityValue),
-      startValue: data.isTou ? null : user?.startElectricityValue,
-      lastPeak: data.isTou ? (log?.peakMeterValue ?? user?.startPeakValue) : null,
-      lastOffPeak:
-          data.isTou ? (log?.offPeakMeterValue ?? user?.startOffPeakValue) : null,
+      cost: data.currentElectricityCost,
+      units: data.currentElectricityUnits,
+      peakShare: data.cyclePeakShare,
+      lastRecorded: data.cycleLatestElectricityLog?.date,
       onRecord: () => _openRecordMeter(MeterKind.electricity),
     );
   }
@@ -389,8 +436,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     return MeterSummaryCard(
       kind: MeterKind.water,
-      lastValue: data.cycleLatestWaterLog?.meterValue ?? user?.startWaterValue,
-      startValue: user?.startWaterValue,
+      cost: data.currentWaterCost,
+      units: data.currentWaterUnits,
+      lastRecorded: data.cycleLatestWaterLog?.date,
       onRecord: () => _openRecordMeter(MeterKind.water),
     );
   }

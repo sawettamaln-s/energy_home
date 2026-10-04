@@ -84,6 +84,31 @@ void main() {
       expect(data.waterMeterReady, isTrue);
     });
 
+    test('เทียบยอดคาดการณ์ค่าไฟ+ค่าน้ำกับบิลล่าสุดเป็น %', () async {
+      await createUser();
+      final cost = await EnergyCalculator.calculateElectricity(100, 'bangkok');
+      await service.saveElectricityLog(ElectricityLogModel(
+          id: 'e1', uid: _uid, date: DateTime(2026, 6, 6),
+          meterValue: 1100, usedFromStart: 100, cost: cost));
+      final forecast = await EnergyCalculator.calculateElectricity(600, 'bangkok');
+      await service.saveBill(BillModel(
+          id: 'b5', uid: _uid, year: 2026, month: 6,
+          electricityCost: forecast / 2, waterCost: 0));
+
+      final data = await loader.load(_uid, now: now);
+      expect(data.forecastChangeVsLastBill, closeTo(100, 0.01));
+    });
+
+    test('ยังไม่มีบิลก่อนให้เทียบ -> ไม่มีตัวเลขเทียบ', () async {
+      await createUser();
+      await service.saveElectricityLog(ElectricityLogModel(
+          id: 'e1', uid: _uid, date: DateTime(2026, 6, 6),
+          meterValue: 1100, usedFromStart: 100, cost: 400));
+      final data = await loader.load(_uid, now: now);
+      expect(data.hasForecastData, isTrue);
+      expect(data.forecastChangeVsLastBill, isNull);
+    });
+
     test('ยังไม่มีบันทึก -> ยังไม่คาดการณ์ ยอดเป็นศูนย์', () async {
       await createUser();
       final data = await loader.load(_uid, now: now);
@@ -144,6 +169,40 @@ void main() {
 
       expect(first.newTariffHint?.suggestedTariff, EnergyCalculator.tariffSmall);
       expect(second.newTariffHint, isNull);
+    });
+  });
+
+  group('สัดส่วน On-Peak ของรอบนี้ (TOU)', () {
+    DashboardData touData(ElectricityLogModel? log, {String meterType = 'tou'}) =>
+        DashboardData(
+          user: UserModel(
+              uid: _uid,
+              name: 'x',
+              email: 'x@x.com',
+              meterType: meterType,
+              startPeakValue: 100,
+              startOffPeakValue: 500),
+          cycleStart: DateTime(2026, 6, 1),
+          cycleEnd: DateTime(2026, 7, 1),
+          electricityLogs: [if (log != null) log],
+        );
+    ElectricityLogModel log(double peak, double offPeak) => ElectricityLogModel(
+        id: 'e1',
+        uid: _uid,
+        date: DateTime(2026, 6, 5),
+        meterValue: 0,
+        peakMeterValue: peak,
+        offPeakMeterValue: offPeak);
+
+    test('หน่วยที่ใช้แต่ละช่วงนับจากเลขต้นรอบ', () {
+      // On-Peak ใช้ 30, Off-Peak ใช้ 90 -> 25%
+      expect(touData(log(130, 590)).cyclePeakShare, closeTo(0.25, 1e-9));
+    });
+
+    test('ไม่ใช่ TOU / ยังไม่ได้จด / ยังไม่ได้ใช้ -> null', () {
+      expect(touData(log(130, 590), meterType: 'normal').cyclePeakShare, isNull);
+      expect(touData(null).cyclePeakShare, isNull);
+      expect(touData(log(100, 500)).cyclePeakShare, isNull);
     });
   });
 }
