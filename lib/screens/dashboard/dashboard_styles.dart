@@ -63,7 +63,7 @@ class DashboardStyles {
       fontWeight: FontWeight.bold,
       color: textDark);
   // ฟอนต์ขาว อ่านออกได้เพราะ chip พื้นหลังทึบ (ดู pageHighlight
-  // header chip ใน dashboard_screen.dart) — ไม่ต้องพึ่งสีตัวอักษรเข้ม
+  // header chip ใน dashboard/widgets/dashboard_header.dart) — ไม่ต้องพึ่งสีตัวอักษรเข้ม
   static const TextStyle subGreeting = TextStyle(
       fontSize: AppTypography.hint,
       color: Colors.white,

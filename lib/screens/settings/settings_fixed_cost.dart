@@ -26,7 +26,7 @@ const List<({String key, String label, IconData icon})> _fixedCostCategories =
 // ผ่าน settings_screen.dart อยู่แล้ว) ไม่ประกาศซ้ำที่นี่ เพราะ Dart จะฟ้อง
 // "imported from both ... " ทันทีถ้ามีสอง const ชื่อเดียวกันจากคนละไฟล์
 // ในสโคปเดียวกัน — ของใน thai_date_utils.dart เป็นชื่อเดือนเต็ม (เช่น
-// "ตุลาคม") ซึ่งตรงกับที่ dashboard_screen.dart ใช้แสดงชื่อรอบบิลอยู่แล้วด้วย
+// "ตุลาคม") ซึ่งตรงกับที่หน้าหลัก (widgets/bill_summary_cards.dart) ใช้แสดงชื่อรอบบิลอยู่แล้วด้วย
 
 IconData _iconForFixedCostCategory(String key) {
   for (final c in _fixedCostCategories) {

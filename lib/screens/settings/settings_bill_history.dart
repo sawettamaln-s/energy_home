@@ -15,7 +15,7 @@ List<DateTime> _generateHistoricalMonthOptions(int billingDay) {
 
 // หาเดือนที่ "ไม่มีบิลเลยไม่ว่า source ไหน" ไล่ย้อนจากรอบก่อนหน้ารอบปัจจุบันไป
 // จนถึงเดือนที่ user เริ่มตั้งค่าระบบครั้งแรก (startBillingMonth/Year) — ขอบเขต
-// เดียวกับที่ backfill loop ใน dashboard_screen.dart ใช้ตรวจจับรอบที่ขาด ตั้งใจ
+// เดียวกับที่ backfill loop ใน dashboard_loader.dart ใช้ตรวจจับรอบที่ขาด ตั้งใจ
 // ไม่จำกัดแค่ 5 เดือนแบบ _generateHistoricalMonthOptions (นั่นมีไว้จำกัดแค่ตอน
 // "เพิ่มบิลใหม่เอง" ผ่านปุ่ม +) เพราะเดือนที่ระบบเคยแจ้งเตือนไปแล้วว่าขาด ต้องยัง
 // หาเจอในลิสต์นี้ได้เสมอไม่ว่าจะผ่านไปนานแค่ไหนก่อน user จะกดเข้ามาดู ไม่งั้น

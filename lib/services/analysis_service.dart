@@ -364,7 +364,7 @@ class AnalysisService {
 
   /// คาดการณ์ "ยอดบิลรอบปัจจุบัน" (รอบที่กำลังดำเนินอยู่ ยังไม่ปิด) ด้วย
   /// projectElectricityToCycleEnd/projectWaterToCycleEnd (cycle_projection.dart)
-  /// ตัวเดียวกับที่ dashboard_screen.dart ใช้ เพื่อให้ตัวเลขตรงกันทั้งแอป
+  /// ตัวเดียวกับที่หน้าหลัก (dashboard_loader.dart) ใช้ เพื่อให้ตัวเลขตรงกันทั้งแอป
   /// [startPeak]/[startOffPeak] = เลขต้นรอบของรอบปัจจุบัน (TOU เท่านั้น)
   ///
   /// คืนผลลัพธ์เป็น Map ที่มี key 'electricity' และ 'water'

@@ -1,7 +1,7 @@
 part of 'settings_screen.dart';
 
 // ใบแจ้งหนี้ล่าสุดที่ควรใช้เป็นต้นรอบตอนนี้ คำนวณจาก billingDay จริงของ user
-// สูตรเดียวกับ dashboard_screen.dart (ห้ามใช้ getPreviousCycleStart ซ้อนอีกชั้น จะได้เดือนเก่ากว่าที่ควร)
+// สูตรเดียวกับรอบบิลบนหน้าหลัก (ห้ามใช้ getPreviousCycleStart ซ้อนอีกชั้น จะได้เดือนเก่ากว่าที่ควร)
 DateTime _expectedInvoiceMonth(int billingDay) {
   final now = DateTime.now();
   return EnergyForecaster.getCycleStart(now, billingDay);

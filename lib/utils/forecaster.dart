@@ -160,22 +160,24 @@ class EnergyForecaster {
   }
 
   // จุดเริ่มต้นของรอบบิล "ก่อนหน้า" รอบที่ขึ้นต้นด้วย cycleStart ที่ให้มา
-  // ใช้ไล่ย้อนรอบบิลตอนปิดบิลรอบที่แล้ว/รอบที่ตกหล่น (ดู _loadData ใน
-  // dashboard_screen.dart)
+  // ใช้ไล่ย้อนรอบบิลตอนปิดบิลรอบที่แล้ว/รอบที่ตกหล่น (ดู runBackgroundTasks
+  // ใน dashboard_loader.dart)
   static DateTime getPreviousCycleStart(DateTime cycleStart, int billingDay) {
     final prevMonth = DateTime(cycleStart.year, cycleStart.month - 1, 1);
     return safeBillingDate(prevMonth.year, prevMonth.month, billingDay);
   }
 
   // เช็คว่า "เดือน/ปีที่ตั้งมิเตอร์ต้นรอบไว้" ยังตรงกับรอบบิลปัจจุบันไหม
-  // แหล่งความจริงเดียวสำหรับเช็คนี้ — ทุกหน้า (dashboard_screen.dart,
+  // แหล่งความจริงเดียวสำหรับเช็คนี้ — ทุกหน้า (dashboard_loader.dart,
   // settings_start_meter.dart) เรียกใช้ที่นี่ ไม่คำนวณเองแยกกัน
+  // [now] = วันที่ใช้ตัดสินรอบปัจจุบัน (ไม่ส่ง = ตอนนี้)
   static bool matchesCurrentCycle({
     required int billingMonth,
     required int billingYear,
     required int billingDay,
+    DateTime? now,
   }) {
-    final expected = getCycleStart(DateTime.now(), billingDay);
+    final expected = getCycleStart(now ?? DateTime.now(), billingDay);
     return billingMonth == expected.month && billingYear == expected.year;
   }
 
