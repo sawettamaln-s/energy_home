@@ -12,7 +12,7 @@ void main() {
   final cycleEnd = DateTime(2026, 7, 1);
   final day3 = DateTime(2026, 6, 4);
 
-  test('ค่าน้ำ: ค่าขั้นต่ำ/ค่าบริการไม่ถูกคูณตามจำนวนวัน', () {
+  test('ค่าน้ำ: ค่าบริการรายเดือนไม่ถูกคูณตามจำนวนวัน', () {
     final costNow = EnergyCalculator.calculateWater(2, 'bangkok');
     final p = projectWaterToCycleEnd(
       latest: WaterLogModel(
@@ -25,7 +25,7 @@ void main() {
     expect(p.projected, isTrue);
     expect(p.units, 20);
     expect(p.cost, EnergyCalculator.calculateWater(20, 'bangkok'));
-    // คูณยอดเงินตรงๆ จะได้สูงกว่านี้มาก (ค่าขั้นต่ำถูกคูณ 10 เท่า)
+    // คูณยอดเงินตรงๆ จะได้สูงกว่านี้มาก (ค่าบริการถูกคูณ 10 เท่า)
     expect(p.cost, lessThan(costNow * 10 / 2));
   });
 

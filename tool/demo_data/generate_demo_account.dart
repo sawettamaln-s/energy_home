@@ -527,7 +527,7 @@ double _waterMwa(double units) {
     [30, 8.50], [40, 10.03], [50, 10.35], [60, 10.68], [70, 11.00], [80, 11.33],
     [90, 12.50], [100, 12.82], [120, 13.15], [160, 13.47], [200, 13.80], [double.infinity, 14.45],
   ]);
-  final subtotal = max(45.0, cost + 25.0 + units * 0.15);
+  final subtotal = cost + 25.0 + units * 0.15; // ที่พักอาศัยไม่มีค่าน้ำขั้นต่ำ
   return _round2(subtotal * _vat);
 }
 
@@ -537,7 +537,7 @@ double _waterPwa(double units) {
     [10, 10.20], [20, 16.00], [30, 19.00], [50, 21.20], [80, 21.60], [100, 21.65],
     [300, 21.70], [1000, 21.75], [2000, 21.80], [3000, 21.85], [double.infinity, 21.90],
   ]);
-  final subtotal = max(50.0, cost + 30.0);
+  final subtotal = cost + 30.0; // ที่อยู่อาศัยไม่มีค่าน้ำขั้นต่ำ
   return _round2(subtotal * _vat);
 }
 

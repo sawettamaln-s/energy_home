@@ -57,6 +57,44 @@ void main() {
     });
   });
 
+  group('รหัสประเภทตามการไฟฟ้า และค่า Ft', () {
+    test('กฟน. 1.1 / 1.2 / TOU 1.3.2 และ กฟภ. 1.1.1 / 1.1.2 / TOU 1.2.2', () {
+      const small = EnergyCalculator.tariffSmall;
+      const standard = EnergyCalculator.tariffStandard;
+      expect(EnergyCalculator.tariffCode(small, 'bangkok'), '1.1');
+      expect(EnergyCalculator.tariffCode(standard, 'bangkok'), '1.2');
+      expect(EnergyCalculator.touCode('bangkok'), '1.3.2');
+      expect(EnergyCalculator.tariffCode(small, 'province'), '1.1.1');
+      expect(EnergyCalculator.tariffCode(standard, 'province'), '1.1.2');
+      expect(EnergyCalculator.touCode('province'), '1.2.2');
+    });
+
+    test('ค่า Ft งวดที่ตั้งไว้เกิน 4 เดือน = ยังไม่ได้อัปเดตงวดใหม่', () {
+      final from = DateTime(2026, 9, 1);
+      expect(EnergyCalculator.isFtOutdated(from, DateTime(2026, 12, 31)), isFalse);
+      expect(EnergyCalculator.isFtOutdated(from, DateTime(2027, 1, 1)), isTrue);
+      expect(EnergyCalculator.isFtOutdated(null, DateTime(2030, 1, 1)), isFalse);
+    });
+  });
+
+  group('ค่าน้ำประเภทที่อยู่อาศัย (ไม่มีค่าน้ำขั้นต่ำ)', () {
+    test('กปน. 1 หน่วย = (8.50 + ค่าบริการ 25 + ค่าน้ำดิบ 0.15) + VAT', () {
+      expect(EnergyCalculator.calculateWater(1, 'bangkok'),
+          double.parse(((8.50 + 25 + 0.15) * 1.07).toStringAsFixed(2)));
+    });
+
+    test('กปภ. 1 หน่วย = (10.20 + ค่าบริการ 30) + VAT', () {
+      expect(EnergyCalculator.calculateWater(1, 'province'),
+          double.parse(((10.20 + 30) * 1.07).toStringAsFixed(2)));
+    });
+
+    test('กปภ. เกิน 50 หน่วย คิดหน่วยที่ 51 ขึ้นไปด้วยอัตราประเภท 2 (ตารางหมายเลข 3)', () {
+      const first50 = 10 * 10.20 + 10 * 16.00 + 10 * 19.00 + 20 * 21.20;
+      expect(EnergyCalculator.calculateWater(60, 'province'),
+          double.parse(((first50 + 10 * 21.60 + 30) * 1.07).toStringAsFixed(2)));
+    });
+  });
+
   group('คำแนะนำประเภทอัตรา (บิล 3 เดือนติดกัน)', () {
     TariffHint? check(List<BillModel> bills,
             {String tariff = EnergyCalculator.tariffStandard,

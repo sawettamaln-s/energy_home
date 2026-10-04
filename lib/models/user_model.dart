@@ -5,7 +5,8 @@ class UserModel {
   final String area; // 'bangkok' = เขต MEA, 'province' = เขต PEA
   final String meterType; // 'normal' หรือ 'tou'
   // ประเภทอัตราค่าไฟของมิเตอร์ปกติตามใบแจ้งหนี้ — EnergyCalculator.tariffStandard
-  // (1.2 / 1.1.2 ค่าเริ่มต้น) หรือ tariffSmall (1.1.1) ไม่มีผลกับ TOU
+  // (ใช้เกิน 150 หน่วย ค่าเริ่มต้น) หรือ tariffSmall (ใช้ไม่เกิน 150 หน่วย)
+  // รหัสบนใบแจ้งหนี้ต่างกันตามการไฟฟ้า (EnergyCalculator.tariffCode) ไม่มีผลกับ TOU
   final String electricityTariff;
 
   // วันตัดรอบบิล — ใช้ร่วมกันทั้งไฟและน้ำ (ตัดสินใจแล้วว่าไม่แยกรายยูทิลิตี้

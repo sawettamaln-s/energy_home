@@ -1,19 +1,59 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// อัตราค่าไฟฟ้า/ค่าน้ำประปาบ้านอยู่อาศัย — ตรวจกับแหล่งทางการเมื่อ 3 ต.ค. 2569:
+//   ไฟฟ้า กฟน. : กกพ. https://www.erc.or.th/th/tariff/1288
+//   ไฟฟ้า กฟภ. : https://www.pea.co.th/sites/default/files/documents/tariff/Electricity_Tariff_MAY_2023.pdf
+//   ค่า Ft     : กกพ. https://www.erc.or.th/th/news-release/3458 (งวด ก.ย.-ธ.ค. 2569 = 16.23 สตางค์)
+//   น้ำ กปน.   : https://www.mwa.co.th/services/users-should-know/users-service-rate/service-rate/
+//   น้ำ กปภ.   : https://www.pwa.co.th/contents/service/table-price (ตารางหมายเลข 3)
+// อัตราไฟฟ้าทั้งสองการไฟฟ้าเท่ากัน ต่างกันแค่รหัสประเภท (ดู tariffCode)
+
+// ค่า Ft ที่แอปใช้ และวันที่เริ่มใช้งวดนั้น (null = ผู้ดูแลยังไม่ได้ระบุ)
+typedef FtInfo = ({double rate, DateTime? effectiveFrom});
+
 class EnergyCalculator {
-  // ค่า Ft ล่าสุดจาก app_config/electricity_rates (แก้ผ่าน Firebase Console)
-  // อ่านไม่ได้ (ออฟไลน์/ยังไม่มีเอกสาร) จะใช้ค่า default 0.1623 แทน
-  static Future<double> getFtRate() async {
+  // ค่า Ft งวดล่าสุดที่ผู้ดูแลตั้งไว้ใน app_config/electricity_rates (แก้ผ่าน
+  // Firebase Console ทุกครั้งที่ กกพ. ประกาศงวดใหม่ ทุก 4 เดือน: ม.ค./พ.ค./ก.ย.)
+  // อ่านไม่ได้ (ออฟไลน์/ยังไม่มีเอกสาร) ใช้ค่าของงวด ก.ย.-ธ.ค. 2569 แทน
+  static const double defaultFtRate = 0.1623;
+
+  static Future<double> getFtRate() async => (await getFtInfo()).rate;
+
+  // ft_rate = บาท/หน่วย, ft_effective_from = วันเริ่มงวด (ISO เช่น 2026-09-01)
+  static Future<FtInfo> getFtInfo() async {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('app_config')
           .doc('electricity_rates')
           .get();
-      return (doc.data()?['ft_rate'] ?? 0.1623).toDouble();
+      final data = doc.data();
+      return (
+        rate: ((data?['ft_rate'] ?? defaultFtRate) as num).toDouble(),
+        effectiveFrom: DateTime.tryParse('${data?['ft_effective_from'] ?? ''}'),
+      );
     } catch (e) {
-      return 0.1623;
+      return (rate: defaultFtRate, effectiveFrom: null);
     }
   }
+
+  // ค่า Ft ประกาศใหม่ทุก 4 เดือน — งวดที่ใช้อยู่เริ่มก่อน [now] เกิน 4 เดือน
+  // แปลว่าผู้ดูแลยังไม่ได้อัปเดตงวดใหม่ (ไม่รู้วันเริ่มงวด = ตัดสินไม่ได้ คืน false)
+  static bool isFtOutdated(DateTime? effectiveFrom, DateTime now) {
+    if (effectiveFrom == null) return false;
+    final nextPeriod =
+        DateTime(effectiveFrom.year, effectiveFrom.month + 4, effectiveFrom.day);
+    return !now.isBefore(nextPeriod);
+  }
+
+  // รหัสประเภทอัตราตามที่พิมพ์บนใบแจ้งหนี้ — อัตราเท่ากัน แต่ กฟน. กับ กฟภ.
+  // ตั้งชื่อต่างกัน: กฟน. 1.1 / 1.2 (TOU = 1.3.2), กฟภ. 1.1.1 / 1.1.2 (TOU = 1.2.2)
+  static String tariffCode(String tariff, String area) {
+    final isBangkok = area == 'bangkok';
+    if (tariff == tariffSmall) return isBangkok ? '1.1' : '1.1.1';
+    return isBangkok ? '1.2' : '1.1.2';
+  }
+
+  static String touCode(String area) => area == 'bangkok' ? '1.3.2' : '1.2.2';
 
   static const double vatRate = 1.07;
 
@@ -21,17 +61,18 @@ class EnergyCalculator {
   // ค่าคงที่เหล่านี้เป็นแหล่งความจริงเดียว — settings_rate_explanation.dart
   // ดึงตัวเลขจากที่นี่ไปโชว์ในตารางอธิบายอัตรา ห้าม hardcode ตัวเลขซ้ำที่นั่น
 
-  // อัตราขั้นบันไดประเภท 1.2 / 1.1.2 (ใช้เกิน 150 หน่วย/เดือน)
+  // อัตราขั้นบันไดประเภทใช้เกิน 150 หน่วย/เดือน (กฟน. 1.2 / กฟภ. 1.1.2)
   static const double electricityTier1Rate = 3.2484; // 1-150 หน่วย
   static const double electricityTier2Rate = 4.2218; // 151-400 หน่วย
   static const double electricityTier3Rate = 4.4217; // 401 หน่วยขึ้นไป
   static const double electricityServiceFee = 24.62;
 
-  // อัตรา TOU
+  // อัตรา TOU บ้านอยู่อาศัยแรงดันต่ำ (กฟน. 1.3.2 ต่ำกว่า 12 kV / กฟภ. 1.2.2
+  // ต่ำกว่า 22 kV) — Peak จ.-ศ. 09:00-22:00 น. นอกนั้นรวมวันหยุดเป็น Off-Peak
   static const double touPeakRate = 5.7982;
   static const double touOffPeakRate = 2.6369;
 
-  // อัตราขั้นบันไดสำหรับ >150 หน่วย/เดือน (ประเภท 1.2 / 1.1.2)
+  // อัตราขั้นบันไดสำหรับ >150 หน่วย/เดือน (กฟน. 1.2 / กฟภ. 1.1.2)
   static double _calculateEnergyRateOver150(double units) {
     double cost = 0;
     if (units <= 150) {
@@ -48,14 +89,14 @@ class EnergyCalculator {
   }
 
   // ประเภทอัตราค่าไฟของมิเตอร์ปกติ (ผู้ใช้เลือกตามใบแจ้งหนี้ — UserModel.electricityTariff)
-  // tariffStandard = ประเภท 1.2 / 1.1.2 (ค่าเริ่มต้น บ้านส่วนใหญ่ที่มิเตอร์เกิน
+  // tariffStandard = ใช้เกิน 150 หน่วย กฟน. 1.2 / กฟภ. 1.1.2 (ค่าเริ่มต้น บ้านส่วนใหญ่ที่มิเตอร์เกิน
   //   5 แอมแปร์ หรือใช้เกิน 150 หน่วย/เดือน)
-  // tariffSmall    = ประเภท 1.1.1 (มิเตอร์ไม่เกิน 5 แอมแปร์ ที่ใช้ไม่เกิน 150
+  // tariffSmall    = ใช้ไม่เกิน 150 หน่วย กฟน. 1.1 / กฟภ. 1.1.1 (มิเตอร์ไม่เกิน 5 แอมแปร์ ที่ใช้ไม่เกิน 150
   //   หน่วย/เดือนติดต่อกัน 3 เดือน)
   static const String tariffStandard = 'standard';
   static const String tariffSmall = 'small';
 
-  // อัตราขั้นบันไดประเภท 1.1.1
+  // อัตราขั้นบันไดประเภทใช้ไม่เกิน 150 หน่วย (กฟน. 1.1 / กฟภ. 1.1.1)
   static const double smallTier1Rate = 2.3488; // 1-15 หน่วย
   static const double smallTier2Rate = 2.9882; // 16-25 หน่วย
   static const double smallTier3Rate = 3.2405; // 26-35 หน่วย
@@ -88,7 +129,7 @@ class EnergyCalculator {
 
   // คำนวณค่าไฟฟ้าแบบปกติ
   // area: 'bangkok' = MEA, 'province' = PEA (ทั้งสองใช้ตารางอัตราเดียวกัน)
-  // tariff: ประเภทอัตรา (ดู tariffStandard/tariffSmall) ไม่ส่ง = 1.2 / 1.1.2
+  // tariff: ประเภทอัตรา (ดู tariffStandard/tariffSmall) ไม่ส่ง = ใช้เกิน 150 หน่วย
   static Future<double> calculateElectricity(
     double units,
     String area, {
@@ -166,9 +207,10 @@ class EnergyCalculator {
   static const double waterMwaTier10 = 13.47; // 121-160 หน่วย
   static const double waterMwaTier11 = 13.80; // 161-200 หน่วย
   static const double waterMwaTier12 = 14.45; // 201 หน่วยขึ้นไป
+  // ค่าบริการรายเดือนของมาตรวัดน้ำขนาด ½ นิ้ว (บ้านทั่วไป) — มาตรใหญ่กว่านี้
+  // ค่าบริการสูงขึ้นตามขนาด แอปไม่ได้ถามขนาดมาตร
   static const double waterMwaServiceFee = 25.00;
   static const double waterMwaRawWaterFee = 0.15;
-  static const double waterMwaMinimum = 45.00;
 
   static double calculateWaterMWA(double units) {
     if (units <= 0) return 0;
@@ -268,14 +310,9 @@ class EnergyCalculator {
 
     double serviceFee = waterMwaServiceFee;
     double rawWaterFee = units * waterMwaRawWaterFee;
+    // ไม่มีค่าน้ำขั้นต่ำ — กปน. ยกเลิกค่าน้ำขั้นต่ำของผู้ใช้น้ำที่พักอาศัย (R1)
+    // ตั้งแต่งวดการอ่านน้ำ 1 เม.ย. 2558
     double subtotal = cost + serviceFee + rawWaterFee;
-
-    // ค่าน้ำขั้นต่ำของ กปน. คือ 45 บาท/เดือน (ก่อน VAT) สำหรับผู้ใช้น้ำ
-    // ช่วง 0-30 หน่วย ตามประกาศอัตราค่าน้ำ กปน. — กันเคสใช้น้ำน้อยมากๆ
-    // ที่คำนวณตามขั้นบันไดแล้วต่ำกว่าค่าขั้นต่ำที่ กปน. เรียกเก็บจริง
-    if (subtotal < waterMwaMinimum) {
-      subtotal = waterMwaMinimum;
-    }
 
     double total = subtotal * vatRate;
 
@@ -294,8 +331,8 @@ class EnergyCalculator {
   static const double waterPwaTier9 = 21.80; // 1,001-2,000 หน่วย
   static const double waterPwaTier10 = 21.85; // 2,001-3,000 หน่วย
   static const double waterPwaTier11 = 21.90; // 3,001 หน่วยขึ้นไป
+  // ค่าบริการรายเดือนของมาตรวัดน้ำขนาด ½ นิ้ว (บ้านทั่วไป)
   static const double waterPwaServiceFee = 30.00;
-  static const double waterPwaMinimum = 50.00;
 
   // PWA (ต่างจังหวัด)
   // อ้างอิงตารางหมายเลข 3 (กปภ.สาขาอื่นทั่วประเทศ) จาก pwa.co.th เพราะ
@@ -368,13 +405,9 @@ class EnergyCalculator {
     }
 
     double serviceFee = waterPwaServiceFee;
+    // ตารางอัตราของ กปภ. กำหนดค่าน้ำขั้นต่ำเฉพาะประเภท 2 และ 3 ประเภทที่อยู่
+    // อาศัยไม่มีขั้นต่ำ
     double subtotal = cost + serviceFee;
-
-    // ค่าน้ำขั้นต่ำของ กปภ. สำหรับผู้ใช้น้ำประเภทที่อยู่อาศัย คือ 50 บาท/เดือน
-    // (ก่อน VAT) กันเคสใช้น้ำน้อยมากๆ ที่คำนวณได้ต่ำกว่าค่าขั้นต่ำจริง
-    if (subtotal < waterPwaMinimum) {
-      subtotal = waterPwaMinimum;
-    }
 
     double total = subtotal * vatRate;
 

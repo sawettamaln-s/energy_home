@@ -2,26 +2,30 @@ part of 'settings_screen.dart';
 
 // ==================== ประเภทอัตราค่าไฟ (มิเตอร์ปกติ) ====================
 // เปิดได้ทั้งจากหน้าตั้งค่า และจาก popup แนะนำบนหน้าหลัก (ดู
-// showTariffHintPopup) — ค่าเริ่มต้นคือประเภท 1.2 / 1.1.2 ของบ้านส่วนใหญ่
+// showTariffHintPopup) — ค่าเริ่มต้นคือประเภทใช้เกิน 150 หน่วยของบ้านส่วนใหญ่
+// รหัสประเภทแสดงตามการไฟฟ้าของพื้นที่ผู้ใช้ (ดู EnergyCalculator.tariffCode)
 
-String tariffLabel(String tariff) => tariff == EnergyCalculator.tariffSmall
-    ? 'ประเภท 1.1.1'
-    : 'ประเภท 1.1.2 / 1.2';
+String tariffLabel(String tariff, String area) =>
+    'ประเภท ${EnergyCalculator.tariffCode(tariff, area)}';
 
 // อธิบายวิธีดูประเภทอัตราจากใบแจ้งหนี้และกติกาการจัดประเภทของการไฟฟ้า
-void showTariffHowToInfo(BuildContext context) {
+void showTariffHowToInfo(BuildContext context, String area) {
+  final small = EnergyCalculator.tariffCode(EnergyCalculator.tariffSmall, area);
+  final standard =
+      EnergyCalculator.tariffCode(EnergyCalculator.tariffStandard, area);
+  final utility = area == 'bangkok' ? 'การไฟฟ้านครหลวง' : 'การไฟฟ้าส่วนภูมิภาค';
   showInfoDialog(
     context,
     title: 'ดูประเภทอัตราค่าไฟยังไง?',
-    message: 'บนใบแจ้งหนี้ค่าไฟจะระบุประเภทอัตราที่ใช้คิดเงินไว้ เช่น 1.1.1, '
-        '1.1.2 หรือ 1.2 ให้เลือกในแอปตามนั้นค่ะ\n\n'
+    message: 'บนใบแจ้งหนี้ค่าไฟจะระบุประเภทอัตราที่ใช้คิดเงินไว้ บ้านอยู่อาศัยของ'
+        '$utilityมี 2 ประเภท ($small หรือ $standard) ให้เลือกในแอปตามนั้นค่ะ\n\n'
         'การไฟฟ้าจัดประเภทจากขนาดมิเตอร์และการใช้ย้อนหลัง:\n'
-        '• มิเตอร์ใหญ่กว่า 5 แอมแปร์ (บ้านส่วนใหญ่) เป็นประเภท 1.2 / 1.1.2 เสมอ\n'
-        '• มิเตอร์ไม่เกิน 5 แอมแปร์ ถ้าใช้ไม่เกิน 150 หน่วย/เดือนติดต่อกัน 3 เดือน '
-        'บิลเดือนถัดไปเป็นประเภท 1.1.1 (อัตราถูกกว่า) และถ้าใช้เกิน 150 หน่วย '
-        'ติดต่อกัน 3 เดือน จะกลับเป็น 1.1.2\n\n'
-        'ใช้กติกาเดียวกันทั้งกรุงเทพฯ/ปริมณฑล (กฟน.) และต่างจังหวัด (กฟภ.) '
-        'อัตราเท่ากันทั้งประเทศ ส่วนมิเตอร์ TOU มีอัตราของตัวเอง ไม่ต้องตั้งค่านี้',
+        '• มิเตอร์ใหญ่กว่า 5 แอมแปร์ (บ้านส่วนใหญ่) เป็นประเภท $standard เสมอ\n'
+        '• มิเตอร์ไม่เกิน 5 แอมแปร์ ถ้าใช้เกิน 150 หน่วยติดต่อกัน 3 เดือน เดือน'
+        'ถัดไปเป็นประเภท $standard และถ้าใช้ไม่เกิน 150 หน่วยติดต่อกัน 3 เดือน '
+        'จะกลับเป็นประเภท $small (อัตราถูกกว่า)\n\n'
+        'อัตราค่าไฟเท่ากันทั้งกรุงเทพฯ/ปริมณฑลและต่างจังหวัด ต่างกันแค่รหัสประเภท '
+        'ส่วนมิเตอร์ TOU มีอัตราของตัวเอง ไม่ต้องตั้งค่านี้',
   );
 }
 
@@ -106,7 +110,7 @@ Future<void> showElectricityTariffDialog(
               visualDensity: VisualDensity.compact,
               icon: const Icon(Icons.info_outline,
                   color: DashboardStyles.primaryGreen, size: 20),
-              onPressed: () => showTariffHowToInfo(context),
+              onPressed: () => showTariffHowToInfo(context, user.area),
             ),
           ],
         ),
@@ -122,7 +126,8 @@ Future<void> showElectricityTariffDialog(
               ),
               const SizedBox(height: 12),
               _tariffOption(
-                title: 'ประเภท 1.1.2 / 1.2 (ค่าเริ่มต้น)',
+                title:
+                    '${tariffLabel(EnergyCalculator.tariffStandard, user.area)} (ค่าเริ่มต้น)',
                 detail: 'บ้านส่วนใหญ่ (มิเตอร์ใหญ่กว่า 5 แอมแปร์ หรือใช้เกิน '
                     '150 หน่วย/เดือน)',
                 selected: selected == EnergyCalculator.tariffStandard,
@@ -131,7 +136,7 @@ Future<void> showElectricityTariffDialog(
               ),
               const SizedBox(height: 8),
               _tariffOption(
-                title: 'ประเภท 1.1.1',
+                title: tariffLabel(EnergyCalculator.tariffSmall, user.area),
                 detail: 'มิเตอร์ไม่เกิน 5 แอมแปร์ ที่ใช้ไม่เกิน 150 หน่วย/เดือน '
                     'ติดต่อกัน 3 เดือน (อัตราถูกกว่า)',
                 selected: selected == EnergyCalculator.tariffSmall,
@@ -188,6 +193,7 @@ Future<void> showTariffHintPopup(
   final range = '${thaiMonths[first.month - 1]} - '
       '${thaiMonths[latest.month - 1]} ${latest.year + 543}';
   final toSmall = hint.suggestedTariff == EnergyCalculator.tariffSmall;
+  final suggested = tariffLabel(hint.suggestedTariff, user.area);
   final goAdjust = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -204,18 +210,18 @@ Future<void> showTariffHintPopup(
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.info_outline,
                 color: DashboardStyles.primaryGreen, size: 20),
-            onPressed: () => showTariffHowToInfo(context),
+            onPressed: () => showTariffHowToInfo(context, user.area),
           ),
         ],
       ),
       content: Text(
         toSmall
             ? 'บ้านคุณใช้ไฟไม่เกิน 150 หน่วยติดต่อกัน 3 เดือน ($range) ถ้ามิเตอร์'
-                'ขนาดไม่เกิน 5 แอมแปร์ บิลถัดไปอาจเปลี่ยนเป็นประเภท 1.1.1 ซึ่ง'
+                'ขนาดไม่เกิน 5 แอมแปร์ บิลถัดไปอาจเปลี่ยนเป็น$suggested ซึ่ง'
                 'ถูกกว่า\n\nตรวจประเภทบนใบแจ้งหนี้ใบถัดไป ถ้าเปลี่ยนจริง'
                 'ปรับในแอปให้ตรงได้เลยค่ะ'
             : 'บ้านคุณใช้ไฟเกิน 150 หน่วยติดต่อกัน 3 เดือน ($range) บิลถัดไป'
-                'มักเปลี่ยนกลับเป็นประเภท 1.1.2\n\nตรวจประเภทบนใบแจ้งหนี้ใบถัดไป '
+                'มักเปลี่ยนกลับเป็น$suggested\n\nตรวจประเภทบนใบแจ้งหนี้ใบถัดไป '
                 'ถ้าเปลี่ยนจริงปรับในแอปให้ตรงได้เลยค่ะ',
         style: const TextStyle(fontSize: AppTypography.s13_5, height: 1.5),
       ),

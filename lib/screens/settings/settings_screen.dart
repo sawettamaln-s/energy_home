@@ -589,7 +589,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildSettingsTile(
               icon: Icons.receipt,
               title: 'ประเภทอัตราค่าไฟ',
-              subtitle: '${tariffLabel(_user!.electricityTariff)} (ดูได้จากใบแจ้งหนี้)',
+              subtitle: '${tariffLabel(_user!.electricityTariff, _user!.area)} (ดูได้จากใบแจ้งหนี้)',
               color: _sectionColor,
               onTap: () => showElectricityTariffDialog(
                 context,
@@ -778,7 +778,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const Divider(height: 1, indent: 56),
           // ให้ผู้ใช้เข้าใจว่าตัวเลขในบิลมาจากไหน — โชว์ตารางอัตราขั้นบันได/TOU
-          // และคำอธิบาย Ft/VAT/ค่าน้ำขั้นต่ำ ตามเกณฑ์ที่ผู้ใช้ตั้งไว้จริง
+          // และคำอธิบายประเภทอัตรา/Ft/VAT/ค่าบริการน้ำ ตามเกณฑ์ที่ผู้ใช้ตั้งไว้จริง
           _buildSettingsTile(
             icon: Icons.calculate_outlined,
             title: 'อัตราค่าไฟฟ้า / น้ำ คำนวณยังไง',
