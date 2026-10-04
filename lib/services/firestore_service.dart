@@ -128,7 +128,7 @@ class FirestoreService {
   }
 
   // เวอร์ชัน public ของ _calcFixedCostForMonth — ให้หน้าจอที่กรอก/แก้บิลของ
-  // เดือนใดเดือนหนึ่ง (เช่น settings_bill_history.dart ตอนเพิ่มบิลย้อนหลัง)
+  // เดือนใดเดือนหนึ่ง (เช่น settings_bill_form.dart ตอนเพิ่มบิลย้อนหลัง)
   // ได้ยอดของเดือนนั้นจริง ห้ามใช้ user.fixedCost แทน เพราะเป็นยอดของ
   // "เดือนปัจจุบัน" เท่านั้น
   Future<double> calcFixedCostForMonth(String uid, DateTime month) {
@@ -172,6 +172,90 @@ class FirestoreService {
     }
     // updateUser แจ้ง DataRefreshBus ครั้งเดียวหลังเขียนครบ
     await updateUser(user.uid, {'electricityTariff': tariff});
+  }
+
+  // แก้เลขมิเตอร์ต้นรอบของรอบปัจจุบัน → ไล่คำนวณ usedFromStart + cost ของ log
+  // รายวันทุกอันในรอบนี้ใหม่ตามเลขต้นรอบใหม่ แล้วบันทึกทับของเดิม (log แต่ละอัน
+  // เป็น snapshot ที่คำนวณตอนบันทึก ไม่คำนวณสดจากเลขต้นรอบปัจจุบัน)
+  // [user] = ข้อมูลผู้ใช้ก่อนแก้ (ใช้ billingDay/area/ประเภทอัตรา)
+  Future<void> recalcCurrentCycleLogs(
+    UserModel user, {
+    required bool isTou,
+    required bool recalcElectricity,
+    required bool recalcWater,
+    required double newStartE,
+    required double newStartPeak,
+    required double newStartOffPeak,
+    required double newStartW,
+    DateTime? now,
+  }) async {
+    final today = now ?? DateTime.now();
+    final startDate = EnergyForecaster.getCycleStart(today, user.billingDay);
+    final endDate = EnergyForecaster.getCycleEnd(today, user.billingDay);
+
+    if (recalcElectricity) {
+      final logs = await getCurrentMonthElectricityLogs(user.uid, startDate, endDate);
+      for (final log in logs) {
+        double usedFromStart;
+        double cost;
+        if (isTou) {
+          final peakUnits = EnergyCalculator.calculateUsed(
+              log.peakMeterValue ?? 0, newStartPeak);
+          final offPeakUnits = EnergyCalculator.calculateUsed(
+              log.offPeakMeterValue ?? 0, newStartOffPeak);
+          usedFromStart = peakUnits + offPeakUnits;
+          cost = await EnergyCalculator.calculateElectricityByType(
+            units: 0,
+            meterType: 'tou',
+            area: user.area,
+            peakUnits: peakUnits,
+            offPeakUnits: offPeakUnits,
+          );
+        } else {
+          usedFromStart =
+              EnergyCalculator.calculateUsed(log.meterValue, newStartE);
+          cost = await EnergyCalculator.calculateElectricityByType(
+            units: usedFromStart,
+            meterType: 'normal',
+            area: user.area,
+            tariff: user.electricityTariff,
+          );
+        }
+        await saveElectricityLog(
+          ElectricityLogModel(
+            id: log.id,
+            uid: log.uid,
+            date: log.date,
+            meterValue: log.meterValue,
+            peakMeterValue: log.peakMeterValue,
+            offPeakMeterValue: log.offPeakMeterValue,
+            usedFromStart: usedFromStart,
+            usedFromLast: log.usedFromLast,
+            cost: cost,
+          ),
+        );
+      }
+    }
+
+    if (recalcWater) {
+      final logs = await getCurrentMonthWaterLogs(user.uid, startDate, endDate);
+      for (final log in logs) {
+        final usedFromStart =
+            EnergyCalculator.calculateUsed(log.meterValue, newStartW);
+        final cost = EnergyCalculator.calculateWater(usedFromStart, user.area);
+        await saveWaterLog(
+          WaterLogModel(
+            id: log.id,
+            uid: log.uid,
+            date: log.date,
+            meterValue: log.meterValue,
+            usedFromStart: usedFromStart,
+            usedFromLast: log.usedFromLast,
+            cost: cost,
+          ),
+        );
+      }
+    }
   }
 
   // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================

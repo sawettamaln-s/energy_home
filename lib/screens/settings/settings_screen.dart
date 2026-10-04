@@ -32,10 +32,15 @@ import '../dashboard/dashboard_styles.dart';
 
 // แยกเป็นไฟล์ย่อยตามหน้าที่ด้วย part/part of แทนคลาส public เพราะเป็น
 // implementation detail ของหน้า Settings ล้วนๆ ไม่มีที่อื่นเรียกใช้ตรงๆ
-part 'settings_bill_history.dart'; // เพิ่ม/แก้ไข/ดูรายการบิลย้อนหลัง
+part 'settings_account.dart'; // ลบบัญชีและข้อมูลทั้งหมด (PDPA)
+part 'settings_bill_form.dart'; // ฟอร์มเพิ่ม/แก้ไขบิลเดือนเก่า
+part 'settings_bill_history.dart'; // หน้ารายการบิลเดือนเก่า
+part 'settings_billing_day.dart'; // หน้าต่างเลือกวันตัดรอบบิล
+part 'settings_cost_autofill.dart'; // คำนวณค่าใช้จ่ายอัตโนมัติขณะพิมพ์ (ใช้ร่วม 2 ฟอร์ม)
 part 'settings_fixed_cost.dart'; // รายการค่าใช้จ่ายคงที่
 part 'settings_rate_explanation.dart'; // อธิบายอัตราค่าไฟฟ้า/น้ำ (ไฟฟ้า+น้ำ)
-part 'settings_start_meter.dart'; // บันทึก + ประวัติมิเตอร์ต้นรอบ
+part 'settings_start_meter.dart'; // ฟอร์มตั้งเลขมิเตอร์ต้นรอบ
+part 'settings_start_meter_history.dart'; // หน้าประวัติเลขมิเตอร์ต้นรอบ
 part 'settings_tariff.dart'; // ประเภทอัตราค่าไฟ + popup แนะนำให้ตรวจประเภท
 part 'settings_utility_log.dart'; // ประวัติมิเตอร์ไฟฟ้า/น้ำที่บันทึกแต่ละวัน
 
@@ -180,7 +185,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (!mounted) return;
         switch (widget.quickAction!) {
           case SettingsQuickAction.billingDay:
-            _showEditBillingDay();
+            _showBillingDayDialog(
+              context,
+              user: _user,
+              firestoreService: _firestoreService,
+              onSaved: _loadUser,
+            );
         }
       });
     }
@@ -204,151 +214,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const AuthGate()),
       (route) => false, // ทิ้งทุกหน้าก่อนหน้าออกจากสแต็ก กันกดย้อนกลับเข้ามาได้
-    );
-  }
-
-  // ==================== ลบบัญชี + ข้อมูลทั้งหมด (PDPA) ====================
-  // ลำดับ: 1) ยืนยัน+อธิบายผล 2) reauthenticate (Firebase บังคับ
-  // requires-recent-login สำหรับ operation อ่อนไหวแบบนี้) — บัญชีอีเมลขอรหัสผ่าน,
-  // บัญชี Google ล้วนไม่มีรหัสผ่าน จึงให้เลือกบัญชี Google ยืนยันซ้ำแทน
-  // 3) ลบข้อมูลใน Firestore
-  // ก่อนแล้วค่อยลบบัญชี Auth ทีหลังสุด (สลับลำดับแล้วลบ Firestore ไม่สำเร็จ
-  // จะไม่มีทาง sign-in กลับมาลบข้อมูลที่เหลือได้อีก)
-  Future<void> _confirmDeleteAccount() async {
-    final confirmed = await showConfirmDialog(
-      context,
-      title: 'ลบบัญชีและข้อมูลทั้งหมด?',
-      content: 'การลบบัญชีจะลบข้อมูลทั้งหมดถาวร ได้แก่ ประวัติมิเตอร์ไฟ/น้ำ, '
-          'บิลย้อนหลังทั้งหมด, เครื่องใช้ไฟฟ้าที่บันทึกไว้, รายจ่ายประจำ '
-          'และการตั้งค่าบัญชีทั้งหมด — กู้คืนไม่ได้ไม่ว่ากรณีใดค่ะ',
-      confirmLabel: 'ลบถาวร',
-    );
-    if (!confirmed) return;
-    if (!mounted) return;
-
-    final authUser = FirebaseAuth.instance.currentUser;
-    if (authUser == null) return;
-    final usesPassword =
-        authUser.providerData.any((p) => p.providerId == 'password');
-
-    AuthCredential? credential;
-    try {
-      credential = await _askReauthCredential(authUser, usesPassword);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('ยืนยันตัวตนด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ')),
-      );
-      return;
-    }
-    // null = ผู้ใช้กดยกเลิกตอนยืนยันตัวตน
-    if (credential == null) return;
-    if (!mounted) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final user = FirebaseAuth.instance.currentUser!;
-      await user.reauthenticateWithCredential(credential);
-
-      await _firestoreService.deleteAllUserData(user.uid);
-      await user.delete();
-
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const AuthGate()),
-        (route) => false,
-      );
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      String message = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้งค่ะ';
-      if (e.code == 'user-mismatch') {
-        message = 'บัญชี Google ที่เลือกไม่ตรงกับบัญชีที่ใช้งานอยู่ค่ะ';
-      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        message = usesPassword
-            ? 'รหัสผ่านไม่ถูกต้องค่ะ'
-            : 'ยืนยันตัวตนไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ';
-      } else if (e.code == 'too-many-requests') {
-        message = 'ลองผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่ค่ะ';
-      }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('ลบบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ')),
-      );
-    }
-  }
-
-  // ขอ credential สำหรับยืนยันตัวตนก่อนลบบัญชี — คืนค่า null ถ้ากดยกเลิก
-  // บัญชีที่มี provider 'password' → กรอกรหัสผ่าน / นอกนั้น (Google) → เลือกบัญชี Google
-  Future<AuthCredential?> _askReauthCredential(
-      User user, bool usesPassword) async {
-    if (usesPassword) {
-      final password = await _askPasswordForDeletion();
-      if (password == null || password.isEmpty) return null;
-      return EmailAuthProvider.credential(
-        email: user.email!,
-        password: password,
-      );
-    }
-    return GoogleAuthService.getCredential();
-  }
-
-  // ขอรหัสผ่านก่อนลบบัญชี — คืนค่า null ถ้ากดยกเลิก
-  Future<String?> _askPasswordForDeletion() {
-    final ctrl = TextEditingController();
-    bool obscure = true;
-    return showDialog<String>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v16)),
-          title: const Text('ยืนยันตัวตนก่อนลบบัญชี',
-              style: TextStyle(fontSize: AppTypography.s16)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'กรอกรหัสผ่านของบัญชีนี้อีกครั้งเพื่อยืนยันว่าเป็นคุณเอง',
-                style: TextStyle(fontSize: AppTypography.s13_5, height: 1.5),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: ctrl,
-                obscureText: obscure,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'รหัสผ่าน',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.v10)),
-                  suffixIcon: IconButton(
-                    icon:
-                        Icon(obscure ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setDialogState(() => obscure = !obscure),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ยกเลิก'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, ctrl.text),
-              child: const Text('ยืนยัน', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -581,7 +446,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'วันตัดรอบบิล',
             subtitle: 'รอบบิลเริ่มทุกวันที่ ${_user?.billingDay ?? 30} ของเดือน',
             color: _sectionColor,
-            onTap: () => _showEditBillingDay(),
+            onTap: () => _showBillingDayDialog(
+              context,
+              user: _user,
+              firestoreService: _firestoreService,
+              onSaved: _loadUser,
+            ),
           ),
           // ประเภทอัตราใช้กับมิเตอร์ปกติเท่านั้น (TOU มีอัตราของตัวเอง)
           if (_user != null && _user!.meterType != 'tou') ...[
@@ -813,7 +683,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: 'ลบบัญชีและข้อมูลทั้งหมด',
         subtitle: 'ลบถาวร กู้คืนไม่ได้ • ตามสิทธิ PDPA',
         color: Colors.red,
-        onTap: () => _confirmDeleteAccount(),
+        onTap: () => _confirmDeleteAccount(
+          context,
+          firestoreService: _firestoreService,
+          setBusy: (busy) {
+            if (mounted) setState(() => _isLoading = busy);
+          },
+        ),
       ),
     );
   }
@@ -890,319 +766,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('บันทึก'),
           ),
         ],
-      ),
-    );
-  }
-
-  // popup อธิบายสั้นๆ แบบ "ห้อย" ใต้หัวข้อ — ฟังก์ชันกลางใช้ซ้ำได้กับ popup อื่น
-  void _showInfoPopup(String title, String message) {
-    showInfoDialog(context, title: title, message: message);
-  }
-
-  // วันที่ "ยอดนิยม" ที่ให้ป้ายกำกับในปฏิทินเลือกวันตัดรอบบิล — เป็นชุดคงที่
-  // สำหรับความสวยงามของ UI เท่านั้น (แอปยังไม่ได้เก็บสถิติวันที่ผู้ใช้เลือกจริง)
-  static const Set<int> _popularBillingDays = {1, 15, 20, 25, 30};
-
-  // ช่องวันที่หนึ่งช่องในปฏิทินเลือกวันตัดรอบบิล (ไม่มีเดือน มีแค่เลข 1-31
-  // เพราะวันตัดรอบบิลซ้ำทุกเดือนอยู่แล้ว ไม่ต้องให้เลือกเดือน)
-  Widget _buildBillingDayCell({
-    required int day,
-    required bool isSelected,
-    required bool isPopular,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: isSelected ? DashboardStyles.primaryGreen : Colors.white,
-          borderRadius: BorderRadius.circular(AppSpacing.v10),
-          border: Border.all(
-            color: isSelected ? DashboardStyles.primaryGreen : Colors.grey.shade200,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$day',
-              style: TextStyle(
-                fontSize: AppTypography.s14,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.black87,
-              ),
-            ),
-            if (isPopular)
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.v1),
-                child: Text(
-                  'ยอดนิยม',
-                  style: TextStyle(
-                    fontSize: AppTypography.s8,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? Colors.white : Colors.green.shade700,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showEditBillingDay() {
-    int selectedDay = _user?.billingDay ?? 30;
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v20)),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v20, AppSpacing.v20, AppSpacing.v12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // หัวเรื่อง + ปุ่ม info ห้อยอธิบายว่าวันตัดรอบบิลคืออะไร
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'เลือกวันตัดรอบบิล',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: AppTypography.s17,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.info_outline,
-                          color: DashboardStyles.primaryGreen, size: 20),
-                      onPressed: () => _showInfoPopup(
-                        'วันตัดรอบบิล คืออะไร?',
-                        'วันที่จดเลขมิเตอร์ที่พิมพ์อยู่บนใบแจ้งหนี้ (วันเริ่มรอบบิลใหม่) '
-                            'ระบบใช้วันนี้แบ่งรอบบิล คำนวณยอดของแต่ละรอบ และแจ้งเตือน'
-                            'ให้คุณบันทึกเลขมิเตอร์ต้นรอบเมื่อได้ใบแจ้งหนี้ใบใหม่\n\n'
-                            'ไฟฟ้าและน้ำใช้วันเดียวกัน ถ้าสองใบมาไม่ตรงกัน แนะนำให้เลือก'
-                            'ตามใบที่มาทีหลัง'
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'แตะที่วันบนใบแจ้งหนี้ล่าสุดของคุณ',
-                  style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 16),
-
-                // ปฏิทินเลือกวัน 1-31 แบบกริด 7 คอลัมน์ — mainAxisExtent คงที่
-                // เพื่อให้ช่องที่มีป้าย "ยอดนิยม" กับช่องปกติสูงเท่ากัน
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 6,
-                    mainAxisExtent: 46,
-                  ),
-                  // +1 ช่องแรกเป็นช่องว่าง เพื่อให้เลข 1 เริ่มเยื้องคอลัมน์ที่ 2
-                  itemCount: 32,
-                  itemBuilder: (context, i) {
-                    if (i == 0) return const SizedBox.shrink();
-                    final day = i;
-                    return _buildBillingDayCell(
-                      day: day,
-                      isSelected: day == selectedDay,
-                      isPopular: _popularBillingDays.contains(day),
-                      onTap: () => setDialogState(() => selectedDay = day),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: Text(
-                    'วันที่เลือก: ทุกวันที่ $selectedDay ของเดือน',
-                    style: const TextStyle(
-                      fontSize: AppTypography.s12_5,
-                      fontWeight: FontWeight.w600,
-                      color: DashboardStyles.primaryGreen,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('ยกเลิก'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          // ครั้งแรกสุดที่ user ตั้งวันตัดรอบเอง — เช็คไว้ก่อน
-                          // updateUser() ด้านล่างจะเขียนทับค่านี้
-                          final wasUnconfigured =
-                              _user?.billingDayConfigured == false;
-
-                          // เลขต้นรอบที่ตั้งไว้ตรงกับรอบปัจจุบันอยู่ แต่วันตัดรอบ
-                          // ใหม่ทำให้รอบปัจจุบันเริ่มคนละเดือน — บอกผลก่อนว่าต้อง
-                          // ตั้งเลขต้นรอบใหม่ (การ์ดบันทึกมิเตอร์บนหน้าหลักจะล็อก)
-                          final user = _user;
-                          if (user != null &&
-                              !wasUnconfigured &&
-                              user.startMeterConfigured &&
-                              selectedDay != user.billingDay) {
-                            final matchesNow =
-                                EnergyForecaster.matchesCurrentCycle(
-                              billingMonth: user.startBillingMonth,
-                              billingYear: user.startBillingYear,
-                              billingDay: user.billingDay,
-                            );
-                            final matchesAfter =
-                                EnergyForecaster.matchesCurrentCycle(
-                              billingMonth: user.startBillingMonth,
-                              billingYear: user.startBillingYear,
-                              billingDay: selectedDay,
-                            );
-                            if (matchesNow && !matchesAfter) {
-                              final newStart = EnergyForecaster.getCycleStart(
-                                  DateTime.now(), selectedDay);
-                              final confirmed = await showConfirmDialog(
-                                context,
-                                title: 'เปลี่ยนวันตัดรอบบิล?',
-                                content: 'เมื่อเปลี่ยนเป็นวันที่ $selectedDay '
-                                    'รอบบิลปัจจุบันจะเริ่ม ${newStart.day} '
-                                    '${thaiMonths[newStart.month - 1]} '
-                                    '${newStart.year + 543} ซึ่งไม่ตรงกับเลข'
-                                    'มิเตอร์ต้นรอบที่ตั้งไว้ ต้องตั้งเลขมิเตอร์'
-                                    'ต้นรอบใหม่ก่อนบันทึกมิเตอร์ต่อค่ะ',
-                                confirmLabel: 'เปลี่ยน',
-                                confirmColor: DashboardStyles.primaryGreen,
-                              );
-                              if (!confirmed || !context.mounted) return;
-                            }
-                          }
-
-                          final updates = <String, dynamic>{
-                            'billingDay': selectedDay,
-                            // ผู้ใช้กดเลือกวันเองจริงแล้วตรงนี้ (ไม่ว่าจะ
-                            // เป็นครั้งแรกหรือมาแก้ทีหลัง) ใช้ปิดตัวเตือน
-                            // "ยังไม่ได้ตั้งวันตัดรอบบิล" บนหน้าหลัก
-                            'billingDayConfigured': true,
-                          };
-
-                          // ถ้าก่อนหน้านี้ยังไม่เคยตั้งวันตัดรอบ (billingDay ที่ใช้
-                          // คำนวณตอนบันทึกมิเตอร์ต้นรอบเป็นค่า default 30 เสมอ) แต่
-                          // เคยบันทึกมิเตอร์ต้นรอบไปแล้ว เดือนที่คำนวณไว้ตอนนั้นอาจ
-                          // ผิดไปจากวันตัดรอบจริงที่เพิ่งเลือก — แก้ให้อัตโนมัติ
-                          // แทนที่จะให้ user ต้องกลับมากรอกมิเตอร์ต้นรอบใหม่เอง
-                          // จำกัดเฉพาะ record แรกสุดจริงๆ (ประวัติมีแค่ 1 รายการ)
-                          // เท่านั้น กันไม่ให้ไปย้อนแก้ประวัติเก่าตอน user มาปรับวัน
-                          // ตัดรอบทีหลังจากใช้แอปผ่านไปหลายรอบบิลแล้ว (เคสนั้นคือ
-                          // เปลี่ยนวันตัดรอบจริงๆ ไม่ใช่แก้ค่าที่ผิดจาก default)
-                          if (wasUnconfigured && _user!.startMeterConfigured) {
-                            final history = await _firestoreService
-                                .getStartMeterHistory(_user!.uid);
-                            if (history.length == 1) {
-                              final record = history.first;
-                              // ใช้เวลาที่กดบันทึกมิเตอร์จริง (recordedAt) ไม่ใช่
-                              // เวลาปัจจุบัน กันเดือนเพี้ยนซ้ำถ้ามาตั้งวันตัดรอบ
-                              // ทีหลังจากวันที่กรอกมิเตอร์ไปแล้วหลายวัน
-                              final corrected = EnergyForecaster.getCycleStart(
-                                  record.recordedAt, selectedDay);
-                              if (corrected.month != record.billingMonth ||
-                                  corrected.year != record.billingYear) {
-                                updates['startBillingMonth'] = corrected.month;
-                                updates['startBillingYear'] = corrected.year;
-
-                                await _firestoreService.saveStartMeterRecord(
-                                  StartMeterRecordModel(
-                                    id: record.id,
-                                    uid: record.uid,
-                                    electricityValue: record.electricityValue,
-                                    waterValue: record.waterValue,
-                                    peakValue: record.peakValue,
-                                    offPeakValue: record.offPeakValue,
-                                    billingMonth: corrected.month,
-                                    billingYear: corrected.year,
-                                    recordedAt: record.recordedAt,
-                                  ),
-                                );
-
-                                // ย้ายบิลที่ผูกกับเดือนเดิม (ถ้ามี กรอกค่าใช้จ่าย
-                                // ไว้พร้อมกันตอนบันทึกมิเตอร์ต้นรอบครั้งแรก) ไป
-                                // เดือนที่แก้แล้วด้วย ไม่งั้นบิลกับมิเตอร์ต้นรอบจะ
-                                // ค้างอยู่คนละเดือนกัน — ข้ามถ้าเดือนใหม่ดันมีบิล
-                                // อยู่แล้ว (ชนกัน แทบเป็นไปไม่ได้ตอน history มีแค่
-                                // 1 รายการ แต่กันไว้เผื่อ)
-                                final bills = await _firestoreService
-                                    .getBills(_user!.uid);
-                                final oldBillMatches = bills.where((b) =>
-                                    b.year == record.billingYear &&
-                                    b.month == record.billingMonth);
-                                final targetTaken = bills.any((b) =>
-                                    b.year == corrected.year &&
-                                    b.month == corrected.month);
-                                if (oldBillMatches.isNotEmpty &&
-                                    !targetTaken) {
-                                  final oldBill = oldBillMatches.first;
-                                  await _firestoreService.saveBill(
-                                    BillModel(
-                                      id: oldBill.id,
-                                      uid: oldBill.uid,
-                                      year: corrected.year,
-                                      month: corrected.month,
-                                      electricityUsed: oldBill.electricityUsed,
-                                      electricityPeakUsed:
-                                          oldBill.electricityPeakUsed,
-                                      electricityOffPeakUsed:
-                                          oldBill.electricityOffPeakUsed,
-                                      waterUsed: oldBill.waterUsed,
-                                      electricityCost: oldBill.electricityCost,
-                                      waterCost: oldBill.waterCost,
-                                      fixedCost: oldBill.fixedCost,
-                                      totalCost: oldBill.totalCost,
-                                      source: oldBill.source,
-                                    ),
-                                  );
-                                }
-                              }
-                            }
-                          }
-
-                          await _firestoreService.updateUser(
-                              _user!.uid, updates);
-                          await _loadUser();
-                          if (context.mounted) Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: DashboardStyles.primaryGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.v10),
-                          ),
-                        ),
-                        child: const Text('บันทึก'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
