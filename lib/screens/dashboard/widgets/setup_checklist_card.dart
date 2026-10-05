@@ -110,7 +110,7 @@ class SetupChecklistCard extends StatelessWidget {
           ),
           _SetupStep(
             number: 3,
-            title: 'เพิ่มบิลเดือนเก่า (ไม่บังคับ)',
+            title: 'เพิ่มบิลย้อนหลัง (ไม่บังคับ)',
             description: 'ย้อนหลังได้ 5 เดือน ให้หน้าวิเคราะห์มีข้อมูลทันที',
             done: false,
             onTap: onPastBills,

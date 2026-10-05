@@ -98,9 +98,9 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
       children: [
         const Text(
           'สำหรับเพิ่มบิลของเดือนก่อนๆ ที่ไม่มีข้อมูลในระบบ ไม่ว่าจะเป็นเดือน'
-          'ก่อนเริ่มใช้แอป (กรอกได้สูงสุด 6 เดือนผ่านปุ่ม +) หรือเดือนที่ใช้แอป'
-          'อยู่แล้วแต่ดันลืมบันทึกไปทั้งเดือน (ระบบจะโชว์เป็นแถว "(ยังไม่'
-          'กรอก)" ให้กดกรอกได้เลย) เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไป'
+          'ก่อนเริ่มใช้แอป (กรอกได้ 5 เดือนย้อนหลังผ่านปุ่ม "เพิ่มบิลย้อนหลัง") '
+          'หรือเดือนที่ใช้แอปอยู่แล้วแต่ลืมบันทึกไปทั้งเดือน (ระบบจะโชว์เป็นแถว '
+          '"ยังไม่กรอก" ให้กดกรอกได้เลย) เพื่อให้หน้าวิเคราะห์มีข้อมูลย้อนหลังไป'
           'เปรียบเทียบได้ครบถ้วน',
           style: TextStyle(fontSize: AppTypography.s13_5, height: 1.6),
         ),
@@ -115,10 +115,10 @@ void _showHistoricalBillInfoPopup(BuildContext context) {
         const SizedBox(height: 12),
         _infoWarningBox(
           'กรอกยอดหน่วยที่ใช้จริงของเดือนนั้นเดือนเดียว ไม่ใช่เลขสะสม'
-          'บนมิเตอร์ (ดูวิธีกรอกละเอียดได้จากไอคอน ⓘ ข้างช่องกรอก)',
+          'บนมิเตอร์ (ดูตัวอย่างได้จากปุ่ม "ดูตำแหน่งในบิล" ในฟอร์ม)',
         ),
         const SizedBox(height: 14),
-        _infoSectionHeader('เดือนที่ขึ้นว่า (ประมาณ)', icon: Icons.info_outline),
+        _infoSectionHeader('เดือนที่มีป้าย "ประมาณ"', icon: Icons.info_outline),
         const SizedBox(height: 4),
         const Text(
           'คือบิลที่ระบบปิดให้เองเมื่อจบรอบ โดยประมาณจากเลขมิเตอร์ที่บันทึกไว้'
@@ -146,8 +146,7 @@ class HistoricalBillListScreen extends StatefulWidget {
       HistoricalBillListScreenState();
 }
 
-class HistoricalBillListScreenState
-    extends State<HistoricalBillListScreen> with SingleTickerProviderStateMixin {
+class HistoricalBillListScreenState extends State<HistoricalBillListScreen> {
   List<BillModel> _bills = [];
   // เดือนที่ "ไม่มีบิลเลยไม่ว่า source ไหน" ย้อนไปจนถึงเดือนที่เริ่มใช้แอป — คือรอบที่
   // user ข้ามไปจริงๆ ไม่ได้เปิดแอปบันทึกเลยทั้งรอบ (ไม่ใช่แค่ยังไม่กรอกฟอร์มนี้)
@@ -158,22 +157,13 @@ class HistoricalBillListScreenState
   bool _isLoading = true;
   int _billingDay = 30;
   UserModel? _user;
-  late TabController _tabController;
 
   bool get _isTou => _user?.meterType == 'tou';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() {}));
     _load();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -259,7 +249,7 @@ class HistoricalBillListScreenState
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) => _AddHistoricalBillSheet(
         uid: widget.uid,
         firestoreService: widget.firestoreService,
@@ -274,7 +264,7 @@ class HistoricalBillListScreenState
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) => _AddStartMeterSheet(
         uid: widget.uid,
         firestoreService: widget.firestoreService,
@@ -285,10 +275,10 @@ class HistoricalBillListScreenState
   }
 
   Future<void> _confirmDelete(BillModel bill) async {
-final confirmed = await showConfirmDialog(
+    final confirmed = await showConfirmDialog(
       context,
       title: 'ลบบิลนี้?',
-      content: 'ต้องการลบบันทึกบิลของเดือน ${thaiMonths[bill.month - 1]} ${bill.year} ใช่ไหมคะ',
+      content: 'ต้องการลบบันทึกบิลของเดือน ${_monthYearLabel(bill.month, bill.year)} ใช่ไหมคะ',
     );
     if (confirmed == true) {
       await widget.firestoreService.deleteBill(widget.uid, bill.id);
@@ -296,12 +286,19 @@ final confirmed = await showConfirmDialog(
     }
   }
 
+  // ---- มุมมองตาราง (UI state ล้วนๆ) ----
+  bool _showWater = false;
+  bool _newestFirst = true;
+  // ปีที่กางอยู่ — null = ยังไม่เคยแตะ ใช้ค่าเริ่มต้นคือกางเฉพาะปีล่าสุด
+  Set<int>? _expandedYears;
+
+  String _shortMonthYear(int month, int year) => '${thaiMonthsShort[month - 1]} ${(year + 543) % 100}';
+
   @override
   Widget build(BuildContext context) {
-    final latestId = _bills.isNotEmpty ? _bills.first.id : null;
     // แปลง _missingMonths เป็น placeholder BillModel ชั่วคราว (source: 'missing')
     // ไม่มี Firestore doc จริงรองรับ — สร้างขึ้นแค่ตอน build() เพื่อโชว์เป็นแถว
-    // "- -" ในตาราง ผสมกับบิลจริงแล้วเรียงใหม่สุดก่อน
+    // "ยังไม่กรอก" ในตาราง กดแล้วเปิดฟอร์มกรอกเดือนนั้น
     final placeholderBills = _missingMonths
         .map((m) => BillModel(
               id: 'missing_${m.year}_${m.month}',
@@ -312,252 +309,483 @@ final confirmed = await showConfirmDialog(
             ))
         .toList();
     final displayBills = [..._bills, ...placeholderBills]
-      ..sort((a, b) => b.yearMonth.compareTo(a.yearMonth));
-    // ทั้งสองแท็บแสดงทุกแถว (placeholder ไม่รู้ว่าขาดฝั่งไหน อาจขาดทั้งคู่) แถวที่
-    // ฝั่งนั้นยังไม่มียอดขึ้น "(ยังไม่กรอก)" — การ์ดสรุปนับเฉพาะเดือนที่มียอดฝั่งนั้นจริง
-    final electricCount = _bills.where((b) => b.electricityCost > 0).length;
-    final waterCount = _bills.where((b) => b.waterCost > 0).length;
+      ..sort((a, b) => _newestFirst ? b.yearMonth.compareTo(a.yearMonth) : a.yearMonth.compareTo(b.yearMonth));
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
       appBar: AppTopBar(
-        title: 'เพิ่มบิลเดือนเก่าเข้าระบบ',
+        title: 'บิลย้อนหลัง',
         actions: [
           IconButton(
+            tooltip: 'หน้านี้ใช้ทำอะไร',
             icon: const Icon(Icons.info_outline),
             onPressed: () => _showHistoricalBillInfoPopup(context),
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(icon: Icon(Icons.bolt), text: 'ไฟฟ้า'),
-            Tab(icon: Icon(Icons.water_drop), text: 'ประปา'),
-          ],
-        ),
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
-          : Column(
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v32),
               children: [
-                // การ์ดสรุปด้านบน — สไตล์เดียวกับแถบสรุปในหน้าประวัติมิเตอร์ไฟฟ้า/ประปา
-                Builder(builder: (context) {
-                  final isWater = _tabController.index == 1;
-                  final accent = isWater ? AppColors.waterBorder : AppColors.electricityBorder;
-                  final icon = isWater ? Icons.water_drop : Icons.bolt;
-                  final recordedCount = isWater ? waterCount : electricCount;
-                  return Container(
-                    margin: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v8),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.v16, vertical: AppSpacing.v14),
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(AppSpacing.v14),
-                      border: Border.all(color: accent.withValues(alpha: 0.2)),
+                FadeSlideIn(child: _buildSummaryCard(placeholderBills)),
+                const SizedBox(height: AppSpacing.v24),
+                Row(
+                  children: [
+                    const Expanded(child: Text('บิลแต่ละเดือน', style: DashboardStyles.sectionTitle)),
+                    TextButton.icon(
+                      onPressed: () => setState(() => _newestFirst = !_newestFirst),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey.shade700,
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8),
+                        minimumSize: const Size(0, 36),
+                        textStyle: const TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: AppTypography.s12_5,
+                            fontWeight: FontWeight.w600),
+                      ),
+                      icon: Icon(_newestFirst ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 16),
+                      label: Text(_newestFirst ? 'ใหม่ → เก่า' : 'เก่า → ใหม่'),
                     ),
-                    child: Row(
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.v8),
+                _utilityToggle(),
+                const SizedBox(height: AppSpacing.v12),
+                if (displayBills.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.v24),
+                    child: Column(
                       children: [
-                        Icon(icon, color: accent, size: 22),
-                        const SizedBox(width: 10),
-                        Text(
-                          '$recordedCount เดือน',
-                          style: TextStyle(
-                            color: accent,
-                            fontWeight: FontWeight.w600,
-                            fontSize: AppTypography.s13,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (!_isLoading && _allMonthOptionsRecorded)
-                          Text(
-                            'ครบ 6 เดือนแล้ว',
-                            style: TextStyle(
-                              color: accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: AppTypography.s14,
-                            ),
-                          ),
+                        Icon(Icons.inventory_2_outlined, size: 40, color: Colors.grey.shade300),
+                        const SizedBox(height: AppSpacing.v8),
+                        Text('ยังไม่มีบิลย้อนหลัง',
+                            style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade600)),
                       ],
                     ),
-                  );
-                }),
-
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildTable(
-                        bills: displayBills,
-                        latestId: latestId,
-                        accent: AppColors.electricityBorder,
-                        unitLabel: 'หน่วยที่ใช้',
-                        costLabel: 'ค่าไฟ',
-                        emptyIcon: Icons.bolt,
-                        usedOf: (b) => b.electricityUsed,
-                        costOf: (b) => b.electricityCost,
-                        isTouTable: _isTou,
-                      ),
-                      _buildTable(
-                        bills: displayBills,
-                        latestId: latestId,
-                        accent: AppColors.waterBorder,
-                        unitLabel: 'ลบ.ม.ที่ใช้',
-                        costLabel: 'ค่าน้ำ',
-                        emptyIcon: Icons.water_drop,
-                        usedOf: (b) => b.waterUsed,
-                        costOf: (b) => b.waterCost,
-                      ),
-                    ],
-                  ),
-                ),
+                  )
+                else
+                  ..._buildYearSections(displayBills),
               ],
-            ),
-      floatingActionButton: (_isLoading || _allMonthOptionsRecorded)
-          ? null
-          : FloatingActionButton(
-              onPressed: () => _openSheet(),
-              backgroundColor: DashboardStyles.primaryGreen,
-              child: const Icon(Icons.add, color: Colors.white),
             ),
     );
   }
 
-  // ใช้ร่วมกันทั้งแท็บไฟฟ้า/ประปา ต่างกันแค่สี, label คอลัมน์ และฟิลด์ที่ดึง
-  Widget _buildTable({
-    required List<BillModel> bills,
-    required String? latestId,
-    required Color accent,
-    required String unitLabel,
-    required String costLabel,
-    required IconData emptyIcon,
-    required double Function(BillModel) usedOf,
-    required double Function(BillModel) costOf,
-    // TOU: โชว์ On-Peak/Off-Peak แยกกันแทนคอลัมน์ "หน่วยที่ใช้" เดียว (เฉพาะแท็บไฟฟ้า)
-    bool isTouTable = false,
-  }) {
-    final formatter = NumberFormat('#,##0.00');
+  // การ์ดบนสุด: มีบิลกี่เดือน ย้อนไปถึงเดือนไหน เดือนที่ขาด (ถ้ามี) และปุ่มเพิ่มบิล
+  Widget _buildSummaryCard(List<BillModel> missing) {
+    final realBills = _bills;
+    final oldest = realBills.isEmpty ? null : realBills.reduce((a, b) => a.yearMonth < b.yearMonth ? a : b);
+    final canAdd = !_allMonthOptionsRecorded;
+    final missingSorted = [...missing]..sort((a, b) => b.yearMonth.compareTo(a.yearMonth));
 
-    if (bills.isEmpty) {
-      return excelTableEmptyState(
-        icon: emptyIcon,
-        message: 'ยังไม่มีบิลย้อนหลัง\nกดปุ่ม + เพื่อเพิ่มบิลของเดือนก่อนๆ',
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.v16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const IconBadge(icon: Icons.inventory_2_outlined, color: AppColors.primaryGreen, size: 40),
+              const SizedBox(width: AppSpacing.v12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('มีบิลในระบบ ${realBills.length} เดือน',
+                        style: const TextStyle(
+                            fontSize: AppTypography.s15, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                    Text(
+                      oldest == null
+                          ? 'เพิ่มบิลเดือนก่อนๆ เพื่อให้กราฟและการคาดการณ์แม่นขึ้นค่ะ'
+                          : 'ย้อนหลังถึง ${_monthYearLabel(oldest.month, oldest.year)}',
+                      style: TextStyle(fontSize: AppTypography.s12_5, height: 1.4, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (missingSorted.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.v12),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.v12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                border: Border.all(color: AppColors.warningBorder),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warningIcon),
+                  const SizedBox(width: AppSpacing.v8),
+                  Expanded(
+                    child: Text(
+                      'ขาดบิล ${missingSorted.length} เดือน: '
+                      '${missingSorted.map((b) => _shortMonthYear(b.month, b.year)).join(', ')}',
+                      style: const TextStyle(
+                          fontSize: AppTypography.s12_5, height: 1.4, color: AppColors.warningText),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.v8),
+                  TextButton(
+                    onPressed: () => _openSheet(existingBill: missingSorted.first),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.warningText,
+                      minimumSize: const Size(0, 34),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8),
+                    ),
+                    child: const Text('กรอก'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.v12),
+          if (canAdd)
+            ElevatedButton.icon(
+              onPressed: () => _openSheet(),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('เพิ่มบิลย้อนหลัง'),
+            )
+          else
+            Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.primaryGreen),
+                const SizedBox(width: AppSpacing.v6),
+                Expanded(
+                  child: Text('มีบิลครบ 5 เดือนล่าสุดแล้ว แก้ไขบิลแต่ละเดือนได้จากตารางด้านล่าง',
+                      style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade700)),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _utilityToggle() {
+    Widget option(String label, IconData icon, bool water) {
+      final selected = _showWater == water;
+      final color = water ? AppColors.waterBorder : AppColors.electricityBorder;
+      return Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _showWater = water),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8),
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm - 2),
+              boxShadow: selected
+                  ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 1))]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: selected ? color : Colors.grey.shade500),
+                const SizedBox(width: AppSpacing.v4),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: AppTypography.s13,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                        color: selected ? color : Colors.grey.shade600)),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
-    final columns = isTouTable
-        ? const [
-            ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
-            ExcelTableColumn('On-Peak', flex: 2),
-            ExcelTableColumn('Off-Peak', flex: 2),
-            ExcelTableColumn('รวม', flex: 2),
-            ExcelTableColumn('ค่าไฟ', flex: 2),
-          ]
-        : [
-            const ExcelTableColumn('เดือน ปี', align: TextAlign.left, flex: 3),
-            ExcelTableColumn(unitLabel, flex: 2),
-            ExcelTableColumn(costLabel, flex: 2),
-          ];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v8, AppSpacing.v16, AppSpacing.v16),
-      child: ExcelStyleTable(
-        accent: accent,
-        columns: columns,
-        rowCount: bills.length,
-        isLatest: (row) => bills[row].id == latestId,
-        cellText: (row, col) {
-          final b = bills[row];
-          final missing = costOf(b) <= 0;
-          if (isTouTable) {
-            switch (col) {
-              case 0:
-                return '${thaiMonths[b.month - 1]} ${b.year}'
-                    '${missing ? ' (ยังไม่กรอก)' : _isCompiledBill(b) ? ' (ประมาณ)' : ''}';
-              case 1:
-                return b.electricityPeakUsed > 0
-                    ? formatter.format(b.electricityPeakUsed)
-                    : '-';
-              case 2:
-                return b.electricityOffPeakUsed > 0
-                    ? formatter.format(b.electricityOffPeakUsed)
-                    : '-';
-              case 3:
-                // หน่วยที่ใช้ (รวม) = On-Peak + Off-Peak เสมอ (มาจาก electricityUsed
-                // ตรงๆ ค่าเดียวกับที่หน้าวิเคราะห์ใช้)
-                return b.electricityUsed > 0
-                    ? formatter.format(b.electricityUsed)
-                    : '-';
-              default:
-                return missing ? '-' : formatter.format(costOf(b));
-            }
-          }
-          switch (col) {
-            case 0:
-              return '${thaiMonths[b.month - 1]} ${b.year}'
-                  '${missing ? ' (ยังไม่กรอก)' : _isCompiledBill(b) ? ' (ประมาณ)' : ''}';
-            case 1:
-              final used = usedOf(b);
-              return used > 0 ? formatter.format(used) : '-';
-            default:
-              return missing ? '-' : formatter.format(costOf(b));
-          }
-        },
-        onRowTap: (row) {
-          final b = bills[row];
-          // รอบที่ตรวจพบว่าขาดหาย (ไม่มี log เลยทั้งรอบ) — ยังไม่มีบิลจริงให้ลบ
-          // เปิดฟอร์มกรอกย้อนหลังได้เลย (เหมือนกดปุ่ม + แต่เลือกเดือนไว้ให้แล้ว)
-          if (b.source == 'missing') {
-            showTableRowActions(
-              context,
-              title: '${thaiMonths[b.month - 1]} ${b.year}',
-              subtitle: 'ยังไม่ได้บันทึกข้อมูลเดือนนี้ค่ะ',
-              onEdit: () => _openSheet(existingBill: b),
-            );
-            return;
-          }
-          // บิลที่มาจากหน้าเลขมิเตอร์ต้นรอบ (source == 'startMeter') แก้ไข/ลบตรงนี้ไม่ได้
-          // (ดู _isStartMeterBill) — ล็อกไว้กันเปิดฟอร์มบันทึกบิลย้อนหลังแล้วคำนวณ delta ผิด
-          // พาไปหน้าที่ถูกต้องผ่าน _goToStartMeterFor แทน
-          if (_isStartMeterBill(b)) {
-            showTableRowActions(
-              context,
-              title: '${thaiMonths[b.month - 1]} ${b.year}',
-              subtitle: 'รวม ${formatter.format(b.totalCost)} บาท',
-              locked: true,
-              lockedMessage: 'บิลนี้มาจากการตั้งเลขมิเตอร์ต้นรอบ '
-                  'แก้ไข/ลบได้ที่หน้า "เลขมิเตอร์จากใบแจ้งหนี้" เท่านั้น เพื่อไม่ให้'
-                  'เลขมิเตอร์สะสมกับบิลไม่ตรงกัน',
-              lockedActionLabel: 'ไปหน้าเลขมิเตอร์จากใบแจ้งหนี้',
-              onLockedAction: () => _goToStartMeterFor(b),
-            );
-            return;
-          }
-          // บิลที่ระบบปิดให้ — แก้ทับเป็นยอดจากใบแจ้งหนี้ได้ (บันทึกแล้วกลายเป็น
-          // บิลที่กรอกเอง) แต่ไม่มีปุ่มลบ (ดู _isCompiledBill)
-          if (_isCompiledBill(b)) {
-            showTableRowActions(
-              context,
-              title: '${thaiMonths[b.month - 1]} ${b.year}',
-              subtitle: 'รวม ${formatter.format(b.totalCost)} บาท • ระบบปิดบิลให้'
-                  'จากบันทึกมิเตอร์ (ประมาณถึงวันตัดรอบ) กดแก้ไขเพื่อใส่ยอด'
-                  'จากใบแจ้งหนี้จริงได้ค่ะ',
-              onEdit: () => _openSheet(existingBill: b),
-            );
-            return;
-          }
-          showTableRowActions(
-            context,
-            title: '${thaiMonths[b.month - 1]} ${b.year}',
-            subtitle: 'รวม ${formatter.format(b.totalCost)} บาท',
-            onEdit: () => _openSheet(existingBill: b),
-            onDelete: () => _confirmDelete(b),
-          );
-        },
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.v3),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
       ),
+      child: Row(
+        children: [
+          option('ไฟฟ้า', Icons.bolt_rounded, false),
+          option('น้ำ', Icons.water_drop_rounded, true),
+        ],
+      ),
+    );
+  }
+
+  double _costOf(BillModel b) => _showWater ? b.waterCost : b.electricityCost;
+  double _usedOf(BillModel b) => _showWater ? b.waterUsed : b.electricityUsed;
+  Color get _accent => _showWater ? AppColors.waterBorder : AppColors.electricityBorder;
+
+  List<Widget> _buildYearSections(List<BillModel> bills) {
+    final groups = <int, List<BillModel>>{};
+    for (final b in bills) {
+      groups.putIfAbsent(b.year, () => []).add(b);
+    }
+    final expanded = _expandedYears ?? {bills.map((b) => b.year).reduce((a, b) => a > b ? a : b)};
+    return [
+      for (final entry in groups.entries) ...[
+        _yearHeader(entry.key, entry.value, isOpen: expanded.contains(entry.key), onTap: () {
+          setState(() {
+            final next = {...expanded};
+            if (!next.remove(entry.key)) next.add(entry.key);
+            _expandedYears = next;
+          });
+        }),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: !expanded.contains(entry.key)
+              ? const SizedBox(width: double.infinity)
+              : Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.v4, bottom: AppSpacing.v8),
+                  child: AppCard(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        _tableHeader(),
+                        for (final b in entry.value) ...[
+                          const Divider(),
+                          _tableRow(b),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+        const SizedBox(height: AppSpacing.v6),
+      ],
+    ];
+  }
+
+  // หัวปี (กดเพื่อพับ/กาง) + สรุปของปีนั้นเฉพาะเดือนที่มียอดของยูทิลิตี้ที่กำลังดู
+  Widget _yearHeader(int year, List<BillModel> bills, {required bool isOpen, required VoidCallback onTap}) {
+    final withCost = bills.where((b) => _costOf(b) > 0).toList();
+    final total = withCost.fold<double>(0, (s, b) => s + _costOf(b));
+    final baht = NumberFormat('#,##0');
+    return Material(
+      color: isOpen ? Colors.transparent : Colors.white,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.v8, AppSpacing.v10, AppSpacing.v12, AppSpacing.v10),
+          child: Row(
+            children: [
+              AnimatedRotation(
+                turns: isOpen ? 0.25 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade700),
+              ),
+              const SizedBox(width: AppSpacing.v4),
+              Text('พ.ศ. ${year + 543}',
+                  style: const TextStyle(
+                      fontSize: AppTypography.s14_5, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+              const SizedBox(width: AppSpacing.v10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      withCost.isEmpty
+                          ? '${bills.length} เดือน'
+                          : '${withCost.length} เดือน · รวม ${baht.format(total)} บาท',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: AppTypography.s12, fontWeight: FontWeight.w600, color: AppColors.textDark),
+                    ),
+                    if (withCost.isNotEmpty)
+                      Text('เฉลี่ย ${baht.format(total / withCost.length)} บาท/เดือน',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const double _monthColWidth = 72;
+  static const double _costColWidth = 96;
+
+  Widget _tableHeader() {
+    final style = TextStyle(fontSize: AppTypography.s11_5, fontWeight: FontWeight.w600, color: Colors.grey.shade600);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v10, 36, AppSpacing.v10),
+      child: Row(
+        children: [
+          SizedBox(width: _monthColWidth, child: Text('เดือน', style: style)),
+          Expanded(child: Text('ใช้ไป (${_showWater ? 'ลบ.ม.' : 'หน่วย'})', style: style)),
+          SizedBox(width: _costColWidth, child: Text('ยอดเงิน (บาท)', textAlign: TextAlign.end, style: style)),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableRow(BillModel b) {
+    final fmt = NumberFormat('#,##0.##');
+    final money = NumberFormat('#,##0.00');
+    final isMissing = b.source == 'missing';
+    final cost = _costOf(b);
+    final used = _usedOf(b);
+    final notFilled = isMissing || cost <= 0;
+    final muted = TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade400);
+
+    // ป้ายที่มาใต้ชื่อเดือน: ยังไม่กรอก / ประมาณ (ระบบปิดบิลให้) / จากหน้าเลขมิเตอร์
+    String? sourceLabel;
+    Color sourceColor = Colors.grey.shade600;
+    if (notFilled) {
+      sourceLabel = 'ยังไม่กรอก';
+      sourceColor = AppColors.warningText;
+    } else if (_isCompiledBill(b)) {
+      sourceLabel = 'ประมาณ';
+      sourceColor = AppColors.warningIcon;
+    } else if (_isStartMeterBill(b)) {
+      sourceLabel = 'ใบแจ้งหนี้';
+    }
+
+    Widget usedCell;
+    if (used <= 0) {
+      usedCell = Text('–', style: muted);
+    } else if (!_showWater && _isTou && (b.electricityPeakUsed > 0 || b.electricityOffPeakUsed > 0)) {
+      usedCell = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(fmt.format(used),
+              style: const TextStyle(
+                  fontSize: AppTypography.s14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
+                  fontFeatures: [FontFeature.tabularFigures()])),
+          Text('On ${fmt.format(b.electricityPeakUsed)} · Off ${fmt.format(b.electricityOffPeakUsed)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
+        ],
+      );
+    } else {
+      usedCell = Text(fmt.format(used),
+          style: const TextStyle(
+              fontSize: AppTypography.s14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textDark,
+              fontFeatures: [FontFeature.tabularFigures()]));
+    }
+
+    final IconData trailing;
+    if (isMissing) {
+      trailing = Icons.add_circle_outline_rounded;
+    } else if (_isStartMeterBill(b)) {
+      trailing = Icons.lock_outline_rounded;
+    } else {
+      trailing = Icons.chevron_right_rounded;
+    }
+
+    return InkWell(
+      onTap: () => _onRowTap(b),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v12, AppSpacing.v8, AppSpacing.v12),
+        child: Row(
+          children: [
+            SizedBox(
+              width: _monthColWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(thaiMonthsShort[b.month - 1],
+                      style: TextStyle(
+                          fontSize: AppTypography.s14,
+                          fontWeight: FontWeight.w600,
+                          color: notFilled ? Colors.grey.shade500 : AppColors.textDark)),
+                  if (sourceLabel != null)
+                    Text(sourceLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            TextStyle(fontSize: AppTypography.s10_5, fontWeight: FontWeight.w600, color: sourceColor)),
+                ],
+              ),
+            ),
+            Expanded(child: usedCell),
+            SizedBox(
+              width: _costColWidth,
+              child: notFilled
+                  ? Text('–', textAlign: TextAlign.end, style: muted)
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(money.format(cost),
+                          style: TextStyle(
+                              fontSize: AppTypography.s14,
+                              fontWeight: FontWeight.w700,
+                              color: _accent,
+                              fontFeatures: const [FontFeature.tabularFigures()])),
+                    ),
+            ),
+            SizedBox(
+              width: 28,
+              child: Icon(trailing,
+                  size: trailing == Icons.chevron_right_rounded ? 20 : 16,
+                  color: isMissing ? AppColors.warningIcon : Colors.grey.shade400),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onRowTap(BillModel b) {
+    final money = NumberFormat('#,##0.00');
+    final title = _monthYearLabel(b.month, b.year);
+    // รอบที่ตรวจพบว่าขาดหาย (ไม่มีบิลเลย) — เปิดฟอร์มกรอกเดือนนั้นได้เลย
+    if (b.source == 'missing') {
+      showTableRowActions(
+        context,
+        title: title,
+        subtitle: 'ยังไม่ได้บันทึกบิลเดือนนี้ค่ะ',
+        onEdit: () => _openSheet(existingBill: b),
+      );
+      return;
+    }
+    // บิลที่มาจากหน้าเลขมิเตอร์ต้นรอบ แก้ไข/ลบตรงนี้ไม่ได้ (ดู _isStartMeterBill)
+    if (_isStartMeterBill(b)) {
+      showTableRowActions(
+        context,
+        title: title,
+        subtitle: 'รวม ${money.format(b.totalCost)} บาท',
+        locked: true,
+        lockedMessage: 'บิลนี้มาจากการตั้งเลขมิเตอร์ต้นรอบ '
+            'แก้ไข/ลบได้ที่หน้า "เลขมิเตอร์จากใบแจ้งหนี้" เท่านั้น เพื่อไม่ให้'
+            'เลขมิเตอร์สะสมกับบิลไม่ตรงกัน',
+        lockedActionLabel: 'ไปหน้าเลขมิเตอร์จากใบแจ้งหนี้',
+        onLockedAction: () => _goToStartMeterFor(b),
+      );
+      return;
+    }
+    // บิลที่ระบบปิดให้ — แก้ทับเป็นยอดจากใบแจ้งหนี้ได้ แต่ไม่มีปุ่มลบ (ดู _isCompiledBill)
+    if (_isCompiledBill(b)) {
+      showTableRowActions(
+        context,
+        title: title,
+        subtitle: 'รวม ${money.format(b.totalCost)} บาท • ระบบปิดบิลให้จากบันทึกมิเตอร์ '
+            '(ประมาณถึงวันตัดรอบ) กดแก้ไขเพื่อใส่ยอดจากใบแจ้งหนี้จริงได้ค่ะ',
+        onEdit: () => _openSheet(existingBill: b),
+      );
+      return;
+    }
+    showTableRowActions(
+      context,
+      title: title,
+      subtitle: 'รวม ${money.format(b.totalCost)} บาท',
+      onEdit: () => _openSheet(existingBill: b),
+      onDelete: () => _confirmDelete(b),
     );
   }
 }
