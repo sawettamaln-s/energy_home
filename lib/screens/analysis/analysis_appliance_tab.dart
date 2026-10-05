@@ -85,7 +85,7 @@ class _ApplianceBreakdownCard extends StatefulWidget {
 class _ApplianceBreakdownCardState extends State<_ApplianceBreakdownCard> {
   static const _collapsedCount = 5;
   static final _kwhFmt = NumberFormat('#,##0.#');
-  static final _costFmt = NumberFormat('#,##0.00');
+  static final _costFmt = NumberFormat('#,##0');
 
   bool _showAll = false;
 

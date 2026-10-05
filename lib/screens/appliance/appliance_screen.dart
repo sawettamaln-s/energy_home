@@ -15,76 +15,105 @@ import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/info_dialog.dart';
+import '../../widgets/ui/animated_amount.dart';
+import '../../widgets/ui/app_card.dart';
+import '../../widgets/ui/fade_slide_in.dart';
+import '../../widgets/ui/icon_badge.dart';
 import '../dashboard/dashboard_styles.dart';
 
 part 'appliance_form_sheet.dart'; // ฟอร์มเพิ่ม/แก้ไขเครื่องใช้ไฟฟ้า
 
-// แปลง DefaultAppliance.icon (string ที่เก็บไว้ในโมเดล เช่น 'shower', 'iron')
-// เป็น IconData จริงเพื่อใช้ในลิสต์ "เลือกจากรายการสามัญประจำบ้าน" ให้แยก
-// เครื่องใช้ไฟฟ้าแต่ละชนิดออกจากกันได้จากไอคอน ไม่ต้องอ่านชื่ออย่างเดียว
-//
-// เลือกแมปเฉพาะ key ที่มั่นใจว่ามีไอคอนนี้จริงในชุด Icons มาตรฐานของ Flutter
-// เท่านั้น — 'hair_dryer' ยังไม่แมป (ไม่มั่นใจว่ามีไอคอนนี้แน่ๆ ในทุกเวอร์ชัน
-// SDK) เลยปล่อยให้ตกไปใช้ default ด้านล่างแทนการเดาชื่อ Icons.* ที่อาจไม่มี
-// จริงแล้วคอมไพล์ไม่ผ่าน
+// แปลง DefaultAppliance.icon (key ที่เก็บไว้ในโมเดล เช่น 'shower', 'iron') เป็น
+// IconData — ใช้ทั้งในตารางเลือกอุปกรณ์และรายการที่บันทึกแล้ว key ที่ไม่รู้จัก
+// (อุปกรณ์ที่เพิ่มเอง) ใช้ไอคอนปลั๊กไฟ
 IconData _defaultApplianceIcon(String key) {
   switch (key) {
     case 'shower':
-      return Icons.shower;
+      return Icons.shower_rounded;
     case 'iron':
-      return Icons.iron;
+      return Icons.iron_rounded;
+    case 'hair_dryer':
+      return Icons.dry_rounded;
     case 'ac_unit':
-      return Icons.ac_unit;
+      return Icons.ac_unit_rounded;
     case 'local_laundry_service':
-      return Icons.local_laundry_service;
+      return Icons.local_laundry_service_rounded;
     case 'kitchen':
-      return Icons.kitchen;
+      return Icons.kitchen_rounded;
     case 'rice_bowl':
-      return Icons.rice_bowl;
+      return Icons.rice_bowl_rounded;
     case 'microwave':
-      return Icons.microwave;
+      return Icons.microwave_rounded;
     case 'mode_fan_off':
-      return Icons.mode_fan_off;
+      return Icons.air_rounded;
     default:
-      return Icons.electrical_services;
+      return Icons.electrical_services_rounded;
   }
 }
 
-// key ไอคอนของรายการสามัญประจำบ้านที่ชื่อตรงกับ [name] (ไม่เจอ = null)
-String? _defaultIconKeyForName(String name) {
+// รายการสามัญประจำบ้านที่ชื่อตรงกับ [name] (ไม่เจอ = null)
+DefaultAppliance? _defaultForName(String name) {
   for (final d in DefaultAppliances.list) {
-    if (d.name == name) return d.icon;
+    if (d.name == name) return d;
   }
   return null;
 }
 
-// ไอคอนของเครื่องใช้ไฟฟ้าที่บันทึกแล้วในลิสต์ — ใช้ชุดเดียวกับหน้าเลือกจากรายการ
-// สามัญประจำบ้าน: ใช้ iconKey ที่เก็บไว้ตอนเลือก (เปลี่ยนชื่อทีหลังไอคอนก็ยังเดิม)
-// ข้อมูลเก่าที่ยังไม่มี iconKey ลองจับคู่จากชื่อ ส่วนอุปกรณ์ที่เพิ่มเอง
-// ตกไปใช้ไอคอนเริ่มต้น
+// key ไอคอนของรายการสามัญประจำบ้านที่ชื่อตรงกับ [name] (ไม่เจอ = null)
+String? _defaultIconKeyForName(String name) => _defaultForName(name)?.icon;
+
+// ไอคอนของเครื่องใช้ไฟฟ้าที่บันทึกแล้ว: ใช้ iconKey ที่เก็บไว้ตอนเลือก (เปลี่ยนชื่อ
+// ทีหลังไอคอนก็ยังเดิม) ข้อมูลเก่าที่ยังไม่มี iconKey ลองจับคู่จากชื่อ
 IconData _applianceIcon(ApplianceModel a) =>
     _defaultApplianceIcon(a.iconKey ?? _defaultIconKeyForName(a.name) ?? '');
+
+// ยอดเงินในหน้านี้เป็นค่าประมาณทั้งหมด แสดงเป็นบาทเต็ม
+final _bahtFmt = NumberFormat('#,##0');
+final _wattFmt = NumberFormat('#,##0');
+
+// แปลงชั่วโมงแบบทศนิยมเป็นข้อความ เช่น 0.25 -> '15 นาที', 1.5 -> '1 ชม. 30 นาที'
+String _durationLabel(double hours) {
+  final h = hours.floor();
+  final m = ((hours - h) * 60).round();
+  if (h == 0) return '$m นาที';
+  if (m == 0) return '$h ชม.';
+  return '$h ชม. $m นาที';
+}
+
+// วันที่ใช้งาน เช่น 'ทุกวัน', 'จ–ศ', 'ส–อา', 'จ พ ศ'
+String _daysLabel(Iterable<int> days) {
+  final set = days.toSet();
+  if (set.length >= 7) return 'ทุกวัน';
+  if (set.length == 5 && set.containsAll(const [0, 1, 2, 3, 4])) return 'จ–ศ';
+  if (set.length == 2 && set.containsAll(const [5, 6])) return 'ส–อา';
+  final sorted = set.toList()..sort();
+  return sorted.map((d) => thaiWeekdaysShort[d % 7]).join(' ');
+}
 
 class ApplianceScreen extends StatefulWidget {
   // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
   final ValueChanged<int>? onNavTap;
+  // ฉีดของปลอมได้ในเทส — ไม่ส่ง = ใช้ instance จริงของ Firebase
+  final FirestoreService? firestoreService;
+  final FirebaseAuth? auth;
 
-  const ApplianceScreen({super.key, this.onNavTap});
+  const ApplianceScreen({super.key, this.onNavTap, this.firestoreService, this.auth});
 
   @override
   State<ApplianceScreen> createState() => _ApplianceScreenState();
 }
 
 class _ApplianceScreenState extends State<ApplianceScreen> {
-  final FirestoreService _firestoreService = FirestoreService();
+  late final FirestoreService _firestoreService = widget.firestoreService ?? FirestoreService();
+  late final FirebaseAuth _auth = widget.auth ?? FirebaseAuth.instance;
   List<ApplianceModel> _appliances = [];
   bool _isLoading = true;
   // อัตราค่าไฟต่อหน่วยที่ใช้ประมาณค่าไฟของอุปกรณ์ — จากบิลล่าสุดของผู้ใช้
   // (ดู ApplianceRate) โหลดใหม่เมื่อบิลเปลี่ยนผ่าน DataRefreshBus
   ApplianceRate _rate = ApplianceRate.fallback;
 
-// เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
-// ป้องกัน setState หลัง widget dispose ไปแล้ว (memory leak / error ตอนสลับแท็บบ่อยๆ)
+  // เก็บ subscription ของ stream อุปกรณ์ไว้ cancel ตอน dispose กัน setState
+  // หลัง widget ถูกถอดออก
   StreamSubscription<List<ApplianceModel>>? _applianceSub;
 
   @override
@@ -103,7 +132,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   }
 
   Future<void> _loadRate() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _auth.currentUser?.uid;
     if (uid == null) return;
     try {
       final bills = await _firestoreService.getBills(uid);
@@ -113,20 +142,28 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     }
   }
 
+  // สมัครฟัง stream อุปกรณ์ใหม่ (ตอนเปิดหน้าและตอนดึงลงเพื่อรีเฟรช) — รายการเดิม
+  // ยังอยู่บนจอระหว่างรอ (วงโหลดเต็มจอมีแค่ครั้งแรก) Future จบเมื่อได้ข้อมูลชุดแรก
+  // การเพิ่ม/แก้/ลบไม่ต้องเรียกซ้ำ เพราะ stream ส่งรายการใหม่มาเอง
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final uid = _auth.currentUser!.uid;
+    final firstEvent = Completer<void>();
     await _applianceSub?.cancel();
     _applianceSub = _firestoreService.getAppliances(uid).listen((data) {
+      if (!firstEvent.isCompleted) firstEvent.complete();
       if (!mounted) return;
       setState(() {
         _appliances = data;
         _isLoading = false;
       });
+    }, onError: (Object _) {
+      if (!firstEvent.isCompleted) firstEvent.complete();
+      if (mounted) setState(() => _isLoading = false);
     });
+    return firstEvent.future;
   }
 
-  // คำนวณ kWh รวมของอุปกรณ์ในช่วง totalDaysInPeriod วัน (30 = เดือน, 365 = ปี)
+  // kWh รวมของอุปกรณ์ในช่วง totalDaysInPeriod วัน (30 = เดือน, 365 = ปี)
   // คิดตามจำนวนวัน/สัปดาห์ที่ตั้งไว้จริงในแต่ละ schedule (ไม่ใช่ทุกวันเสมอ)
   double _kWhForPeriod(ApplianceModel a, int totalDaysInPeriod) {
     double kWh = 0;
@@ -137,420 +174,259 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     return kWh;
   }
 
-  // ค่าไฟเฉพาะวันที่ใช้งานจริง (ไม่เฉลี่ยรวมวันที่ไม่ได้ใช้)
-  double _costPerActiveDay(ApplianceModel a) {
+  // หน่วยที่ใช้ต่อวันที่เปิดใช้งาน (ไม่เฉลี่ยรวมวันที่ไม่ได้ใช้)
+  double _kWhPerActiveDay(ApplianceModel a) {
     double kWh = 0;
     for (final s in a.schedules) {
       kWh += (a.watt * s.hoursPerDay) / 1000;
     }
-    return kWh * _rate.perUnit;
+    return kWh;
   }
 
   // ทุกตัวเลขในไฟล์ใช้อัตราเดียวกัน (_rate) — ดู ApplianceRate
-  double _estimateApplianceMonthlyCost(ApplianceModel a) =>
-      _kWhForPeriod(a, 30) * _rate.perUnit;
+  double _monthlyCost(ApplianceModel a) => _kWhForPeriod(a, 30) * _rate.perUnit;
 
-  double _estimateApplianceYearlyCost(ApplianceModel a) =>
-      _kWhForPeriod(a, 365) * _rate.perUnit;
+  double _yearlyCost(ApplianceModel a) => _kWhForPeriod(a, 365) * _rate.perUnit;
 
-  double get _totalMonthlyCost {
-    double total = 0;
-    for (var a in _appliances) {
-      if (a.schedules.isNotEmpty) {
-        total += _estimateApplianceMonthlyCost(a);
-      }
-    }
-    return total;
-  }
+  double get _totalMonthlyCost =>
+      _appliances.where((a) => a.schedules.isNotEmpty).fold(0.0, (sum, a) => sum + _monthlyCost(a));
 
-  // ค่าเฉลี่ยชั่วโมงการใช้งานต่อวัน (เฉลี่ยจาก hoursPerDay ของทุกอุปกรณ์)
-  double get _avgHoursPerDay {
-    if (_appliances.isEmpty) return 0;
-    final total = _appliances.fold<double>(
-      0,
-      (sum, a) =>
-          sum + (a.schedules.isNotEmpty ? a.schedules.first.hoursPerDay : 0),
-    );
-    return total / _appliances.length;
-  }
-
-  // สีของแถบตารางการใช้งาน ไล่ตามชั่วโมง/วันที่ใช้จริง เพื่อให้เห็นความ
-  // หนักเบาของแต่ละอุปกรณ์ได้ไวๆ โดยไม่ต้องอ่านตัวเลข
+  // สีของชิปเวลาใช้งาน ไล่ตามชั่วโมง/วัน ให้เห็นความหนักเบาโดยไม่ต้องอ่านตัวเลข
   // <=5 ชม. เขียว (เบา) | <=10 ชม. เหลือง | <=15 ชม. ส้ม | >15 ชม. แดง (หนัก)
-  Color _scheduleBgColor(double hoursPerDay) {
-    if (hoursPerDay <= 5) return AppColors.softGreenBg;
-    if (hoursPerDay <= 10) return AppColors.softAmberBg;
-    if (hoursPerDay <= 15) return AppColors.softOrangeBg;
-    return AppColors.softRedBg;
-  }
-
-  Color _scheduleFgColor(double hoursPerDay) {
+  static Color _levelColor(double hoursPerDay) {
     if (hoursPerDay <= 5) return DashboardStyles.primaryGreen;
     if (hoursPerDay <= 10) return AppColors.levelMedium;
     if (hoursPerDay <= 15) return AppColors.levelHigh;
     return AppColors.levelVeryHigh;
   }
 
-  // สรุปตารางการใช้งานเป็นข้อความสั้นๆ จากข้อมูลที่มีจริง (days + จำนวนชม./วัน)
-  // หมายเหตุ: ฟอร์มเพิ่ม/แก้ไขอุปกรณ์ไม่มีช่องกรอก "เวลาเริ่มใช้งาน" จึงไม่แสดง
-  // เป็นช่วงเวลา (เช่น 00:00-08:00) เพราะนั่นจะเป็นข้อมูลที่ผู้ใช้ไม่ได้กรอกจริง
+  // สรุปตารางการใช้งานจากข้อมูลที่ผู้ใช้กรอกจริง (วัน + ชม./วัน) ฟอร์มไม่มีช่อง
+  // "เวลาเริ่มใช้งาน" จึงไม่แสดงเป็นช่วงเวลา (เช่น 00:00-08:00)
   String _scheduleSummary(ApplianceModel a) {
-    if (a.schedules.isEmpty) return 'ยังไม่ได้ตั้งตารางการใช้งาน';
+    if (a.schedules.isEmpty) return 'ยังไม่ได้ตั้งเวลาใช้งาน';
     final s = a.schedules.first;
-    final daysLabel = _daysLabel(s.days);
-    return '$daysLabel ใช้วันละ ${_durationLabel(s.hoursPerDay)}';
-  }
-
-  // แปลงชั่วโมงแบบทศนิยม (เช่น 0.25) ให้เป็นข้อความที่อ่านง่าย
-  // เช่น 0.25 ชม. -> '15 นาที', 1.5 ชม. -> '1 ชม. 30 นาที'
-  String _durationLabel(double hours) {
-    final h = hours.floor();
-    final m = ((hours - h) * 60).round();
-    if (h == 0) return '$m นาที';
-    if (m == 0) return '$h ชม.';
-    return '$h ชม. $m นาที';
-  }
-
-  String _daysLabel(List<int> days) {
-    if (days.length >= 7) return 'ทุกวัน';
-    final sorted = [...days]..sort();
-    return sorted.map((d) => thaiWeekdaysShort[d % 7]).join(' ');
+    return '${_daysLabel(s.days)} · วันละ ${_durationLabel(s.hoursPerDay)}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,##0.00');
-
     return Scaffold(
       backgroundColor: DashboardStyles.background,
       appBar: const AppTopBar(title: 'อุปกรณ์', showBack: false),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: DashboardStyles.primaryGreen,
-        onPressed: _showAddApplianceSheet,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: _appliances.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _showAddApplianceSheet,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('เพิ่มอุปกรณ์',
+                  style: TextStyle(fontFamily: AppTheme.fontFamily, fontWeight: FontWeight.w600)),
+            ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
+          ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadData,
-              color: DashboardStyles.primaryGreen,
-              child: Column(
-              children: [
-                // ---- สรุปยอด 3 ช่อง ----
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _summaryBox(
-                          label: 'อุปกรณ์ทั้งหมด',
-                          value: '${_appliances.length} ชิ้น',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _summaryBox(
-                          label: 'เฉลี่ย ชม./วัน',
-                          value: _durationLabel(_avgHoursPerDay),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _summaryBox(
-                          label: 'ค่าไฟ/เดือน',
-                          value: '${formatter.format(_totalMonthlyCost)} บาท',
-                          valueColor: DashboardStyles.primaryGreen,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ---- อัตราที่ใช้คำนวณ (กดดูที่มาได้) ----
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.v16, 0, AppSpacing.v16, AppSpacing.v8),
-                  child: InkWell(
-                    onTap: () =>
-                        showApplianceEstimateInfoDialog(context, rate: _rate),
-                    borderRadius: BorderRadius.circular(AppSpacing.v8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline,
-                            size: 14, color: Colors.grey.shade600),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _rate.isFromBill
-                                ? 'คิดจากอัตราเฉลี่ยบิลล่าสุดของคุณ '
-                                    '${_rate.perUnit.toStringAsFixed(2)} บาท/หน่วย'
-                                : 'คิดจากอัตราเฉลี่ยประมาณการ '
-                                    '${_rate.perUnit.toStringAsFixed(2)} บาท/หน่วย',
-                            style: TextStyle(
-                                fontSize: AppTypography.s11_5,
-                                color: Colors.grey.shade600),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // ---- รายการอุปกรณ์ ----
-                Expanded(
-                  child: _appliances.isEmpty
-                      ? LayoutBuilder(
-                          builder: (context, constraints) {
-                            return SingleChildScrollView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                    minHeight: constraints.maxHeight),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.devices_other,
-                                          size: 64,
-                                          color: Colors.grey.shade300),
-                                      const SizedBox(height: 12),
-                                      const Text('ยังไม่มีเครื่องใช้ไฟฟ้า',
-                                          style:
-                                              TextStyle(color: Colors.grey)),
-                                      const SizedBox(height: 4),
-                                      const Text('กดปุ่ม + เพื่อเพิ่มรายการ',
-                                          style: TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: AppTypography.s12)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v4, AppSpacing.v16, AppSpacing.v16),
-                          itemCount: _appliances.length,
-                          itemBuilder: (context, index) {
-                            final a = _appliances[index];
-                            double monthlyCost =
-                                _estimateApplianceMonthlyCost(a);
-                            final hasSchedule = a.schedules.isNotEmpty;
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: AppSpacing.v12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(AppSpacing.v14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.grey.withValues(alpha: 0.08),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(AppSpacing.v14),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(AppSpacing.v10),
-                                          decoration: BoxDecoration(
-                                            color: DashboardStyles.primaryGreen
-                                                .withValues(alpha: 0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(AppSpacing.v10),
-                                          ),
-                                          child: Icon(_applianceIcon(a),
-                                              color: DashboardStyles.primaryGreen),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(a.name,
-                                                  style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      fontSize: AppTypography.s15)),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                '${a.watt.toStringAsFixed(0)} วัตต์ • ${formatter.format(monthlyCost)} บาท/เดือน',
-                                                style: TextStyle(
-                                                    fontSize: AppTypography.s12,
-                                                    color:
-                                                        Colors.grey.shade600),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete_outline,
-                                              color: Colors.red, size: 20),
-                                          onPressed: () => _confirmDelete(a),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: AppSpacing.v14, vertical: AppSpacing.v8),
-                                    decoration: BoxDecoration(
-                                      color: hasSchedule
-                                          ? _scheduleBgColor(
-                                              a.schedules.first.hoursPerDay)
-                                          : Colors.grey.shade100,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          hasSchedule
-                                              ? Icons.schedule
-                                              : Icons.schedule_outlined,
-                                          size: 14,
-                                          color: hasSchedule
-                                              ? _scheduleFgColor(
-                                                  a.schedules.first.hoursPerDay)
-                                              : Colors.grey,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            _scheduleSummary(a),
-                                            style: TextStyle(
-                                              fontSize: AppTypography.s11,
-                                              color: hasSchedule
-                                                  ? _scheduleFgColor(a
-                                                      .schedules
-                                                      .first
-                                                      .hoursPerDay)
-                                                  : Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(
-                                        bottom: Radius.circular(AppSpacing.v14)),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: InkWell(
-                                            onTap: () => _showDetailSheet(a),
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: AppSpacing.v11),
-                                              child: Center(
-                                                child: Text(
-                                                  'ดูข้อมูล',
-                                                  style: TextStyle(
-                                                    fontSize: AppTypography.s12,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: AppColors.textDark,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          width: 1,
-                                          height: 20,
-                                          color: Colors.grey.shade200,
-                                        ),
-                                        Expanded(
-                                          child: InkWell(
-                                            onTap: () =>
-                                                _showEditApplianceSheet(a),
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: AppSpacing.v11),
-                                              child: Center(
-                                                child: Text(
-                                                  'แก้ไข',
-                                                  style: TextStyle(
-                                                    fontSize: AppTypography.s12,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: DashboardStyles.primaryGreen,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
+              child: _appliances.isEmpty ? _buildEmptyState() : _buildList(),
             ),
-            ),
-      bottomNavigationBar:
-          AppBottomNavBar(currentIndex: 2, onTap: widget.onNavTap),
+      bottomNavigationBar: AppBottomNavBar(currentIndex: 2, onTap: widget.onNavTap),
     );
   }
 
-Widget _summaryBox({
-  required String label,
-  required String value,
-  Color? valueColor,
-}) {
-  return Container(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.v12, horizontal: AppSpacing.v8),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(AppSpacing.v12),
-      border: Border.all(
-        color: DashboardStyles.primaryGreen.withValues(alpha: 0.25),
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withValues(alpha: 0.08),
-          blurRadius: 6,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: Column(
-      children: [
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: AppTypography.s15,
-            color: valueColor ?? AppColors.textDark,
+  Widget _buildEmptyState() {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.v32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const IconBadge(icon: Icons.electrical_services_rounded, color: AppColors.primaryGreen, size: 72),
+                  const SizedBox(height: AppSpacing.v18),
+                  const Text('ยังไม่มีเครื่องใช้ไฟฟ้า',
+                      style: TextStyle(
+                          fontSize: AppTypography.s17, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                  const SizedBox(height: AppSpacing.v6),
+                  Text(
+                    'เพิ่มเครื่องใช้ไฟฟ้าและเวลาที่ใช้ เพื่อดูว่าแต่ละเครื่องกินไฟเดือนละเท่าไรค่ะ',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: AppTypography.s13, height: 1.5, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: AppSpacing.v20),
+                  ElevatedButton.icon(
+                    onPressed: _showAddApplianceSheet,
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('เพิ่มอุปกรณ์ชิ้นแรก'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildList() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      // เว้นด้านล่างให้ปุ่มเพิ่มอุปกรณ์ไม่บังการ์ดใบสุดท้าย
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, 96),
+      children: [
+        FadeSlideIn(child: _buildSummaryCard()),
+        const SizedBox(height: AppSpacing.v20),
+        Row(
+          children: [
+            const Flexible(
+              child: Text('รายการอุปกรณ์',
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: DashboardStyles.sectionTitle),
+            ),
+            const SizedBox(width: AppSpacing.v6),
+            Text('(${_appliances.length})',
+                style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade600)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.v10),
+        for (final (i, a) in _appliances.indexed) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.v10),
+          FadeSlideIn(
+            delay: Duration(milliseconds: 60 + 40 * (i < 6 ? i : 6)),
+            child: _buildApplianceCard(a),
+          ),
+        ],
       ],
-    ),
-  );
-}
- 
-Future<void> _confirmDelete(ApplianceModel a) async {
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.v16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const IconBadge(icon: Icons.bolt_rounded, color: AppColors.primaryGreen, size: 34),
+              const SizedBox(width: AppSpacing.v10),
+              const Expanded(
+                child: Text('ค่าไฟจากอุปกรณ์ที่บันทึกไว้',
+                    style: TextStyle(
+                        fontSize: AppTypography.s14, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+              ),
+              IconButton(
+                onPressed: () => showApplianceEstimateInfoDialog(context, rate: _rate),
+                tooltip: 'คำอธิบาย',
+                visualDensity: VisualDensity.compact,
+                icon: Icon(Icons.info_outline, size: 20, color: Colors.grey.shade500),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.v10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.v4),
+                child: Text('ประมาณ', style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade700)),
+              ),
+              const SizedBox(width: AppSpacing.v6),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedAmount(
+                    value: _totalMonthlyCost.roundToDouble(),
+                    pattern: '#,##0',
+                    suffix: ' บาท/เดือน',
+                    style: const TextStyle(
+                        fontSize: AppTypography.s26, fontWeight: FontWeight.w700, color: AppColors.primaryGreen),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.v6),
+          Text(
+            '${_appliances.length} รายการ · คิดที่ ${_rate.perUnit.toStringAsFixed(2)} บาท/หน่วย '
+            '${_rate.isFromBill ? '(จากบิลล่าสุดของคุณ)' : '(ค่าเฉลี่ยประมาณการ)'}',
+            style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // การ์ดอุปกรณ์ 1 รายการ — กดทั้งการ์ดเพื่อดูรายละเอียด (มีปุ่มแก้ไข/ลบในนั้น)
+  Widget _buildApplianceCard(ApplianceModel a) {
+    final hasSchedule = a.schedules.isNotEmpty;
+    final hours = hasSchedule ? a.schedules.first.hoursPerDay : 0.0;
+    final level = _levelColor(hours);
+    return AppCard(
+      onTap: () => _showDetailSheet(a),
+      padding: const EdgeInsets.all(AppSpacing.v14),
+      child: Row(
+        children: [
+          IconBadge(icon: _applianceIcon(a), color: AppColors.primaryGreen, size: 46),
+          const SizedBox(width: AppSpacing.v12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(a.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: AppTypography.s14_5, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+                const SizedBox(height: AppSpacing.v4),
+                Wrap(
+                  spacing: AppSpacing.v6,
+                  runSpacing: AppSpacing.v4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _chip(
+                      hasSchedule ? _scheduleSummary(a) : 'ยังไม่ได้ตั้งเวลาใช้งาน',
+                      color: hasSchedule ? level : Colors.grey.shade600,
+                    ),
+                    Text('${_wattFmt.format(a.watt)} วัตต์',
+                        style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.v10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(hasSchedule ? _bahtFmt.format(_monthlyCost(a)) : '–',
+                  style: const TextStyle(
+                      fontSize: AppTypography.s17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textDark,
+                      fontFeatures: [FontFeature.tabularFigures()])),
+              Text('บาท/เดือน', style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String text, {required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppSpacing.v20),
+      ),
+      child: Text(text,
+          style: TextStyle(fontSize: AppTypography.s11_5, fontWeight: FontWeight.w500, color: color)),
+    );
+  }
+
+  Future<void> _confirmDelete(ApplianceModel a) async {
     final confirm = await showConfirmDialog(
       context,
       title: 'ลบอุปกรณ์',
@@ -561,145 +437,169 @@ Future<void> _confirmDelete(ApplianceModel a) async {
     }
   }
 
-  // Bottom sheet เลือกเพิ่มอุปกรณ์
-  void _showAddApplianceSheet() {
+  void _showAddApplianceSheet() => _openFormSheet();
+
+  void _showEditApplianceSheet(ApplianceModel a) => _openFormSheet(existing: a);
+
+  // ฟอร์มเพิ่ม/แก้ไขอุปกรณ์ (ชีตเดียวกัน ส่ง existing ไปพรีฟิลเมื่อแก้ไข)
+  void _openFormSheet({ApplianceModel? existing}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) => _AddApplianceSheet(
+        uid: _auth.currentUser!.uid,
         firestoreService: _firestoreService,
-        onAdded: _loadData,
         rate: _rate,
+        existing: existing,
       ),
     );
   }
 
-  // Bottom sheet แก้ไขอุปกรณ์ที่มีอยู่แล้ว (ใช้ชีตเดียวกัน ส่ง existing ไปพรีฟิล)
-  void _showEditApplianceSheet(ApplianceModel a) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _AddApplianceSheet(
-        firestoreService: _firestoreService,
-        onAdded: _loadData,
-        rate: _rate,
-        existing: a,
-      ),
-    );
-  }
-
-  // Bottom sheet ดูข้อมูล/รายละเอียดค่าไฟของอุปกรณ์ (ต่อวัน/เดือน/ปี/เฉลี่ย)
+  // รายละเอียดค่าไฟของอุปกรณ์ (เดือน/ปี/วัน) พร้อมปุ่มแก้ไขและลบ
   void _showDetailSheet(ApplianceModel a) {
-    final formatter = NumberFormat('#,##0.00');
     final hasSchedule = a.schedules.isNotEmpty;
-    final costPerActiveDay = _costPerActiveDay(a);
-    final costPerMonth = _estimateApplianceMonthlyCost(a);
-    final costPerYear = _estimateApplianceYearlyCost(a);
-    final avgCostPerDay = costPerMonth / 30;
+    final kWhPerActiveDay = _kWhPerActiveDay(a);
+    final costPerMonth = _monthlyCost(a);
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(AppSpacing.v20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.v20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(bottom: AppSpacing.v16),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(AppSpacing.v2),
-                ),
-              ),
-            ),
-            Text(a.name,
-                style:
-                    const TextStyle(fontSize: AppTypography.s18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 2),
-            Text(
-              '${a.watt.toStringAsFixed(0)} วัตต์'
-              '${hasSchedule ? ' • ${_scheduleSummary(a)}' : ''}',
-              style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            if (!hasSchedule)
-              Text(
-                'อุปกรณ์นี้ยังไม่ได้ตั้งตารางการใช้งาน จึงยังไม่มีตัวเลขประมาณการค่าไฟ',
-                style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade600),
-              )
-            else ...[
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v10, AppSpacing.v20, AppSpacing.v16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _SheetHandle(),
+              const SizedBox(height: AppSpacing.v14),
               Row(
                 children: [
+                  IconBadge(icon: _applianceIcon(a), color: AppColors.primaryGreen, size: 48),
+                  const SizedBox(width: AppSpacing.v12),
                   Expanded(
-                    child: _detailBox('ต่อวันที่ใช้งาน',
-                        '${formatter.format(costPerActiveDay)} บาท'),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _detailBox('เฉลี่ย/วัน (ทั้งเดือน)',
-                        '${formatter.format(avgCostPerDay)} บาท'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(a.name,
+                            style: const TextStyle(
+                                fontSize: AppTypography.s17, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                        const SizedBox(height: AppSpacing.v2),
+                        Text('${_wattFmt.format(a.watt)} วัตต์ · ${_scheduleSummary(a)}',
+                            style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600)),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.v16),
+              if (!hasSchedule)
+                Text('อุปกรณ์นี้ยังไม่ได้ตั้งเวลาใช้งาน จึงยังประมาณค่าไฟไม่ได้ กด "แก้ไข" เพื่อตั้งเวลาค่ะ',
+                    style: TextStyle(fontSize: AppTypography.s13, height: 1.5, color: Colors.grey.shade600))
+              else
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.v16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('ค่าไฟโดยประมาณ',
+                          style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade700)),
+                      const SizedBox(height: AppSpacing.v2),
+                      Text('${_bahtFmt.format(costPerMonth)} บาท/เดือน',
+                          style: const TextStyle(
+                              fontSize: AppTypography.s24, fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
+                      const SizedBox(height: AppSpacing.v12),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _detailStat(
+                                  'ต่อวันที่ใช้', '${_bahtFmt.format(kWhPerActiveDay * _rate.perUnit)} บาท')),
+                          Expanded(child: _detailStat('ต่อปี', '${_bahtFmt.format(_yearlyCost(a))} บาท')),
+                          Expanded(
+                              child: _detailStat('พลังงาน/วันที่ใช้', '${kWhPerActiveDay.toStringAsFixed(2)} หน่วย')),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: AppSpacing.v16),
               Row(
                 children: [
                   Expanded(
-                    child: _detailBox(
-                        'ต่อเดือน', '${formatter.format(costPerMonth)} บาท'),
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(sheetContext);
+                        await _confirmDelete(a);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade700,
+                        side: BorderSide(color: Colors.red.shade200),
+                        minimumSize: const Size(0, 48),
+                      ),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      label: const Text('ลบ'),
+                    ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: AppSpacing.v10),
                   Expanded(
-                    child: _detailBox(
-                        'ต่อปี', '${formatter.format(costPerYear)} บาท'),
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        _showEditApplianceSheet(a);
+                      },
+                      icon: const Icon(Icons.edit_rounded, size: 18),
+                      label: const Text('แก้ไข'),
+                    ),
                   ),
                 ],
               ),
             ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('ปิด'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _detailBox(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.v12),
-      decoration: BoxDecoration(
-        color: AppColors.softGreenBg,
-        borderRadius: BorderRadius.circular(AppSpacing.v10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
-          const SizedBox(height: 4),
-          Text(value,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: AppTypography.s15,
-                  color: DashboardStyles.primaryGreen)),
-        ],
+  Widget _detailStat(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
+        const SizedBox(height: AppSpacing.v2),
+        Text(value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                fontSize: AppTypography.s13_5, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+      ],
+    );
+  }
+}
+
+// แถบจับด้านบนของแผ่นด้านล่าง
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 40,
+        height: 4,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(AppSpacing.v2),
+        ),
       ),
     );
   }
