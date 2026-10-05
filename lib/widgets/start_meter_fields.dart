@@ -523,37 +523,88 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
             const SizedBox(height: 10),
             usedField,
           ],
-          const SizedBox(height: 10),
-          _field(
-            controller: costCtrl,
-            label: 'ค่าใช้จ่าย',
-            hint: costHint,
-            suffixText: 'บาท',
-            icon: Icons.receipt_long,
-            iconColor: accentColor,
-            enabled: !noBillYet,
-          ),
-          const SizedBox(height: 10),
-          // toggle "ยังไม่มีบิลตอนนี้" ของฝั่งนี้โดยเฉพาะ กดแล้วกระทบแค่ฝั่งนี้
-          // ใช้ checkbox วงกลมแทนสวิตช์วงรี ให้กดทั้งแถวได้ ไม่ต้องเล็งตัวสวิตช์
-          InkWell(
-            borderRadius: BorderRadius.circular(AppSpacing.v8),
-            onTap: () => onNoBillYetChanged(!noBillYet),
-            child: Row(
+          const SizedBox(height: 14),
+          // ยอดเงินตามใบแจ้งหนี้ — ระบบเติมให้จากหน่วยที่ใช้ (ดู _CostAutofill ในหน้า
+          // ที่เรียกใช้) แต่ยอดจริงในบิลอาจต่างได้เล็กน้อย จึงบอกให้แก้ตามบิลได้
+          if (!noBillYet) ...[
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    'ยังไม่มีบิล$labelตอนนี้ (มีแต่เลขมิเตอร์ที่อ่านจากหน้าปัดเอง)',
-                    style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade700),
-                  ),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('ยอดเงินตามใบแจ้งหนี้',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s12_5)),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v2),
+                      decoration: BoxDecoration(
+                        color: DashboardStyles.primaryGreen.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppSpacing.v20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 12, color: DashboardStyles.primaryGreen),
+                          SizedBox(width: 4),
+                          Text('คิดให้อัตโนมัติ',
+                              style: TextStyle(
+                                  fontSize: AppTypography.s11,
+                                  fontWeight: FontWeight.w600,
+                                  color: DashboardStyles.primaryGreen)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  noBillYet ? Icons.check_circle : Icons.circle_outlined,
-                  color: noBillYet ? DashboardStyles.primaryGreen : Colors.grey.shade400,
-                  size: 22,
+                const SizedBox(height: 6),
+                TextField(
+                  controller: costCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: _decoration(
+                      hint: costHint, suffixText: 'บาท', icon: Icons.receipt_long, iconColor: accentColor),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'คำนวณจากหน่วยที่ใช้ ถ้ายอดในใบแจ้งหนี้ต่างไป แก้ให้ตรงกับบิลได้เลยค่ะ',
+                  style: TextStyle(fontSize: AppTypography.s11_5, height: 1.4, color: Colors.grey.shade600),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+          ],
+          // ยังไม่ได้รับใบแจ้งหนี้ของฝั่งนี้ — กรอกแค่เลขที่อ่านจากมิเตอร์เอง (กระทบแค่ฝั่งนี้)
+          Material(
+            color: noBillYet ? DashboardStyles.primaryGreen.withValues(alpha: 0.06) : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.v12),
+              side: BorderSide(color: Colors.grey.shade200),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => onNoBillYetChanged(!noBillYet),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.v4, AppSpacing.v6, AppSpacing.v12, AppSpacing.v6),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: noBillYet,
+                      onChanged: (v) => onNoBillYetChanged(v ?? false),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('ยังไม่ได้รับใบแจ้งหนี้$label',
+                              style: const TextStyle(fontSize: AppTypography.s13, fontWeight: FontWeight.w600)),
+                          Text('ใช้เลขที่อ่านจากมิเตอร์เอง ไม่ต้องกรอกยอดเงิน',
+                              style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           if (isPartial) ...[

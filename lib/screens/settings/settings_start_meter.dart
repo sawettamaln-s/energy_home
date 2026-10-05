@@ -407,8 +407,9 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     );
   }
 
-  // แถวที่ยังไม่กรอกเลขมิเตอร์รอบนี้ (currentVal <= 0) โชว์แค่ฝั่ง "เดือนก่อน -> รอกรอก..."
-  // พอพิมพ์เลขมิเตอร์ปุ๊บ ตัวเลข "ตอนนี้"/"ใช้ไปกี่หน่วย" จะขึ้นตามทันที (rebuild ผ่าน listener ที่มีอยู่แล้ว)
+  // กล่องผลคำนวณหน่วยที่ใช้ — ตัวหนา "ใช้ไป 320 หน่วย" ใต้ลงมาเป็นที่มาของตัวเลข
+  // (เลขที่กรอก − เลขของใบแจ้งหนี้รอบก่อน) ยังไม่กรอกเลขรอบนี้ = บอกให้พิมพ์ก่อน
+  // ตัวเลขอัปเดตทันทีที่พิมพ์ (rebuild ผ่าน listener ที่มีอยู่แล้ว)
   Widget _usageSummaryCard({
     required List<_MeterDeltaRow> rows,
     required String unit,
@@ -421,60 +422,62 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     final total = filledRows.fold<double>(0, (s, r) => s + r.used);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.all(AppSpacing.v12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(AppSpacing.v10),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final r in rows)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Text(
-                r.currentVal > 0
-                    ? '${r.label != null ? '${r.label} ' : ''}'
-                        '$prevMonthLabel ${fmt.format(r.prevVal)} → ตอนนี้ ${fmt.format(r.currentVal)}'
-                        '  =  ใช้ไป ${fmt.format(r.used)} $unit'
-                    : '${r.label != null ? '${r.label} ' : ''}'
-                        '$prevMonthLabel ${fmt.format(r.prevVal)} → ตอนนี้ ...',
-                style: TextStyle(
-                  fontSize: AppTypography.s11_5,
-                  color: r.currentVal > 0
-                      ? color
-                      : color.withValues(alpha: 0.55),
-                ),
-              ),
-            ),
-          if (filledRows.length > 1)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                'รวมใช้ไปทั้งหมด ${fmt.format(total)} $unit',
-                style: TextStyle(
-                    fontSize: AppTypography.s11_5, fontWeight: FontWeight.w700, color: color),
-              ),
-            ),
-          // มีรอบบิลที่ไม่มี record คั่นอยู่ตรงกลาง (ข้ามไปหลายรอบ) — เตือนว่า
-          // ตัวเลขข้างบนคือยอดรวมสะสมของทุกรอบที่ขาด ไม่ใช่แค่รอบเดียว กันสับสน
-          // ว่าทำไมหน่วยที่ใช้ถึงเยอะผิดปกติ พร้อมชวนไปกรอกย้อนหลังแยกรายเดือนถ้าจำได้
-          if (skippedMonths.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                'ครอบคลุม ${skippedMonths.length} รอบที่ไม่มีบันทึกเลย '
-                '(${skippedMonths.join(', ')}) ตัวเลขด้านบนคือยอดรวมทั้งช่วง '
-                'ถ้าจำหน่วยแยกรายเดือนได้ ลองไปกรอกย้อนหลังทีละเดือนที่หน้า '
-                '"ประวัติบิล" แทนจะแม่นกว่าค่ะ',
-                style: TextStyle(
-                  fontSize: AppTypography.s10_5,
-                  fontStyle: FontStyle.italic,
-                  color: color.withValues(alpha: 0.8),
-                ),
-              ),
-            ),
+          IconBadge(icon: Icons.calculate_outlined, color: color, size: 32),
+          const SizedBox(width: AppSpacing.v10),
+          Expanded(
+            child: filledRows.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.v6),
+                    child: Text(
+                      'พิมพ์เลขมิเตอร์ด้านบน แล้วระบบจะคำนวณหน่วยที่ใช้ตั้งแต่ใบแจ้งหนี้ $prevMonthLabel ให้ค่ะ',
+                      style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade600),
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final r in filledRows) ...[
+                        Text(
+                          '${r.label != null ? '${r.label} ' : ''}ใช้ไป ${fmt.format(r.used)} $unit',
+                          style: TextStyle(
+                              fontSize: AppTypography.s14, fontWeight: FontWeight.w700, color: color),
+                        ),
+                        Text(
+                          '${fmt.format(r.currentVal)} − ${fmt.format(r.prevVal)} (เลขของ $prevMonthLabel)',
+                          style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: AppSpacing.v4),
+                      ],
+                      if (filledRows.length > 1)
+                        Text(
+                          'รวมใช้ไปทั้งหมด ${fmt.format(total)} $unit',
+                          style: const TextStyle(
+                              fontSize: AppTypography.s13, fontWeight: FontWeight.w700, color: AppColors.textDark),
+                        ),
+                      // มีรอบบิลที่ไม่มี record คั่นอยู่ (ข้ามไปหลายรอบ) — ตัวเลขข้างบนคือ
+                      // ยอดรวมของทุกรอบที่ขาด ไม่ใช่รอบเดียว กันสับสนว่าทำไมหน่วยเยอะผิดปกติ
+                      if (skippedMonths.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.v4),
+                          child: Text(
+                            'รวม ${skippedMonths.length} รอบที่ไม่ได้บันทึก (${skippedMonths.join(', ')}) '
+                            'ถ้าจำหน่วยแยกรายเดือนได้ กรอกย้อนหลังทีละเดือนที่หน้า "บิลย้อนหลัง" จะแม่นกว่าค่ะ',
+                            style: const TextStyle(
+                                fontSize: AppTypography.s11_5, height: 1.4, color: AppColors.warningText),
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );

@@ -2,7 +2,7 @@
 // เปิดผ่าน openStartMeterSetup() ตัวเดียวกับที่แดชบอร์ด/หน้าบันทึกมิเตอร์ใช้
 //
 // ครอบ 3 ส่วน:
-//   1) หน้าประวัติ — รายการว่าง, ซ่อนปุ่ม (+) เมื่อรอบปัจจุบันตั้งครบแล้ว,
+//   1) หน้าประวัติ — รายการว่าง, ซ่อนปุ่มกรอกเลขเมื่อรอบปัจจุบันตั้งครบแล้ว,
 //      ลบข้อมูลฝั่งเดียวของแถวรอบปัจจุบัน
 //   2) ฟอร์มตั้งค่าใหม่ — ครั้งแรกสุด (ต้องกรอกหน่วยที่ใช้), รอบถัดไป (คำนวณ
 //      หน่วยจาก delta รอบก่อน), กรอกไม่ครบ, ยังไม่มีบิล, เลขต่ำกว่ารอบก่อน
@@ -112,8 +112,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  // ปุ่ม "กรอกเลขรอบนี้" อยู่ในการ์ดรอบปัจจุบัน (มีเฉพาะตอนรอบนี้ยังไม่ได้ตั้งค่า)
+  final addButton = find.text('กรอกเลขรอบนี้');
+
   Future<void> openSheet(WidgetTester tester) async {
-    await tester.tap(find.byType(FloatingActionButton));
+    await tester.tap(addButton);
     await tester.pumpAndSettle();
   }
 
@@ -142,19 +145,19 @@ void main() {
 
   const meterLabel = 'เลขอ่านครั้งหลัง (last meter reading)';
   const usedLabel = 'จำนวนหน่วย (kWh)';
-  const costLabel = 'ค่าใช้จ่าย';
+  const costLabel = 'ยอดเงินตามใบแจ้งหนี้';
   const generalError = 'กรอกให้ครบอย่างน้อย 1 ประเภท (ไฟฟ้า หรือ น้ำ) ก่อนถึงจะบันทึกได้';
 
   group('หน้าประวัติ', () {
-    testWidgets('ยังไม่มีประวัติ -> โชว์ข้อความว่าง และมีปุ่ม (+)', (tester) async {
+    testWidgets('ยังไม่มีประวัติ -> โชว์ข้อความว่าง และมีปุ่มกรอกเลขรอบนี้', (tester) async {
       await seedUser();
       await openSetup(tester);
 
       expect(find.text('ยังไม่มีประวัติการตั้งเลขมิเตอร์ต้นรอบ'), findsOneWidget);
-      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(addButton, findsOneWidget);
     });
 
-    testWidgets('รอบปัจจุบันตั้งครบแล้ว -> ซ่อนปุ่ม (+) และโชว์แถวของรอบนี้',
+    testWidgets('รอบปัจจุบันตั้งครบแล้ว -> ซ่อนปุ่มกรอกเลข และโชว์การ์ดของรอบนี้',
         (tester) async {
       await seedUser(
           configuredForCurrentCycle: true,
@@ -163,7 +166,7 @@ void main() {
       await seedRecord('r-current', cycle, electricity: 5000);
       await openSetup(tester);
 
-      expect(find.byType(FloatingActionButton), findsNothing);
+      expect(addButton, findsNothing);
       expect(find.text(monthLabel(cycle)), findsWidgets);
     });
 
@@ -214,8 +217,8 @@ void main() {
       expect(user['electricityStartConfigured'], isFalse);
       expect(user['startMeterConfigured'], isFalse);
       expect(user['startBillingMonth'], 0);
-      // ไม่มีรอบปัจจุบันแล้ว ปุ่ม (+) ต้องกลับมา
-      expect(find.byType(FloatingActionButton), findsOneWidget);
+      // ไม่มีรอบปัจจุบันแล้ว ปุ่มกรอกเลขต้องกลับมา
+      expect(addButton, findsOneWidget);
     });
   });
 
@@ -301,8 +304,7 @@ void main() {
       await openSheet(tester);
 
       await enter(tester, meterLabel, '5300');
-      await tapText(tester,
-          'ยังไม่มีบิลไฟฟ้าตอนนี้ (มีแต่เลขมิเตอร์ที่อ่านจากหน้าปัดเอง)');
+      await tapText(tester, 'ยังไม่ได้รับใบแจ้งหนี้ไฟฟ้า');
       await tapText(tester, 'บันทึก');
 
       expect((await userData())['startElectricityValue'], 5300);
