@@ -227,7 +227,8 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
               onRefresh: _loadData,
               child: _appliances.isEmpty ? _buildEmptyState() : _buildList(),
             ),
-      bottomNavigationBar: AppBottomNavBar(currentIndex: 2, onTap: widget.onNavTap),
+      // ผ่าน MainShell บาร์ล่างอยู่ที่ shell ตัวเดียว (แคปซูลเลื่อนระหว่างแท็บได้)
+      bottomNavigationBar: widget.onNavTap == null ? const AppBottomNavBar(currentIndex: 2) : null,
     );
   }
 

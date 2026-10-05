@@ -267,8 +267,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
       ),
-      bottomNavigationBar:
-          AppBottomNavBar(currentIndex: 0, onTap: widget.onNavTap),
+      // ผ่าน MainShell บาร์ล่างอยู่ที่ shell ตัวเดียว (แคปซูลเลื่อนระหว่างแท็บได้)
+      bottomNavigationBar: widget.onNavTap == null ? const AppBottomNavBar(currentIndex: 0) : null,
     );
   }
 

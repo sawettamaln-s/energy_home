@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../services/notification_service.dart';
+import '../widgets/app_bottom_nav_bar.dart';
 import 'analysis/analysis_screen.dart';
 import 'appliance/appliance_screen.dart';
 import 'dashboard/dashboard_screen.dart';
+import 'dashboard/dashboard_styles.dart';
 import 'settings/settings_screen.dart';
 
 /// จุดเข้าเดียวของ "แอปหลังล็อกอิน" (4 แท็บ: หน้าหลัก/วิเคราะห์/อุปกรณ์/ตั้งค่า)
@@ -12,6 +14,9 @@ import 'settings/settings_screen.dart';
 /// แล้วสลับแค่ "ใครโชว์อยู่" ตัว State ของแต่ละหน้า (ข้อมูลที่โหลดมาแล้ว,
 /// scroll position, ค่าที่พิมพ์ค้างในฟอร์ม ฯลฯ) จะยังอยู่ครบเวลาสลับกลับมา
 /// ไม่ต้องโหลดซ้ำ และไม่เห็น loading spinner กระพริบทุกครั้งที่สลับแท็บ
+///
+/// บาร์ล่างอยู่ที่ shell ตัวเดียว (ไม่ใช่ของแต่ละหน้า) แคปซูลของแท็บที่เลือกจึง
+/// เลื่อนจากแท็บเดิมไปแท็บใหม่ได้
 ///
 /// ปุ่ม back: ถ้าอยู่แท็บอื่นที่ไม่ใช่หน้าหลัก กด back จะพากลับไปแท็บหน้าหลัก
 /// ก่อน ต้องกด back อีกทีถึงจะออกจากแอปจริงๆ (พฤติกรรมมาตรฐานของแอปที่มี
@@ -72,9 +77,13 @@ class _MainShellState extends State<MainShell> {
         if (didPop) return;
         setState(() => _currentIndex = 0);
       },
-      child: IndexedStack(
-        index: _currentIndex,
-        children: _tabs,
+      child: Scaffold(
+        backgroundColor: DashboardStyles.background,
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _tabs,
+        ),
+        bottomNavigationBar: AppBottomNavBar(currentIndex: _currentIndex, onTap: _onNavTap),
       ),
     );
   }
