@@ -485,30 +485,19 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.v14),
-      decoration: DashboardStyles.accentCard(borderColor, radius: 14).copyWith(
-        color: borderColor.withValues(alpha: 0.045),
+      decoration: BoxDecoration(
+        color: borderColor.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: borderColor.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.v6),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                    label == 'ไฟฟ้า' ? Icons.bolt : Icons.water_drop,
-                    size: 15,
-                    color: accentColor),
-              ),
-              const SizedBox(width: 8),
-              Text(label,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
-              const Spacer(),
-              if (isPartial)
+          // ชื่อยูทิลิตี้อยู่บนแท็บด้านบนแล้ว การ์ดจึงมีแค่ป้าย "กรอกไม่ครบ" เมื่อจำเป็น
+          if (isPartial)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v3),
@@ -522,9 +511,9 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
                           fontWeight: FontWeight.w600,
                           color: Colors.red.shade700)),
                 ),
-            ],
-          ),
-          const SizedBox(height: 12),
+              ],
+            ),
+          if (isPartial) const SizedBox(height: 8),
           meterFields,
           if (usageSummary != null) ...[
             const SizedBox(height: 10),
@@ -681,28 +670,33 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (widget.title != null) ...[
+          Text(widget.title!,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
+          const SizedBox(height: 2),
+        ],
+        // คำอธิบายสั้น + ปุ่มเปิดภาพตัวอย่างบิลว่าเลขแต่ละช่องอยู่ตรงไหนของใบแจ้งหนี้
         Row(
           children: [
             Expanded(
-              child: widget.title == null
-                  ? const SizedBox.shrink()
-                  : Text(widget.title!,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
+              child: Text(widget.subtitle,
+                  style: TextStyle(fontSize: AppTypography.s12, height: 1.4, color: Colors.grey.shade600)),
             ),
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: Icon(Icons.info_outline, size: 18, color: Colors.grey.shade600),
+            TextButton.icon(
               onPressed: () => _showWhatIsThisPopup(context),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8),
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: const TextStyle(
+                    fontFamily: AppTheme.fontFamily, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
+              ),
+              icon: const Icon(Icons.help_outline_rounded, size: 18),
+              label: const Text('ดูตำแหน่งในบิล'),
             ),
           ],
         ),
-        const SizedBox(height: 2),
-        Text(widget.subtitle,
-            style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _buildTabs(eComplete: eComplete, wComplete: wComplete),
         const SizedBox(height: 12),
         if (_selectedTab == 0)

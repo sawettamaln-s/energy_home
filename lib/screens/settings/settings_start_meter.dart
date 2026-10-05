@@ -333,7 +333,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         billingDay);
     while (cursor.year > prev.billingYear ||
         (cursor.year == prev.billingYear && cursor.month > prev.billingMonth)) {
-      months.add('${thaiMonths[cursor.month - 1]} ${cursor.year}');
+      months.add(_monthYearLabel(cursor.month, cursor.year));
       cursor = EnergyForecaster.getPreviousCycleStart(cursor, billingDay);
     }
     return months.reversed.toList(); // เรียงเก่า -> ใหม่ ให้อ่านง่าย
@@ -385,8 +385,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       rows: rows,
       unit: 'หน่วย',
       color: DashboardStyles.electricityBorder,
-      prevMonthLabel:
-          '${thaiMonths[prev.billingMonth - 1]} ${prev.billingYear}',
+      prevMonthLabel: _monthYearLabel(prev.billingMonth, prev.billingYear),
       skippedMonths: _skippedMonthsBetween(prev),
     );
   }
@@ -403,8 +402,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
       ],
       unit: 'ลบ.ม.',
       color: DashboardStyles.waterBorder,
-      prevMonthLabel:
-          '${thaiMonths[prev.billingMonth - 1]} ${prev.billingYear}',
+      prevMonthLabel: _monthYearLabel(prev.billingMonth, prev.billingYear),
       skippedMonths: _skippedMonthsBetween(prev),
     );
   }
@@ -750,294 +748,251 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.8,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.v20)),
-      ),
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
-          : Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(AppSpacing.v2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'เลขมิเตอร์จากใบแจ้งหนี้',
-                        style:
-                            TextStyle(fontSize: AppTypography.s18, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.v16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    // ชีตหดตามคีย์บอร์ด ปุ่มบันทึกด้านล่างจึงอยู่เหนือคีย์บอร์ดเสมอ
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final height = MediaQuery.sizeOf(context).height * 0.9 - bottomInset;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: SizedBox(
+        height: height < 320 ? 320 : height,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  const SizedBox(height: AppSpacing.v10),
+                  const _SheetGrabber(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v6, AppSpacing.v8, 0),
+                    child: Row(
                       children: [
-                        // ลิงก์ชวนตั้งวันตัดรอบบิล — โชว์เฉพาะบัญชีที่ยังไม่เคยเลือกวันเอง กดแล้วเปิดหน้าตั้งค่า
-                        if (_user?.billingDayConfigured == false)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(AppSpacing.v10),
-                              onTap: () async {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const SettingsScreen(
-                                        quickAction:
-                                            SettingsQuickAction.billingDay),
-                                  ),
-                                );
-                                if (mounted) await _loadCurrent();
-                              },
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(AppSpacing.v10),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.event_repeat,
-                                        size: 17,
-                                        color: Colors.grey.shade700),
-                                    const SizedBox(width: 8),
-                                    const Expanded(
-                                      child: Text(
-                                        'ยังไม่ได้ตั้งวันตัดรอบบิล ตั้งไปพร้อมกันไหม',
-                                        style: TextStyle(
-                                            fontSize: AppTypography.s12_5,
-                                            fontWeight: FontWeight.w600),
-                                      ),
-                                    ),
-                                    Icon(Icons.arrow_forward_ios,
-                                        size: 12, color: Colors.grey.shade500),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        // หัวข้อเดือน + tag เล็กบอกโหมด "แก้ไข"/"ตั้งใหม่"
-                        Row(
-                          children: [
-                            const Text(
-                              'เดือนของใบแจ้งหนี้',
+                        const Expanded(
+                          child: Text('เลขมิเตอร์จากใบแจ้งหนี้',
                               style: TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: AppTypography.s13),
-                            ),
-                            if (_user != null) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(AppSpacing.v20),
-                                ),
-                                child: Text(
-                                  _isEditingCurrentCycle ? 'แก้ไข' : 'ตั้งใหม่',
-                                  style: TextStyle(
-                                    fontSize: AppTypography.s10_5,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                                  fontSize: AppTypography.s17,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textDark)),
                         ),
-                        const SizedBox(height: 8),
-                        // ผู้ใช้เลือกเดือน/ปีเองไม่ได้ เพราะระบบรู้อยู่แล้วว่าเดือนไหนควรตั้งจาก billingDay
-                        // โหมดแก้ไข: แสดงเป็นข้อความเฉยๆ ไม่ให้เปลี่ยน / โหมดตั้งใหม่: แสดงเดือนที่คำนวณอัตโนมัติเดือนเดียว
-                        if (_isEditingCurrentCycle)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(AppSpacing.v10),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
-                                  style: const TextStyle(
-                                      fontSize: AppTypography.s14,
-                                      fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'แก้ไขได้จนกว่าจะถึงรอบบิลถัดไป',
-                                  style: TextStyle(
-                                      fontSize: AppTypography.s11_5,
-                                      color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                          )
-                        else
-                          // เลือกเดือนให้อัตโนมัติจาก billingDay จริง (ถูกต้องแม้วันสุดท้ายก่อนตัดรอบ ดู getCycleStart ใน forecaster.dart)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color:
-                                  DashboardStyles.primaryGreen.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(AppSpacing.v10),
-                            ),
-                            child: Text(
-                              '${thaiMonths[_selectedMonth - 1]} $_selectedYear',
-                              style: const TextStyle(
-                                  fontSize: AppTypography.s14,
-                                  fontWeight: FontWeight.w600,
-                                  color: DashboardStyles.primaryGreen),
-                            ),
-                          ),
-                        const SizedBox(height: 4),
-                        // ใช้ widget กลาง StartMeterPairedFields (widgets/start_meter_fields.dart)
-                        StartMeterPairedFields(
-                          isTou: widget.isTou,
-                          area: _user?.area ?? 'bangkok',
-                          electricityCtrl: _eCtrl,
-                          peakCtrl: _peakCtrl,
-                          offPeakCtrl: _offPeakCtrl,
-                          eCostCtrl: _eCostCtrl,
-                          waterCtrl: _wCtrl,
-                          wCostCtrl: _wCostCtrl,
-                          eUsedCtrl: _eUsedCtrl,
-                          wUsedCtrl: _wUsedCtrl,
-                          eUsedPeakCtrl: _eUsedPeakCtrl,
-                          eUsedOffPeakCtrl: _eUsedOffPeakCtrl,
-                          eIsFirstEntry: _eIsFirstEntry,
-                          wIsFirstEntry: _wIsFirstEntry,
-                          eNoBillYet: _electricityNoBillYet,
-                          onENoBillYetChanged: (v) => setState(() {
-                            _electricityNoBillYet = v;
-                            if (v) _eCostCtrl.clear();
-                          }),
-                          wNoBillYet: _waterNoBillYet,
-                          onWNoBillYetChanged: (v) => setState(() {
-                            _waterNoBillYet = v;
-                            if (v) _wCostCtrl.clear();
-                          }),
-                          // ไม่ส่ง title ซ้ำ — sheet นี้มีหัว "บันทึกมิเตอร์ต้นรอบ" อยู่แล้ว
-                          subtitle: 'กรอกจากใบแจ้งหนี้เดือนที่เลือกไว้ด้านบน '
-                              'มีบิลฝั่งไหนก็กรอกแค่ฝั่งนั้น',
-                          eUsageSummary: _eUsageSummary,
-                          wUsageSummary: _wUsageSummary,
+                        IconButton(
+                          tooltip: 'ปิด',
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(context),
                         ),
-                        if (_eBelowPrevious || _wBelowPrevious) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: AppColors.softOrangeBg,
-                              borderRadius: BorderRadius.circular(AppSpacing.v10),
-                              border:
-                                  Border.all(color: AppColors.warningBorder),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.warning_amber_rounded,
-                                    size: 18, color: AppColors.warningIcon),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '${[
-                                      if (_eBelowPrevious)
-                                        'เลขมิเตอร์ไฟฟ้าที่กรอกต่ำกว่ารอบก่อนหน้า',
-                                      if (_wBelowPrevious)
-                                        'เลขมิเตอร์น้ำที่กรอกต่ำกว่ารอบก่อนหน้า',
-                                    ].join(' และ ')}'
-                                        ' กรุณาตรวจสอบว่าพิมพ์ถูกไหมค่ะ '
-                                        '(เลขมิเตอร์สะสมควรเพิ่มขึ้นทุกรอบ)',
-                                    style: const TextStyle(
-                                        fontSize: AppTypography.s11_5,
-                                        color: AppColors.warningText),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        if (_generalError) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'กรอกให้ครบอย่างน้อย 1 ประเภท (ไฟฟ้า หรือ น้ำ) '
-                            'ก่อนถึงจะบันทึกได้',
-                            style: TextStyle(
-                                fontSize: AppTypography.s11_5, color: Colors.red.shade600),
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: _isSaving ? null : _save,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: DashboardStyles.primaryGreen,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(AppSpacing.v12),
-                              ),
-                            ),
-                            child: _isSaving
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : const Text('บันทึก'),
-                          ),
-                        ),
-                        if (_user?.startMeterConfigured == true) ...[
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 44,
-                            child: TextButton.icon(
-                              onPressed:
-                                  _isSaving ? null : _confirmClearStartMeter,
-                              icon: Icon(Icons.delete_forever_outlined,
-                                  size: 18, color: Colors.red.shade300),
-                              label: Text(
-                                'ล้างเลขมิเตอร์ต้นรอบ',
-                                style: TextStyle(color: Colors.red.shade300),
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
-                ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.v16, AppSpacing.v4, AppSpacing.v16, AppSpacing.v24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // ชวนตั้งวันตัดรอบบิล — เฉพาะบัญชีที่ยังไม่เคยเลือกวันเอง
+                          if (_user?.billingDayConfigured == false) ...[
+                            _billingDayPrompt(),
+                            const SizedBox(height: AppSpacing.v12),
+                          ],
+                          _invoiceMonthCard(),
+                          const SizedBox(height: AppSpacing.v16),
+                          // ใช้ widget กลาง StartMeterPairedFields (widgets/start_meter_fields.dart)
+                          StartMeterPairedFields(
+                            isTou: widget.isTou,
+                            area: _user?.area ?? 'bangkok',
+                            electricityCtrl: _eCtrl,
+                            peakCtrl: _peakCtrl,
+                            offPeakCtrl: _offPeakCtrl,
+                            eCostCtrl: _eCostCtrl,
+                            waterCtrl: _wCtrl,
+                            wCostCtrl: _wCostCtrl,
+                            eUsedCtrl: _eUsedCtrl,
+                            wUsedCtrl: _wUsedCtrl,
+                            eUsedPeakCtrl: _eUsedPeakCtrl,
+                            eUsedOffPeakCtrl: _eUsedOffPeakCtrl,
+                            eIsFirstEntry: _eIsFirstEntry,
+                            wIsFirstEntry: _wIsFirstEntry,
+                            eNoBillYet: _electricityNoBillYet,
+                            onENoBillYetChanged: (v) => setState(() {
+                              _electricityNoBillYet = v;
+                              if (v) _eCostCtrl.clear();
+                            }),
+                            wNoBillYet: _waterNoBillYet,
+                            onWNoBillYetChanged: (v) => setState(() {
+                              _waterNoBillYet = v;
+                              if (v) _wCostCtrl.clear();
+                            }),
+                            subtitle: 'มีบิลฝั่งไหนก็กรอกแค่ฝั่งนั้นได้ค่ะ',
+                            eUsageSummary: _eUsageSummary,
+                            wUsageSummary: _wUsageSummary,
+                          ),
+                          if (_eBelowPrevious || _wBelowPrevious) ...[
+                            const SizedBox(height: AppSpacing.v12),
+                            _note(
+                              '${[
+                                if (_eBelowPrevious) 'เลขมิเตอร์ไฟฟ้าที่กรอกต่ำกว่ารอบก่อนหน้า',
+                                if (_wBelowPrevious) 'เลขมิเตอร์น้ำที่กรอกต่ำกว่ารอบก่อนหน้า',
+                              ].join(' และ ')}'
+                              ' กรุณาตรวจสอบว่าพิมพ์ถูกไหมค่ะ (เลขมิเตอร์สะสมควรเพิ่มขึ้นทุกรอบ)',
+                            ),
+                          ],
+                          if (_generalError) ...[
+                            const SizedBox(height: AppSpacing.v12),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.error_outline_rounded, size: 16, color: Colors.red.shade700),
+                                const SizedBox(width: AppSpacing.v6),
+                                Expanded(
+                                  child: Text(
+                                    'กรอกให้ครบอย่างน้อย 1 ประเภท (ไฟฟ้า หรือ น้ำ) ก่อนถึงจะบันทึกได้',
+                                    style: TextStyle(
+                                        fontSize: AppTypography.s12, height: 1.4, color: Colors.red.shade700),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (_user?.startMeterConfigured == true) ...[
+                            const SizedBox(height: AppSpacing.v16),
+                            TextButton.icon(
+                              onPressed: _isSaving ? null : _confirmClearStartMeter,
+                              style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+                              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                              label: const Text('ล้างเลขมิเตอร์ต้นรอบ'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.v16, AppSpacing.v12, AppSpacing.v16, AppSpacing.v16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _save,
+                        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text('บันทึก'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  // เดือนของใบแจ้งหนี้ที่กำลังกรอก — ระบบเลือกให้จาก billingDay (ผู้ใช้เลือกเองไม่ได้)
+  // ป้าย "แก้ไข" = แก้ค่าของรอบปัจจุบันที่ตั้งไว้แล้ว, "ตั้งใหม่" = รอบใหม่
+  Widget _invoiceMonthCard() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.v14),
+      decoration: BoxDecoration(
+        color: AppColors.primaryGreen.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
+      child: Row(
+        children: [
+          const IconBadge(icon: Icons.receipt_long_outlined, color: AppColors.primaryGreen, size: 40),
+          const SizedBox(width: AppSpacing.v12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ใบแจ้งหนี้เดือน', style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+                Text(_monthYearLabel(_selectedMonth, _selectedYear),
+                    style: const TextStyle(
+                        fontSize: AppTypography.s15, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                if (_isEditingCurrentCycle)
+                  Text('แก้ไขได้จนกว่าจะถึงรอบบิลถัดไป',
+                      style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
               ],
             ),
+          ),
+          if (_user != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppSpacing.v20),
+              ),
+              child: Text(
+                _isEditingCurrentCycle ? 'แก้ไข' : 'ตั้งใหม่',
+                style: const TextStyle(
+                    fontSize: AppTypography.s11_5, fontWeight: FontWeight.w600, color: AppColors.primaryGreen),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _billingDayPrompt() {
+    return Material(
+      color: AppColors.warning.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SettingsScreen(
+                quickAction: SettingsQuickAction.billingDay,
+                firestoreService: widget.firestoreService,
+              ),
+            ),
+          );
+          if (mounted) await _loadCurrent();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v10),
+          child: Row(
+            children: [
+              const Icon(Icons.event_repeat_rounded, size: 18, color: AppColors.warningIcon),
+              const SizedBox(width: AppSpacing.v8),
+              const Expanded(
+                child: Text('ยังไม่ได้ตั้งวันตัดรอบบิล ตั้งไปพร้อมกันไหมคะ',
+                    style: TextStyle(
+                        fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600, color: AppColors.warningText)),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey.shade500),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _note(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v10),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: AppColors.warningBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warningIcon),
+          const SizedBox(width: AppSpacing.v8),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(fontSize: AppTypography.s12, height: 1.45, color: AppColors.warningText)),
+          ),
+        ],
+      ),
     );
   }
 }

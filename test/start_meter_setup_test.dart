@@ -34,7 +34,7 @@ void main() {
   // รอบบิลปัจจุบัน (เดือนที่ฟอร์มจะตั้งค่าให้) และรอบก่อนหน้า
   final cycle = EnergyForecaster.getCycleStart(DateTime.now(), _billingDay);
   final prevCycle = EnergyForecaster.getPreviousCycleStart(cycle, _billingDay);
-  String monthLabel(DateTime d) => '${thaiMonths[d.month - 1]} ${d.year}';
+  String monthLabel(DateTime d) => '${thaiMonths[d.month - 1]} ${d.year + 543}';
 
   setUp(() {
     fakeDb = FakeFirebaseFirestore();
@@ -179,7 +179,7 @@ void main() {
       await openSetup(tester);
 
       await tapText(tester, monthLabel(cycle));
-      await tapText(tester, 'ลบรายการนี้');
+      await tapText(tester, 'ลบข้อมูลไฟฟ้า');
       expect(find.text('ลบข้อมูลไฟฟ้ารายการนี้?'), findsOneWidget);
       await tapText(tester, 'ลบ');
 
@@ -206,7 +206,7 @@ void main() {
       await openSetup(tester);
 
       await tapText(tester, monthLabel(cycle));
-      await tapText(tester, 'ลบรายการนี้');
+      await tapText(tester, 'ลบข้อมูลไฟฟ้า');
       await tapText(tester, 'ลบ');
 
       expect(await docs('start_meter_history'), isEmpty);
@@ -457,5 +457,36 @@ void main() {
       expect(await docs('start_meter_history'), isEmpty);
       expect(await docs('bills'), isEmpty);
     });
+  });
+
+  testWidgets('จอเล็ก (กว้าง 320) ตัวอักษรใหญ่สุดที่แอปอนุญาต -> ประวัติ (TOU) และฟอร์มไม่ล้น',
+      (tester) async {
+    tester.view.devicePixelRatio = 3;
+    tester.view.physicalSize = const Size(320 * 3, 700 * 3);
+    addTearDown(tester.view.reset);
+    await seedUser(meterType: 'tou');
+    await seedRecord('r-prev', prevCycle, peak: 123456, offPeak: 234567, water: 98765);
+    await seedRecord('r-old', EnergyForecaster.getPreviousCycleStart(prevCycle, _billingDay),
+        peak: 123000, offPeak: 234000);
+    await tester.pumpWidget(MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.3)),
+        child: child!,
+      ),
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: ElevatedButton(
+            onPressed: () => openStartMeterSetup(context, _uid, service, true),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await openSheet(tester);
+    expect(tester.takeException(), isNull);
   });
 }
