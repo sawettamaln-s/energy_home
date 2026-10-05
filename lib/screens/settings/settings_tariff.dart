@@ -29,58 +29,6 @@ void showTariffHowToInfo(BuildContext context, String area) {
   );
 }
 
-// ตัวเลือกประเภทอัตรา 1 ช่องในหน้าต่างเลือก — กรอบเขียวเมื่อเลือกอยู่
-Widget _tariffOption({
-  required String title,
-  required String detail,
-  required bool selected,
-  required VoidCallback onTap,
-}) {
-  return InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(AppSpacing.v12),
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.v12),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.softGreenBg : Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v12),
-        border: Border.all(
-          color: selected ? DashboardStyles.primaryGreen : Colors.grey.shade300,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            selected ? Icons.radio_button_checked : Icons.radio_button_off,
-            size: 20,
-            color: selected ? DashboardStyles.primaryGreen : Colors.grey,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: AppTypography.s14)),
-                const SizedBox(height: 2),
-                Text(detail,
-                    style: TextStyle(
-                        fontSize: AppTypography.s12,
-                        color: Colors.grey.shade700,
-                        height: 1.4)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 // เลือกประเภทอัตราค่าไฟตามที่พิมพ์บนใบแจ้งหนี้ — บันทึกแล้วคิดเงินของรอบ
 // ปัจจุบันใหม่ทั้งรอบ บิลเดือนก่อนๆ ไม่เปลี่ยน (ดู setElectricityTariff)
 // [initial] = ตัวเลือกที่เลือกไว้ให้ตอนเปิด (ไม่ส่ง = ประเภทปัจจุบันของผู้ใช้)
@@ -91,93 +39,233 @@ Future<void> showElectricityTariffDialog(
   String? initial,
   VoidCallback? onSaved,
 }) {
-  String selected = initial ?? user.electricityTariff;
-  return showDialog(
+  return showModalBottomSheet(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setDialogState) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.v20)),
-        title: Row(
-          children: [
-            const Expanded(
-              child: Text('ประเภทอัตราค่าไฟ',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: AppTypography.s17)),
-            ),
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.info_outline,
-                  color: DashboardStyles.primaryGreen, size: 20),
-              onPressed: () => showTariffHowToInfo(context, user.area),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (context) => _TariffSheet(
+      user: user,
+      firestoreService: firestoreService,
+      initial: initial ?? user.electricityTariff,
+      onSaved: onSaved,
+    ),
+  );
+}
+
+class _TariffSheet extends StatefulWidget {
+  final UserModel user;
+  final FirestoreService firestoreService;
+  final String initial;
+  final VoidCallback? onSaved;
+
+  const _TariffSheet({required this.user, required this.firestoreService, required this.initial, this.onSaved});
+
+  @override
+  State<_TariffSheet> createState() => _TariffSheetState();
+}
+
+class _TariffSheetState extends State<_TariffSheet> {
+  late String _selected = widget.initial;
+  bool _isSaving = false;
+  String? _error;
+
+  bool get _changed => _selected != widget.user.electricityTariff;
+
+  Future<void> _save() async {
+    if (!_changed) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+    try {
+      await widget.firestoreService.setElectricityTariff(widget.user, _selected);
+      widget.onSaved?.call();
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'บันทึกไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้งค่ะ');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Widget _option({
+    required String tariff,
+    required String title,
+    required String detail,
+    required String serviceFee,
+  }) {
+    final selected = _selected == tariff;
+    final inUse = widget.user.electricityTariff == tariff;
+    final code = EnergyCalculator.tariffCode(tariff, widget.user.area);
+    return Material(
+      color: selected ? AppColors.primaryGreen.withValues(alpha: 0.06) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        side: BorderSide(color: selected ? AppColors.primaryGreen : Colors.grey.shade300, width: selected ? 1.4 : 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => setState(() {
+          _selected = tariff;
+          _error = null;
+        }),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.v14),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'เลือกให้ตรงกับประเภทที่พิมพ์บนใบแจ้งหนี้ค่าไฟใบล่าสุดค่ะ',
-                style: TextStyle(
-                    fontSize: AppTypography.s12_5, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 12),
-              _tariffOption(
-                title:
-                    '${tariffLabel(EnergyCalculator.tariffStandard, user.area)} (ค่าเริ่มต้น)',
-                detail: 'บ้านส่วนใหญ่ (มิเตอร์ใหญ่กว่า 5 แอมแปร์ หรือใช้เกิน '
-                    '150 หน่วย/เดือน)',
-                selected: selected == EnergyCalculator.tariffStandard,
-                onTap: () => setDialogState(
-                    () => selected = EnergyCalculator.tariffStandard),
-              ),
-              const SizedBox(height: 8),
-              _tariffOption(
-                title: tariffLabel(EnergyCalculator.tariffSmall, user.area),
-                detail: 'มิเตอร์ไม่เกิน 5 แอมแปร์ ที่ใช้ไม่เกิน 150 หน่วย/เดือน '
-                    'ติดต่อกัน 3 เดือน (อัตราถูกกว่า)',
-                selected: selected == EnergyCalculator.tariffSmall,
-                onTap: () => setDialogState(
-                    () => selected = EnergyCalculator.tariffSmall),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'เมื่อเปลี่ยน ระบบจะคำนวณค่าไฟของรอบปัจจุบันใหม่ตามประเภทที่เลือก '
-                'บิลเดือนก่อนๆ ไม่เปลี่ยนค่ะ',
-                style: TextStyle(
-                    fontSize: AppTypography.s12,
-                    color: Colors.grey.shade600,
-                    height: 1.4),
+              Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off,
+                  size: 20, color: selected ? AppColors.primaryGreen : Colors.grey.shade500),
+              const SizedBox(width: AppSpacing.v10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: AppSpacing.v6,
+                      runSpacing: AppSpacing.v4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text('ประเภท $code',
+                            style: const TextStyle(
+                                fontSize: AppTypography.s15, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                        if (inUse)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v6, vertical: AppSpacing.v2),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                            ),
+                            child: Text('ใช้อยู่',
+                                style: TextStyle(
+                                    fontSize: AppTypography.s11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.v2),
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: AppTypography.s13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+                    const SizedBox(height: AppSpacing.v2),
+                    Text(detail,
+                        style: TextStyle(fontSize: AppTypography.s12, height: 1.4, color: Colors.grey.shade600)),
+                    const SizedBox(height: AppSpacing.v6),
+                    Text('ค่าบริการ $serviceFee บาท/เดือน',
+                        style: TextStyle(
+                            fontSize: AppTypography.s12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                  ],
+                ),
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('ยกเลิก'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (selected != user.electricityTariff) {
-                await firestoreService.setElectricityTariff(user, selected);
-                onSaved?.call();
-              }
-              if (context.mounted) Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DashboardStyles.primaryGreen,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('บันทึก'),
-          ),
-        ],
       ),
-    ),
-  );
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final area = widget.user.area;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v10, AppSpacing.v16, AppSpacing.v16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _SheetGrabber(),
+                const SizedBox(height: AppSpacing.v6),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('ประเภทอัตราค่าไฟ',
+                          style: TextStyle(
+                              fontSize: AppTypography.s17, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                    ),
+                    IconButton(
+                      tooltip: 'ดูประเภทอัตราค่าไฟยังไง',
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.info_outline, size: 20, color: Colors.grey.shade600),
+                      onPressed: () => showTariffHowToInfo(context, area),
+                    ),
+                  ],
+                ),
+                Text('เลือกให้ตรงกับประเภทที่พิมพ์บนใบแจ้งหนี้ค่าไฟใบล่าสุดค่ะ',
+                    style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600)),
+                const SizedBox(height: AppSpacing.v14),
+                _option(
+                  tariff: EnergyCalculator.tariffStandard,
+                  title: 'ใช้เกิน 150 หน่วย/เดือน',
+                  detail: 'บ้านส่วนใหญ่ (มิเตอร์ใหญ่กว่า 5 แอมแปร์) ถ้าไม่แน่ใจให้เลือกประเภทนี้',
+                  serviceFee: EnergyCalculator.electricityServiceFee.toStringAsFixed(2),
+                ),
+                const SizedBox(height: AppSpacing.v8),
+                _option(
+                  tariff: EnergyCalculator.tariffSmall,
+                  title: 'ใช้ไม่เกิน 150 หน่วย/เดือน',
+                  detail: 'มิเตอร์ไม่เกิน 5 แอมแปร์ ที่ใช้ไม่เกิน 150 หน่วยติดต่อกัน 3 เดือน อัตราถูกกว่า',
+                  serviceFee: EnergyCalculator.smallServiceFee.toStringAsFixed(2),
+                ),
+                const SizedBox(height: AppSpacing.v12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.autorenew_rounded, size: 16, color: Colors.grey.shade600),
+                    const SizedBox(width: AppSpacing.v6),
+                    Expanded(
+                      child: Text(
+                        'เมื่อเปลี่ยน ระบบจะคำนวณค่าไฟของรอบปัจจุบันใหม่ตามประเภทที่เลือก บิลเดือนก่อนๆ ไม่เปลี่ยนค่ะ',
+                        style: TextStyle(fontSize: AppTypography.s12, height: 1.4, color: Colors.grey.shade600),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: AppSpacing.v12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.error_outline_rounded, size: 16, color: Colors.red.shade700),
+                      const SizedBox(width: AppSpacing.v6),
+                      Expanded(
+                        child: Text(_error!,
+                            style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.red.shade700)),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v12, AppSpacing.v16, AppSpacing.v16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _save,
+              style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text(_changed ? 'บันทึก' : 'ปิด'),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // popup บนหน้าหลักเมื่อบิล 3 เดือนติดกันเข้าเงื่อนไขเปลี่ยนประเภท (ดู
