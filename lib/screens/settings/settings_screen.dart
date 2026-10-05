@@ -7,11 +7,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../models/bill_model.dart';
-import '../../models/electricity_log_model.dart';
 import '../../models/fixed_cost_item_model.dart';
 import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
-import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/google_auth_service.dart';
 import '../../services/notification_service.dart';

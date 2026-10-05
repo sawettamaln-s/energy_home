@@ -20,7 +20,7 @@ Future<void> openUtilityHistory(
   );
 }
 
-// ==================== บันทึกย้อนหลัง: ไฟฟ้า / ประปา ====================
+// ==================== ประวัติการบันทึกมิเตอร์: ไฟฟ้า / ประปา ====================
 class _UtilityHistoryScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
@@ -36,16 +36,8 @@ class _UtilityHistoryScreen extends StatefulWidget {
   State<_UtilityHistoryScreen> createState() => _UtilityHistoryScreenState();
 }
 
-class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController =
-        TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
-  }
+class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen> with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
 
   @override
   void dispose() {
@@ -65,809 +57,520 @@ class _UtilityHistoryScreenState extends State<_UtilityHistoryScreen>
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
           tabs: const [
-            Tab(icon: Icon(Icons.bolt), text: 'ไฟฟ้า'),
-            Tab(icon: Icon(Icons.water_drop), text: 'ประปา'),
+            Tab(text: 'ไฟฟ้า'),
+            Tab(text: 'ประปา'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _ElectricityLogTab(
-              uid: widget.uid, firestoreService: widget.firestoreService),
-          _WaterLogTab(
-              uid: widget.uid, firestoreService: widget.firestoreService),
+          _LogHistoryTab(uid: widget.uid, firestoreService: widget.firestoreService, isWater: false),
+          _LogHistoryTab(uid: widget.uid, firestoreService: widget.firestoreService, isWater: true),
         ],
       ),
     );
   }
 }
 
-// การ์ดสรุปด้านบนของแต่ละแท็บ — รวมสถิติ "รอบปัจจุบัน"/"รวมทั้งหมดที่มี" กับ
-// ตัวเลือกปี (พ.ศ.) + เดือน ไว้ในกรอบเดียวกัน คั่นด้วยเส้น Divider บางๆ
-// (ประหยัดพื้นที่แนวตั้ง)
-Widget _historySummaryCard({
-  required Color accent,
-  required double currentCycleCost,
-  required double allTimeCost,
-  required NumberFormat formatter,
-  required List<int> years,
-  required List<int> months,
-  required int selectedYear,
-  required int selectedMonth,
-  required ValueChanged<int> onYearChanged,
-  required ValueChanged<int> onMonthChanged,
-}) {
-  Widget statItem({
-    required IconData icon,
-    required String label,
-    required double value,
-  }) {
-    return Expanded(
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(AppSpacing.v8),
-            ),
-            child: Icon(icon, size: 15, color: accent),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade500),
-                ),
-                RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: formatter.format(value),
-                        style: const TextStyle(
-                          fontSize: AppTypography.s15_5,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      TextSpan(
-                        text: ' บาท',
-                        style:
-                            TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade500),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+// รายการบันทึก 1 ครั้ง ในรูปกลางที่ใช้ได้ทั้งไฟฟ้าและน้ำ (ElectricityLogModel/
+// WaterLogModel มีฟิลด์คนละชุด) — usedFromStart/cost เป็นยอดสะสมตั้งแต่ต้นรอบ
+class _LogEntry {
+  final String id;
+  final String uid;
+  final DateTime date;
+  final double reading; // เลขมิเตอร์ที่จด (ไฟปกติ/น้ำ)
+  final double? peakReading; // TOU: เลขที่จดจริงของ On-Peak/Off-Peak
+  final double? offPeakReading;
+  final double usedFromLast;
+  final double usedFromStart;
+  final double cost;
 
-  InputDecoration fieldDecoration() {
-    return InputDecoration(
-      isDense: true,
-      filled: true,
-      fillColor: AppColors.inputFill,
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v7),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.v9),
-        borderSide: const BorderSide(color: AppColors.inputBorder),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.v9),
-        borderSide: const BorderSide(color: AppColors.inputBorder),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.v9),
-        borderSide: BorderSide(color: accent, width: 1.4),
-      ),
-    );
-  }
-
-  return Container(
-    margin: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v10),
-    padding: const EdgeInsets.all(AppSpacing.v14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(AppSpacing.v14),
-      border: Border.all(color: Colors.grey.shade200),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            statItem(
-              icon: Icons.schedule,
-              label: 'รอบปัจจุบัน',
-              value: currentCycleCost,
-            ),
-            const SizedBox(width: 12),
-            statItem(
-              icon: Icons.account_balance_wallet_outlined,
-              label: 'รวมทั้งหมดที่มี',
-              value: allTimeCost,
-            ),
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v12),
-          child: Divider(height: 1, color: Colors.grey.shade200),
-        ),
-        Row(
-          children: [
-            Expanded(
-              flex: 4,
-              child: DropdownButtonFormField<int>(
-                key: ValueKey('year-$selectedYear'),
-                initialValue: selectedYear,
-                isDense: true,
-                dropdownColor: Colors.white,
-                icon: Icon(Icons.keyboard_arrow_down,
-                    size: 18, color: Colors.grey.shade500),
-                style: const TextStyle(
-                  fontSize: AppTypography.s13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-                decoration: fieldDecoration(),
-                items: [
-                  for (final y in years)
-                    DropdownMenuItem(value: y, child: Text('${y + 543}')),
-                ],
-                onChanged: (v) {
-                  if (v != null) onYearChanged(v);
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 5,
-              child: DropdownButtonFormField<int>(
-                key: ValueKey('month-$selectedYear-$selectedMonth'),
-                initialValue: selectedMonth,
-                isDense: true,
-                dropdownColor: Colors.white,
-                icon: Icon(Icons.keyboard_arrow_down,
-                    size: 18, color: Colors.grey.shade500),
-                style: const TextStyle(
-                  fontSize: AppTypography.s13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-                decoration: fieldDecoration(),
-                items: [
-                  for (final m in months)
-                    DropdownMenuItem(value: m, child: Text(thaiMonths[m - 1])),
-                ],
-                onChanged: (v) {
-                  if (v != null) onMonthChanged(v);
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-// สรุปเดือนที่กำลังดูอยู่ + ตาราง (1 การ์ด = 1 รอบบิล) — แสดงตารางเต็มเสมอ
-// เพราะตัวเลือกปี-เดือนด้านบนกรองเหลือรอบเดียวอยู่แล้ว
-class _MonthGroupCard extends StatelessWidget {
-  final String monthLabel;
-  final bool isCurrent;
-  final int count;
-  final double totalCost;
-  final Color accent;
-  final NumberFormat formatter;
-  final Widget table;
-
-  const _MonthGroupCard({
-    required this.monthLabel,
-    required this.isCurrent,
-    required this.count,
-    required this.totalCost,
-    required this.accent,
-    required this.formatter,
-    required this.table,
+  const _LogEntry({
+    required this.id,
+    required this.uid,
+    required this.date,
+    required this.reading,
+    this.peakReading,
+    this.offPeakReading,
+    required this.usedFromLast,
+    required this.usedFromStart,
+    required this.cost,
   });
+}
+
+// รอบบิล 1 รอบ: เดือนของใบแจ้งหนี้ (key) + ช่วงวันของรอบ + รายการในรอบนั้น
+class _LogCycle {
+  final DateTime billMonth;
+  final DateTime start;
+  final DateTime end; // วันตัดรอบถัดไป (ไม่รวมวันนี้)
+  final List<_LogEntry> entries; // เรียงใหม่ → เก่า
+
+  _LogCycle(this.billMonth, this.start, this.end, this.entries);
+
+  // ยอดของรอบ = ค่าของรายการล่าสุด (usedFromStart/cost สะสมตั้งแต่ต้นรอบ ห้ามบวกกัน)
+  _LogEntry get latest => entries.first;
+}
+
+// จัดกลุ่มรายการตามรอบบิล — ขอบเขตรอบมาจาก EnergyForecaster เท่านั้น เดือนของ
+// ใบแจ้งหนี้ = เดือนของวันตัดรอบที่ปิดรอบนั้น (เดียวกับ year/month ของบิล)
+List<_LogCycle> _groupByCycle(List<_LogEntry> entries, int billingDay) {
+  final grouped = <DateTime, List<_LogEntry>>{};
+  for (final e in entries) {
+    final start = EnergyForecaster.getCycleStart(e.date, billingDay);
+    grouped.putIfAbsent(start, () => []).add(e);
+  }
+  final cycles = [
+    for (final g in grouped.entries)
+      () {
+        final end = EnergyForecaster.getCycleEnd(g.key, billingDay);
+        final list = g.value..sort((a, b) => b.date.compareTo(a.date));
+        return _LogCycle(DateTime(end.year, end.month, 1), g.key, end, list);
+      }(),
+  ];
+  cycles.sort((a, b) => b.start.compareTo(a.start));
+  return cycles;
+}
+
+// ==================== แท็บประวัติ (ไฟฟ้า หรือ น้ำ) ====================
+class _LogHistoryTab extends StatefulWidget {
+  final String uid;
+  final FirestoreService firestoreService;
+  final bool isWater;
+
+  const _LogHistoryTab({required this.uid, required this.firestoreService, required this.isWater});
+
+  @override
+  State<_LogHistoryTab> createState() => _LogHistoryTabState();
+}
+
+class _LogHistoryTabState extends State<_LogHistoryTab> {
+  List<_LogEntry> _entries = [];
+  bool _isLoading = true;
+  int _billingDay = 30;
+  bool _isTou = false;
+  late DateTime _currentCycleStart;
+
+  bool _newestFirst = true;
+  // รอบที่กางอยู่ (key = วันเริ่มรอบ) — null = ยังไม่เคยแตะ ใช้ค่าเริ่มต้นคือกางรอบล่าสุด
+  Set<DateTime>? _expanded;
+
+  static final _fmt = NumberFormat('#,##0.##');
+  static final _bahtFmt = NumberFormat('#,##0.00');
+
+  Color get _accent => widget.isWater ? AppColors.waterBorder : AppColors.electricityBorder;
+  String get _unit => widget.isWater ? 'ลบ.ม.' : 'หน่วย';
+  String get _costLabel => widget.isWater ? 'ค่าน้ำ' : 'ค่าไฟ';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    final now = DateTime.now();
+    final startDate = DateTime(now.year - 1, now.month, 1);
+    final endDate = DateTime(now.year + 1, now.month, 1);
+    final user = await widget.firestoreService.getUser(widget.uid);
+    _billingDay = user?.billingDay ?? 30;
+    _isTou = !widget.isWater && user?.meterType == 'tou';
+    _currentCycleStart = EnergyForecaster.getCycleStart(now, _billingDay);
+
+    if (widget.isWater) {
+      final logs = await widget.firestoreService.getCurrentMonthWaterLogs(widget.uid, startDate, endDate);
+      _entries = [
+        for (final l in logs)
+          _LogEntry(
+            id: l.id,
+            uid: l.uid,
+            date: l.date,
+            reading: l.meterValue,
+            usedFromLast: l.usedFromLast,
+            usedFromStart: l.usedFromStart,
+            cost: l.cost,
+          ),
+      ];
+    } else {
+      final logs = await widget.firestoreService.getCurrentMonthElectricityLogs(widget.uid, startDate, endDate);
+      _entries = [
+        for (final l in logs)
+          _LogEntry(
+            id: l.id,
+            uid: l.uid,
+            date: l.date,
+            reading: l.meterValue,
+            peakReading: l.peakMeterValue,
+            offPeakReading: l.offPeakMeterValue,
+            usedFromLast: l.usedFromLast,
+            usedFromStart: l.usedFromStart,
+            cost: l.cost,
+          ),
+      ];
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  // ลบได้เฉพาะรายการในรอบปัจจุบัน — รอบที่ปิดแล้วถูกใช้คำนวณบิลไปแล้ว
+  bool _isEditable(_LogEntry e) => !e.date.isBefore(_currentCycleStart);
+
+  Future<void> _confirmDelete(_LogEntry e) async {
+    final confirm = await showConfirmDialog(
+      context,
+      title: 'ลบข้อมูล',
+      content: 'ต้องการลบข้อมูลนี้ใช่ไหมคะ?',
+    );
+    if (confirm != true) return;
+    if (widget.isWater) {
+      await widget.firestoreService.deleteWaterLog(e.uid, e.id);
+    } else {
+      await widget.firestoreService.deleteElectricityLog(e.uid, e.id);
+    }
+    await _load();
+  }
+
+  String _shortDate(DateTime d) => '${d.day} ${thaiMonthsShort[d.month - 1]}';
+
+  String _range(_LogCycle c) {
+    final last = c.end.subtract(const Duration(days: 1));
+    return '${_shortDate(c.start)} – ${_shortDate(last)} ${(last.year + 543) % 100}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v14),
-        border: Border.all(
-          color:
-              isCurrent ? accent.withValues(alpha: 0.35) : Colors.grey.shade200,
-          width: isCurrent ? 1.3 : 1,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.v13),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+
+    final cycles = _groupByCycle(_entries, _billingDay);
+    final current = cycles.where((c) => c.start == _currentCycleStart).firstOrNull;
+    final ordered = _newestFirst ? cycles : cycles.reversed.toList();
+    final expanded = _expanded ?? {if (cycles.isNotEmpty) cycles.first.start};
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v32),
+      children: [
+        FadeSlideIn(child: _buildCurrentCard(current)),
+        const SizedBox(height: AppSpacing.v24),
+        Row(
           children: [
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v12),
-              color:
-                  isCurrent ? accent.withValues(alpha: 0.07) : Colors.grey.shade50,
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: isCurrent ? 0.16 : 0.08),
-                      borderRadius: BorderRadius.circular(AppSpacing.v10),
-                    ),
-                    child: Icon(Icons.calendar_month, size: 18, color: accent),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+            const Expanded(child: Text('ประวัติตามรอบบิล', style: DashboardStyles.sectionTitle)),
+            if (cycles.length > 1)
+              TextButton.icon(
+                onPressed: () => setState(() => _newestFirst = !_newestFirst),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8),
+                  minimumSize: const Size(0, 36),
+                  textStyle: const TextStyle(
+                      fontFamily: AppTheme.fontFamily, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
+                ),
+                icon: Icon(_newestFirst ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 16),
+                label: Text(_newestFirst ? 'ใหม่ → เก่า' : 'เก่า → ใหม่'),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.v8),
+        if (cycles.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.v24),
+            child: Column(
+              children: [
+                Icon(Icons.history_rounded, size: 40, color: Colors.grey.shade300),
+                const SizedBox(height: AppSpacing.v8),
+                Text('ยังไม่มีประวัติการบันทึก',
+                    style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade600)),
+              ],
+            ),
+          )
+        else
+          for (final c in ordered) ...[
+            _cycleHeader(c, isOpen: expanded.contains(c.start), onTap: () {
+              setState(() {
+                final next = {...expanded};
+                if (!next.remove(c.start)) next.add(c.start);
+                _expanded = next;
+              });
+            }),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: !expanded.contains(c.start)
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.v4, bottom: AppSpacing.v8),
+                      child: AppCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
                           children: [
-                            Flexible(
-                              child: Text(
-                                monthLabel,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: AppTypography.s14,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                            if (isCurrent) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.v7, vertical: AppSpacing.v2),
-                                decoration: BoxDecoration(
-                                  color: accent,
-                                  borderRadius: BorderRadius.circular(AppSpacing.v20),
-                                ),
-                                child: const Text(
-                                  'กำลังสะสมยอด',
-                                  style: TextStyle(
-                                    fontSize: AppTypography.s10,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
+                            _tableHeader(),
+                            for (final e in c.entries) ...[
+                              const Divider(),
+                              _tableRow(e),
                             ],
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isCurrent
-                              ? '$count รายการที่บันทึกแล้ว' // รอบปัจจุบันโชว์แค่จำนวนรายการพอ ไม่ต้องโชว์บาทซ้ำ
-                              : '$count รายการ · สรุปยอดรวม ${formatter.format(totalCost)} บาท', // รอบเก่าโชว์ยอดเงินจริง
-                          style: TextStyle(
-                              fontSize: AppTypography.s12, color: Colors.grey.shade600),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: AppSpacing.v6),
+          ],
+      ],
+    );
+  }
+
+  // ---- รอบปัจจุบัน ----------------------------------------------------------
+
+  Widget _buildCurrentCard(_LogCycle? current) {
+    final end = EnergyForecaster.getCycleEnd(_currentCycleStart, _billingDay);
+    final billMonth = DateTime(end.year, end.month, 1);
+    final rangeText = _range(_LogCycle(billMonth, _currentCycleStart, end, const []));
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.v16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconBadge(
+                icon: widget.isWater ? Icons.water_drop_rounded : Icons.bolt_rounded,
+                color: _accent,
+                size: 40,
+              ),
+              const SizedBox(width: AppSpacing.v12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('รอบปัจจุบัน · บิล ${_monthYearLabel(billMonth.month, billMonth.year)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: AppTypography.s15, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                    Text(rangeText, style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.v14),
+          if (current == null)
+            Text('รอบนี้ยังไม่ได้บันทึกมิเตอร์ค่ะ',
+                style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade600))
+          else
+            Row(
+              children: [
+                Expanded(child: _stat('ใช้ไปแล้ว', '${_fmt.format(current.latest.usedFromStart)} $_unit')),
+                Expanded(child: _stat('$_costLabelสะสม', '${_bahtFmt.format(current.latest.cost)} บาท')),
+                Expanded(child: _stat('บันทึกแล้ว', '${current.entries.length} ครั้ง')),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
+        const SizedBox(height: AppSpacing.v2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(value,
+              style: const TextStyle(
+                  fontSize: AppTypography.s15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark,
+                  fontFeatures: [FontFeature.tabularFigures()])),
+        ),
+      ],
+    );
+  }
+
+  // ---- หัวรอบ (กดเพื่อพับ/กาง) ---------------------------------------------
+
+  Widget _cycleHeader(_LogCycle c, {required bool isOpen, required VoidCallback onTap}) {
+    final isCurrent = c.start == _currentCycleStart;
+    return Material(
+      color: isOpen ? Colors.transparent : Colors.white,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.v8, AppSpacing.v10, AppSpacing.v12, AppSpacing.v10),
+          child: Row(
+            children: [
+              AnimatedRotation(
+                turns: isOpen ? 0.25 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade700),
+              ),
+              const SizedBox(width: AppSpacing.v4),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('บิล ${_monthYearLabel(c.billMonth.month, c.billMonth.year)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: AppTypography.s14_5, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                    const SizedBox(height: AppSpacing.v2),
+                    Row(
+                      children: [
+                        // จุดเขียว = รอบปัจจุบัน, แม่กุญแจ = ปิดรอบแล้ว (รายการในรอบลบไม่ได้)
+                        if (isCurrent)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(color: AppColors.primaryGreen, shape: BoxShape.circle),
+                          )
+                        else
+                          Icon(Icons.lock_outline_rounded, size: 13, color: Colors.grey.shade500),
+                        const SizedBox(width: AppSpacing.v6),
+                        Flexible(
+                          child: Text(_range(c),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.v10, AppSpacing.v10, AppSpacing.v10, AppSpacing.v10),
-              child: table,
-            ),
-          ],
+              const SizedBox(width: AppSpacing.v8),
+              Flexible(
+                flex: 2,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('${_fmt.format(c.latest.usedFromStart)} $_unit',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: AppTypography.s13,
+                              fontWeight: FontWeight.w700,
+                              color: _accent,
+                              fontFeatures: const [FontFeature.tabularFigures()])),
+                      Text('${c.entries.length} ครั้ง · ${NumberFormat('#,##0').format(c.latest.cost)} บาท',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-// จัดกลุ่ม log ตามรอบบิลจริง โดยปรับขยับคีย์ขึ้นเป็นของเดือนใบแจ้งหนี้รอบถัดไปอัตโนมัติ
-// เพื่อให้ได้โครงสร้างกลุ่มชื่อรอบบิลที่ถูกต้องแม่นยำ
-List<MapEntry<DateTime, List<T>>> _groupLogsByCycle<T>(
-  List<T> logs,
-  DateTime Function(T) dateOf,
-  int billingDay,
-) {
-  final grouped = <DateTime, List<T>>{};
-  for (final log in logs) {
-    final logDate = dateOf(log);
-    final baseCycleStart = EnergyForecaster.getCycleStart(logDate, billingDay);
+  // ---- ตาราง ---------------------------------------------------------------
 
-    // Logic ปัดเดือนประวัติให้สอดคล้องกัน: ถ้าวันที่ของ Log ชิ้นนั้นเลยวันตัดรอบบิลมาแล้ว
-    // ให้ปัดกลุ่ม Key ของก้อนนี้ขึ้นหน้าเป็นเดือนของใบแจ้งหนี้ถัดไปล่วงหน้าทันที
-    DateTime billingCycleKey;
-    if (logDate.day >= billingDay) {
-      billingCycleKey =
-          DateTime(baseCycleStart.year, baseCycleStart.month + 1, billingDay);
-    } else {
-      billingCycleKey =
-          DateTime(baseCycleStart.year, baseCycleStart.month, billingDay);
-    }
+  static const double _dateColWidth = 64;
+  static const double _usedColWidth = 112;
 
-    grouped.putIfAbsent(billingCycleKey, () => []).add(log);
-  }
-  final entries = grouped.entries.toList()
-    ..sort((a, b) => b.key.compareTo(a.key));
-  return entries;
-}
-
-String _cycleMonthLabel(DateTime cycleMonth) {
-  return '${thaiMonths[cycleMonth.month - 1]} ${cycleMonth.year + 543}';
-}
-
-// ==================== แท็บประวัติไฟฟ้า ====================
-class _ElectricityLogTab extends StatefulWidget {
-  final String uid;
-  final FirestoreService firestoreService;
-
-  const _ElectricityLogTab({
-    required this.uid,
-    required this.firestoreService,
-  });
-
-  @override
-  State<_ElectricityLogTab> createState() => _ElectricityLogTabState();
-}
-
-class _ElectricityLogTabState extends State<_ElectricityLogTab> {
-  List<ElectricityLogModel> _logs = [];
-  bool _isLoading = true;
-  int _billingDay = 30;
-  DateTime? _cycleStart;
-  DateTime? _billingCycleKey;
-  // ใช้ตัดสินว่าตารางควรโชว์คอลัมน์ On-Peak/Off-Peak แยกไหม
-  bool _isTou = false;
-  // เลขมิเตอร์ต้นรอบ (peak/offpeak) ของแต่ละรอบบิล — อิงจาก log.peakMeterValue/
-  // offPeakMeterValue ของประวัติจริงรอบนั้นๆ ไม่ใช้ user.startPeakValue ตัวเดียว
-  // เพราะรอบเก่าที่ปิดไปแล้วมีต้นรอบคนละค่ากับรอบปัจจุบัน
-  List<StartMeterRecordModel> _startHistory = [];
-  // ค่ามิเตอร์ต้นรอบล่าสุดที่ user ตั้งไว้ — ใช้เป็น fallback เฉพาะรอบปัจจุบัน
-  // ตอนยังไม่มี StartMeterRecordModel ของรอบนี้ (เช่น กรอก log ก่อนตั้งเลขต้นรอบ)
-  // ไม่ให้ตารางโชว์ "-" ทั้งที่มีค่าตั้งต้นอยู่แล้ว — pattern เดียวกับ compileBill() (firestore_service.dart)
-  double? _userStartPeak;
-  double? _userStartOffPeak;
-
-  // ปี/เดือนที่เลือกดูอยู่ในตัวเลือกปี-เดือน — null หมายถึงยังไม่ได้ตั้งค่า
-  // เริ่มต้น จะถูกตั้งเป็นรอบปัจจุบันอัตโนมัติตอน build() ครั้งแรกที่มีข้อมูล
-  int? _selYear;
-  int? _selMonth;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLogs();
-  }
-
-  Future<void> _loadLogs() async {
-    setState(() => _isLoading = true);
-    final now = DateTime.now();
-    final startDate = DateTime(now.year - 1, now.month, 1);
-    final endDate = DateTime(now.year + 1, now.month, 1);
-    final user = await widget.firestoreService.getUser(widget.uid);
-    _billingDay = user?.billingDay ?? 30;
-    _isTou = user?.meterType == 'tou';
-    if (_isTou) {
-      _startHistory = await widget.firestoreService.getStartMeterHistory(widget.uid);
-      _userStartPeak = user?.startPeakValue;
-      _userStartOffPeak = user?.startOffPeakValue;
-    }
-    _cycleStart = EnergyForecaster.getCycleStart(now, _billingDay);
-
-    // ตั้งค่าคีย์ระบุกลุ่มของรอบปัจจุบันที่ผ่าน Logic ปัดรอบบิลเรียบร้อยแล้ว
-    if (now.day >= _billingDay) {
-      _billingCycleKey =
-          DateTime(_cycleStart!.year, _cycleStart!.month + 1, _billingDay);
-    } else {
-      _billingCycleKey =
-          DateTime(_cycleStart!.year, _cycleStart!.month, _billingDay);
-    }
-
-    _logs = await widget.firestoreService.getCurrentMonthElectricityLogs(
-      widget.uid,
-      startDate,
-      endDate,
-    );
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-  }
-
-  bool _isEditable(ElectricityLogModel log) {
-    if (_cycleStart == null) return false;
-    return !log.date.isBefore(_cycleStart!);
-  }
-
-  // หาเลขต้นรอบ (peak/offpeak) ของรอบบิลที่ cycleKey นี้ตรงกับ — ใช้ month/year
-  // เดียวกับที่ StartMeterRecordModel เก็บไว้ คืน null ถ้าไม่เจอ record ของรอบนั้นเลย
-  (double peak, double offPeak)? _startValuesFor(DateTime cycleKey) {
-    final match = _startHistory.where((r) =>
-        r.billingMonth == cycleKey.month && r.billingYear == cycleKey.year);
-    if (match.isNotEmpty) {
-      final r = match.first;
-      if (r.peakValue > 0 || r.offPeakValue > 0) {
-        return (r.peakValue, r.offPeakValue);
-      }
-    }
-    // ไม่เจอ record ของรอบนี้เลย — ถ้าเป็นรอบปัจจุบัน fallback ไปใช้ค่าต้นรอบล่าสุด
-    // ที่ user ตั้งไว้แทน (เกิดขึ้นได้ตอนกรอก log ก่อนตั้งเลขต้นรอบ) รอบเก่าไม่ fallback เพราะจะได้เลขต้นรอบผิดรอบ
-    if (cycleKey == _billingCycleKey) {
-      final peak = _userStartPeak;
-      final offPeak = _userStartOffPeak;
-      if (peak != null && offPeak != null && (peak > 0 || offPeak > 0)) {
-        return (peak, offPeak);
-      }
-    }
-    return null;
-  }
-
-  Future<void> _confirmDelete(ElectricityLogModel log) async {
-    final confirm = await showConfirmDialog(
-      context,
-      title: 'ลบข้อมูล',
-      content: 'ต้องการลบข้อมูลนี้ใช่ไหมคะ?',
-    );
-    if (confirm == true) {
-      await widget.firestoreService.deleteElectricityLog(log.uid, log.id);
-      await _loadLogs();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,##0.00');
-    if (_isLoading) {
-      return const Center(
-          child: CircularProgressIndicator(color: DashboardStyles.primaryGreen));
-    }
-    if (_logs.isEmpty) {
-      return excelTableEmptyState(
-        icon: Icons.bolt,
-        message: 'ยังไม่มีประวัติการบันทึก',
-      );
-    }
-
-    const accent = AppColors.electricityBorder;
-    final currentCycleLogs =
-        _logs.where((l) => !l.date.isBefore(_cycleStart!)).toList();
-    final currentCycleCost =
-        currentCycleLogs.fold<double>(0, (sum, l) => sum + l.cost);
-    final allTimeCost = _logs.fold<double>(0, (sum, l) => sum + l.cost);
-    final groups = _groupLogsByCycle<ElectricityLogModel>(
-        _logs, (l) => l.date, _billingDay);
-
-    // ตั้งค่าปี/เดือนเริ่มต้น = รอบปัจจุบันเสมอ ถ้ายังไม่เคยเลือก หรือค่าที่
-    // เลือกไว้ไม่มีอยู่ในข้อมูลแล้ว (เช่นสลับแท็บ/โหลดข้อมูลใหม่)
-    final years = groups.map((g) => g.key.year).toSet().toList()
-      ..sort((a, b) => b.compareTo(a));
-    if (_selYear == null || !years.contains(_selYear)) {
-      _selYear = years.contains(_billingCycleKey!.year)
-          ? _billingCycleKey!.year
-          : years.first;
-    }
-    final monthsForYear = groups
-        .where((g) => g.key.year == _selYear)
-        .map((g) => g.key.month)
-        .toList()
-      ..sort((a, b) => b.compareTo(a));
-    if (_selMonth == null || !monthsForYear.contains(_selMonth)) {
-      _selMonth = (_selYear == _billingCycleKey!.year &&
-              monthsForYear.contains(_billingCycleKey!.month))
-          ? _billingCycleKey!.month
-          : monthsForYear.first;
-    }
-
-    final selectedGroup = groups
-        .firstWhere((g) => g.key.year == _selYear && g.key.month == _selMonth);
-    final selectedLogs = selectedGroup.value;
-    final selectedCost = selectedLogs.fold<double>(0, (sum, l) => sum + l.cost);
-    final isSelectedCurrent = selectedGroup.key == _billingCycleKey;
-    final isMostRecentGroup = groups.first.key == selectedGroup.key;
-
-    return SingleChildScrollView(
-      child: Column(
+  Widget _tableHeader() {
+    final style = TextStyle(fontSize: AppTypography.s11_5, fontWeight: FontWeight.w600, color: Colors.grey.shade600);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v10, 36, AppSpacing.v10),
+      child: Row(
         children: [
-          _historySummaryCard(
-            accent: accent,
-            currentCycleCost: currentCycleCost,
-            allTimeCost: allTimeCost,
-            formatter: formatter,
-            years: years,
-            months: monthsForYear,
-            selectedYear: _selYear!,
-            selectedMonth: _selMonth!,
-            onYearChanged: (y) => setState(() {
-              _selYear = y;
-              _selMonth = null;
-            }),
-            onMonthChanged: (m) => setState(() => _selMonth = m),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v0, AppSpacing.v16, AppSpacing.v16),
-            child: _MonthGroupCard(
-              monthLabel: _cycleMonthLabel(selectedGroup.key),
-              isCurrent: isSelectedCurrent,
-              count: selectedLogs.length,
-              totalCost: selectedCost,
-              accent: accent,
-              formatter: formatter,
-              table: ExcelStyleTable(
-                accent: accent,
-                // TOU: มีคอลัมน์ On-Peak/Off-Peak "ที่ใช้ไป" ในตารางหลักเลย
-                // (ไม่ต้องแตะแถวดู detail)
-                columns: _isTou
-                    ? const [
-                        ExcelTableColumn('วันที่',
-                            align: TextAlign.left, flex: 3),
-                        ExcelTableColumn('On-Peak', flex: 2),
-                        ExcelTableColumn('Off-Peak', flex: 2),
-                        ExcelTableColumn('รวม', flex: 2),
-                        ExcelTableColumn('ค่าไฟ', flex: 2),
-                      ]
-                    : const [
-                        ExcelTableColumn('วันที่',
-                            align: TextAlign.left, flex: 3),
-                        ExcelTableColumn('หน่วยที่ใช้', flex: 2),
-                        ExcelTableColumn('ค่าไฟ', flex: 2),
-                      ],
-                rowCount: selectedLogs.length,
-                isLatest: (row) => isMostRecentGroup && row == 0,
-                isLocked: (row) => !_isEditable(selectedLogs[row]),
-                cellText: (row, col) {
-                  final log = selectedLogs[row];
-                  if (_isTou) {
-                    final start = _startValuesFor(selectedGroup.key);
-                    switch (col) {
-                      case 0:
-                        return DateFormat('dd/MM/yy').format(log.date);
-                      case 1:
-                        if (start == null) return '-';
-                        final peakUsed = (log.peakMeterValue ?? 0) - start.$1;
-                        return peakUsed.toStringAsFixed(0);
-                      case 2:
-                        if (start == null) return '-';
-                        final offPeakUsed =
-                            (log.offPeakMeterValue ?? 0) - start.$2;
-                        return offPeakUsed.toStringAsFixed(0);
-                      case 3:
-                        return log.usedFromStart.toStringAsFixed(0);
-                      default:
-                        return formatter.format(log.cost);
-                    }
-                  }
-                  switch (col) {
-                    case 0:
-                      return DateFormat('dd/MM/yy').format(log.date);
-                    case 1:
-                      return log.usedFromStart.toStringAsFixed(0);
-                    default:
-                      return formatter.format(log.cost);
-                  }
-                },
-                onRowTap: (row) {
-                  final log = selectedLogs[row];
-                  showTableRowActions(
-                    context,
-                    title: DateFormat('dd/MM/yyyy').format(log.date),
-                    subtitle:
-                        'บันทึกเมื่อ ${DateFormat('dd/MM/yyyy, HH:mm').format(log.date)}',
-                    locked: !_isEditable(log),
-                    onDelete: () => _confirmDelete(log),
-                  );
-                },
-              ),
-            ),
-          ),
+          SizedBox(width: _dateColWidth, child: Text('วันที่', style: style)),
+          Expanded(child: Text('เลขที่จด', style: style)),
+          SizedBox(width: _usedColWidth, child: Text('ใช้เพิ่ม / สะสม', textAlign: TextAlign.end, style: style)),
         ],
       ),
     );
   }
-}
 
-// ==================== แท็บประวัติน้ำ ====================
-class _WaterLogTab extends StatefulWidget {
-  final String uid;
-  final FirestoreService firestoreService;
+  Widget _tableRow(_LogEntry e) {
+    final editable = _isEditable(e);
+    const number = TextStyle(
+        fontSize: AppTypography.s14,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textDark,
+        fontFeatures: [FontFeature.tabularFigures()]);
+    final reading = _isTou
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('On ${_fmt.format(e.peakReading ?? 0)}', style: number.copyWith(fontSize: AppTypography.s13)),
+              Text('Off ${_fmt.format(e.offPeakReading ?? 0)}', style: number.copyWith(fontSize: AppTypography.s13)),
+            ],
+          )
+        : Text(_fmt.format(e.reading), style: number);
+    final hh = e.date.hour.toString().padLeft(2, '0');
+    final mm = e.date.minute.toString().padLeft(2, '0');
 
-  const _WaterLogTab({
-    required this.uid,
-    required this.firestoreService,
-  });
-
-  @override
-  State<_WaterLogTab> createState() => _WaterLogTabState();
-}
-
-class _WaterLogTabState extends State<_WaterLogTab> {
-  List<WaterLogModel> _logs = [];
-  bool _isLoading = true;
-  int _billingDay = 30;
-  DateTime? _cycleStart;
-  DateTime? _billingCycleKey;
-
-  // ปี/เดือนที่เลือกดูอยู่ในตัวเลือกปี-เดือน — null หมายถึงยังไม่ได้ตั้งค่า
-  int? _selYear;
-  int? _selMonth;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLogs();
-  }
-
-  Future<void> _loadLogs() async {
-    setState(() => _isLoading = true);
-    final now = DateTime.now();
-    final startDate = DateTime(now.year - 1, now.month, 1);
-    final endDate = DateTime(now.year + 1, now.month, 1);
-    final user = await widget.firestoreService.getUser(widget.uid);
-    _billingDay = user?.billingDay ?? 30;
-    _cycleStart = EnergyForecaster.getCycleStart(now, _billingDay);
-
-    // ตั้งค่าคีย์ระบุกลุ่มของรอบปัจจุบันที่ผ่าน Logic ปัดรอบบิลเรียบร้อยแล้ว
-    if (now.day >= _billingDay) {
-      _billingCycleKey =
-          DateTime(_cycleStart!.year, _cycleStart!.month + 1, _billingDay);
-    } else {
-      _billingCycleKey =
-          DateTime(_cycleStart!.year, _cycleStart!.month, _billingDay);
-    }
-
-    _logs = await widget.firestoreService.getCurrentMonthWaterLogs(
-      widget.uid,
-      startDate,
-      endDate,
-    );
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-  }
-
-  bool _isEditable(WaterLogModel log) {
-    if (_cycleStart == null) return false;
-    return !log.date.isBefore(_cycleStart!);
-  }
-
-  Future<void> _confirmDelete(WaterLogModel log) async {
-    final confirm = await showConfirmDialog(
-      context,
-      title: 'ลบข้อมูล',
-      content: 'ต้องการลบข้อมูลนี้ใช่ไหมคะ?',
-    );
-    if (confirm == true) {
-      await widget.firestoreService.deleteWaterLog(log.uid, log.id);
-      await _loadLogs();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,##0.00');
-    if (_isLoading) {
-      return const Center(
-          child: CircularProgressIndicator(color: DashboardStyles.primaryGreen));
-    }
-    if (_logs.isEmpty) {
-      return excelTableEmptyState(
-        icon: Icons.water_drop,
-        message: 'ยังไม่มีประวัติการบันทึก',
-      );
-    }
-
-    const accent = AppColors.waterBorder;
-    final currentCycleLogs =
-        _logs.where((l) => !l.date.isBefore(_cycleStart!)).toList();
-    final currentCycleCost =
-        currentCycleLogs.fold<double>(0, (sum, l) => sum + l.cost);
-    final allTimeCost = _logs.fold<double>(0, (sum, l) => sum + l.cost);
-    final groups =
-        _groupLogsByCycle<WaterLogModel>(_logs, (l) => l.date, _billingDay);
-
-    final years = groups.map((g) => g.key.year).toSet().toList()
-      ..sort((a, b) => b.compareTo(a));
-    if (_selYear == null || !years.contains(_selYear)) {
-      _selYear = years.contains(_billingCycleKey!.year)
-          ? _billingCycleKey!.year
-          : years.first;
-    }
-    final monthsForYear = groups
-        .where((g) => g.key.year == _selYear)
-        .map((g) => g.key.month)
-        .toList()
-      ..sort((a, b) => b.compareTo(a));
-    if (_selMonth == null || !monthsForYear.contains(_selMonth)) {
-      _selMonth = (_selYear == _billingCycleKey!.year &&
-              monthsForYear.contains(_billingCycleKey!.month))
-          ? _billingCycleKey!.month
-          : monthsForYear.first;
-    }
-
-    final selectedGroup = groups
-        .firstWhere((g) => g.key.year == _selYear && g.key.month == _selMonth);
-    final selectedLogs = selectedGroup.value;
-    final selectedCost = selectedLogs.fold<double>(0, (sum, l) => sum + l.cost);
-    final isSelectedCurrent = selectedGroup.key == _billingCycleKey;
-    final isMostRecentGroup = groups.first.key == selectedGroup.key;
-
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _historySummaryCard(
-            accent: accent,
-            currentCycleCost: currentCycleCost,
-            allTimeCost: allTimeCost,
-            formatter: formatter,
-            years: years,
-            months: monthsForYear,
-            selectedYear: _selYear!,
-            selectedMonth: _selMonth!,
-            onYearChanged: (y) => setState(() {
-              _selYear = y;
-              _selMonth = null;
-            }),
-            onMonthChanged: (m) => setState(() => _selMonth = m),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v0, AppSpacing.v16, AppSpacing.v16),
-            child: _MonthGroupCard(
-              monthLabel: _cycleMonthLabel(selectedGroup.key),
-              isCurrent: isSelectedCurrent,
-              count: selectedLogs.length,
-              totalCost: selectedCost,
-              accent: accent,
-              formatter: formatter,
-              table: ExcelStyleTable(
-                accent: accent,
-                columns: const [
-                  ExcelTableColumn('วันที่', align: TextAlign.left, flex: 3),
-                  ExcelTableColumn('หน่วยที่ใช้', flex: 2),
-                  ExcelTableColumn('ค่าน้ำ', flex: 2),
+    return InkWell(
+      onTap: () => showTableRowActions(
+        context,
+        title: '${_shortDate(e.date)} ${(e.date.year + 543) % 100}',
+        subtitle: 'บันทึกเมื่อ $hh:$mm น.',
+        locked: !editable,
+        onDelete: () => _confirmDelete(e),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v12, AppSpacing.v8, AppSpacing.v12),
+        child: Row(
+          children: [
+            SizedBox(
+              width: _dateColWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_shortDate(e.date),
+                      style: const TextStyle(
+                          fontSize: AppTypography.s13_5, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+                  Text('$hh:$mm น.', style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade500)),
                 ],
-                rowCount: selectedLogs.length,
-                isLatest: (row) => isMostRecentGroup && row == 0,
-                isLocked: (row) => !_isEditable(selectedLogs[row]),
-                cellText: (row, col) {
-                  final log = selectedLogs[row];
-                  switch (col) {
-                    case 0:
-                      return DateFormat('dd/MM/yy').format(log.date);
-                    case 1:
-                      return log.usedFromStart.toStringAsFixed(0);
-                    default:
-                      return formatter.format(log.cost);
-                  }
-                },
-                onRowTap: (row) {
-                  final log = selectedLogs[row];
-                  showTableRowActions(
-                    context,
-                    title: DateFormat('dd/MM/yyyy').format(log.date),
-                    subtitle:
-                        'บันทึกเมื่อ ${DateFormat('dd/MM/yyyy, HH:mm').format(log.date)}',
-                    locked: !_isEditable(log),
-                    onDelete: () => _confirmDelete(log),
-                  );
-                },
               ),
             ),
-          ),
-        ],
+            Expanded(child: reading),
+            SizedBox(
+              width: _usedColWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('+${_fmt.format(e.usedFromLast)} $_unit',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: AppTypography.s13_5,
+                          fontWeight: FontWeight.w700,
+                          color: _accent,
+                          fontFeatures: const [FontFeature.tabularFigures()])),
+                  Text('สะสม ${_fmt.format(e.usedFromStart)} · ฿${_bahtFmt.format(e.cost)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 28,
+              child: Icon(
+                editable ? Icons.chevron_right_rounded : Icons.lock_outline_rounded,
+                size: editable ? 20 : 15,
+                color: Colors.grey.shade400,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
