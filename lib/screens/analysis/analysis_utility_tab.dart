@@ -1,6 +1,11 @@
 part of 'analysis_screen.dart';
 
 // ==================== Tab ไฟฟ้า / น้ำ ====================
+// เรียงตามสิ่งที่ผู้ใช้อยากรู้:
+//   1) การ์ดคาดการณ์ — รอบนี้จะจบที่เท่าไร และบิลรอบถัดไปน่าจะเท่าไร
+//   2) กราฟประวัติและคาดการณ์ 3 เดือนข้างหน้า
+//   3) การ์ดเปรียบเทียบบิลล่าสุด (เดือนก่อน / ปีก่อน / เฉลี่ย 6 เดือน)
+//   4) ข้อสังเกต ไม่เกิน 3 ข้อ และไม่ซ้ำกับการ์ดเปรียบเทียบ
 class _UtilityTab extends StatelessWidget {
   final List<BillModel> bills;
   final AnalysisService analysisService;
@@ -13,49 +18,40 @@ class _UtilityTab extends StatelessWidget {
   final String unitLabel; // หน่วยที่ใช้ เช่น 'หน่วย'
   final String title; // หัวข้อยาว เช่น 'ค่าไฟฟ้า' ใช้ในกราฟเทรนด์
   final String label; // หัวข้อสั้น เช่น 'ค่าไฟ' ใช้ในข้อความ insight
-  // สีประจำยูทิลิตี้ (น้ำตาล-ส้ม = ไฟฟ้า, ฟ้า = น้ำ) ใช้กับกราฟเทรนด์และ
-  // ปุ่มสลับมุมมอง (ค่าใช้จ่าย/หน่วย) ให้ตรงกับโทนสีที่ dashboard ใช้
-  // (DashboardStyles.electricityBorder/waterBorder) ให้แยกออกได้ทันที
-  // ว่ากำลังดูแท็บไหนอยู่จากกราฟ
+  // สีประจำยูทิลิตี้ (น้ำตาล-ส้ม = ไฟฟ้า, ฟ้า = น้ำ) ให้ตรงกับโทนสีที่
+  // dashboard ใช้ (DashboardStyles.electricityBorder/waterBorder)
   final Color accentColor;
   // สีกราฟแท่งเทรนด์ แยกโหมด "ค่าใช้จ่าย"/"หน่วย" (+ Off-Peak สำหรับ TOU)
-  // — ไฟฟ้าใช้ตระกูลน้ำตาล-ส้ม/ทอง, น้ำใช้ตระกูลฟ้า/น้ำเงิน (กำหนดที่
-  // analysis_screen.dart)
   final Color costColor;
   final Color unitColor;
   final Color? touOffPeakColor;
   final CurrentCycleForecast? currentCycle;
-  // TOU เท่านั้น (แท็บไฟฟ้า) — ใช้ให้กราฟเทรนด์ฝั่ง "หน่วยที่ใช้" โชว์เป็น
-  // แท่งซ้อน On-Peak/Off-Peak แทนแท่งทึบสีเดียว แท็บน้ำไม่ส่งมาเลย (default
-  // false/null) จึงเป็นแท่งเดียวตามปกติ
+  // TOU เท่านั้น (แท็บไฟฟ้า) — กราฟเทรนด์ฝั่ง "หน่วยที่ใช้" โชว์เป็นแท่งซ้อน
+  // On-Peak/Off-Peak แท็บน้ำไม่ส่งมา (default false/null)
   final bool isTou;
   final double Function(BillModel)? peakUsedSelector;
   final double Function(BillModel)? offPeakUsedSelector;
 
   // area/meterType ของ user คนนี้ ('bangkok'/'province', 'normal'/'tou') —
   // ส่งต่อให้ analysisService เลือก seasonal curve ให้ตรงเคส ถ้าเป็น null
-  // (เช่น ยังโหลด user ไม่เสร็จ) analysisService จะ fallback ไปใช้ linear
-  // regression เองโดยอัตโนมัติ (ดู _resolveCurve ใน analysis_service.dart)
+  // analysisService จะ fallback ไปใช้ linear regression เอง
   final String? area;
   final String? meterType;
   // true เฉพาะแท็บน้ำ — ใช้เลือก SeasonalCurves.water แทน .elec
   final bool isWater;
 
-  // เรียกตอนกดปุ่ม "ดูอุปกรณ์" ในการ์ดข้อสังเกต (เดือนที่ใช้สูงสุด) — ให้
-  // AnalysisScreen สลับ TabController ไปแท็บอุปกรณ์ (index 2) แทนที่จะบอก
-  // ข้อสังเกตเฉยๆ แล้วจบ ผู้ใช้กดต่อไปดูได้เลยว่าเครื่องไหนกินไฟเยอะสุด
+  // เรียกตอนกดปุ่ม "ดูอุปกรณ์ที่ใช้ไฟมากสุด" ในข้อสังเกต — ให้ AnalysisScreen
+  // สลับไปแท็บอุปกรณ์ (index 2)
   final VoidCallback? onViewAppliances;
 
-  // หน้าอุปกรณ์เก็บเฉพาะข้อมูลการใช้ไฟฟ้า (ไม่มีตารางอุปกรณ์ใช้น้ำ) — ใช้
-  // ตัวนี้กันไม่ให้ปุ่ม CTA "ดูอุปกรณ์" โผล่ในแท็บน้ำ ซึ่งกดไปแล้วจะเจอ
-  // ข้อมูลที่ไม่เกี่ยวข้องกับสิ่งที่ผู้ใช้กำลังดูอยู่
+  // หน้าอุปกรณ์เก็บเฉพาะข้อมูลการใช้ไฟฟ้า — แท็บน้ำปิดปุ่มนี้
   final bool trackAppliances;
 
-  static const _green = DashboardStyles.primaryGreen;
-  final _fmt = NumberFormat('#,##0.00');
-  final _fmtUnit = NumberFormat('#,##0.0');
+  static final _fmt = NumberFormat('#,##0.00');
+  static final _fmtUnit = NumberFormat('#,##0.#');
+  static final _fmtBaht = NumberFormat('#,##0');
 
-  _UtilityTab({
+  const _UtilityTab({
     required this.bills,
     required this.analysisService,
     required this.selector,
@@ -117,153 +113,91 @@ class _UtilityTab extends StatelessWidget {
       (c) => c.forecastUnits,
     );
 
-    final insights = analysisService.generateUtilityInsights(
-      label: label,
-      bills: bills,
-      selector: selector,
-      mom: mom,
-      yoy: yoy,
-      currentCycle: currentCycle,
-      trackAppliances: trackAppliances,
-    );
+    // การ์ดเปรียบเทียบแสดงผลเทียบเดือนก่อน/ปีก่อนอยู่แล้ว จึงไม่สร้างข้อสังเกต
+    // ที่พูดเรื่องเดียวกันซ้ำ และแสดงแค่ 3 ข้อแรกให้อ่านจบได้เร็ว
+    final insights = analysisService
+        .generateUtilityInsights(
+          label: label,
+          bills: bills,
+          selector: selector,
+          mom: mom,
+          yoy: yoy,
+          currentCycle: currentCycle,
+          trackAppliances: trackAppliances,
+          includeComparisons: false,
+        )
+        .take(3)
+        .toList();
 
     // ข้อมูลน้อยกว่า 3 เดือน = ค่าคาดการณ์ยังไม่น่าเชื่อถือ ไม่ว่าจะใช้วิธีไหน:
-    // - รู้ area+meterType → ใช้ seasonal curve ซึ่งหา "ระดับการใช้ปัจจุบัน"
-    //   จากบิลล่าสุดไม่เกิน 3 เดือน ถ้ามีแค่ 1-2 เดือน ระดับนี้จะแกว่งตาม
-    //   เดือนที่มีอยู่มาก
-    // - ไม่รู้ → ใช้เส้นแนวโน้ม (linear regression) ซึ่งบนจุดข้อมูล 1-2 จุด
-    //   ก็แค่ทาบเส้นผ่านจุดที่มีเท่านั้น
-    // ใช้กำกับความมั่นใจของตัวเลข ไม่ให้ผู้ใช้เข้าใจว่าแม่นยำร้อยเปอร์เซ็นต์
+    // - รู้ area+meterType → seasonal curve หา "ระดับการใช้ปัจจุบัน" จากบิล
+    //   ล่าสุดไม่เกิน 3 เดือน ถ้ามีแค่ 1-2 เดือน ระดับนี้จะแกว่งตามเดือนที่มี
+    // - ไม่รู้ → เส้นแนวโน้ม (linear regression) บนจุดข้อมูล 1-2 จุดก็แค่ทาบ
+    //   เส้นผ่านจุดที่มีเท่านั้น
     final forecastLowConfidence = bills.length < 3;
 
     // true เมื่อรู้ area+meterType ของ user คนนี้แล้ว (เงื่อนไขเดียวกับ
-    // _resolveCurve ใน analysis_service.dart) — ใช้ตัดสินว่าจะโชว์ badge
-    // "ปรับตามฤดูกาล" และเปลี่ยนข้อความอธิบายในการ์ดคาดการณ์ไหม
+    // _resolveCurve ใน analysis_service.dart)
     final usesSeasonalCurve = area != null && meterType != null;
-
-
-    // การ์ดเทียบค่าเฉลี่ย 6 เดือน — ใช้ได้ทั้งเป็นการ์ดเต็มความกว้าง (มีข้อมูลปีก่อน)
-    // และเป็นการ์ดช่องขวาข้างเทียบเดือนก่อน (ยังไม่มีข้อมูลปีก่อน)
-    Widget avg6Card(String cardLabel) => _comparisonCard(
-          context,
-          cardLabel,
-          avg6,
-          previousLabel: 'เฉลี่ย 6 เดือน',
-          emptyHint:
-              'ต้องมีบิลอย่างน้อย 3 เดือน (ตอนนี้มี ${bills.length} เดือน)',
-          infoTitle: 'เทียบค่าเฉลี่ย 6 เดือนคืออะไร?',
-          infoMessage:
-              'เทียบยอด$labelเดือนนี้กับค่าเฉลี่ยของ 6 เดือนก่อนหน้า '
-              'ช่วยให้เห็นภาพที่นิ่งกว่าเทียบเดือนก่อนเดือนเดียว เผื่อเดือนก่อน'
-              'มีอะไรผิดปกติไปเอง\n\n'
-              'คำนวณอย่างไร?\n'
-              'เอายอด$labelของ 6 เดือนก่อนหน้ามารวมกัน แล้วหารด้วย 6 '
-              'จะได้ค่าเฉลี่ย จากนั้นเอายอดเดือนนี้ลบค่าเฉลี่ยนั้น หารด้วย'
-              'ค่าเฉลี่ย คูณ 100 จะได้เป็น% ที่เพิ่มขึ้นหรือลดลง '
-              '(ถ้าเดือนไหนไม่มีบิลก็จะไม่ถูกนับรวมในค่าเฉลี่ย)',
-          decreaseWord: 'ประหยัดกว่าปกติ',
-          increaseWord: 'ใช้มากกว่าปกติ',
-          sameLabel: 'เท่ากับค่าเฉลี่ย',
-        );
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpacing.v16),
       children: [
-        if (currentCycle != null && currentCycle!.hasData) ...[
-          _currentCycleCard(context),
-          const SizedBox(height: 16),
-        ],
-        _TrendChartCard(
-          bills: bills,
-          title: title,
-          unitLabel: unitLabel,
-          costSelector: selector,
-          usedSelector: usedSelector,
-          accentColor: accentColor,
-          costColor: costColor,
-          unitColor: unitColor,
-          touOffPeakColor: touOffPeakColor,
-          isTou: isTou,
-          peakUsedSelector: peakUsedSelector,
-          offPeakUsedSelector: offPeakUsedSelector,
-          costForecast: multiMonthForecast,
-          usedForecast: multiMonthUsedForecast,
-          forecastLowConfidence: forecastLowConfidence,
-          usesSeasonalCurve: usesSeasonalCurve,
-        ),
-        const SizedBox(height: 16),
-        // แถวบน: เทียบเดือนก่อน | เทียบปีก่อน — ถ้ายังไม่มีข้อมูลปีก่อน (ซ่อนอยู่)
-        // ให้ "เทียบค่าเฉลี่ย 6 เดือน" ขึ้นมาอยู่ช่องนั้นแทน และไม่ต้องมีการ์ด
-        // เต็มความกว้างด้านล่างอีก IntrinsicHeight + stretch ทำให้การ์ดสองใบ
-        // ในแถวเดียวกันสูงเท่ากันเสมอ ไม่ว่าเนื้อหาข้างในจะยาวไม่เท่ากัน
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _comparisonCard(
-                  context,
-                  'เทียบเดือนก่อน',
-                  mom,
-                  previousLabel: 'เดือนก่อน',
-                  emptyHint:
-                      'ต้องมีบิลอย่างน้อย 2 เดือน (ตอนนี้มี ${bills.length} เดือน)',
-                  infoTitle: 'เทียบเดือนก่อนคืออะไร?',
-                  infoMessage:
-                      'เทียบยอด$labelของเดือนล่าสุดกับเดือนก่อนหน้าเดือนเดียว '
-                      'ช่วยให้เห็นการเปลี่ยนแปลงระยะสั้นแบบเดือนต่อเดือน\n\n'
-                      'คำนวณอย่างไร?\n'
-                      'เอายอด$labelเดือนนี้ ลบด้วยยอดเดือนก่อน แล้วหารด้วยยอด'
-                      'เดือนก่อน คูณ 100 จะได้เป็น% ที่เพิ่มขึ้นหรือลดลง '
-                      '(ถ้าเดือนก่อนเป็น 0 บาท จะโชว์เป็นส่วนต่างบาทแทน '
-                      'เพราะหารด้วย 0 ไม่ได้)',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: yoy != null
-                    ? _comparisonCard(
-                        context,
-                        'เทียบปีก่อน',
-                        yoy,
-                        previousLabel: 'ปีก่อน',
-                        emptyHint: '',
-                        infoTitle: 'เทียบปีก่อนคืออะไร?',
-                        infoMessage:
-                            'เทียบยอด$labelเดือนนี้กับเดือนเดียวกันของปีที่แล้ว '
-                            'ช่วยให้เห็นแนวโน้มตามฤดูกาล เช่น หน้าร้อนมักใช้ไฟมากกว่าหน้าฝน\n\n'
-                            'คำนวณอย่างไร?\n'
-                            'เอายอด$labelเดือนนี้ ลบด้วยยอดเดือนเดียวกันของปีก่อน '
-                            'แล้วหารด้วยยอดปีก่อน คูณ 100 จะได้เป็น% ที่เพิ่มขึ้นหรือลดลง',
-                      )
-                    : avg6Card('เทียบค่าเฉลี่ย 6 เดือน'),
-              ),
-            ],
+        FadeSlideIn(
+          child: _forecastCard(
+            context,
+            forecast,
+            targetMonth: nextBillMonth,
+            lowConfidence: forecastLowConfidence,
+            usesSeasonalCurve: usesSeasonalCurve,
           ),
         ),
-        if (yoy != null) ...[
-          const SizedBox(height: 10),
-          avg6Card('เทียบค่าเฉลี่ย 6 เดือนล่าสุด'),
-        ],
+        const SizedBox(height: AppSpacing.v16),
+        FadeSlideIn(
+          delay: const Duration(milliseconds: 80),
+          child: _TrendChartCard(
+            bills: bills,
+            title: title,
+            unitLabel: unitLabel,
+            costSelector: selector,
+            usedSelector: usedSelector,
+            accentColor: accentColor,
+            costColor: costColor,
+            unitColor: unitColor,
+            touOffPeakColor: touOffPeakColor,
+            isTou: isTou,
+            peakUsedSelector: peakUsedSelector,
+            offPeakUsedSelector: offPeakUsedSelector,
+            costForecast: multiMonthForecast,
+            usedForecast: multiMonthUsedForecast,
+            forecastLowConfidence: forecastLowConfidence,
+            usesSeasonalCurve: usesSeasonalCurve,
+          ),
+        ),
         if (bills.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          _forecastCard(context, forecast,
-              targetMonth: nextBillMonth!,
-              lowConfidence: forecastLowConfidence,
-              usesSeasonalCurve: usesSeasonalCurve),
+          const SizedBox(height: AppSpacing.v16),
+          FadeSlideIn(
+            delay: const Duration(milliseconds: 160),
+            child: _comparisonCard(context, mom: mom, yoy: yoy, avg6: avg6),
+          ),
         ],
         if (insights.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          _insightsCard(insights),
+          const SizedBox(height: AppSpacing.v16),
+          FadeSlideIn(
+            delay: const Duration(milliseconds: 240),
+            child: _InsightsCard(
+              insights: insights,
+              onViewAppliances: onViewAppliances,
+            ),
+          ),
         ],
       ],
     );
   }
 
-  // เดือนของบิลที่การ์ด "คาดการณ์บิลรอบถัดไป" ทาย = บิลถัดจากรอบที่กำลังใช้อยู่
-  // (บิลของรอบนี้มีการ์ด "คาดการณ์ยอดบิลรอบนี้" อยู่แล้ว) ถ้ามีบิลที่ใหม่กว่า
-  // นั้นอยู่แล้วใช้เดือนถัดจากบิลล่าสุด — ไม่มีบิลเลยคืน null
+  // เดือนของบิลที่ส่วน "รอบถัดไป" ทาย = บิลถัดจากรอบที่กำลังใช้อยู่ ถ้ามีบิล
+  // ที่ใหม่กว่านั้นอยู่แล้วใช้เดือนถัดจากบิลล่าสุด — ไม่มีบิลเลยคืน null
   DateTime? get _nextBillMonth {
     if (bills.isEmpty) return null;
     final afterLastBill = DateTime(bills.last.year, bills.last.month + 1, 1);
@@ -273,12 +207,8 @@ class _UtilityTab extends StatelessWidget {
     return afterCycle.isAfter(afterLastBill) ? afterCycle : afterLastBill;
   }
 
-  String get _currentCycleNote =>
-      'ส่วนบิลของรอบที่กำลังใช้อยู่ ดูได้ที่การ์ด "คาดการณ์ยอดบิลรอบนี้" ด้านบน '
-      '(แสดงเมื่อบันทึกมิเตอร์ในรอบนี้แล้ว)';
-
   // แท่งคาดการณ์ในกราฟเทรนด์เริ่มจากเดือนถัดจากบิลล่าสุด — แท่งที่ตรงกับบิล
-  // ของรอบที่กำลังใช้อยู่ใช้ตัวเลขเดียวกับการ์ด "คาดการณ์ยอดบิลรอบนี้" (อัตรา
+  // ของรอบที่กำลังใช้อยู่ใช้ตัวเลขเดียวกับส่วน "รอบนี้" ของการ์ดคาดการณ์ (อัตรา
   // ต่อวันจากบันทึกจริง) แทนค่าจากรูปแบบฤดูกาล ตัวเลขของบิลใบเดียวกันจึงตรงกัน
   // ทั้งหน้า (รอบนี้ยังไม่มีบันทึกใช้ค่าจากรูปแบบฤดูกาลตามเดิม)
   List<double> _withCurrentCycle(
@@ -295,301 +225,457 @@ class _UtilityTab extends StatelessWidget {
     ];
   }
 
-  Widget _currentCycleCard(BuildContext context) {
-    final c = currentCycle!;
-    final progressPercent = (c.progress * 100).toStringAsFixed(0);
+  String _monthYear(DateTime d) => '${thaiMonthsShort[d.month - 1]} ${(d.year + 543) % 100}';
 
-    return Container(
+  // ===================================================================
+  // การ์ดคาดการณ์ — รอบนี้ (จากบันทึกมิเตอร์จริง) + รอบถัดไป (จากบิลย้อนหลัง
+  // และรูปแบบฤดูกาล) ในการ์ดเดียว ส่วนไหนยังไม่มีข้อมูลจะบอกวิธีให้มีข้อมูล
+  // ===================================================================
+  Widget _forecastCard(
+    BuildContext context,
+    double forecast, {
+    required DateTime? targetMonth,
+    required bool lowConfidence,
+    required bool usesSeasonalCurve,
+  }) {
+    final c = currentCycle;
+    final hasCurrent = c != null && c.hasData;
+
+    return AppCard(
       padding: const EdgeInsets.all(AppSpacing.v16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v14),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
-        ],
-      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(AppSpacing.v9),
-                ),
-                child: Icon(Icons.timelapse, color: accentColor, size: 15),
-              ),
-              const SizedBox(width: 8),
+              IconBadge(icon: Icons.insights_rounded, color: accentColor, size: 34),
+              const SizedBox(width: AppSpacing.v10),
               Expanded(
-                child: Text(
-                    'คาดการณ์ยอดบิลรอบนี้ • ${_thaiMonthShort[c.billMonth.month - 1]}',
-                    overflow: TextOverflow.ellipsis,
+                child: Text('คาดการณ์$title',
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
+                        fontWeight: FontWeight.w600, fontSize: AppTypography.s15, color: AppColors.textDark)),
               ),
-              Text('ผ่านมาแล้ว $progressPercent%',
-                  style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
-              const SizedBox(width: 8),
-              GestureDetector(
+              _InfoButton(
                 onTap: () => showInfoDialog(
                   context,
-                  title: 'ตัวเลขนี้คำนวณอย่างไร?',
-                  message: 'หาหน่วยที่ใช้เฉลี่ยต่อวันตั้งแต่ต้นรอบถึงวันที่'
-                      'บันทึกมิเตอร์ล่าสุด แล้วประมาณหน่วยทั้งรอบจนถึงวันตัดรอบ '
-                      'จากนั้นคิดเงินจากหน่วยนั้นด้วยอัตราค่าไฟ/ค่าน้ำจริง '
-                      '(อัตราขั้นบันได ค่าบริการ และ VAT)\n\n'
-                      'หากใช้งานไม่สม่ำเสมอมาก (เช่น ต้นเดือนใช้น้อย ปลายเดือน'
-                      'ใช้พุ่ง) ตัวเลขอาจคลาดเคลื่อนได้บ้าง',
+                  title: 'ตัวเลขคาดการณ์คำนวณอย่างไร?',
+                  message: _forecastInfoText(usesSeasonalCurve),
                 ),
-                child: const Icon(Icons.info_outline, size: 18, color: _green),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppSpacing.v6),
-            child: LinearProgressIndicator(
-              value: c.progress,
-              minHeight: 6,
-              backgroundColor: _green.withValues(alpha: 0.12),
-              valueColor: const AlwaysStoppedAnimation(_green),
-            ),
+          const SizedBox(height: AppSpacing.v14),
+          _forecastBlock(
+            title: 'บิลรอบนี้',
+            month: c?.billMonth,
+            trailing: hasCurrent ? 'เหลืออีก ${c.remainingDays} วัน' : null,
+            children: hasCurrent
+                ? [
+                    _estimateLine(c.forecastCost),
+                    const SizedBox(height: AppSpacing.v4),
+                    Text(
+                      'ถึงวันนี้ใช้ไปแล้ว ${_fmt.format(c.currentCost)} บาท · '
+                      'ทั้งรอบน่าจะใช้ประมาณ ${_fmtUnit.format(c.forecastUnits)} $unitLabel',
+                      style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
+                    ),
+                    const SizedBox(height: AppSpacing.v10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppSpacing.v4),
+                      child: LinearProgressIndicator(
+                        value: c.progress,
+                        minHeight: 6,
+                        backgroundColor: accentColor.withValues(alpha: 0.14),
+                        valueColor: AlwaysStoppedAnimation(accentColor),
+                      ),
+                    ),
+                  ]
+                : [_emptyHint('บันทึกมิเตอร์ในรอบนี้อย่างน้อย 1 ครั้ง เพื่อดูว่า$titleรอบนี้จะจบที่เท่าไรค่ะ')],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _cycleStat(
-                    'ใช้ไปแล้ว', '${_fmt.format(c.currentCost)} บาท'),
-              ),
-              Expanded(
-                child: _cycleStat(
-                    'คาดว่าจะจบรอบที่', '${_fmt.format(c.forecastCost)} บาท',
-                    highlight: true),
-              ),
-              Expanded(
-                child: _cycleStat('เหลืออีก', '${c.remainingDays} วัน'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8, horizontal: AppSpacing.v10),
-            decoration: BoxDecoration(
-              color: DashboardStyles.background,
-              borderRadius: BorderRadius.circular(AppSpacing.v8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.speed, size: 14, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'ใช้ไป ${_fmtUnit.format(c.currentUnits)} $unitLabel '
-                    '• คาดว่าจะใช้ทั้งสิ้น ${_fmtUnit.format(c.forecastUnits)} $unitLabel',
-                    style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade700),
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: AppSpacing.v10),
+          _forecastBlock(
+            title: 'บิลรอบถัดไป',
+            month: targetMonth,
+            children: targetMonth != null
+                ? _nextCycleDetails(
+                    forecast,
+                    targetMonth: targetMonth,
+                    lowConfidence: lowConfidence,
+                    usesSeasonalCurve: usesSeasonalCurve,
+                  )
+                : [_emptyHint('เพิ่มบิลย้อนหลังที่หน้าตั้งค่า เพื่อให้ระบบคาดการณ์บิลรอบถัดไปได้ค่ะ')],
           ),
         ],
       ),
     );
   }
 
-  Widget _cycleStat(String label, String value, {bool highlight = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  // กล่องของยอดคาดการณ์ 1 ยอด — ป้ายบอกว่าเป็นบิลรอบไหนอยู่บนสุด (อ่านก่อน
+  // ตัวเลข) ตามด้วยรายละเอียด แยกรอบนี้/รอบถัดไปเป็นคนละกล่องให้เห็นว่าเป็นคนละยอด
+  Widget _forecastBlock({
+    required String title,
+    required DateTime? month,
+    String? trailing,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.v14),
+      decoration: BoxDecoration(
+        color: DashboardStyles.background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  month != null ? '$title · ${_monthYear(month)}' : title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: AppTypography.s13_5, fontWeight: FontWeight.w600, color: AppColors.textDark),
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: AppSpacing.v8),
+                Flexible(
+                  child: Text(trailing,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.v6),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  // ยอดคาดการณ์ "ประมาณ 2,065 บาท" — บาทเต็มไม่มีทศนิยม (เป็นค่าประมาณ) แต่ไม่ปัด
+  // หลักสิบ/ร้อยแยกทีละยอด ค่าไฟ + ค่าน้ำรอบนี้จึงบวกกันได้เท่ากับยอดคาดการณ์
+  // สิ้นรอบที่หน้าหลัก (หน้าหลักบวกรายจ่ายประจำแล้วปัดยอดรวมครั้งเดียว)
+  Widget _estimateLine(double value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(label,
-            style: TextStyle(fontSize: AppTypography.s10, color: Colors.grey.shade600)),
-        const SizedBox(height: 4),
-        Text(value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: highlight ? AppTypography.s15 : AppTypography.s13,
-              color: highlight ? _green : Colors.black87,
-            )),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.v4),
+          child: Text('ประมาณ', style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade700)),
+        ),
+        const SizedBox(width: AppSpacing.v6),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: AnimatedAmount(
+              value: value.roundToDouble(),
+              pattern: '#,##0',
+              style: TextStyle(fontSize: AppTypography.s24, fontWeight: FontWeight.w700, color: _darkAccent),
+            ),
+          ),
+        ),
       ],
     );
   }
 
+  // สีเข้มขึ้นของสีประจำยูทิลิตี้ ใช้กับตัวเลขยอดคาดการณ์
+  Color get _darkAccent => Color.alphaBlend(Colors.black.withValues(alpha: 0.25), accentColor);
+
+  List<Widget> _nextCycleDetails(
+    double forecast, {
+    required DateTime targetMonth,
+    required bool lowConfidence,
+    required bool usesSeasonalCurve,
+  }) {
+    final lastBill = bills.last;
+    final lastValue = selector(lastBill);
+    final comparison =
+        lastValue > 0 ? ComparisonResult(currentValue: forecast, previousValue: lastValue) : null;
+    // บิลล่าสุดที่ใช้เทียบ "ผิดปกติ" จากค่าเฉลี่ย 6 เดือนมากไหม — ถ้าใช่ % ที่
+    // เทียบจะดูเกินจริง ต้องบอกผู้ใช้ไว้ ไม่ให้เข้าใจว่าคาดการณ์พลาด
+    final avg6 = bills.length >= 3 ? analysisService.compareToAverage(bills, selector: selector) : null;
+    final lastBillIsAnomalousBase =
+        avg6 != null && avg6.percentChange != null && avg6.percentChange!.abs() >= _anomalyThresholdPercent;
+    final seasonalFactor = usesSeasonalCurve
+        ? analysisService.seasonalFactorForMonth(
+            month: targetMonth.month,
+            area: area,
+            meterType: meterType,
+            isWater: isWater,
+          )
+        : null;
+    final (seasonIcon, seasonColor) = _seasonVisual(_seasonFor(targetMonth.month));
+    final lastName = _monthYear(DateTime(lastBill.year, lastBill.month));
+
+    return [
+      _estimateLine(forecast),
+      if (comparison != null) ...[
+        const SizedBox(height: AppSpacing.v6),
+        _deltaLine(
+          comparison,
+          _isClose(comparison)
+              ? 'ใกล้เคียงบิล $lastName'
+              : '${comparison.isIncrease ? 'สูงกว่า' : 'ต่ำกว่า'}บิล $lastName '
+                  '${comparison.percentChange != null ? '${comparison.percentChange!.abs().toStringAsFixed(0)}% ' : ''}'
+                  '(${comparison.isIncrease ? '+' : '−'}${_fmtBaht.format(comparison.diff.abs())} บาท)',
+        ),
+      ],
+      if (seasonalFactor != null) ...[
+        const SizedBox(height: AppSpacing.v8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.v1),
+              child: Icon(seasonIcon, size: 15, color: seasonColor),
+            ),
+            const SizedBox(width: AppSpacing.v6),
+            Expanded(
+              child: Text(
+                _seasonReasonText(targetMonth.month, seasonalFactor),
+                style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
+              ),
+            ),
+          ],
+        ),
+      ],
+      if (lastBillIsAnomalousBase || lowConfidence) ...[
+        const SizedBox(height: AppSpacing.v10),
+        _warningNote([
+          if (lowConfidence) 'ประมาณการเบื้องต้น เพราะมีบิลเพียง ${bills.length} เดือน',
+          if (lastBillIsAnomalousBase) 'บิล $lastName ต่างจากค่าเฉลี่ยมาก ตัวเลขที่เทียบจึงอาจดูต่างเกินจริง',
+        ].join(' · ')),
+      ],
+    ];
+  }
+
+  String _forecastInfoText(bool usesSeasonalCurve) {
+    const current = 'รอบนี้\n'
+        'หาหน่วยที่ใช้เฉลี่ยต่อวันตั้งแต่ต้นรอบถึงวันที่บันทึกมิเตอร์ล่าสุด '
+        'แล้วประมาณหน่วยทั้งรอบจนถึงวันตัดรอบบิล จากนั้นคิดเงินด้วยอัตราจริง '
+        '(อัตราขั้นบันได ค่าบริการ และ VAT) หากใช้งานไม่สม่ำเสมอมาก ตัวเลขอาจคลาดเคลื่อนได้บ้าง';
+    final next = usesSeasonalCurve
+        ? 'รอบถัดไป\n'
+            'เอาค่าเฉลี่ย$labelไม่กี่เดือนล่าสุดของคุณ มาปรับด้วยรูปแบบฤดูกาล '
+            '(เช่น เดือนร้อนมักใช้ไฟมากกว่าเดือนหนาว) รูปแบบฤดูกาลคำนวณจากสถิติการใช้'
+            'ไฟฟ้า/น้ำประปาจริงรายเดือนย้อนหลังหลายปี (ข้อมูลเปิดของ สนพ., กปน. และ กปภ.) '
+            'แยกตามพื้นที่ของคุณ'
+        : 'รอบถัดไป\n'
+            'ประมาณแนวโน้มจากยอด$labelย้อนหลังทั้งหมดที่บันทึกไว้ แล้วลากเส้นแนวโน้มต่อไป '
+            'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขยิ่งแม่นยำขึ้น';
+    return '$current\n\n$next';
+  }
+
+  Widget _emptyHint(String text) {
+    return Text(text, style: TextStyle(fontSize: AppTypography.s12_5, height: 1.5, color: Colors.grey.shade600));
+  }
+
+  // บรรทัดผลต่างพร้อมลูกศร — สูงขึ้นสีแดง ลดลงสีเขียว ใกล้เคียงสีเทา
+  // ต่างไม่ถึง 5% ถือว่าใกล้เคียง (เกณฑ์เดียวกับชิปเทียบบิลก่อนที่หน้าหลัก)
+  static bool _isClose(ComparisonResult r) =>
+      r.isUnchanged || (r.percentChange != null && r.percentChange!.abs() < 5);
+
+  Widget _deltaLine(ComparisonResult r, String text) {
+    final close = _isClose(r);
+    final tone = close ? Colors.grey.shade600 : _toneOf(r);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.v1),
+          child: Icon(close ? Icons.trending_flat_rounded : _trendIconOf(r), size: 16, color: tone),
+        ),
+        const SizedBox(width: AppSpacing.v6),
+        Expanded(
+          child: Text(text,
+              style: TextStyle(fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600, color: tone)),
+        ),
+      ],
+    );
+  }
+
+  Widget _warningNote(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v8),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.v1),
+            child: Icon(Icons.info_outline, size: 14, color: AppColors.warningIcon),
+          ),
+          const SizedBox(width: AppSpacing.v6),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(fontSize: AppTypography.s11_5, height: 1.4, color: AppColors.warningText)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===================================================================
+  // การ์ดเปรียบเทียบบิลล่าสุด — 3 แถว: เดือนก่อน / ปีก่อน / เฉลี่ย 6 เดือน
+  // แต่ละแถวบอกยอดที่ใช้เทียบ และ % ที่เปลี่ยน (ข้อมูลไม่พอบอกเงื่อนไขแทน)
+  // ===================================================================
   static const double _anomalyThresholdPercent = 70;
 
   Widget _comparisonCard(
-    BuildContext context,
-    String label,
-    ComparisonResult? r, {
-    required String previousLabel,
-    String emptyHint = 'ไม่มีข้อมูลพอเทียบ',
-    required String infoTitle,
-    required String infoMessage,
-    // ถ้อยคำหน้าตัวเลข % — ตัวเทียบค่าเฉลี่ยส่งคำของตัวเองมา
-    // ("ประหยัดกว่าปกติ" แทน "ใช้น้อยลง")
-    String decreaseWord = 'ใช้น้อยลง',
-    String increaseWord = 'ใช้มากขึ้น',
-    // เท่ากันเป๊ะ → ข้อความเดียว (เลือกคำเดียวไม่ซ้ำซ้อน) การ์ดยังมีแถวค่าอ้างอิง
-    // เหมือนการ์ดอื่น ความสูงจึงเท่ากัน
-    String sameLabel = 'ไม่เปลี่ยนแปลง',
+    BuildContext context, {
+    required ComparisonResult? mom,
+    required ComparisonResult? yoy,
+    required ComparisonResult? avg6,
   }) {
-    final isAnomaly = r != null &&
-        r.percentChange != null &&
-        r.percentChange!.abs() >= _anomalyThresholdPercent;
-
-    // สีตามความหมาย: ลด = เขียว, เพิ่ม = แดง,
-    // เปลี่ยนมากผิดปกติ = ส้ม, เท่ากัน/ไม่มีข้อมูล = เทา
-    final Color tone = r == null || r.isUnchanged
-        ? Colors.grey.shade600
-        : isAnomaly
-            ? AppColors.warningIcon
-            : (r.isIncrease ? DashboardStyles.spikeUp : DashboardStyles.spikeDown);
-    final IconData icon = r == null || r.isUnchanged
-        ? Icons.remove
-        : isAnomaly
-            ? Icons.warning_amber_rounded
-            : (r.isIncrease ? Icons.trending_up : Icons.trending_down);
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.v14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v12),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
+    final last = bills.last;
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.v16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const IconBadge(icon: Icons.compare_arrows_rounded, color: AppColors.primaryGreen, size: 34),
+              const SizedBox(width: AppSpacing.v10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('เทียบบิลล่าสุด',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: AppTypography.s15, color: AppColors.textDark)),
+                    Text(
+                      'บิล ${_monthYear(DateTime(last.year, last.month))} · ${_fmt.format(selector(last))} บาท',
+                      style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              _InfoButton(
+                onTap: () => showInfoDialog(
+                  context,
+                  title: 'เทียบอย่างไร?',
+                  message: 'เทียบยอด$labelของบิลล่าสุดกับ 3 อย่าง\n\n'
+                      'เดือนก่อน: บิลเดือนก่อนหน้าเดือนเดียว ดูการเปลี่ยนแปลงระยะสั้น\n\n'
+                      'ปีก่อน: บิลเดือนเดียวกันของปีที่แล้ว ดูผลของฤดูกาล '
+                      'เช่น หน้าร้อนมักใช้ไฟมากกว่าหน้าฝน\n\n'
+                      'เฉลี่ย 6 เดือน: ค่าเฉลี่ยของบิล 6 เดือนก่อนหน้า (นับเฉพาะเดือนที่มีบิล) '
+                      'ภาพนิ่งกว่าเทียบเดือนเดียว\n\n'
+                      'คำนวณ % จาก (ยอดบิลล่าสุด − ยอดที่ใช้เทียบ) ÷ ยอดที่ใช้เทียบ × 100 '
+                      'ถ้ายอดที่ใช้เทียบเป็น 0 บาท จะแสดงเป็นส่วนต่างบาทแทน',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.v8),
+          _comparisonRow('เดือนก่อน', mom,
+              emptyHint: 'ต้องมีบิลเดือนก่อนหน้า'),
+          const Divider(),
+          _comparisonRow('ปีก่อน', yoy,
+              emptyHint: 'ยังไม่มีบิลเดือนเดียวกันของปีก่อน'),
+          const Divider(),
+          _comparisonRow('เฉลี่ย 6 เดือน', avg6,
+              emptyHint: 'ต้องมีบิลอย่างน้อย 3 เดือน (ตอนนี้มี ${bills.length} เดือน)'),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _comparisonRow(String label, ComparisonResult? r, {required String emptyHint}) {
+    const labelStyle =
+        TextStyle(fontSize: AppTypography.s13, fontWeight: FontWeight.w500, color: AppColors.textDark);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
+      child: Row(
         children: [
-          // หัวข้อการ์ด: ไอคอนเทรนด์ในกรอบสีจาง + ชื่อหัวข้อ — ความสูงคงที่
-          // (รองรับหัวข้อ 2 บรรทัดในการ์ดครึ่งจอ) ให้บรรทัดค่าด้านล่างของ
-          // การ์ดข้างกันอยู่ระดับเดียวกัน
-          SizedBox(
-            height: 34,
-            child: Row(
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: tone.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppSpacing.v8),
-                  ),
-                  child: Icon(icon, size: 16, color: tone),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: AppTypography.s13,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                      color: Colors.grey.shade900,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                GestureDetector(
-                  onTap: () => showInfoDialog(
-                    context,
-                    title: infoTitle,
-                    message: infoMessage,
-                  ),
-                  child: Icon(Icons.info_outline,
-                      size: 15, color: Colors.grey.shade400),
+                Text(label, style: labelStyle),
+                const SizedBox(height: AppSpacing.v2),
+                Text(
+                  r == null ? emptyHint : '${_fmt.format(r.previousValue)} บาท',
+                  style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          if (r == null)
-            Text(emptyHint,
-                style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade500))
-          else ...[
-            // FittedBox กันข้อความยาว (เช่น "ประหยัดกว่าปกติ 15.2%") ล้นการ์ดช่องแคบ
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: r.isUnchanged
-                  ? Text(sameLabel,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: AppTypography.s17,
-                          color: tone))
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          r.isIncrease ? increaseWord : decreaseWord,
-                          style: TextStyle(fontSize: AppTypography.s12, color: tone),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          r.percentChange == null
-                              ? '${_fmt.format(r.diff.abs())} บาท'
-                              : '${r.percentChange!.abs().toStringAsFixed(1)}%',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: AppTypography.s20,
-                              color: tone),
-                        ),
-                      ],
-                    ),
-            ),
-            const SizedBox(height: 10),
-            // แถวค่าอ้างอิง: ชื่อสิ่งที่ใช้เทียบ (ซ้าย) กับยอดของมัน (ขวา)
-            Divider(height: 1, thickness: 0.5, color: Colors.grey.shade300),
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.v8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(previousLabel,
-                      style:
-                          TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
-                  Text(_fmt.format(r.previousValue),
-                      style:
-                          TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
-                ],
-              ),
-            ),
+          if (r != null) ...[
+            const SizedBox(width: AppSpacing.v8),
+            _changeChip(r),
           ],
         ],
       ),
     );
   }
 
-  static const _thaiMonthShort = [
-    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
-  ];
+  Widget _changeChip(ComparisonResult r) {
+    final tone = _toneOf(r);
+    final text = r.isUnchanged
+        ? 'เท่าเดิม'
+        : r.percentChange == null
+            ? '${r.isIncrease ? '+' : '−'}${_fmt.format(r.diff.abs())} บาท'
+            : '${r.isIncrease ? '+' : '−'}${r.percentChange!.abs().toStringAsFixed(1)}%';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v5),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppSpacing.v20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_trendIconOf(r), size: 15, color: tone),
+          const SizedBox(width: AppSpacing.v4),
+          Text(text,
+              style: TextStyle(
+                  fontSize: AppTypography.s13,
+                  fontWeight: FontWeight.w700,
+                  color: tone,
+                  fontFeatures: const [FontFeature.tabularFigures()])),
+        ],
+      ),
+    );
+  }
 
+  // สีตามความหมาย: ลด = เขียว, เพิ่ม = แดง, เปลี่ยนมากผิดปกติ = ส้ม, เท่ากัน = เทา
+  Color _toneOf(ComparisonResult r) {
+    if (r.isUnchanged) return Colors.grey.shade600;
+    if (r.percentChange != null && r.percentChange!.abs() >= _anomalyThresholdPercent) {
+      return AppColors.warningIcon;
+    }
+    return r.isIncrease ? DashboardStyles.spikeUp : DashboardStyles.spikeDown;
+  }
+
+  IconData _trendIconOf(ComparisonResult r) {
+    if (r.isUnchanged) return Icons.trending_flat_rounded;
+    return r.isIncrease ? Icons.trending_up_rounded : Icons.trending_down_rounded;
+  }
+
+  // ===================================================================
+  // ฤดูกาลของเดือนที่คาดการณ์
+  // ===================================================================
   String _seasonName(int month) {
     if (month >= 3 && month <= 5) return 'ช่วงฤดูร้อน';
     if (month >= 6 && month <= 10) return 'ช่วงฤดูฝน';
     return 'ช่วงฤดูหนาว';
   }
 
-  // ไอคอนฤดูกาลของเดือนเป้าหมาย — แบ่งช่วงเดียวกับ _seasonName ด้านบน
   _Season _seasonFor(int month) {
     if (month >= 3 && month <= 5) return _Season.summer;
     if (month >= 6 && month <= 10) return _Season.rainy;
     return _Season.cool;
   }
 
-  // ไอคอน + สีของแต่ละฤดู — ใช้ไอคอน Material ในกรอบมนสีอ่อน สไตล์เดียวกับ
-  // การ์ด "ข้อสังเกต"
   (IconData, Color) _seasonVisual(_Season season) {
     switch (season) {
       case _Season.summer:
@@ -602,7 +688,7 @@ class _UtilityTab extends StatelessWidget {
   }
 
   String _seasonReasonText(int month, double factor) {
-    final monthName = _thaiMonthShort[month - 1];
+    final monthName = thaiMonthsShort[month - 1];
     final season = _seasonName(month);
     final pct = ((factor - 1).abs() * 100).round();
     if (factor > 1.05) {
@@ -613,333 +699,107 @@ class _UtilityTab extends StatelessWidget {
     }
     return '$monthName อยู่$season มักใช้$labelใกล้เคียงค่าเฉลี่ยทั้งปี';
   }
+}
 
-  Widget _forecastCard(
-    BuildContext context,
-    double forecast, {
-    required DateTime targetMonth,
-    required bool lowConfidence,
-    required bool usesSeasonalCurve,
-  }) {
-    final comparedToLastBill =
-        bills.isNotEmpty ? selector(bills.last) : null;
-    final lastBillName =
-        bills.isNotEmpty ? _thaiMonthShort[bills.last.month - 1] : '';
-    final targetName = _thaiMonthShort[targetMonth.month - 1];
-    final comparison = comparedToLastBill != null && comparedToLastBill > 0
-        ? ComparisonResult(
-            currentValue: forecast, previousValue: comparedToLastBill)
-        : null;
-    // เดือนก่อนหน้าที่เอามาเทียบเอง "ต่ำ/สูงผิดปกติ" ไหม (เทียบง่ายๆ กับ
-    // ค่าเฉลี่ย 6 เดือนล่าสุด ถ้ามี) — ถ้าใช่ ผลต่าง % ที่โชว์ด้านล่างจะดู
-    // เกินจริงไปมาก ต้องเตือนผู้ใช้ไว้ก่อน ไม่ให้ตกใจ/เข้าใจผิดว่าคาดการณ์พลาด
-    final avg6ForAnomalyCheck = bills.length >= 3
-        ? analysisService.compareToAverage(bills, selector: selector)
-        : null;
-    final lastBillIsAnomalousBase = avg6ForAnomalyCheck != null &&
-        avg6ForAnomalyCheck.percentChange != null &&
-        avg6ForAnomalyCheck.percentChange!.abs() >= 70;
+// ฤดูกาลของการ์ดคาดการณ์: ร้อน = พระอาทิตย์, ฝน = ร่ม, หนาว = เกล็ดหิมะ
+enum _Season { summer, rainy, cool }
 
-    final seasonalFactor = usesSeasonalCurve
-        ? analysisService.seasonalFactorForMonth(
-            month: targetMonth.month,
-            area: area,
-            meterType: meterType,
-            isWater: isWater,
-          )
-        : null;
+// ปุ่ม ⓘ มุมขวาของหัวการ์ด — พื้นที่กดกว้างกว่าตัวไอคอน
+class _InfoButton extends StatelessWidget {
+  final VoidCallback onTap;
 
-    final Color? deltaTone = comparison == null
-        ? null
-        : (comparison.isUnchanged
-            ? Colors.grey.shade600
-            : (comparison.isIncrease
-                ? DashboardStyles.spikeUp
-                : DashboardStyles.spikeDown));
+  const _InfoButton({required this.onTap});
 
-    final (IconData badgeIcon, Color badgeColor) =
-        _seasonVisual(_seasonFor(targetMonth.month));
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onTap,
+      tooltip: 'คำอธิบาย',
+      visualDensity: VisualDensity.compact,
+      icon: Icon(Icons.info_outline, size: 20, color: Colors.grey.shade500),
+    );
+  }
+}
 
-    return Container(
+// =====================================================================
+// การ์ดข้อสังเกต — ใช้ร่วมกันทั้งแท็บไฟฟ้า/น้ำ และแท็บอุปกรณ์
+// =====================================================================
+class _InsightsCard extends StatelessWidget {
+  final List<AnalysisInsight> insights;
+  final VoidCallback? onViewAppliances;
+
+  const _InsightsCard({required this.insights, this.onViewAppliances});
+
+  static IconData _iconOf(InsightLevel level) => switch (level) {
+        InsightLevel.good => Icons.check_circle_outline_rounded,
+        InsightLevel.warning => Icons.warning_amber_rounded,
+        InsightLevel.neutral => Icons.info_outline,
+      };
+
+  static Color _colorOf(InsightLevel level) => switch (level) {
+        InsightLevel.good => AppColors.primaryGreen,
+        InsightLevel.warning => AppColors.warningIcon,
+        InsightLevel.neutral => Colors.grey.shade600,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
       padding: const EdgeInsets.all(AppSpacing.v16),
-      decoration: BoxDecoration(
-        color: _green.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppSpacing.v12),
-      ),
-      // ทุกอย่างในการ์ดชิดขอบซ้ายเส้นเดียวกัน — หัวการ์ด (ไอคอน/ชื่อ/ปุ่มข้อมูล)
-      // อยู่บรรทัดเดียวเสมอ ปุ่มข้อมูลจึงไม่เลื่อนตามความสูงของข้อความด้านล่าง
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          const Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(AppSpacing.v10),
-                ),
-                child: Icon(badgeIcon, size: 20, color: badgeColor),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'คาดการณ์บิลรอบถัดไป • $targetName',
+              IconBadge(icon: Icons.lightbulb_outline_rounded, color: AppColors.primaryGreen, size: 34),
+              SizedBox(width: AppSpacing.v10),
+              Text('ข้อสังเกต',
                   style: TextStyle(
-                      fontSize: AppTypography.s13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade900),
-                ),
-              ),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => showInfoDialog(
-                  context,
-                  title: 'ตัวเลขนี้คำนวณอย่างไร?',
-                  message: usesSeasonalCurve
-                      ? 'เอาค่าเฉลี่ย$labelย้อนหลังไม่กี่เดือนล่าสุดของคุณ '
-                          'มาปรับด้วยรูปแบบฤดูกาล (เช่น เดือนร้อนมักใช้ไฟ'
-                          'มากกว่าเดือนหนาว) เพื่อทายบิล $targetName ให้ใกล้เคียง'
-                          'ความจริงมากกว่าการลากเส้นแนวโน้มตรงๆ\n\n'
-                          'รูปแบบฤดูกาลคำนวณจากสถิติการใช้ไฟฟ้า/น้ำประปาจริง'
-                          'รายเดือนย้อนหลังหลายปี (ข้อมูลเปิดของ สนพ., กปน. '
-                          'และ กปภ.) แยกตามพื้นที่ของคุณ\n\n'
-                          '$_currentCycleNote'
-                      : 'ประมาณแนวโน้มจากยอด$labelย้อนหลังทั้งหมดที่บันทึกไว้ '
-                          'แล้วลากเส้นแนวโน้มนั้นต่อไปยังบิล $targetName\n\n'
-                          'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขนี้จะยิ่งแม่นยำขึ้น\n\n'
-                          '$_currentCycleNote',
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.v6),
-                  child: Icon(Icons.info_outline,
-                      size: 20, color: _green.withValues(alpha: 0.7)),
-                ),
-              ),
+                      fontWeight: FontWeight.w600, fontSize: AppTypography.s15, color: AppColors.textDark)),
             ],
           ),
-          const SizedBox(height: 12),
-          Text('${_fmt.format(forecast)} บาท',
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: AppTypography.s24, color: _green)),
-          if (seasonalFactor != null)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.v4),
-              child: Text(
-                _seasonReasonText(targetMonth.month, seasonalFactor),
-                style: TextStyle(
-                    fontSize: AppTypography.s11_5, color: Colors.grey.shade700, height: 1.4),
-              ),
-            ),
-          // ไม่ใส่หน้าอารมณ์ในบรรทัดนี้ เพราะการ์ดมีไอคอนสภาพอากาศอยู่แล้ว
-          if (comparison != null) ...[
-            const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.v12),
+          for (final (i, insight) in insights.indexed) ...[
+            if (i > 0) const SizedBox(height: AppSpacing.v12),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.v1),
-                  child: Icon(
-                    comparison.isUnchanged
-                        ? Icons.trending_flat_rounded
-                        : (comparison.isIncrease
-                            ? Icons.trending_up_rounded
-                            : Icons.trending_down_rounded),
-                    size: 16,
-                    color: deltaTone,
-                  ),
+                  child: Icon(_iconOf(insight.level), size: 18, color: _colorOf(insight.level)),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.v10),
                 Expanded(
-                  child: Text(
-                    comparison.isUnchanged
-                        ? 'ใกล้เคียงกับบิล $lastBillName'
-                        : '${comparison.isIncrease ? 'สูงกว่า' : 'ประหยัดกว่า'}บิล $lastBillName ประมาณ '
-                            '${comparison.percentChange != null ? '${comparison.percentChange!.abs().toStringAsFixed(0)}% ' : ''}'
-                            '(${comparison.isIncrease ? '+' : '-'}${_fmt.format(comparison.diff.abs())} บาท)',
-                    style: TextStyle(
-                      fontSize: AppTypography.s12,
-                      fontWeight: FontWeight.w600,
-                      color: deltaTone,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(insight.text,
+                          style: const TextStyle(
+                              fontSize: AppTypography.s13, height: 1.45, color: AppColors.textDark)),
+                      if (insight.showApplianceCta && onViewAppliances != null)
+                        TextButton.icon(
+                          onPressed: onViewAppliances,
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 34),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            textStyle: const TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: AppTypography.s12_5,
+                                fontWeight: FontWeight.w600),
+                          ),
+                          iconAlignment: IconAlignment.end,
+                          icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                          label: const Text('ดูอุปกรณ์ที่ใช้ไฟมากสุด'),
+                        ),
+                    ],
                   ),
                 ),
               ],
             ),
           ],
-          // เดือนฐานที่ใช้เทียบ (บิลล่าสุด) ผิดปกติจากค่าเฉลี่ยมากเกินไป → เตือนไว้ว่า
-          // ตัวเลข %/บาทที่เทียบอาจดูเกินจริง แทนที่จะปล่อยให้ผู้ใช้ตกใจว่าคาดการณ์พลาดมาก
-          // (หน้าตาเดียวกับกล่องเตือนในการ์ดเปรียบเทียบ)
-          if (lastBillIsAnomalousBase)
-            Container(
-              margin: const EdgeInsets.only(top: AppSpacing.v10),
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v6),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(AppSpacing.v8),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline,
-                      size: 13, color: AppColors.warningIcon),
-                  SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      'เดือนล่าสุดที่ใช้เทียบมีค่าผิดปกติจากค่าเฉลี่ย '
-                      'ตัวเลขเทียบด้านบนอาจดูต่างจากปกติมากกว่าที่ควรจะเป็น',
-                      style: TextStyle(
-                          fontSize: AppTypography.s10_5,
-                          color: AppColors.warningIcon,
-                          height: 1.4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (lowConfidence) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v4),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppSpacing.v6),
-              ),
-              child: Text(
-                'ประมาณการเบื้องต้น (มีข้อมูล ${bills.length} เดือน)',
-                style: const TextStyle(
-                    fontSize: AppTypography.s10_5,
-                    color: AppColors.warningText,
-                    fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
         ],
       ),
     );
-  }
-
-  Widget _insightsCard(List<AnalysisInsight> insights) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.v14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v12),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _green.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppSpacing.v9),
-                ),
-                child: const Icon(Icons.lightbulb_outline,
-                    size: 15, color: _green),
-              ),
-              const SizedBox(width: 8),
-              const Text('ข้อสังเกต',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ...insights.map((i) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.v10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 26,
-                      height: 26,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _insightColor(i.level).withValues(alpha: 0.12),
-                      ),
-                      child: Icon(
-                        _insightIcon(i.level),
-                        size: 14,
-                        color: _insightColor(i.level),
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.v4),
-                            child: Text(i.text,
-                                style: const TextStyle(
-                                    fontSize: AppTypography.s12_5, height: 1.4)),
-                          ),
-                          if (i.showApplianceCta &&
-                              onViewAppliances != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: AppSpacing.v4),
-                              child: GestureDetector(
-                                onTap: onViewAppliances,
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text('ดูอุปกรณ์ที่ใช้ไฟมากสุด',
-                                        style: TextStyle(
-                                            fontSize: AppTypography.s11_5,
-                                            fontWeight: FontWeight.bold,
-                                            color: _green)),
-                                    SizedBox(width: 2),
-                                    Icon(Icons.arrow_forward_ios,
-                                        size: 10, color: _green),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-
-  IconData _insightIcon(InsightLevel level) {
-    switch (level) {
-      case InsightLevel.good:
-        return Icons.check_circle;
-      case InsightLevel.warning:
-        return Icons.warning_amber_rounded;
-      case InsightLevel.neutral:
-        return Icons.info_outline;
-    }
-  }
-
-  Color _insightColor(InsightLevel level) {
-    switch (level) {
-      case InsightLevel.good:
-        return _green;
-      case InsightLevel.warning:
-        return AppColors.warningIcon;
-      case InsightLevel.neutral:
-        return Colors.grey.shade600;
-    }
   }
 }
-
-// =====================================================================
-// ไอคอนฤดูกาลของการ์ดคาดการณ์บิลรอบถัดไป: ร้อน = พระอาทิตย์, ฝน = ร่ม,
-// หนาว = เกล็ดหิมะ (ช่วงเดือนตรงกับ _seasonName)
-enum _Season { summer, rainy, cool }

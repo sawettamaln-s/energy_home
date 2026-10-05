@@ -4,15 +4,15 @@ part of 'analysis_screen.dart';
 // กราฟเทรนด์ค่าใช้จ่าย/หน่วยที่ใช้ — ประกอบด้วย
 //   1) _TrendChartCard   การ์ดในแท็บวิเคราะห์ โชว์ _cardMonths เดือนล่าสุด
 //                        + แท่งประคาดการณ์ 3 เดือนข้างหน้าต่อท้ายในกราฟเดียว
-//                        (กดที่หัวการ์ด/"ดูทั้งหมด" เพื่อเปิดหน้าประวัติ)
+//                        (กด "ดูทั้งหมด" เพื่อเปิดหน้าประวัติ)
 //   2) _TrendBars        ตัววาดกราฟแท่ง ใช้ร่วมกันทั้งการ์ดและหน้าประวัติ
 //   3) _TrendHistoryPage หน้าประวัติเต็ม เลือกดูรายปี (ดรอปดาวน์ ปีนี้/ปีย้อนหลัง)
 //                        มีสรุปรวม/เฉลี่ย กราฟ 12 เดือน และรายการรายเดือน
 // =====================================================================
 
 // ไฮไลต์แท่งเดือนสูงสุด/ต่ำสุดด้วยสีต่างจากแท่งปกติ ช่วยให้กวาดตาเจอ
-// เดือนผิดปกติได้ทันทีโดยไม่ต้องไล่อ่านตัวเลขทีละแท่ง เดือนต่ำสุดใช้สีเขียว
-// หลักของแบรนด์ (สื่อว่า "ใช้น้อย = ดี") เดือนสูงสุดใช้ส้มอิฐ
+// เดือนผิดปกติได้ทันที เดือนต่ำสุดใช้สีเขียวหลักของแบรนด์ (ใช้น้อย = ดี)
+// เดือนสูงสุดใช้ส้มอิฐ
 const Color _trendPeakColor = AppColors.trendPeak;
 const Color _trendLowColor = DashboardStyles.primaryGreen;
 
@@ -23,92 +23,101 @@ bool _trendHasVariation(List<double> values) {
   return maxVal != minVal;
 }
 
-Widget _trendLegendDot(Color color, String label) {
+// ป้ายเดือนใต้แท่ง เช่น "ก.ย." — เดือนมกราคมต่อท้ายปี พ.ศ. 2 หลัก ("ม.ค. 69")
+// ให้รู้ว่าข้ามปีแล้วโดยไม่ต้องเขียนปีทุกแท่ง
+String _trendMonthLabel(int year, int month) {
+  final name = thaiMonthsShort[month - 1];
+  return month == 1 ? '$name${(year + 543) % 100}' : name;
+}
+
+Widget _trendLegendItem(Widget swatch, String label) {
   return Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Container(
-        width: 7,
-        height: 7,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      swatch,
+      const SizedBox(width: AppSpacing.v4),
+      Flexible(
+        child: Text(label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
       ),
-      const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: AppTypography.s9_5, color: Colors.grey.shade600)),
     ],
   );
 }
 
-// คำอธิบายสีแท่ง — แท่งซ้อน TOU โชว์ On-Peak/Off-Peak, นอกนั้นโชว์
-// สูงสุด/ต่ำสุด (เฉพาะเมื่อมีความต่างระหว่างเดือนให้ไฮไลต์)
-Widget _trendLegend({
-  required bool showStacked,
-  required bool hasVariation,
-  required Color touPeakColor,
-  required Color touOffPeakColor,
-}) {
-  if (showStacked) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _trendLegendDot(touPeakColor, 'On-Peak'),
-        const SizedBox(width: 10),
-        _trendLegendDot(touOffPeakColor, 'Off-Peak'),
-      ],
+Widget _trendDot(Color color) => Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
-  }
-  if (hasVariation) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _trendLegendDot(_trendPeakColor, 'สูงสุด'),
-        const SizedBox(width: 10),
-        _trendLegendDot(_trendLowColor, 'ต่ำสุด'),
-      ],
-    );
-  }
-  return const SizedBox.shrink();
-}
 
-Widget _trendRadio(
-    Color accent, String label, bool selected, VoidCallback onTap) {
-  return InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(AppSpacing.v20),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v4, vertical: AppSpacing.v2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            selected ? Icons.radio_button_checked : Icons.radio_button_off,
-            size: 15,
-            color: selected ? accent : Colors.grey.shade400,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: AppTypography.s11_5,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              color: selected ? accent : Colors.grey.shade500,
+// สวิตช์เลือกมุมมอง ค่าใช้จ่าย/หน่วย — ปุ่มสองช่องในกรอบมน ช่องที่เลือกเป็น
+// พื้นขาวตัวหนังสือสีประจำยูทิลิตี้
+class _ModeToggle extends StatelessWidget {
+  final Color accent;
+  final String unitLabel;
+  final bool showCost;
+  final ValueChanged<bool> onChanged;
+
+  const _ModeToggle({
+    required this.accent,
+    required this.unitLabel,
+    required this.showCost,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget option(String label, bool value) {
+      final selected = showCost == value;
+      return Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onChanged(value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.v7),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm - 2),
+              boxShadow: selected
+                  ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 1))]
+                  : null,
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: AppTypography.s12_5,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected ? accent : Colors.grey.shade600,
+              ),
             ),
           ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.v3),
+      decoration: BoxDecoration(
+        color: DashboardStyles.background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
+      child: Row(
+        children: [
+          option('ค่าใช้จ่าย (บาท)', true),
+          option(unitLabel, false),
         ],
       ),
-    ),
-  );
+    );
+  }
 }
 
-BoxDecoration _trendCardDecoration() => BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(AppSpacing.v14),
-      boxShadow: [
-        BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
-      ],
-    );
-
-// จุดสีนำหน้าคำอธิบายกราฟ: ทึบ = เดือนจริง (แท่งทึบ), ประ = คาดการณ์ (แท่งประ)
-// ใช้สีตามโหมดที่กำลังดู เพื่อให้จับคู่กับแท่งในกราฟได้ทันที
+// สี่เหลี่ยมสีนำหน้าคำอธิบายกราฟ: ทึบ = เดือนจริง (แท่งทึบ), ประ = คาดการณ์ (แท่งประ)
 class _LegendSwatch extends StatelessWidget {
   final Color color;
   final bool dashed;
@@ -158,37 +167,32 @@ class _DashedRRectPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) => oldDelegate.color != color;
 }
 
 // =====================================================================
 // การ์ดกราฟเทรนด์ — สลับมุมมองระหว่าง "ค่าใช้จ่าย" กับ "หน่วยที่ใช้" ได้ใน
-// การ์ดเดียว ด้วยปุ่มเลือกแบบ radio มุมขวาบน — ต้องเป็น StatefulWidget แยก
-// ออกมาจาก _UtilityTab (ซึ่งเป็น StatelessWidget) เพราะต้องจำสถานะว่า
-// ผู้ใช้เลือกดูมุมมองไหนอยู่ระหว่างที่ widget อื่นๆ ในหน้าเดียวกัน rebuild
-// (เช่น ตอนเลื่อนหน้าจอ)
+// การ์ดเดียว ต้องเป็น StatefulWidget แยกจาก _UtilityTab เพราะต้องจำมุมมองที่
+// ผู้ใช้เลือกไว้ระหว่างที่ส่วนอื่นของหน้า rebuild
+// =====================================================================
 class _TrendChartCard extends StatefulWidget {
   final List<BillModel> bills;
-  final String title; // 'ค่าไฟฟ้า' / 'ค่าน้ำ' ใช้ตั้งชื่อกราฟฝั่งค่าใช้จ่าย
+  final String title; // 'ค่าไฟฟ้า' / 'ค่าน้ำ'
   final String unitLabel; // 'หน่วย' / 'ลบ.ม.' ใช้เป็น label ปุ่มฝั่งหน่วย
   final double Function(BillModel) costSelector;
   final double Function(BillModel) usedSelector;
   final Color accentColor;
-  // สีแท่งกราฟ แยกตามโหมด "ค่าใช้จ่าย" กับ "หน่วย/ลบ.ม." — รับมาจาก
-  // analysis_screen.dart (ไฟฟ้า = น้ำตาล-ส้ม/ทอง, น้ำ = ฟ้า/น้ำเงิน)
+  // สีแท่งกราฟ แยกตามโหมด "ค่าใช้จ่าย" กับ "หน่วย/ลบ.ม."
   final Color costColor;
   final Color unitColor;
-  // TOU เท่านั้น — สี Off-Peak ของแท่งซ้อน ถ้าไม่ส่งมาจะ fallback เป็นเฉด
-  // อ่อนของ unitColor แทน
+  // TOU เท่านั้น — สี Off-Peak ของแท่งซ้อน ถ้าไม่ส่งมาจะใช้เฉดอ่อนของ unitColor
   final Color? touOffPeakColor;
-  // TOU เท่านั้น — ดู _UtilityTab ด้านบนสำหรับที่มา
   final bool isTou;
   final double Function(BillModel)? peakUsedSelector;
   final double Function(BillModel)? offPeakUsedSelector;
   // คาดการณ์ล่วงหน้า (ยอดรวมต่อเดือน) ต่อท้ายกราฟเป็นแท่งประ แยกตามโหมด
-  // ค่าใช้จ่าย/หน่วย — list ว่าง = ไม่โชว์ส่วนคาดการณ์ (คำนวณที่ _UtilityTab
-  // ด้วย forecastNextMonths แท่งของรอบที่กำลังใช้อยู่ใช้ยอดคาดการณ์สิ้นรอบ)
+  // ค่าใช้จ่าย/หน่วย — list ว่าง = ไม่โชว์ส่วนคาดการณ์ (แท่งของรอบที่กำลังใช้
+  // อยู่ใช้ยอดคาดการณ์สิ้นรอบ ดู _UtilityTab._withCurrentCycle)
   final List<double> costForecast;
   final List<double> usedForecast;
   // ข้อมูลน้อยกว่า 3 เดือน → ติดป้ายเตือน "ประมาณการเบื้องต้น"
@@ -217,32 +221,34 @@ class _TrendChartCard extends StatefulWidget {
 
   // ---- ตัวช่วยที่ใช้ร่วมกันระหว่างการ์ดกับหน้าประวัติ -------------------
 
-  double Function(BillModel) selectorFor(bool showCost) =>
-      showCost ? costSelector : usedSelector;
+  double Function(BillModel) selectorFor(bool showCost) => showCost ? costSelector : usedSelector;
 
-  // TOU + กำลังดูมุมมอง "หน่วยที่ใช้" (ไม่ใช่ค่าใช้จ่าย) → แท่งซ้อน
-  // On-Peak/Off-Peak แทนแท่งทึบสีเดียว ฝั่งค่าใช้จ่ายไม่แยก เพราะ
-  // electricityCost เก็บเป็นยอดเดียว ไม่มีราคาแยกตามช่วงเวลาให้ซ้อน
+  // TOU + มุมมอง "หน่วยที่ใช้" → แท่งซ้อน On-Peak/Off-Peak ฝั่งค่าใช้จ่ายไม่แยก
+  // เพราะ electricityCost เก็บเป็นยอดเดียว ไม่มีราคาแยกตามช่วงเวลาให้ซ้อน
   bool showStackedFor(bool showCost) =>
-      !showCost &&
-      isTou &&
-      peakUsedSelector != null &&
-      offPeakUsedSelector != null;
+      !showCost && isTou && peakUsedSelector != null && offPeakUsedSelector != null;
 
   Color get touPeakColor => unitColor;
-  // Off-Peak ใช้สีที่เลือกไว้เฉพาะ ถ้าไม่ได้ส่งมา fallback เป็นเฉดอ่อนของ
-  // unitColor แทน
-  Color get touOffPeakColorResolved =>
-      touOffPeakColor ?? Color.lerp(unitColor, Colors.white, 0.3)!;
+  Color get touOffPeakColorResolved => touOffPeakColor ?? Color.lerp(unitColor, Colors.white, 0.3)!;
 
-  Widget legendFor(bool showCost, List<BillModel> bills) {
-    return _trendLegend(
-      showStacked: showStackedFor(showCost),
-      hasVariation:
-          _trendHasVariation(bills.map(selectorFor(showCost)).toList()),
-      touPeakColor: touPeakColor,
-      touOffPeakColor: touOffPeakColorResolved,
-    );
+  // คำอธิบายสีแท่ง — แท่งซ้อน TOU โชว์ On-Peak/Off-Peak นอกนั้นโชว์สูงสุด/
+  // ต่ำสุด (เฉพาะเมื่อมีความต่างระหว่างเดือนให้ไฮไลต์) [withForecast] เพิ่มคู่
+  // จริง/คาดการณ์ไว้หน้าสุด (ใช้ในการ์ด ส่วนหน้าประวัติไม่มีแท่งคาดการณ์)
+  List<Widget> legendItems(bool showCost, List<BillModel> bills, {bool withForecast = false}) {
+    final accent = showCost ? costColor : unitColor;
+    return [
+      if (withForecast) ...[
+        _trendLegendItem(_LegendSwatch(color: accent, dashed: false), 'จริง'),
+        _trendLegendItem(_LegendSwatch(color: accent, dashed: true), 'คาดการณ์'),
+      ],
+      if (showStackedFor(showCost)) ...[
+        _trendLegendItem(_trendDot(touPeakColor), 'On-Peak'),
+        _trendLegendItem(_trendDot(touOffPeakColorResolved), 'Off-Peak'),
+      ] else if (_trendHasVariation(bills.map(selectorFor(showCost)).toList())) ...[
+        _trendLegendItem(_trendDot(_trendPeakColor), 'สูงสุด'),
+        _trendLegendItem(_trendDot(_trendLowColor), 'ต่ำสุด'),
+      ],
+    ];
   }
 
   Widget buildBars({
@@ -250,7 +256,7 @@ class _TrendChartCard extends StatefulWidget {
     required List<String> labels,
     required bool showCost,
     required double barWidth,
-    double labelFontSize = 9,
+    double labelFontSize = 10,
     List<double> forecasts = const [],
     List<String> forecastLabels = const [],
   }) {
@@ -260,14 +266,14 @@ class _TrendChartCard extends StatefulWidget {
       forecastValues: forecasts,
       forecastLabels: forecastLabels,
       selector: selectorFor(showCost),
-      // สีแท่งกราฟตามโหมดที่กำลังดู — ใช้สีที่ส่งมาตรงๆ ไม่ไล่เฉดอัตโนมัติ
       modeAccent: showCost ? costColor : unitColor,
       showStacked: showStackedFor(showCost),
       peakUsedSelector: peakUsedSelector,
       offPeakUsedSelector: offPeakUsedSelector,
       touPeakColor: touPeakColor,
       touOffPeakColor: touOffPeakColorResolved,
-      tooltipSuffix: showCost ? '' : ' $unitLabel',
+      isCost: showCost,
+      unitLabel: unitLabel,
       barWidth: barWidth,
       labelFontSize: labelFontSize,
     );
@@ -278,31 +284,27 @@ class _TrendChartCard extends StatefulWidget {
 }
 
 class _TrendChartCardState extends State<_TrendChartCard> {
-  // true = โชว์กราฟค่าใช้จ่าย (บาท), false = โชว์กราฟหน่วยที่ใช้ — เริ่มที่
-  // ค่าใช้จ่ายเป็นค่าเริ่มต้นเสมอ เพราะเป็นข้อมูลที่มีครบทุกเดือนแน่นอนกว่า
-  // (หน่วยอาจเป็น 0 ในเดือนแรกสุดที่ไม่มี record ก่อนหน้าให้คำนวณ delta)
+  // true = กราฟค่าใช้จ่าย (บาท), false = กราฟหน่วยที่ใช้ — เริ่มที่ค่าใช้จ่าย
+  // เพราะมีครบทุกเดือนแน่นอนกว่า (หน่วยอาจเป็น 0 ในเดือนแรกสุดที่ไม่มี
+  // record ก่อนหน้าให้คำนวณ delta)
   bool _showCost = true;
 
-  // จำนวนเดือนที่โชว์ในการ์ด — ข้อมูลย้อนหลังหลายปีถ้าโชว์ทั้งหมดในการ์ด
-  // แคบๆ แท่งจะซ้อนกันและป้ายเดือนทับกัน ส่วนตัวเลขเทียบ/คาดการณ์ยังคำนวณ
-  // จากบิลทั้งหมด ดูย้อนหลังทั้งหมดได้ที่หน้าประวัติ
+  // จำนวนเดือนที่โชว์ในการ์ด — ข้อมูลย้อนหลังหลายปีถ้าโชว์ทั้งหมดในการ์ดแคบๆ
+  // แท่งจะเบียดกัน ดูย้อนหลังทั้งหมดได้ที่หน้าประวัติ
   static const int _cardMonths = 6;
 
   String _emptyMessage(String subject) {
     if (widget.bills.isEmpty) {
-      return 'ยังไม่มีข้อมูลบิลของ$subject เลย\nบันทึกบิลเดือนแรกที่หน้าตั้งค่า เพื่อเริ่มเก็บข้อมูล';
+      return 'ยังไม่มีข้อมูลบิลของ$subject\nเพิ่มบิลย้อนหลังที่หน้าตั้งค่า เพื่อเริ่มเห็นกราฟค่ะ';
     }
     final needed = 2 - widget.bills.length;
-    return 'มีข้อมูลแล้ว ${widget.bills.length} เดือน\nบันทึกอีก $needed เดือน จะเริ่มเห็นกราฟแนวโน้มได้';
+    return 'มีข้อมูลแล้ว ${widget.bills.length} เดือน\nอีก $needed เดือน จะเริ่มเห็นกราฟแนวโน้มค่ะ';
   }
 
   void _openHistoryPage() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _TrendHistoryPage(
-          config: widget,
-          initialShowCost: _showCost,
-        ),
+        builder: (_) => _TrendHistoryPage(config: widget, initialShowCost: _showCost),
       ),
     );
   }
@@ -311,30 +313,18 @@ class _TrendChartCardState extends State<_TrendChartCard> {
     final seasonal = widget.usesSeasonalCurve;
     final touNote = widget.showStackedFor(_showCost);
     final method = seasonal
-        ? 'ใช้วิธีเดียวกับการ์ด "คาดการณ์บิลรอบถัดไป" ด้านล่าง '
-            'คือปรับค่าเฉลี่ยล่าสุดของคุณตามรูปแบบฤดูกาลของ'
-            'แต่ละเดือนที่คาดการณ์ ไม่ใช่ลากเส้นตรงเดียวยาว'
-            'ออกไปเรื่อยๆ\n\n'
-            'ยิ่งคาดการณ์ไกลจากปัจจุบันเท่าไร ความไม่แน่นอนก็'
-            'ยังสูงขึ้นอยู่ดี (เหตุการณ์ที่ยังไม่เกิดขึ้นจริง'
-            'ย่อมทายได้ไม่แม่นร้อยเปอร์เซ็นต์) แต่จะแม่นกว่า'
-            'การไม่ปรับตามฤดูกาลเลย'
-        : 'ใช้เส้นแนวโน้มเส้นเดียวกับการ์ด "คาดการณ์บิลรอบถัดไป" '
-            'ด้านล่าง เพียงลากเส้นนั้นต่อไปอีกหลายเดือน\n\n'
-            'ยิ่งคาดการณ์ไกลจากปัจจุบันเท่าไร ความไม่แน่นอนยิ่งสูง'
-            'ขึ้นเรื่อยๆ เพราะไม่ได้ปรับตามฤดูกาลหรือเหตุการณ์ที่'
-            'ยังไม่เกิดขึ้นจริง เหมาะสำหรับดูแนวโน้มคร่าวๆ '
-            'มากกว่าใช้เป็นตัวเลขที่แม่นยำ';
-    const currentCycleNote = 'แท่งของบิลรอบที่กำลังใช้อยู่ ใช้ตัวเลขเดียวกับการ์ด '
-        '"คาดการณ์ยอดบิลรอบนี้" (คำนวณจากบันทึกมิเตอร์จริงของรอบนี้) '
-        'เมื่อบันทึกมิเตอร์ในรอบนี้แล้ว';
+        ? 'แท่งประคือยอดคาดการณ์ 3 เดือนข้างหน้า ใช้วิธีเดียวกับส่วน "รอบถัดไป" '
+            'ในการ์ดคาดการณ์ คือปรับค่าเฉลี่ยล่าสุดของคุณตามรูปแบบฤดูกาลของแต่ละเดือน\n\n'
+            'ยิ่งคาดการณ์ไกลจากปัจจุบัน ความไม่แน่นอนยิ่งสูงขึ้น แต่จะแม่นกว่าการไม่ปรับตามฤดูกาลเลย'
+        : 'แท่งประคือยอดคาดการณ์ 3 เดือนข้างหน้า ลากต่อจากเส้นแนวโน้มของยอดย้อนหลัง\n\n'
+            'ยิ่งคาดการณ์ไกลจากปัจจุบัน ความไม่แน่นอนยิ่งสูงขึ้น เหมาะสำหรับดูแนวโน้มคร่าวๆ';
+    const currentCycleNote = 'แท่งของบิลรอบที่กำลังใช้อยู่ ใช้ตัวเลขเดียวกับส่วน "รอบนี้" '
+        'ในการ์ดคาดการณ์ (คำนวณจากบันทึกมิเตอร์จริงของรอบนี้) เมื่อบันทึกมิเตอร์ในรอบนี้แล้ว';
     const touText = 'แท่งประเป็นยอดรวมทั้งเดือน ไม่แยก On-Peak/Off-Peak '
-        'เพราะแบบจำลองฤดูกาลสร้างจากยอดหน่วยไฟรวมของมิเตอร์ TOU '
-        'ยังไม่มีเส้นฤดูกาลแยกรายช่วงเวลา การแยกช่วงเองจึงเป็น'
-        'การเดาที่ไม่มีข้อมูลรองรับ';
+        'เพราะรูปแบบฤดูกาลสร้างจากยอดหน่วยไฟรวม ยังไม่มีข้อมูลแยกรายช่วงเวลา';
     showInfoDialog(
       context,
-      title: 'ตัวเลขคาดการณ์คำนวณอย่างไร?',
+      title: 'กราฟนี้อ่านอย่างไร?',
       message: [method, currentCycleNote, if (touNote) touText].join('\n\n'),
     );
   }
@@ -343,114 +333,49 @@ class _TrendChartCardState extends State<_TrendChartCard> {
   Widget build(BuildContext context) {
     final allBills = widget.bills;
     final canExpand = allBills.length > _cardMonths;
-    final bills =
-        canExpand ? allBills.sublist(allBills.length - _cardMonths) : allBills;
+    final bills = canExpand ? allBills.sublist(allBills.length - _cardMonths) : allBills;
 
     // กราฟโชว์เมื่อมีบิล >= 2 เดือน — ส่วนคาดการณ์ต่อท้ายตามนั้น
-    // ผู้ใช้ที่มีบิลเดียวยังเห็นคาดการณ์จากการ์ด "คาดการณ์บิลรอบถัดไป"อยู่
     final hasChart = bills.length >= 2;
-    final forecasts = !hasChart
-        ? const <double>[]
-        : (_showCost ? widget.costForecast : widget.usedForecast);
+    final forecasts = !hasChart ? const <double>[] : (_showCost ? widget.costForecast : widget.usedForecast);
     final forecastLabels = <String>[
       for (var i = 0; i < forecasts.length; i++)
         () {
           final d = DateTime(bills.last.year, bills.last.month + i + 1, 1);
-          return '${d.month}/${d.year % 100}';
+          return _trendMonthLabel(d.year, d.month);
         }(),
     ];
 
-    final emptyMessage = _showCost
-        ? _emptyMessage(widget.title)
-        : _emptyMessage('${widget.unitLabel}ที่ใช้${widget.title}');
+    final emptyMessage =
+        _showCost ? _emptyMessage(widget.title) : _emptyMessage('${widget.unitLabel}ที่ใช้${widget.title}');
+    final legend = hasChart ? widget.legendItems(_showCost, bills, withForecast: forecasts.isNotEmpty) : <Widget>[];
 
-    final accent = _showCost ? widget.costColor : widget.unitColor;
-    final legendStyle = TextStyle(fontSize: AppTypography.s10_5, color: Colors.grey.shade600);
-
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(AppSpacing.v16),
-      decoration: _trendCardDecoration(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ส่วนหัวการ์ด — ชื่อการ์ดอยู่ซ้าย ปุ่ม ⓘ อธิบายวิธีคำนวณอยู่มุมขวาบน
-          // กดที่หัวการ์ด (ไอคอน/ชื่อ) เพื่อเปิดหน้าประวัติทั้งหมดได้เช่นกัน ส่วน
-          // ตัวกราฟไม่ครอบ เพื่อให้แตะแท่งดู tooltip ได้ตามปกติ
-          InkWell(
-            onTap: canExpand ? _openHistoryPage : null,
-            borderRadius: BorderRadius.circular(AppSpacing.v10),
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: widget.accentColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(AppSpacing.v9),
-                  ),
-                  child: Icon(Icons.show_chart,
-                      color: widget.accentColor, size: 15),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  // การ์ดนี้มีทั้งประวัติและคาดการณ์ จึงไม่ใช้คำว่า "ประวัติการใช้"
-                  child: Text('ประวัติและคาดการณ์${widget.title}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
-                ),
-                if (forecasts.isNotEmpty)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _showForecastInfo,
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.v4),
-                      child: Icon(Icons.info_outline,
-                          size: 18, color: widget.accentColor),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // แถวใต้ชื่อการ์ด เหนือกราฟ: คำอธิบายแท่ง (ซ้าย) กับปุ่มสลับ ค่าใช้จ่าย/หน่วย (ขวา)
-          // FittedBox กันคำอธิบายล้นในจอแคบ (ย่อลงแทนการตัดข้อความ)
           Row(
             children: [
+              IconBadge(icon: Icons.bar_chart_rounded, color: widget.accentColor, size: 34),
+              const SizedBox(width: AppSpacing.v10),
               Expanded(
-                child: hasChart
-                    ? FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _LegendSwatch(color: accent, dashed: false),
-                            const SizedBox(width: 5),
-                            Text('ย้อนหลัง ${bills.length} เดือน',
-                                style: legendStyle),
-                            if (forecasts.isNotEmpty) ...[
-                              const SizedBox(width: 12),
-                              _LegendSwatch(color: accent, dashed: true),
-                              const SizedBox(width: 5),
-                              Text('คาดการณ์ ${forecasts.length} เดือน',
-                                  style: legendStyle),
-                            ],
-                          ],
-                        ),
-                      )
-                    : const SizedBox.shrink(),
+                child: Text('ประวัติและแนวโน้ม${widget.title}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: AppTypography.s15, color: AppColors.textDark)),
               ),
-              const SizedBox(width: 8),
-              _trendRadio(widget.accentColor, 'ค่าใช้จ่าย', _showCost,
-                  () => setState(() => _showCost = true)),
-              const SizedBox(width: 6),
-              _trendRadio(widget.accentColor, widget.unitLabel, !_showCost,
-                  () => setState(() => _showCost = false)),
+              if (forecasts.isNotEmpty) _InfoButton(onTap: _showForecastInfo),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.v12),
+          _ModeToggle(
+            accent: widget.accentColor,
+            unitLabel: widget.unitLabel,
+            showCost: _showCost,
+            onChanged: (v) => setState(() => _showCost = v),
+          ),
+          const SizedBox(height: AppSpacing.v16),
           SizedBox(
             height: 190,
             child: !hasChart
@@ -470,10 +395,9 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                                 return BarChartGroupData(x: i, barRods: [
                                   BarChartRodData(
                                     toY: demo[i],
-                                    color: Colors.grey.shade300,
+                                    color: Colors.grey.shade200,
                                     width: 18,
-                                    borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(AppSpacing.v6)),
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.v6)),
                                   ),
                                 ]);
                               }),
@@ -483,8 +407,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                       ),
                       Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.v16, vertical: AppSpacing.v10),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v10),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.92),
                             borderRadius: BorderRadius.circular(AppSpacing.v10),
@@ -492,8 +415,7 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                           child: Text(
                             emptyMessage,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: AppTypography.s12, color: Colors.grey),
+                            style: TextStyle(fontSize: AppTypography.s12_5, height: 1.5, color: Colors.grey.shade600),
                           ),
                         ),
                       ),
@@ -501,70 +423,43 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                   )
                 : widget.buildBars(
                     slots: bills,
-                    labels: [
-                      for (final b in bills) '${b.month}/${b.year % 100}',
-                    ],
+                    labels: [for (final b in bills) _trendMonthLabel(b.year, b.month)],
                     showCost: _showCost,
                     // 6 + 3 = 9 แท่งในการ์ดแคบ ลดความกว้างแท่งเมื่อมีส่วนคาดการณ์
-                    barWidth: forecasts.isEmpty ? 24 : 20,
+                    barWidth: forecasts.isEmpty ? 24 : 18,
                     forecasts: forecasts,
                     forecastLabels: forecastLabels,
                   ),
           ),
-          if (forecasts.isNotEmpty && widget.forecastLowConfidence) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v4),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppSpacing.v6),
-              ),
-              child: Text(
-                'ประมาณการเบื้องต้น (มีข้อมูล ${widget.bills.length} เดือน) '
-                'ยิ่งเดือนไกลยิ่งไม่แน่นอน',
-                style: const TextStyle(
-                    fontSize: AppTypography.s10_5,
-                    color: AppColors.warningText,
-                    fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-          // แถวล่างสุด: คำอธิบายสูงสุด/ต่ำสุด (หรือ On-Peak/Off-Peak) ชิดซ้าย
-          // และ "ดูทั้งหมด" ชิดขวาล่างของการ์ด
-          if (hasChart || canExpand) ...[
-            const SizedBox(height: 18),
+          if (legend.isNotEmpty || canExpand) ...[
+            const SizedBox(height: AppSpacing.v12),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: hasChart
-                      ? Align(
-                          alignment: Alignment.centerLeft,
-                          child: widget.legendFor(_showCost, bills),
-                        )
-                      : const SizedBox.shrink(),
+                  child: Wrap(spacing: AppSpacing.v12, runSpacing: AppSpacing.v6, children: legend),
                 ),
                 if (canExpand)
-                  InkWell(
-                    onTap: _openHistoryPage,
-                    borderRadius: BorderRadius.circular(AppSpacing.v8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.v4, vertical: AppSpacing.v2),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('ดูทั้งหมด',
-                              style: TextStyle(
-                                  fontSize: AppTypography.s10_5,
-                                  fontWeight: FontWeight.w600,
-                                  color: widget.accentColor)),
-                          Icon(Icons.chevron_right,
-                              size: 15, color: widget.accentColor),
-                        ],
-                      ),
+                  TextButton(
+                    onPressed: _openHistoryPage,
+                    style: TextButton.styleFrom(
+                      foregroundColor: widget.accentColor,
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v6),
+                      minimumSize: const Size(0, 34),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: const TextStyle(
+                          fontFamily: AppTheme.fontFamily, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
                     ),
+                    child: const Text('ดูทั้งหมด'),
                   ),
               ],
+            ),
+          ],
+          if (forecasts.isNotEmpty && widget.forecastLowConfidence) ...[
+            const SizedBox(height: AppSpacing.v10),
+            Text(
+              'ประมาณการเบื้องต้น (มีบิล ${widget.bills.length} เดือน) ยิ่งเดือนไกลยิ่งไม่แน่นอน',
+              style: const TextStyle(fontSize: AppTypography.s11_5, color: AppColors.warningText),
             ),
           ],
         ],

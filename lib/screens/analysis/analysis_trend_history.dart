@@ -97,7 +97,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
   Widget _statTile(String label, String value) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.v14),
-      decoration: _trendCardDecoration(),
+      decoration: _historyCardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -195,40 +195,21 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
           ],
           Container(
             padding: const EdgeInsets.all(AppSpacing.v16),
-            decoration: _trendCardDecoration(),
+            decoration: _historyCardDecoration,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text('รายเดือน พ.ศ. ${_year + 543}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
-                    ),
-                    _trendRadio(cfg.accentColor, 'ค่าใช้จ่าย', _showCost,
-                        () => setState(() => _showCost = true)),
-                    const SizedBox(width: 10),
-                    _trendRadio(cfg.accentColor, cfg.unitLabel, !_showCost,
-                        () => setState(() => _showCost = false)),
-                  ],
+                Text('รายเดือน พ.ศ. ${_year + 543}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: AppTypography.s15, color: AppColors.textDark)),
+                const SizedBox(height: AppSpacing.v12),
+                _ModeToggle(
+                  accent: cfg.accentColor,
+                  unitLabel: cfg.unitLabel,
+                  showCost: _showCost,
+                  onChanged: (v) => setState(() => _showCost = v),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _showCost
-                            ? 'ค่าใช้จ่าย (บาท)'
-                            : '${cfg.unitLabel}ที่ใช้',
-                        style: TextStyle(
-                            fontSize: AppTypography.s10_5, color: Colors.grey.shade500),
-                      ),
-                    ),
-                    cfg.legendFor(_showCost, present),
-                  ],
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.v16),
                 SizedBox(
                   height: 240,
                   child: present.isEmpty
@@ -244,9 +225,17 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
                           labels: _monthShort,
                           showCost: _showCost,
                           barWidth: 14,
-                          labelFontSize: 8.5,
+                          labelFontSize: 9,
                         ),
                 ),
+                if (present.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.v12),
+                  Wrap(
+                    spacing: AppSpacing.v12,
+                    runSpacing: AppSpacing.v6,
+                    children: cfg.legendItems(_showCost, present),
+                  ),
+                ],
               ],
             ),
           ),
@@ -254,7 +243,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v8),
-              decoration: _trendCardDecoration(),
+              decoration: _historyCardDecoration,
               child: Column(
                 children: [
                   const Padding(
@@ -279,3 +268,10 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
     );
   }
 }
+
+// กล่องพื้นขาวของหน้าประวัติ — มุมมนและเงาเดียวกับ AppCard
+final _historyCardDecoration = BoxDecoration(
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+  boxShadow: AppCard.softShadow,
+);

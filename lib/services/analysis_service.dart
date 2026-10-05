@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
@@ -7,6 +8,7 @@ import '../utils/calculator.dart';
 import '../utils/cycle_projection.dart';
 import '../utils/forecaster.dart';
 import '../utils/seasonal_curves.dart';
+import '../utils/thai_date_utils.dart';
 import 'firestore_service.dart';
 
 /// สรุปสัดส่วนการใช้พลังงานของอุปกรณ์ 1 ชิ้น ในช่วงเวลาที่กำหนด
@@ -96,7 +98,12 @@ class AnalysisInsight {
 }
 
 class AnalysisService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // ฉีด FirebaseFirestore ปลอมได้ในเทส (แบบเดียวกับ FirestoreService)
+  // ไม่ส่ง = ใช้ FirebaseFirestore.instance
+  AnalysisService({FirebaseFirestore? firestore})
+      : _db = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _db;
 
   /// ดึงบิลทั้งหมดของ user เรียงจากเก่า -> ใหม่
   /// limitMonths: ดึงกี่เดือนล่าสุด (default 24 เดือน เผื่อใช้ YoY)
@@ -477,6 +484,8 @@ class AnalysisService {
 
   /// สร้างข้อสังเกต/คำแนะนำอัตโนมัติจากข้อมูลค่าไฟ/ค่าน้ำของผู้ใช้
   /// label: ใช้ขึ้นต้นข้อความ เช่น 'ค่าไฟ' หรือ 'ค่าน้ำ'
+  /// includeComparisons: false = ไม่สร้างข้อ 3-4 (เทียบปีก่อน/เดือนก่อน) สำหรับ
+  /// หน้าที่แสดงการเปรียบเทียบนั้นในการ์ดของตัวเองอยู่แล้ว
   List<AnalysisInsight> generateUtilityInsights({
     required String label,
     required List<BillModel> bills,
@@ -485,6 +494,7 @@ class AnalysisService {
     required ComparisonResult? yoy,
     CurrentCycleForecast? currentCycle,
     bool trackAppliances = true,
+    bool includeComparisons = true,
   }) {
     final insights = <AnalysisInsight>[];
 
@@ -542,7 +552,7 @@ class AnalysisService {
     }
 
     // ----- 3. เทียบปีก่อน (เดือนเดียวกัน) -----
-    if (yoy != null && yoy.percentChange != null) {
+    if (includeComparisons && yoy != null && yoy.percentChange != null) {
       if (yoy.isIncrease && yoy.percentChange! >= 25) {
         insights.add(AnalysisInsight(
           '$labelเดือนนี้สูงกว่าเดือนเดียวกันของปีก่อนถึง '
@@ -553,7 +563,7 @@ class AnalysisService {
     }
 
     // ----- 4. เทียบเดือนก่อนแบบพุ่งขึ้นกะทันหัน -----
-    if (mom != null && mom.percentChange != null) {
+    if (includeComparisons && mom != null && mom.percentChange != null) {
       if (mom.isIncrease && mom.percentChange! >= 30) {
         insights.add(AnalysisInsight(
           '$labelเดือนนี้พุ่งขึ้นจากเดือนก่อน ${mom.percentChange!.toStringAsFixed(0)}% '
@@ -569,8 +579,9 @@ class AnalysisService {
           (a, b) => selector(a) >= selector(b) ? a : b);
       if (peak != bills.last) {
         insights.add(AnalysisInsight(
-          'เดือนที่ใช้$labelสูงสุดในข้อมูลที่เก็บไว้คือ ${peak.month}/${peak.year} '
-          'ที่ ${selector(peak).toStringAsFixed(0)} บาท ลองสังเกตว่าช่วงนั้นมีอะไรต่างจากปกติ',
+          'เดือนที่ใช้$labelสูงสุดในข้อมูลที่เก็บไว้คือ '
+          '${thaiMonthsShort[peak.month - 1]} ${(peak.year + 543) % 100} '
+          'ที่ ${NumberFormat('#,##0').format(selector(peak))} บาท ลองสังเกตว่าช่วงนั้นมีอะไรต่างจากปกติ',
           InsightLevel.neutral,
           showApplianceCta: trackAppliances,
         ));

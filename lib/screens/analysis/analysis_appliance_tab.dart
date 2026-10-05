@@ -1,16 +1,15 @@
 part of 'analysis_screen.dart';
 
 // ==================== Tab อุปกรณ์ ====================
+// สัดส่วนการใช้ไฟของอุปกรณ์ (ประมาณการจากกำลังไฟ × ตารางการใช้งาน) แสดงเป็น
+// แถบแนวนอนเรียงจากมากไปน้อย อ่านชื่อ/สัดส่วน/หน่วย/บาทได้ในแถวเดียว
 class _ApplianceTab extends StatelessWidget {
   final List<ApplianceModel> appliances;
   final AnalysisService analysisService;
   // อัตราค่าไฟต่อหน่วยเดียวกับหน้าอุปกรณ์ (จากบิลล่าสุดของผู้ใช้)
   final ApplianceRate rate;
 
-  static const _green = DashboardStyles.primaryGreen;
-  final _fmt = NumberFormat('#,##0.00');
-
-  _ApplianceTab({
+  const _ApplianceTab({
     required this.appliances,
     required this.analysisService,
     required this.rate,
@@ -18,323 +17,75 @@ class _ApplianceTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final breakdown = analysisService.applianceBreakdown(appliances,
-        avgRatePerUnit: rate.perUnit);
+    final breakdown = analysisService.applianceBreakdown(appliances, avgRatePerUnit: rate.perUnit);
 
     if (breakdown.isEmpty) {
       return LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Center(
+        builder: (context, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.v32),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      height: 160,
-                      width: 160,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // โดนัทจำลองจางๆ ให้เห็นรูปทรงว่าพอมีข้อมูลแล้วจะเป็นแบบนี้
-                          PieChart(
-                            PieChartData(
-                              sectionsSpace: 3,
-                              centerSpaceRadius: 46,
-                              sections: [
-                                PieChartSectionData(
-                                  value: 40,
-                                  color: Colors.grey.shade200,
-                                  showTitle: false,
-                                  radius: 34,
-                                ),
-                                PieChartSectionData(
-                                  value: 25,
-                                  color: Colors.grey.shade100,
-                                  showTitle: false,
-                                  radius: 34,
-                                ),
-                                PieChartSectionData(
-                                  value: 35,
-                                  color: Colors.grey.shade200,
-                                  showTitle: false,
-                                  radius: 34,
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(Icons.devices_other,
-                              size: 36, color: Colors.grey.shade300),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                    IconBadge(icon: Icons.electrical_services_rounded, color: Colors.grey.shade500, size: 64),
+                    const SizedBox(height: AppSpacing.v16),
                     const Text('ยังไม่มีอุปกรณ์ที่ตั้งตารางการใช้งาน',
-                        style: TextStyle(color: Colors.grey)),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: AppTypography.s14, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+                    const SizedBox(height: AppSpacing.v6),
+                    Text('เพิ่มอุปกรณ์และเวลาใช้งานที่แท็บอุปกรณ์ เพื่อดูว่าเครื่องไหนใช้ไฟมากที่สุดค่ะ',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: AppTypography.s12_5, height: 1.5, color: Colors.grey.shade600)),
                   ],
                 ),
               ),
             ),
-          );
-        },
+          ),
+        ),
       );
     }
 
     final insights = analysisService.generateApplianceInsights(breakdown);
 
-    // สีชิ้นพาย — ดูลำดับสีที่ AppColors.pieChartPalette
-    const colors = AppColors.pieChartPalette;
-
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpacing.v16),
       children: [
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.v16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppSpacing.v14),
-            boxShadow: [
-              BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('สัดส่วนการใช้พลังงาน (kWh/เดือน, ประมาณการ)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
-              const SizedBox(height: 8),
-              // วงกลม + ป้ายชื่อรายการรอบวง — ป้ายวางด้วย Alignment (ไม่ใช่
-              // Positioned ตำแหน่งตายตัว) เพราะไม่รู้ขนาดจริงของป้ายแต่ละ
-              // อันล่วงหน้า (ความยาวชื่ออุปกรณ์ไม่เท่ากัน) Alignment ยึด
-              // "จุดกึ่งกลาง" ของป้ายที่ตำแหน่งเปอร์เซ็นต์ของกรอบสี่เหลี่ยม
-              // ให้เอง ไม่ต้องคำนวณขนาดป้ายเอง
-              AspectRatio(
-                aspectRatio: 1,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    PieChart(
-                      PieChartData(
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 40,
-                        // มุมเริ่มที่ 12 นาฬิกา (-90 องศา) ให้คำนวณตำแหน่ง
-                        // ป้ายรอบวงตรงกับชิ้นพายจริงเป๊ะๆ
-                        startDegreeOffset: -90,
-                        sections: List.generate(breakdown.length, (i) {
-                          final u = breakdown[i];
-                          // ซ่อนตัวเลข % บนชิ้นที่เล็กเกินไป (ไม่งั้นตัวหนังสือ
-                          // จะเบียดกันเองหรือล้นออกนอกชิ้นพาย) ไปดู % แทนได้
-                          // จากป้ายรอบวง/ตารางอันดับด้านล่าง
-                          final showTitle = u.percentOfTotal >= 8;
-                          return PieChartSectionData(
-                            value: u.kWh,
-                            color: colors[i % colors.length],
-                            title: showTitle
-                                ? '${u.percentOfTotal.toStringAsFixed(0)}%'
-                                : '',
-                            radius: 56,
-                            titleStyle: const TextStyle(
-                                fontSize: AppTypography.s11,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                          );
-                        }),
-                      ),
-                    ),
-                    ..._pieLabelPills(breakdown, colors),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text('อันดับอุปกรณ์กินไฟ',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
-        const SizedBox(height: 8),
-        // แสดง top 3 ก่อนเสมอ ถ้ามีมากกว่านั้นค่อยกดขยายดูที่เหลือ
-        // (ใช้ widget แยกเพราะ _ApplianceTab เป็น StatelessWidget
-        // ไม่มี setState ให้ toggle เอง)
-        _ApplianceRankingList(breakdown: breakdown, colors: colors, fmt: _fmt),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () => showApplianceEstimateInfoDialog(context, rate: rate),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, size: 13, color: Colors.grey.shade500),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  'เป็นค่าประมาณการ ไม่ใช่ค่าจากมิเตอร์จริง — แตะเพื่อดูรายละเอียด',
-                  style: TextStyle(fontSize: AppTypography.s10, color: Colors.grey.shade500),
-                ),
-              ),
-            ],
-          ),
-        ),
+        FadeSlideIn(child: _ApplianceBreakdownCard(breakdown: breakdown, rate: rate)),
         if (insights.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.v14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppSpacing.v12),
-              boxShadow: [
-                BoxShadow(color: Colors.grey.withValues(alpha: 0.08), blurRadius: 6)
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.lightbulb_outline, size: 16, color: _green),
-                    SizedBox(width: 6),
-                    Text('ข้อสังเกต',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ...insights.map((i) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.v8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            i.level == InsightLevel.warning
-                                ? Icons.warning_amber_rounded
-                                : Icons.info_outline,
-                            size: 16,
-                            color: i.level == InsightLevel.warning
-                                ? AppColors.warningIcon
-                                : Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(i.text,
-                                style: const TextStyle(
-                                    fontSize: AppTypography.s12_5, height: 1.4)),
-                          ),
-                        ],
-                      ),
-                    )),
-              ],
-            ),
+          const SizedBox(height: AppSpacing.v16),
+          FadeSlideIn(
+            delay: const Duration(milliseconds: 80),
+            child: _InsightsCard(insights: insights),
           ),
         ],
       ],
     );
   }
-
-  // สร้างป้ายชื่อรายการ (ไอคอนจุดสี + ชื่ออุปกรณ์) วางรอบวงกลม โดยอิง
-  // ตำแหน่งมุมกึ่งกลางของแต่ละชิ้นพายจริง (คำนวณจาก percentOfTotal
-  // สะสมของแต่ละรายการ ตรงกับ startDegreeOffset: -90 ที่ตั้งไว้ในกราฟ)
-  // ใช้ Alignment แทน Positioned เพราะไม่ต้องรู้ขนาดป้ายล่วงหน้า — ซ่อน
-  // ป้ายของชิ้นที่เล็กเกินไป (<4%) กันป้ายเบียดกันเองรอบวงเวลามีอุปกรณ์
-  // เยอะ (ชิ้นเล็กๆ พวกนี้ยังดูรายละเอียดได้จากตารางอันดับด้านล่าง)
-  List<Widget> _pieLabelPills(
-      List<ApplianceUsage> breakdown, List<Color> colors) {
-    const minPercentToLabel = 4.0;
-    const radiusFactor = 0.86; // ระยะห่างจากจุดกึ่งกลางออกไปรอบขอบกรอบ
-    double cumulative = 0;
-    final widgets = <Widget>[];
-
-    for (var i = 0; i < breakdown.length; i++) {
-      final u = breakdown[i];
-      final sweep = u.percentOfTotal * 3.6;
-      if (u.percentOfTotal >= minPercentToLabel) {
-        final midAngleDeg = -90 + cumulative * 3.6 + sweep / 2;
-        final midAngleRad = midAngleDeg * math.pi / 180;
-        widgets.add(
-          Align(
-            alignment: Alignment(
-              math.cos(midAngleRad) * radiusFactor,
-              math.sin(midAngleRad) * radiusFactor,
-            ),
-            child: _PieLabelPill(
-              color: colors[i % colors.length],
-              label: u.appliance.name,
-            ),
-          ),
-        );
-      }
-      cumulative += u.percentOfTotal;
-    }
-    return widgets;
-  }
-}
-
-// ป้ายชื่อรายการรอบวงกลม — จุดสีตรงกับสีชิ้นพาย + ชื่ออุปกรณ์ ในกล่องมน
-// ขอบขาว มีเงาบางๆ ตัดชื่อที่ยาวเกินด้วย ... กันป้ายเบียด
-// ป้ายอื่นหรือล้นออกนอกการ์ด
-class _PieLabelPill extends StatelessWidget {
-  final Color color;
-  final String label;
-
-  const _PieLabelPill({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 92),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v5),
-      decoration: BoxDecoration(
-        color: AppColors.softGreenBgAlt,
-        borderRadius: BorderRadius.circular(AppSpacing.v20),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withValues(alpha: 0.18), blurRadius: 5)
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              style: const TextStyle(fontSize: AppTypography.s10_5, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // =====================================================================
-// รายการอันดับอุปกรณ์กินไฟ — โชว์แค่ top 3 ก่อนเสมอ (กันไม่ให้ยาวเกินไป
-// ถ้ามีอุปกรณ์เยอะ) มีปุ่ม "ดูทั้งหมด" ให้กดขยายดูที่เหลือได้ ถ้ามี ≤ 3
-// ตัวอยู่แล้วจะโชว์ครบโดยไม่มีปุ่มเลย
+// การ์ดสัดส่วนอุปกรณ์ — โชว์ 5 อันดับแรกก่อน มีปุ่ม "ดูทั้งหมด" ถ้ามีมากกว่านั้น
 // =====================================================================
-class _ApplianceRankingList extends StatefulWidget {
+class _ApplianceBreakdownCard extends StatefulWidget {
   final List<ApplianceUsage> breakdown;
-  final List<Color> colors;
-  final NumberFormat fmt;
+  final ApplianceRate rate;
 
-  const _ApplianceRankingList({
-    required this.breakdown,
-    required this.colors,
-    required this.fmt,
-  });
+  const _ApplianceBreakdownCard({required this.breakdown, required this.rate});
 
   @override
-  State<_ApplianceRankingList> createState() => _ApplianceRankingListState();
+  State<_ApplianceBreakdownCard> createState() => _ApplianceBreakdownCardState();
 }
 
-class _ApplianceRankingListState extends State<_ApplianceRankingList> {
-  static const _green = DashboardStyles.primaryGreen;
-  static const _collapsedCount = 3;
+class _ApplianceBreakdownCardState extends State<_ApplianceBreakdownCard> {
+  static const _collapsedCount = 5;
+  static final _kwhFmt = NumberFormat('#,##0.#');
+  static final _costFmt = NumberFormat('#,##0.00');
 
   bool _showAll = false;
 
@@ -342,155 +93,96 @@ class _ApplianceRankingListState extends State<_ApplianceRankingList> {
   Widget build(BuildContext context) {
     final breakdown = widget.breakdown;
     final hasMore = breakdown.length > _collapsedCount;
-    final visibleCount =
-        _showAll || !hasMore ? breakdown.length : _collapsedCount;
+    final visible = _showAll || !hasMore ? breakdown : breakdown.take(_collapsedCount).toList();
+    final totalKwh = breakdown.fold<double>(0, (sum, u) => sum + u.kWh);
+    final totalCost = breakdown.fold<double>(0, (sum, u) => sum + u.cost);
+    const colors = AppColors.pieChartPalette;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppSpacing.v10),
-            boxShadow: [
-              BoxShadow(color: Colors.grey.withValues(alpha: 0.06), blurRadius: 4)
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Table(
-            columnWidths: const {
-              0: FlexColumnWidth(2.4),
-              1: FlexColumnWidth(1),
-              2: FlexColumnWidth(0.9),
-              3: FlexColumnWidth(1.3),
-            },
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.v16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              // ---- หัวตาราง ----
-              TableRow(
-                decoration: const BoxDecoration(color: _green),
-                children: [
-                  _headerCell('อุปกรณ์', alignLeft: true),
-                  _headerCell('kWh'),
-                  _headerCell('%'),
-                  _headerCell('บาท', alignRight: true),
-                ],
-              ),
-              // ---- แถวข้อมูล (แถวสุดท้ายไม่มีเส้นคั่นด้านล่าง) ----
-              ...List.generate(visibleCount, (i) {
-                final u = breakdown[i];
-                final isLast = i == visibleCount - 1;
-                return TableRow(
-                  decoration: BoxDecoration(
-                    border: isLast
-                        ? null
-                        : Border(
-                            bottom: BorderSide(color: Colors.grey.shade100)),
-                  ),
+              const IconBadge(icon: Icons.electrical_services_rounded, color: AppColors.primaryGreen, size: 34),
+              const SizedBox(width: AppSpacing.v10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _nameCell(u.appliance.name,
-                        widget.colors[i % widget.colors.length], i),
-                    _dataCell(u.kWh.toStringAsFixed(1)),
-                    _dataCell('${u.percentOfTotal.toStringAsFixed(0)}%',
-                        bold: true, color: _green),
-                    _dataCell(widget.fmt.format(u.cost), alignRight: true),
+                    const Text('อุปกรณ์ที่ใช้ไฟ',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: AppTypography.s15, color: AppColors.textDark)),
+                    Text(
+                      'ประมาณการต่อเดือน รวม ${_kwhFmt.format(totalKwh)} หน่วย · ${_costFmt.format(totalCost)} บาท',
+                      style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600),
+                    ),
                   ],
-                );
-              }),
-            ],
-          ),
-        ),
-        if (hasMore)
-          GestureDetector(
-            onTap: () => setState(() => _showAll = !_showAll),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
-              alignment: Alignment.center,
-              child: Text(
-                _showAll ? 'ย่อรายการ' : 'ดูทั้งหมด (${breakdown.length})',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: AppTypography.s12_5,
-                  color: _green,
                 ),
               ),
-            ),
+              _InfoButton(onTap: () => showApplianceEstimateInfoDialog(context, rate: widget.rate)),
+            ],
           ),
-      ],
-    );
-  }
-
-  // หัวคอลัมน์ — ตัวหนังสือเทาเล็ก จัดตำแหน่งตามคอลัมน์ (ชื่ออุปกรณ์ชิดซ้าย,
-  // บาทชิดขวา, ที่เหลือกึ่งกลาง)
-  Widget _headerCell(String label,
-      {bool alignLeft = false, bool alignRight = false}) {
-    return TableCell(
-      verticalAlignment: TableCellVerticalAlignment.middle,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v10),
-        child: Text(
-          label,
-          textAlign: alignLeft
-              ? TextAlign.left
-              : (alignRight ? TextAlign.right : TextAlign.center),
-          style: const TextStyle(
-            fontSize: AppTypography.s11,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // คอลัมน์ชื่ออุปกรณ์ — มีวงกลมสีลำดับ (1,2,3...) ย่อขนาดให้พอดีคอลัมน์ตาราง
-  Widget _nameCell(String name, Color rankColor, int index) {
-    return TableCell(
-      verticalAlignment: TableCellVerticalAlignment.middle,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v10),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 10,
-              backgroundColor: rankColor.withValues(alpha: 0.15),
-              child: Text('${index + 1}',
-                  style: TextStyle(
-                      color: rankColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: AppTypography.s10)),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                name,
-                overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s12_5),
-              ),
-            ),
+          const SizedBox(height: AppSpacing.v8),
+          for (final (i, u) in visible.indexed) ...[
+            if (i > 0) const Divider(),
+            _row(u, colors[i % colors.length]),
           ],
-        ),
+          if (hasMore)
+            TextButton(
+              onPressed: () => setState(() => _showAll = !_showAll),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 40),
+                textStyle: const TextStyle(
+                    fontFamily: AppTheme.fontFamily, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
+              ),
+              child: Text(_showAll ? 'ย่อรายการ' : 'ดูทั้งหมด (${breakdown.length})'),
+            ),
+        ],
       ),
     );
   }
 
-  // คอลัมน์ตัวเลข (kWh / % / บาท) — กึ่งกลางเป็นค่าเริ่มต้น ยกเว้นคอลัมน์
-  // "บาท" ที่ชิดขวา, สีเข้ม/หนาได้ถ้าระบุมา (ใช้กับคอลัมน์ %)
-  Widget _dataCell(String text, {bool alignRight = false, bool bold = false, Color? color}) {
-    return TableCell(
-      verticalAlignment: TableCellVerticalAlignment.middle,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8, vertical: AppSpacing.v10),
-        child: Text(
-          text,
-          textAlign: alignRight ? TextAlign.right : TextAlign.center,
-          style: TextStyle(
-            fontSize: AppTypography.s12,
-            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-            color: color ?? Colors.grey.shade800,
+  // แถวอุปกรณ์ 1 รายการ: ชื่อ + % (บรรทัดบน), แถบสัดส่วน, หน่วยและบาท (บรรทัดล่าง)
+  Widget _row(ApplianceUsage u, Color color) {
+    final share = (u.percentOfTotal / 100).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(u.appliance.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: AppTypography.s13_5, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+              ),
+              const SizedBox(width: AppSpacing.v8),
+              Text('${u.percentOfTotal.toStringAsFixed(0)}%',
+                  style: TextStyle(fontSize: AppTypography.s14, fontWeight: FontWeight.w700, color: color)),
+            ],
           ),
-        ),
+          const SizedBox(height: AppSpacing.v6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.v4),
+            child: LinearProgressIndicator(
+              value: share,
+              minHeight: 8,
+              backgroundColor: color.withValues(alpha: 0.12),
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.v6),
+          Text('${_kwhFmt.format(u.kWh)} หน่วย · ${_costFmt.format(u.cost)} บาท',
+              style: TextStyle(
+                  fontSize: AppTypography.s11_5,
+                  color: Colors.grey.shade600,
+                  fontFeatures: const [FontFeature.tabularFigures()])),
+        ],
       ),
     );
   }

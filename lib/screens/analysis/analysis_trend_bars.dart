@@ -18,7 +18,9 @@ class _TrendBars extends StatelessWidget {
   final double Function(BillModel)? offPeakUsedSelector;
   final Color touPeakColor;
   final Color touOffPeakColor;
-  final String tooltipSuffix;
+  // true = แท่งเป็นค่าใช้จ่าย (บาท), false = หน่วยที่ใช้ ([unitLabel])
+  final bool isCost;
+  final String unitLabel;
   final double barWidth;
   final double labelFontSize;
 
@@ -34,10 +36,33 @@ class _TrendBars extends StatelessWidget {
     required this.offPeakUsedSelector,
     required this.touPeakColor,
     required this.touOffPeakColor,
-    required this.tooltipSuffix,
+    required this.isCost,
+    required this.unitLabel,
     required this.barWidth,
-    this.labelFontSize = 9,
+    this.labelFontSize = 10,
   });
+
+  // ระยะห่างเส้นแกน Y เป็นเลขกลม (1, 2, 2.5, 5 × 10^n) ให้ป้ายอ่านง่าย
+  static double _niceInterval(double rough) {
+    if (rough <= 0) return 1;
+    final exp = math.pow(10, (math.log(rough) / math.ln10).floor()).toDouble();
+    final f = rough / exp;
+    final nice = f <= 1 ? 1.0 : f <= 2 ? 2.0 : f <= 2.5 ? 2.5 : f <= 5 ? 5.0 : 10.0;
+    return nice * exp;
+  }
+
+  // ป้ายแกน Y แบบย่อ: 1,500 → "1.5k", 800 → "800"
+  static String _axisLabel(double v) {
+    if (v >= 1000) {
+      final k = v / 1000;
+      return '${k == k.roundToDouble() ? k.toInt() : k.toStringAsFixed(1)}k';
+    }
+    return v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+  }
+
+  String _valueText(double v) => isCost
+      ? '${NumberFormat('#,##0.00').format(v)} บาท'
+      : '${NumberFormat('#,##0.#').format(v)} $unitLabel';
 
   @override
   Widget build(BuildContext context) {
@@ -62,8 +87,8 @@ class _TrendBars extends StatelessWidget {
         ? 0.0
         : forecastValues.reduce((a, b) => a > b ? a : b);
     final topVal = maxVal > forecastMax ? maxVal : forecastMax;
-    final maxY = topVal <= 0 ? 8.0 : topVal * 1.25;
-    final interval = maxY / 4;
+    final interval = topVal <= 0 ? 2.0 : _niceInterval(topVal * 1.1 / 4);
+    final maxY = topVal <= 0 ? 8.0 : (topVal * 1.1 / interval).ceil() * interval;
 
     final hasVariation = _trendHasVariation(present);
     var peakIndex = -1;
@@ -87,7 +112,7 @@ class _TrendBars extends StatelessWidget {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: interval == 0 ? 1 : interval,
+          horizontalInterval: interval,
           getDrawingHorizontalLine: (v) =>
               FlLine(color: Colors.grey.shade200, strokeWidth: 1),
         ),
@@ -96,10 +121,10 @@ class _TrendBars extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 34,
-              interval: interval == 0 ? 1 : interval,
+              interval: interval,
               getTitlesWidget: (value, meta) => Text(
-                value.toInt().toString(),
-                style: TextStyle(fontSize: AppTypography.s9, color: Colors.grey.shade500),
+                _axisLabel(value),
+                style: TextStyle(fontSize: AppTypography.s10, color: Colors.grey.shade500),
               ),
             ),
           ),
@@ -119,13 +144,15 @@ class _TrendBars extends StatelessWidget {
                 final isForecast = i >= histCount;
                 return Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.v4),
-                  child: Text(
-                    allLabels[i],
-                    style: TextStyle(
-                      fontSize: labelFontSize,
-                      color: isForecast ? modeAccent : null,
-                      fontWeight:
-                          isForecast ? FontWeight.w700 : FontWeight.w400,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      allLabels[i],
+                      style: TextStyle(
+                        fontSize: labelFontSize,
+                        color: isForecast ? modeAccent : Colors.grey.shade700,
+                        fontWeight: isForecast ? FontWeight.w700 : FontWeight.w400,
+                      ),
                     ),
                   ),
                 );
@@ -140,9 +167,7 @@ class _TrendBars extends StatelessWidget {
             fitInsideVertically: true,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               if (groupIndex >= histCount) {
-                return BarTooltipItem(
-                    'คาดการณ์\n${rod.toY.toStringAsFixed(1)}$tooltipSuffix',
-                    tooltipStyle);
+                return BarTooltipItem('คาดการณ์\n${_valueText(rod.toY)}', tooltipStyle);
               }
               final bill = slots[groupIndex];
               if (bill == null) {
@@ -152,15 +177,15 @@ class _TrendBars extends StatelessWidget {
                 final peak = peakUsedSelector!(bill);
                 final offPeak = offPeakUsedSelector!(bill);
                 final hasSplit = peak > 0 || offPeak > 0;
+                final unitFmt = NumberFormat('#,##0.#');
                 final text = hasSplit
-                    ? 'รวม ${rod.toY.toStringAsFixed(1)}$tooltipSuffix\n'
-                        'On-Peak ${peak.toStringAsFixed(1)} · '
-                        'Off-Peak ${offPeak.toStringAsFixed(1)}'
-                    : '${rod.toY.toStringAsFixed(1)}$tooltipSuffix';
+                    ? 'รวม ${_valueText(rod.toY)}\n'
+                        'On-Peak ${unitFmt.format(peak)} · '
+                        'Off-Peak ${unitFmt.format(offPeak)}'
+                    : _valueText(rod.toY);
                 return BarTooltipItem(text, tooltipStyle);
               }
-              return BarTooltipItem(
-                  '${rod.toY.toStringAsFixed(1)}$tooltipSuffix', tooltipStyle);
+              return BarTooltipItem(_valueText(rod.toY), tooltipStyle);
             },
           ),
         ),

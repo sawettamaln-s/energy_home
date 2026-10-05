@@ -12,9 +12,14 @@ import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/appliance_rate.dart';
 import '../../utils/data_refresh_bus.dart';
+import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/info_dialog.dart';
+import '../../widgets/ui/animated_amount.dart';
+import '../../widgets/ui/app_card.dart';
+import '../../widgets/ui/fade_slide_in.dart';
+import '../../widgets/ui/icon_badge.dart';
 import '../dashboard/dashboard_styles.dart';
 
 part 'analysis_appliance_tab.dart'; // แท็บอุปกรณ์ — พาย์ชาร์ต + อันดับอุปกรณ์กินไฟ
@@ -26,8 +31,18 @@ part 'analysis_utility_tab.dart'; // แท็บไฟฟ้า/น้ำ — �
 class AnalysisScreen extends StatefulWidget {
   // callback จาก MainShell สำหรับสลับแท็บแบบ IndexedStack (ไม่โหลดหน้าใหม่)
   final ValueChanged<int>? onNavTap;
+  // ฉีดของปลอมได้ในเทส — ไม่ส่ง = ใช้ instance จริงของ Firebase
+  final AnalysisService? analysisService;
+  final FirestoreService? firestoreService;
+  final FirebaseAuth? auth;
 
-  const AnalysisScreen({super.key, this.onNavTap});
+  const AnalysisScreen({
+    super.key,
+    this.onNavTap,
+    this.analysisService,
+    this.firestoreService,
+    this.auth,
+  });
 
   @override
   State<AnalysisScreen> createState() => _AnalysisScreenState();
@@ -35,8 +50,10 @@ class AnalysisScreen extends StatefulWidget {
 
 class _AnalysisScreenState extends State<AnalysisScreen>
     with SingleTickerProviderStateMixin {
-  final AnalysisService _analysisService = AnalysisService();
-  final FirestoreService _firestoreService = FirestoreService();
+  late final AnalysisService _analysisService =
+      widget.analysisService ?? AnalysisService();
+  late final FirestoreService _firestoreService =
+      widget.firestoreService ?? FirestoreService();
 
   late TabController _tabController;
   List<BillModel> _bills = [];
@@ -86,7 +103,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final uid = (widget.auth ?? FirebaseAuth.instance).currentUser!.uid;
 
       // ต้องดึง user มาก่อน เพื่อเอา billingDay ไปคำนวณขอบเขตรอบบิลปัจจุบัน
       // และเอา meterType ไปตัดสินว่าแท็บไฟฟ้าควรโชว์กราฟแยก On-Peak/Off-Peak

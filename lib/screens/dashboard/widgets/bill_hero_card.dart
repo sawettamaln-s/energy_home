@@ -230,13 +230,27 @@ class BillHeroCard extends StatelessWidget {
                     // เป็นการประมาณ ไม่ใช่ยอดในใบแจ้งหนี้
                     Row(
                       children: [
-                        const Expanded(
-                          child: Text(
-                            'ถ้าใช้แบบนี้ต่อไป สิ้นรอบบิลน่าจะประมาณ',
-                            style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: AppTypography.s12_5,
-                                height: 1.3),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'ถ้าใช้แบบนี้ต่อไป สิ้นรอบบิลน่าจะประมาณ',
+                                style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: AppTypography.s12_5,
+                                    height: 1.3),
+                              ),
+                              // ยอดนี้ = ค่าไฟ + ค่าน้ำ (ตรงกับการ์ดคาดการณ์หน้า
+                              // วิเคราะห์) + รายจ่ายประจำ บอกไว้ให้บวกตามได้
+                              if (fixedCost > 0) ...[
+                                const SizedBox(height: 2),
+                                const Text('(รวมรายจ่ายประจำแล้ว)',
+                                    style: TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: AppTypography.s11)),
+                              ],
+                            ],
                           ),
                         ),
                         const SizedBox(width: 12),
