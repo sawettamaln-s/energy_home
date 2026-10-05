@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
@@ -12,6 +11,10 @@ import '../../utils/calculator.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../utils/meter_reading_check.dart';
 import '../../utils/thai_date_utils.dart';
+import '../../widgets/ui/animated_amount.dart';
+import '../../widgets/ui/app_card.dart';
+import '../../widgets/ui/fade_slide_in.dart';
+import '../../widgets/ui/icon_badge.dart';
 import '../settings/settings_screen.dart'
     show openStartMeterSetup, openUtilityHistory;
 import 'dashboard_styles.dart';
@@ -132,6 +135,9 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
       _offPeakFieldError.isNotEmpty;
 
   bool _savedAtLeastOnce = false;
+
+  // เปิด/ปิดส่วน "ดูวิธีคำนวณ" ในการ์ดสรุป (ยุบไว้เป็นค่าเริ่มต้น)
+  bool _showCalcDetail = false;
 
   // ผลคำนวณล่าสุด (จาก debounce หรือกดยืนยัน) — ใช้ทั้งโชว์ผลใต้ช่องกรอก
   // และใช้บันทึกจริงตอนกดยืนยัน (ไม่คำนวณซ้ำตอนบันทึก)
@@ -464,591 +470,699 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
         backgroundColor: DashboardStyles.background,
         appBar: AppBar(
           backgroundColor: _accent,
-          elevation: 0,
-          foregroundColor: Colors.white,
-          systemOverlayStyle: SystemUiOverlayStyle.light,
           automaticallyImplyLeading: false,
-          leadingWidth: 56,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.v8),
-            child: Center(
-              child: InkWell(
-                onTap: () => _closeWith(false),
-                borderRadius: BorderRadius.circular(AppSpacing.v20),
-                child: const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: Icon(Icons.chevron_left, size: 26, color: Colors.white),
-                ),
-              ),
-            ),
+          leading: IconButton(
+            tooltip: 'กลับ',
+            onPressed: () => _closeWith(false),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           ),
-          title: _step == 0
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 22,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(AppSpacing.v2),
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Container(
-                          width: 22,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(AppSpacing.v2),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text('บันทึกมิเตอร์$_utilityLabel',
-                        style: const TextStyle(fontSize: AppTypography.s15, fontWeight: FontWeight.w600, color: Colors.white)),
-                  ],
-                )
-              : const Text('บันทึกสำเร็จ', style: TextStyle(color: Colors.white)),
+          title: Text(_step == 0 ? 'บันทึกมิเตอร์$_utilityLabel' : 'บันทึกสำเร็จ'),
         ),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.v20),
-            child: _step == 0 ? _buildEntryAndConfirmStep() : _buildSuccessStep(),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            child: _step == 0
+                ? KeyedSubtree(key: const ValueKey(0), child: _buildEntryStep())
+                : KeyedSubtree(key: const ValueKey(1), child: _buildSuccessStep()),
           ),
         ),
       ),
     );
   }
+
+  static final _unitFormatter = NumberFormat('#,##0.##');
+  static final _costFormatter = NumberFormat('#,##0.00');
+
+  // ตัวเลขกว้างเท่ากันทุกหลัก — เลขมิเตอร์/หน่วยเรียงตรงกันและไม่กระตุกตอนพิมพ์
+  static const _tabular = [FontFeature.tabularFigures()];
+
+  // วันที่สั้น เช่น "5 ต.ค. 69" (+ เวลา ถ้า withTime)
+  String _shortThaiDate(DateTime d, {bool withTime = true}) {
+    final date = '${d.day} ${thaiMonthsShort[d.month - 1]} ${(d.year + 543) % 100}';
+    if (!withTime) return date;
+    final hh = d.hour.toString().padLeft(2, '0');
+    final mm = d.minute.toString().padLeft(2, '0');
+    return '$date • $hh:$mm น.';
+  }
+
+  // พื้นที่เนื้อหาเลื่อนได้ + ปุ่มหลักติดขอบล่าง (อยู่เหนือคีย์บอร์ดเสมอ
+  // เพราะ body ของ Scaffold หดตามคีย์บอร์ด)
+  Widget _scrollWithBottomButton({required List<Widget> children, required Widget button}) {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v16, AppSpacing.v20, AppSpacing.v24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v12, AppSpacing.v20, AppSpacing.v16),
+          decoration: BoxDecoration(
+            color: DashboardStyles.background,
+            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: button,
+        ),
+      ],
+    );
+  }
+
+  ButtonStyle get _primaryButtonStyle => ElevatedButton.styleFrom(
+        backgroundColor: _accent,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: _accent.withValues(alpha: 0.35),
+        disabledForegroundColor: Colors.white,
+        minimumSize: const Size.fromHeight(52),
+      );
 
   // =====================================================================
   // ขั้นตอน 0 — กรอก + ผลคำนวณสด (รวมกันเป็นหน้าเดียว)
   // =====================================================================
-  Widget _buildEntryAndConfirmStep() {
-    final formatter = NumberFormat('#,##0.##');
-    final costFormatter = NumberFormat('#,##0.00');
+  // ระหว่างพิมพ์ ผู้ใช้ต้องการตัวเทียบแค่ตัวเดียวว่าเลขที่อ่านได้สมเหตุสมผลไหม
+  // จึงแสดงเฉพาะเลขครั้งก่อน (หรือเลขต้นรอบ ถ้ารอบนี้ยังไม่เคยจด) เป็นบรรทัด
+  // เล็กใต้ช่อง ส่วนสูตรคำนวณ/หน่วยแยกช่วงเวลา/อัตราที่อ้างอิง ยุบไว้ใต้
+  // "ดูวิธีคำนวณ" สำหรับผู้ที่อยากตรวจสอบ
+  Widget _buildEntryStep() {
+    // ยังไม่เคยบันทึกในรอบนี้ (เพิ่งตั้งต้นรอบใหม่) — ค่า last ที่ส่งมาคือ
+    // ค่าต้นรอบ (fallback) ไม่ใช่เลขที่จดจริง
+    final hasLast = widget.recentLogs.isNotEmpty;
 
-    InputDecoration decoration(String hint) => InputDecoration(
-          hintText: hint,
-          hintStyle: DashboardStyles.hintStyle,
-          suffixText: _unit,
-          isDense: true,
-          filled: true,
-          fillColor: DashboardStyles.background,
-          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v14),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.v12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.v12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.v12),
-            borderSide: BorderSide(color: _accent, width: 1.6),
-          ),
-        );
-
-    // lastIsPlaceholder = true เมื่อยังไม่เคยบันทึกมิเตอร์เลยในรอบนี้ (เพิ่งตั้ง
-    // ต้นรอบใหม่ผ่านหน้าตั้งค่า) — ตอนนั้น "ค่าล่าสุด" ที่โชว์จริงๆ คือค่าต้นรอบ
-    // เอง (fallback) ไม่ใช่ค่าที่กรอกจริง จึงทำให้จางลงกันสับสนว่าเป็นค่าจริง
-    // พอบันทึกมิเตอร์ครั้งแรกของรอบนี้แล้ว (recentLogs ไม่ว่าง) ค่อยกลับมาเข้มปกติ
-    Widget lastValueChips(double last, double start, {bool lastIsPlaceholder = false}) {
-      final lastTextColor = lastIsPlaceholder ? Colors.grey.shade400 : null;
-      return Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v7),
-              decoration: BoxDecoration(
-                color: DashboardStyles.background,
-                borderRadius: BorderRadius.circular(AppSpacing.v8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.history, size: 11, color: Colors.grey.shade500),
-                      const SizedBox(width: 3),
-                      Text('ค่าล่าสุด', style: TextStyle(fontSize: AppTypography.s10, color: Colors.grey.shade600)),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text('${formatter.format(last)} $_unit',
-                      style: TextStyle(
-                          fontSize: AppTypography.s13,
-                          fontWeight: lastIsPlaceholder ? FontWeight.w400 : FontWeight.w600,
-                          color: lastTextColor)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v7),
-              decoration: BoxDecoration(
-                color: DashboardStyles.background,
-                borderRadius: BorderRadius.circular(AppSpacing.v8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.outlined_flag, size: 11, color: Colors.grey.shade500),
-                      const SizedBox(width: 3),
-                      Text('ต้นรอบ', style: TextStyle(fontSize: AppTypography.s10, color: Colors.grey.shade600)),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text('${formatter.format(start)} $_unit',
-                      style: TextStyle(
-                          fontSize: AppTypography.s13,
-                          fontWeight: lastIsPlaceholder ? FontWeight.w600 : FontWeight.w400,
-                          color: lastIsPlaceholder ? null : Colors.grey.shade400)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    Widget fieldCard({
-      required IconData icon,
-      required String label,
-      required TextEditingController controller,
-      required double last,
-      required double start,
-      bool autofocus = false,
-      double fontSize = 22,
-      bool lastIsPlaceholder = false,
-      String fieldError = '',
-    }) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.v14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: Colors.grey.shade300, width: 0.6),
-          borderRadius: BorderRadius.circular(AppSpacing.v14),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _accent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(AppSpacing.v7),
-                  ),
-                  child: Icon(icon, size: 13, color: _accent),
-                ),
-                const SizedBox(width: 8),
-                Text(label,
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s12_5, color: _accent)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              autofocus: autofocus,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold),
-              decoration: decoration('เช่น 12,345'),
-            ),
-            if (fieldError.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.v6),
-                child: Text(fieldError,
-                    style: const TextStyle(color: Colors.red, fontSize: AppTypography.s12)),
-              ),
-            const SizedBox(height: 8),
-            lastValueChips(last, start, lastIsPlaceholder: lastIsPlaceholder),
-          ],
-        ),
-      );
-    }
-
-    Widget calculationPanel() {
-      return AnimatedOpacity(
-        duration: const Duration(milliseconds: 200),
-        opacity: _previewValid ? 1 : 0.35,
-        child: IgnorePointer(
-          ignoring: !_previewValid,
+    return _scrollWithBottomButton(
+      children: [
+        AppCard(
+          padding: const EdgeInsets.all(AppSpacing.v16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.v14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: Colors.grey.shade300, width: 0.6),
-                  borderRadius: BorderRadius.circular(AppSpacing.v14),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: DashboardStyles.primaryGreen.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(AppSpacing.v7),
-                          ),
-                          child: const Icon(Icons.calculate_outlined,
-                              size: 13, color: DashboardStyles.primaryGreen),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text('การคำนวณ',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s14)),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    if (_isTouElectricity) ...[
-                      _calcRow('รวมมิเตอร์วันนี้ (Peak+Off-Peak)',
-                          '${formatter.format(_previewPeakValue + _previewOffPeakValue)} $_unit'),
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v4),
-                          child: Icon(Icons.remove, size: 13, color: Colors.grey.shade400),
-                        ),
-                      ),
-                      _calcRow('รวมต้นรอบบิล',
-                          '${formatter.format(widget.startPeak + widget.startOffPeak)} $_unit'),
-                    ] else ...[
-                      _calcRow('มิเตอร์วันนี้', '${formatter.format(_previewNormalValue)} $_unit'),
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v4),
-                          child: Icon(Icons.remove, size: 13, color: Colors.grey.shade400),
-                        ),
-                      ),
-                      _calcRow('ต้นรอบบิล', '${formatter.format(widget.startValue)} $_unit'),
-                    ],
-                    const Divider(height: 20),
-                    _calcRow('ใช้ไปในรอบนี้', '${formatter.format(_previewUsedFromStart)} $_unit',
-                        bold: true),
-                  ],
-                ),
+              Row(
+                children: [
+                  IconBadge(
+                    icon: widget.kind == MeterKind.electricity ? Icons.bolt_rounded : Icons.water_drop_rounded,
+                    color: _accent,
+                    size: 32,
+                  ),
+                  const SizedBox(width: AppSpacing.v10),
+                  Expanded(
+                    child: Text('เลขบนมิเตอร์$_utilityLabelวันนี้',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: AppTypography.s14, color: AppColors.textDark)),
+                  ),
+                  Text(_shortThaiDate(DateTime.now(), withTime: false),
+                      style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+                ],
               ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.v14),
-                decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppSpacing.v14),
+              const SizedBox(height: AppSpacing.v14),
+              if (_isTouElectricity) ...[
+                _meterField(
+                  label: 'On-Peak (T1)',
+                  icon: Icons.wb_sunny_outlined,
+                  controller: _peakCtrl,
+                  last: widget.lastPeak,
+                  start: widget.startPeak,
+                  hasLast: hasLast,
+                  autofocus: true,
+                  fieldError: _peakFieldError,
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text('฿',
-                          style: TextStyle(fontSize: AppTypography.s14, fontWeight: FontWeight.bold, color: _accent)),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'ค่า$_utilityLabelโดยประมาณ (ถึงวันนี้)\nอ้างอิงอัตราปัจจุบันของ $_providerLabel',
-                        style: TextStyle(fontSize: AppTypography.s12, height: 1.4, color: _accent),
-                      ),
-                    ),
-                    Text('฿${costFormatter.format(_previewCost)}',
-                        style: TextStyle(
-                            fontSize: AppTypography.s20, fontWeight: FontWeight.bold, color: _darkAccent)),
-                  ],
+                const SizedBox(height: AppSpacing.v16),
+                _meterField(
+                  label: 'Off-Peak (T2)',
+                  icon: Icons.nightlight_outlined,
+                  controller: _offPeakCtrl,
+                  last: widget.lastOffPeak,
+                  start: widget.startOffPeak,
+                  hasLast: hasLast,
+                  fieldError: _offPeakFieldError,
                 ),
-              ),
+                const SizedBox(height: AppSpacing.v12),
+                Text('ช่องไหนยังไม่ได้ใช้ไฟเพิ่ม เว้นว่างไว้ได้ค่ะ',
+                    style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
+              ] else
+                _meterField(
+                  controller: _valueCtrl,
+                  last: widget.lastValue,
+                  start: widget.startValue,
+                  hasLast: hasLast,
+                  autofocus: true,
+                  fieldError: _valueFieldError,
+                ),
             ],
           ),
         ),
-      );
-    }
+        const SizedBox(height: AppSpacing.v16),
+        _resultCard(hasLast: hasLast),
+        if (_error.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.v14),
+            child: _errorLine(_error),
+          ),
+        if (_rangeIssue == MeterRangeIssue.belowStart)
+          _rangeIssueHelp(
+            message: 'หากเพิ่งเปลี่ยนมิเตอร์ใหม่ กรุณาตั้งเลขมิเตอร์ต้นรอบใหม่ก่อนบันทึกค่ะ',
+            buttonIcon: Icons.refresh_rounded,
+            buttonLabel: 'ตั้งเลขมิเตอร์ต้นรอบใหม่',
+            onPressed: _openStartMeterSetup,
+          ),
+        if (_rangeIssue == MeterRangeIssue.belowLast)
+          _rangeIssueHelp(
+            message: 'หากตรวจสอบแล้วว่าเลขที่กรอกถูกต้อง แสดงว่าการบันทึกครั้งล่าสุด'
+                'อาจคลาดเคลื่อน กรุณาลบรายการดังกล่าวที่ ตั้งค่า › ประวัติการบันทึกมิเตอร์ '
+                'แล้วจึงบันทึกเลขนี้อีกครั้งค่ะ',
+            buttonIcon: Icons.history_rounded,
+            buttonLabel: 'ไปที่ประวัติการบันทึกมิเตอร์',
+            onPressed: _openUtilityHistory,
+          ),
+      ],
+      button: ElevatedButton.icon(
+        onPressed: (_isSaving || _hasFieldError) ? null : _onConfirmTap,
+        style: _primaryButtonStyle,
+        icon: _isSaving
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+            : const Icon(Icons.check_rounded, size: 20),
+        label: Text(_isSaving ? 'กำลังบันทึก...' : 'ยืนยันบันทึก'),
+      ),
+    );
+  }
 
-    return SingleChildScrollView(
+  // ช่องกรอก 1 ช่อง + บรรทัดตัวเทียบใต้ช่อง (เลขครั้งก่อน หรือเลขต้นรอบถ้า
+  // รอบนี้ยังไม่เคยจด) — ถ้าเลขไม่ผ่านการเช็ค ข้อความผิดพลาดจะแทนที่บรรทัด
+  // ตัวเทียบ (ข้อความบอกเลขที่ต้องไม่น้อยกว่าอยู่แล้ว) [label] ใช้เฉพาะ TOU
+  Widget _meterField({
+    String? label,
+    IconData? icon,
+    required TextEditingController controller,
+    required double last,
+    required double start,
+    required bool hasLast,
+    bool autofocus = false,
+    String fieldError = '',
+  }) {
+    final hasError = fieldError.isNotEmpty;
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderSide: hasError ? BorderSide(color: Colors.red.shade300, width: 1.2) : BorderSide.none,
+    );
+    final reference = hasLast
+        ? 'ครั้งก่อน ${_unitFormatter.format(last)} $_unit · '
+            '${_shortThaiDate(widget.recentLogs.first.date, withTime: false)}'
+        : 'เลขมิเตอร์ต้นรอบ ${_unitFormatter.format(start)} $_unit';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (label != null) ...[
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: _accent),
+                const SizedBox(width: AppSpacing.v6),
+              ],
+              Text(label,
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s13, color: _darkAccent)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.v6),
+        ],
+        TextField(
+          controller: controller,
+          autofocus: autofocus,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          cursorColor: _accent,
+          style: TextStyle(
+            fontSize: _isTouElectricity ? AppTypography.s24 : AppTypography.s32,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
+            color: AppColors.textDark,
+            fontFeatures: _tabular,
+          ),
+          decoration: InputDecoration(
+            hintText: 'เช่น 12,345',
+            hintStyle: TextStyle(
+                fontSize: AppTypography.s18, fontWeight: FontWeight.w500, color: Colors.grey.shade400),
+            suffixText: _unit,
+            suffixStyle: TextStyle(fontSize: AppTypography.s14, color: Colors.grey.shade600),
+            filled: true,
+            fillColor: _accent.withValues(alpha: 0.06),
+            contentPadding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.v16, vertical: _isTouElectricity ? AppSpacing.v12 : AppSpacing.v14),
+            border: fieldBorder,
+            enabledBorder: fieldBorder,
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              borderSide: BorderSide(color: hasError ? Colors.red.shade400 : _accent, width: 1.6),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.v8),
+        if (hasError)
+          _errorLine(fieldError)
+        else
+          Row(
+            children: [
+              Icon(hasLast ? Icons.history_rounded : Icons.outlined_flag_rounded,
+                  size: 14, color: Colors.grey.shade500),
+              const SizedBox(width: AppSpacing.v6),
+              Expanded(
+                child: Text(reference,
+                    style: TextStyle(
+                        fontSize: AppTypography.s12, color: Colors.grey.shade600, fontFeatures: _tabular)),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _errorLine(String message) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.v1),
+          child: Icon(Icons.error_outline_rounded, size: 15, color: Colors.red.shade700),
+        ),
+        const SizedBox(width: AppSpacing.v6),
+        Expanded(
+          child: Text(message, style: TextStyle(color: Colors.red.shade700, fontSize: AppTypography.s12, height: 1.4)),
+        ),
+      ],
+    );
+  }
+
+  // สรุปรอบนี้ใต้ช่องกรอก — ยังไม่มีเลขที่ใช้ได้จะแสดงคำแนะนำแทนตัวเลข 0
+  Widget _resultCard({required bool hasLast}) {
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.v16),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('สรุปรอบบิลนี้ (ถึงวันนี้)',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: AppTypography.s14, color: AppColors.textDark)),
+                ),
+                if (_isCalculating)
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.v12),
+            if (_previewValid)
+              ..._resultDetails(hasLast: hasLast)
+            else
+              Text(
+                'กรอกเลขบนมิเตอร์ แล้วระบบจะคำนวณหน่วยที่ใช้และค่า$_utilityLabelโดยประมาณให้ค่ะ',
+                style: TextStyle(fontSize: AppTypography.s12_5, height: 1.5, color: Colors.grey.shade600),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _resultDetails({required bool hasLast}) {
+    return [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _statTile(
+              label: 'ใช้ไปในรอบนี้',
+              value: _previewUsedFromStart,
+              pattern: '#,##0.##',
+              suffix: ' $_unit',
+            ),
+          ),
+          const SizedBox(width: AppSpacing.v10),
+          Expanded(
+            child: _statTile(
+              label: 'ค่า$_utilityLabelโดยประมาณ',
+              value: _previewCost,
+              pattern: '#,##0.00',
+              suffix: ' บาท',
+              highlight: true,
+            ),
+          ),
+        ],
+      ),
+      if (hasLast) ...[
+        const SizedBox(height: AppSpacing.v10),
+        Text('เพิ่มขึ้น ${_unitFormatter.format(_previewUsedFromLast)} $_unit จากครั้งก่อน',
+            style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade700, fontFeatures: _tabular)),
+      ],
+      const SizedBox(height: AppSpacing.v4),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => setState(() => _showCalcDetail = !_showCalcDetail),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.grey.shade700,
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(0, 36),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            textStyle: const TextStyle(
+                fontFamily: AppTheme.fontFamily, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w500),
+          ),
+          icon: Icon(_showCalcDetail ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
+          label: Text(_showCalcDetail ? 'ซ่อนวิธีคำนวณ' : 'ดูวิธีคำนวณ'),
+        ),
+      ),
+      if (_showCalcDetail) _calcDetail(),
+    ];
+  }
+
+  // วิธีคำนวณแบบเต็ม — เลขวันนี้ลบเลขต้นรอบ (TOU แยกทีละช่วง) และอัตราที่อ้างอิง
+  Widget _calcDetail() {
+    final f = _unitFormatter;
+    Widget line(String label, String value, {bool bold = false}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.v2),
+          child: Row(
+            children: [
+              Text(label, style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade700)),
+              const SizedBox(width: AppSpacing.v8),
+              Expanded(
+                child: Text(value,
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontSize: AppTypography.s12,
+                      fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+                      color: AppColors.textDark,
+                      fontFeatures: _tabular,
+                    )),
+              ),
+            ],
+          ),
+        );
+    final rows = _isTouElectricity
+        ? [
+            line('On-Peak (T1)',
+                '${f.format(_previewPeakValue)} − ${f.format(widget.startPeak)} = '
+                    '${f.format(EnergyCalculator.calculateUsed(_previewPeakValue, widget.startPeak))} $_unit'),
+            line('Off-Peak (T2)',
+                '${f.format(_previewOffPeakValue)} − ${f.format(widget.startOffPeak)} = '
+                    '${f.format(EnergyCalculator.calculateUsed(_previewOffPeakValue, widget.startOffPeak))} $_unit'),
+          ]
+        : [
+            line('เลขมิเตอร์วันนี้', '${f.format(_previewNormalValue)} $_unit'),
+            line('ลบ เลขมิเตอร์ต้นรอบ', '${f.format(widget.startValue)} $_unit'),
+          ];
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.v12),
+      decoration: BoxDecoration(
+        color: DashboardStyles.background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_isTouElectricity) ...[
-            fieldCard(
-              icon: Icons.wb_sunny_outlined,
-              label: 'On-Peak (T1)',
-              controller: _peakCtrl,
-              last: widget.lastPeak,
-              start: widget.startPeak,
-              autofocus: true,
-              lastIsPlaceholder: widget.recentLogs.isEmpty,
-              fieldError: _peakFieldError,
-            ),
-            const SizedBox(height: 10),
-            fieldCard(
-              icon: Icons.nightlight_outlined,
-              label: 'Off-Peak (T2)',
-              controller: _offPeakCtrl,
-              last: widget.lastOffPeak,
-              start: widget.startOffPeak,
-              lastIsPlaceholder: widget.recentLogs.isEmpty,
-              fieldError: _offPeakFieldError,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.info_outline, size: 13, color: Colors.grey.shade600),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text('หากช่วงเวลาใดยังไม่มีการใช้ไฟเพิ่ม เว้นช่องนั้นว่างไว้ได้ ระบบจะใช้ค่าล่าสุดแทนค่ะ',
-                      style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
-                ),
-              ],
-            ),
-          ] else ...[
-            fieldCard(
-              icon: widget.kind == MeterKind.electricity ? Icons.bolt : Icons.water_drop,
-              label: 'ค่ามิเตอร์$_utilityLabelสะสม',
-              controller: _valueCtrl,
-              last: widget.lastValue,
-              start: widget.startValue,
-              autofocus: true,
-              fontSize: AppTypography.s26,
-              lastIsPlaceholder: widget.recentLogs.isEmpty,
-              fieldError: _valueFieldError,
-            ),
-          ],
-          const SizedBox(height: 14),
-          if (_isCalculating)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.v10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
-                  ),
-                  const SizedBox(width: 8),
-                  Text('กำลังคำนวณ...',
-                      style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
-                ],
-              ),
-            ),
-          calculationPanel(),
-          if (_error.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.v14),
-              child: Text(_error, style: const TextStyle(color: Colors.red, fontSize: AppTypography.s12_5)),
-            ),
-          if (_rangeIssue == MeterRangeIssue.belowStart)
-            _rangeIssueHelp(
-              message: 'หากเพิ่งเปลี่ยนมิเตอร์ใหม่ กรุณาตั้งเลขมิเตอร์ต้นรอบใหม่ก่อนบันทึกค่ะ',
-              buttonIcon: Icons.refresh,
-              buttonLabel: 'ตั้งเลขมิเตอร์ต้นรอบใหม่',
-              onPressed: _openStartMeterSetup,
-            ),
-          if (_rangeIssue == MeterRangeIssue.belowLast)
-            _rangeIssueHelp(
-              message: 'หากตรวจสอบแล้วว่าเลขที่กรอกถูกต้อง แสดงว่าการบันทึกครั้งล่าสุด'
-                  'อาจคลาดเคลื่อน กรุณาลบรายการดังกล่าวที่ ตั้งค่า › ประวัติการบันทึกมิเตอร์ '
-                  'แล้วจึงบันทึกเลขนี้อีกครั้งค่ะ',
-              buttonIcon: Icons.history,
-              buttonLabel: 'ไปที่ประวัติการบันทึกมิเตอร์',
-              onPressed: _openUtilityHistory,
-            ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: (_isSaving || _hasFieldError) ? null : _onConfirmTap,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _accent,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: _accent.withValues(alpha: 0.35),
-              disabledForegroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.v14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
-            ),
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.save_outlined, size: 18),
-            label: Text(_isSaving ? 'กำลังบันทึก...' : 'ยืนยันบันทึก'),
+          ...rows,
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.v6),
+            child: Divider(),
+          ),
+          line('ใช้ไปในรอบนี้', '${f.format(_previewUsedFromStart)} $_unit', bold: true),
+          const SizedBox(height: AppSpacing.v8),
+          Text(
+            'คิดค่า$_utilityLabelจากหน่วยที่ใช้ตั้งแต่ต้นรอบ ตามอัตราปัจจุบันของ $_providerLabel',
+            style: TextStyle(fontSize: AppTypography.s11_5, height: 1.45, color: Colors.grey.shade600),
           ),
         ],
       ),
     );
   }
 
-  // คำแนะนำ + ปุ่มแก้ไข ใต้ข้อความแดงเมื่อเลขที่กรอกไม่ผ่านการเช็คช่วง
+  // ช่องตัวเลขสรุป — highlight = พื้นสีประจำยูทิลิตี้แบบจาง (ใช้กับยอดเงิน)
+  Widget _statTile({
+    required String label,
+    required double value,
+    required String pattern,
+    required String suffix,
+    bool highlight = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.v12),
+      decoration: BoxDecoration(
+        color: highlight ? _accent.withValues(alpha: 0.1) : DashboardStyles.background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: AppTypography.s11_5, color: highlight ? _darkAccent : Colors.grey.shade700)),
+          const SizedBox(height: AppSpacing.v4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: AnimatedAmount(
+              value: value,
+              pattern: pattern,
+              suffix: suffix,
+              style: TextStyle(
+                fontSize: AppTypography.s20,
+                fontWeight: FontWeight.w700,
+                color: highlight ? _darkAccent : AppColors.textDark,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // คำแนะนำ + ปุ่มแก้ไข เมื่อเลขที่กรอกไม่ผ่านการเช็คช่วง (กล่องเตือนโทนส้ม)
   Widget _rangeIssueHelp({
     required String message,
     required IconData buttonIcon,
     required String buttonLabel,
     required VoidCallback onPressed,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.v14),
+    return Container(
+      margin: const EdgeInsets.only(top: AppSpacing.v14),
+      padding: const EdgeInsets.all(AppSpacing.v14),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.08),
+        border: Border.all(color: AppColors.warningBorder),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(message,
-              style: TextStyle(fontSize: AppTypography.s12, height: 1.5, color: Colors.grey.shade700)),
-          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.warningIcon),
+              const SizedBox(width: AppSpacing.v8),
+              Expanded(
+                child: Text(message,
+                    style: const TextStyle(fontSize: AppTypography.s12_5, height: 1.5, color: AppColors.warningText)),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.v10),
           OutlinedButton.icon(
             onPressed: _isSaving ? null : onPressed,
             style: OutlinedButton.styleFrom(
-              foregroundColor: _accent,
-              side: BorderSide(color: _accent.withValues(alpha: 0.5)),
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v10)),
+              foregroundColor: AppColors.warningText,
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: AppColors.warningBorder),
             ),
-            icon: Icon(buttonIcon, size: 16),
-            label: Text(buttonLabel, style: const TextStyle(fontSize: AppTypography.s12_5)),
+            icon: Icon(buttonIcon, size: 18),
+            label: Text(buttonLabel, style: const TextStyle(fontSize: AppTypography.s13)),
           ),
         ],
       ),
     );
   }
 
-  Widget _calcRow(String label, String value, {bool bold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade700)),
-        Text(value,
-            style: TextStyle(
-              fontSize: bold ? AppTypography.s15 : AppTypography.s13,
-              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-              color: bold ? _accent : DashboardStyles.textDark,
-            )),
-      ],
-    );
-  }
-
   // =====================================================================
   // ขั้นตอน 1 — บันทึกสำเร็จ + ประวัติของรอบนี้
   // =====================================================================
-  String _shortThaiDate(DateTime d) {
-    final month = thaiMonths[d.month - 1];
-    final shortMonth = month.length > 3 ? '${month.substring(0, 3)}.' : month;
-    final hh = d.hour.toString().padLeft(2, '0');
-    final mm = d.minute.toString().padLeft(2, '0');
-    return '${d.day} $shortMonth ${(d.year + 543) % 100} • $hh:$mm น.';
-  }
-
   Widget _buildSuccessStep() {
-    final formatter = NumberFormat('#,##0.##');
-    final costFormatter = NumberFormat('#,##0.00');
-
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.v14),
-                  decoration: BoxDecoration(color: _accent, shape: BoxShape.circle),
-                  child: const Icon(Icons.check, color: Colors.white, size: 36),
-                ),
-                const SizedBox(height: 12),
-                const Text('บันทึกสำเร็จ',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s18)),
-                Text(_shortThaiDate(_savedAt), style: DashboardStyles.lastValueStyle),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            width: double.infinity,
+    return _scrollWithBottomButton(
+      children: [
+        const SizedBox(height: AppSpacing.v12),
+        Center(child: _SuccessBadge(color: _accent)),
+        const SizedBox(height: AppSpacing.v14),
+        const Text('บันทึกสำเร็จ',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: AppTypography.s20, color: AppColors.textDark)),
+        const SizedBox(height: AppSpacing.v2),
+        Text(_shortThaiDate(_savedAt),
+            textAlign: TextAlign.center, style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600)),
+        const SizedBox(height: AppSpacing.v24),
+        FadeSlideIn(
+          delay: const Duration(milliseconds: 150),
+          child: AppCard(
             padding: const EdgeInsets.all(AppSpacing.v16),
-            decoration: DashboardStyles.whiteCard(),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('ใช้ไปในรอบนี้ (อัปเดตแล้ว)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s13_5, color: _accent)),
-                const SizedBox(height: 10),
-                _calcRow('ใช้ไปในรอบนี้', '${formatter.format(_savedUsedFromStart)} $_unit', bold: true),
-                const SizedBox(height: 4),
-                _calcRow('ค่า$_utilityLabelโดยประมาณ', '฿${costFormatter.format(_savedCost)}', bold: true),
-              ],
-            ),
-          ),
-          if (_historyAfterSave.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Text('ประวัติการบันทึกรอบนี้', style: DashboardStyles.sectionTitle),
-            const SizedBox(height: 8),
-            ..._historyAfterSave.take(5).map((e) {
-              final isLatest = e == _historyAfterSave.first;
-              return Container(
-                margin: const EdgeInsets.only(bottom: AppSpacing.v8),
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v14, vertical: AppSpacing.v10),
-                decoration: DashboardStyles.whiteCard(radius: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Text('ยอดรอบนี้ (อัปเดตแล้ว)',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s13_5, color: _accent)),
+                const SizedBox(height: AppSpacing.v12),
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Text(_shortThaiDate(e.date), style: const TextStyle(fontSize: AppTypography.s12_5)),
-                        if (isLatest) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v6, vertical: AppSpacing.v2),
-                            decoration: BoxDecoration(
-                              color: _accent.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(AppSpacing.v6),
-                            ),
-                            child: Text('ล่าสุด', style: TextStyle(fontSize: AppTypography.s10, color: _accent)),
-                          ),
-                        ],
-                      ],
+                    Expanded(
+                      child: _statTile(
+                        label: 'ใช้ไปในรอบนี้',
+                        value: _savedUsedFromStart,
+                        pattern: '#,##0.##',
+                        suffix: ' $_unit',
+                      ),
                     ),
-                    Text('+${formatter.format(e.usedFromLast)} $_unit • ฿${costFormatter.format(e.cost)}',
-                        style: const TextStyle(fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: AppSpacing.v10),
+                    Expanded(
+                      child: _statTile(
+                        label: 'ค่า$_utilityLabelโดยประมาณ',
+                        value: _savedCost,
+                        pattern: '#,##0.00',
+                        suffix: ' บาท',
+                        highlight: true,
+                      ),
+                    ),
                   ],
                 ),
-              );
-            }),
-          ],
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _closeWith(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _accent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.v14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
+              ],
+            ),
+          ),
+        ),
+        if (_historyAfterSave.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.v20),
+          const Text('ประวัติการบันทึกรอบนี้', style: DashboardStyles.sectionTitle),
+          const SizedBox(height: AppSpacing.v10),
+          FadeSlideIn(
+            delay: const Duration(milliseconds: 250),
+            child: AppCard(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.v4),
+              child: Column(
+                children: [
+                  for (final (i, e) in _historyAfterSave.take(5).indexed) ...[
+                    if (i > 0) const Divider(indent: AppSpacing.v16, endIndent: AppSpacing.v16),
+                    _historyRow(e, isLatest: i == 0),
+                  ],
+                ],
               ),
-              child: const Text('กลับหน้าหลัก'),
             ),
           ),
         ],
+      ],
+      button: ElevatedButton(
+        onPressed: () => _closeWith(true),
+        style: _primaryButtonStyle,
+        child: const Text('กลับหน้าหลัก'),
+      ),
+    );
+  }
+
+  // แถวประวัติ 1 รายการ — หน่วยที่เพิ่มจากครั้งก่อน + ค่าใช้จ่ายสะสม ณ ตอนนั้น
+  Widget _historyRow(MeterHistoryEntry e, {required bool isLatest}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v12),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: isLatest ? _accent : Colors.grey.shade300,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.v12),
+          Expanded(
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppSpacing.v8,
+              children: [
+                Text(_shortThaiDate(e.date),
+                    style: const TextStyle(fontSize: AppTypography.s12_5, color: AppColors.textDark)),
+                if (isLatest)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v6, vertical: AppSpacing.v1),
+                    decoration: BoxDecoration(
+                      color: _accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppSpacing.v6),
+                    ),
+                    child: Text('ล่าสุด',
+                        style: TextStyle(fontSize: AppTypography.s10, fontWeight: FontWeight.w600, color: _accent)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.v8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('+${_unitFormatter.format(e.usedFromLast)} $_unit',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: AppTypography.s13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textDark,
+                        fontFeatures: _tabular)),
+                Text('สะสม ฿${_costFormatter.format(e.cost)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600, fontFeatures: _tabular)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// เครื่องหมายถูกในวงกลมสีประจำยูทิลิตี้ เด้งขยายเข้าจอครั้งเดียว พร้อมวงจางรอบนอก
+class _SuccessBadge extends StatelessWidget {
+  final Color color;
+
+  const _SuccessBadge({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.6, end: 1),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.elasticOut,
+      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+      child: Container(
+        width: 96,
+        height: 96,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.14), shape: BoxShape.circle),
+        child: Container(
+          width: 68,
+          height: 68,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6)),
+            ],
+          ),
+          child: const Icon(Icons.check_rounded, color: Colors.white, size: 40),
+        ),
       ),
     );
   }

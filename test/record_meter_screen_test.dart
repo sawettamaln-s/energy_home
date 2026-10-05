@@ -347,4 +347,62 @@ void main() {
       expect(find.text('ยืนยันบันทึก'), findsNothing);
     });
   });
+
+  group('จอเล็ก (กว้าง 320) ตัวอักษรใหญ่สุดที่แอปอนุญาต', () {
+    Future<void> pumpSmall(WidgetTester tester, {required bool isTou}) async {
+      tester.view.physicalSize = const Size(320 * 3, 640 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(1.3)),
+          child: child!,
+        ),
+        home: RecordMeterScreen(
+          kind: MeterKind.electricity,
+          isTou: isTou,
+          uid: _uid,
+          firestoreService: service,
+          area: 'bangkok',
+          startValue: 98765.5,
+          lastValue: 99000,
+          startPeak: 45678.25,
+          lastPeak: 45900,
+          startOffPeak: 87654.75,
+          lastOffPeak: 88000,
+          recentLogs: [
+            MeterHistoryEntry(
+                date: DateTime(2026, 10, 3, 8), usedFromLast: 1234.5, cost: 12345.67),
+          ],
+        ),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('มิเตอร์ปกติ: ผลคำนวณ คำเตือน และหน้าสำเร็จไม่ล้น', (tester) async {
+      await pumpSmall(tester, isTou: false);
+      await enterAndCalc(tester, 0, '90000');
+      expect(tester.takeException(), isNull);
+      expect(find.text('ตั้งเลขมิเตอร์ต้นรอบใหม่'), findsOneWidget);
+
+      await enterAndCalc(tester, 0, '123456.75');
+      expect(tester.takeException(), isNull);
+      await tapButton(tester, 'ยืนยันบันทึก');
+      expect(tester.takeException(), isNull);
+      expect(find.text('กลับหน้าหลัก'), findsOneWidget);
+    });
+
+    testWidgets('TOU: ผลคำนวณแยก On/Off-Peak ไม่ล้น', (tester) async {
+      await pumpSmall(tester, isTou: true);
+      await tester.enterText(find.byType(TextField).at(0), '56789.5');
+      await enterAndCalc(tester, 1, '99999.25');
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('จากครั้งก่อน'), findsOneWidget);
+
+      await tapButton(tester, 'ดูวิธีคำนวณ');
+      expect(tester.takeException(), isNull);
+      expect(find.text('ซ่อนวิธีคำนวณ'), findsOneWidget);
+    });
+  });
 }
