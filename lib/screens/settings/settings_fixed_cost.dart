@@ -124,7 +124,7 @@ class _MonthYearField extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = value != null
         ? '${thaiMonths[value!.month - 1]} ${value!.year + 543}'
-        : 'เลือก';
+        : (enabled ? 'เลือก' : 'ไม่มีกำหนด');
     return InkWell(
       borderRadius: BorderRadius.circular(AppSpacing.v12),
       onTap: enabled ? () => _openPicker(context) : null,
@@ -416,22 +416,29 @@ class _MonthYearSpinner extends StatelessWidget {
   }
 }
 
-class _FixedCostScreen extends StatefulWidget {
+// หน้ารายจ่ายประจำ: การ์ดยอดเดือนนี้ + รายการแยกกลุ่ม ใช้อยู่ / ยังไม่เริ่ม /
+// สิ้นสุดแล้ว (พับไว้) แตะแถวเพื่อแก้ไขหรือลบ
+class FixedCostScreen extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;
 
-  const _FixedCostScreen({
+  const FixedCostScreen({
+    super.key,
     required this.uid,
     required this.firestoreService,
   });
 
   @override
-  State<_FixedCostScreen> createState() => _FixedCostScreenState();
+  State<FixedCostScreen> createState() => _FixedCostScreenState();
 }
 
-class _FixedCostScreenState extends State<_FixedCostScreen> {
+class _FixedCostScreenState extends State<FixedCostScreen> {
   List<FixedCostItemModel> _items = [];
   bool _isLoading = true;
+  // กลุ่ม "สิ้นสุดแล้ว" พับไว้เป็นค่าเริ่มต้น (ไม่มีผลกับยอดแล้ว)
+  bool _showEnded = false;
+
+  static final _baht = NumberFormat('#,##0');
 
   @override
   void initState() {
@@ -450,251 +457,43 @@ class _FixedCostScreenState extends State<_FixedCostScreen> {
     }
   }
 
-  // รวมเฉพาะรายการที่ "แอคทีฟ" ในเดือนปัจจุบัน — รายการที่หมดอายุ (endDate
-  // ผ่านไปแล้ว) หรือยังไม่ถึงวันเริ่ม จะไม่ถูกนับในยอดนี้ แต่ยังโชว์ในลิสต์ด้านล่าง
-  double get _total => _items
-      .where((item) => item.isActiveInMonth(DateTime.now()))
-      .fold(0, (sum, item) => sum + item.amount);
+  // สถานะเทียบกับเดือนนี้ (ระดับเดือน ตรงกับ isActiveInMonth ที่ใช้คำนวณยอดจริง)
+  bool _isActive(FixedCostItemModel i) => i.isActiveInMonth(DateTime.now());
+  bool _isUpcoming(FixedCostItemModel i) {
+    final now = DateTime.now();
+    return DateTime(i.startDate.year, i.startDate.month).isAfter(DateTime(now.year, now.month));
+  }
 
-  // เปิด popup เพิ่ม/แก้ไขรายการ — ถ้าส่ง existing มาคือแก้ไข ไม่ส่งคือเพิ่มใหม่
+  List<FixedCostItemModel> get _active => _items.where(_isActive).toList();
+  List<FixedCostItemModel> get _upcoming => _items.where((i) => !_isActive(i) && _isUpcoming(i)).toList();
+  List<FixedCostItemModel> get _ended => _items.where((i) => !_isActive(i) && !_isUpcoming(i)).toList();
+
+  // ยอดรวมเฉพาะรายการที่ใช้อยู่เดือนนี้ — เป็นยอดเดียวกับที่หน้าหลักนับ
+  double get _total => _active.fold(0, (sum, item) => sum + item.amount);
+
+  String _shortMonth(DateTime d) => '${thaiMonthsShort[d.month - 1]} ${(d.year + 543) % 100}';
+
+  String _periodText(FixedCostItemModel i) {
+    if (i.endDate == null) return 'ทุกเดือน ตั้งแต่ ${_shortMonth(i.startDate)}';
+    return '${_shortMonth(i.startDate)} – ${_shortMonth(i.endDate!)}';
+  }
+
   Future<void> _showAddEditItem({FixedCostItemModel? existing}) async {
-    String selectedCategory = existing?.category ?? _fixedCostCategories.first.key;
-    // ชื่อรายการ: ถ้าหมวดหมู่ไม่ใช่ "อื่นๆ" ชื่อจะถูกล็อกตาม label ของหมวดนั้นเสมอ
-    // (ครอบคลุมกรณีแก้ไขรายการเก่าที่ชื่ออาจไม่ตรงกับ label ปัจจุบันด้วย)
-    final nameController = TextEditingController(
-      text: selectedCategory == 'other'
-          ? (existing?.name ?? '')
-          : _labelForFixedCostCategory(selectedCategory),
-    );
-    final amountController = TextEditingController(
-      text: existing != null ? existing.amount.toStringAsFixed(0) : '',
-    );
-    String? errorText;
-    // ขอบเขตปี/เดือนที่เลือกได้ — ต้อง clamp startDate/endDate ของรายการเดิม
-    // ให้อยู่ในช่วงนี้เสมอ ไม่งั้นปี/เดือนอาจไม่มีในดรอปดาวน์
-    final minDate = _fixedCostMinDate(existing?.startDate);
-    final maxDate = _fixedCostMaxDate();
-    // ช่วงเวลา: startDate เริ่มนับตั้งแต่เดือนนี้เป็น default, endDate = null
-    // หมายถึงต่อเนื่องไม่มีกำหนดสิ้นสุด
-    DateTime startDate = _clampToMonthRange(
-        existing?.startDate ?? DateTime.now(), minDate, maxDate);
-    DateTime? endDate = existing?.endDate == null
-        ? null
-        : _clampToMonthRange(existing!.endDate!, minDate, maxDate);
-    bool hasEndDate = endDate != null;
-
-    await showDialog(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v16)),
-          title: Text(existing == null ? 'เพิ่มรายจ่ายประจำ' : 'แก้ไขรายการ'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('หมวดหมู่',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s13)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _fixedCostCategories.map((c) {
-                    final selected = c.key == selectedCategory;
-                    return ChoiceChip(
-                      label: Text(c.label, style: const TextStyle(fontSize: AppTypography.s12)),
-                      avatar: Icon(c.icon,
-                          size: 16,
-                          color: selected ? Colors.white : DashboardStyles.primaryGreen),
-                      selected: selected,
-                      selectedColor: DashboardStyles.primaryGreen,
-                      labelStyle: TextStyle(
-                          color: selected ? Colors.white : Colors.black87),
-                      onSelected: (_) => setDialogState(() {
-                        selectedCategory = c.key;
-                        if (c.key == 'other') {
-                          // สลับมา "อื่นๆ" ให้พิมพ์ชื่อเองได้ — เคลียร์ช่องออก
-                          // เฉพาะตอนที่ข้อความเดิมเป็น label ที่ล็อกไว้จากหมวดก่อนหน้า
-                          // (กันเขียนทับชื่อที่ user เคยพิมพ์เองไว้ก่อนสลับหมวดไปมา)
-                          if (_fixedCostCategories
-                              .map((e) => e.label)
-                              .contains(nameController.text)) {
-                            nameController.text = '';
-                          }
-                        } else {
-                          // หมวดสำเร็จรูป: ล็อกชื่อให้ตรงกับ label เสมอ แก้ไขเองไม่ได้
-                          nameController.text = c.label;
-                        }
-                      }),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nameController,
-                  // แก้ไขได้เฉพาะหมวด "อื่นๆ" — หมวดสำเร็จรูปอื่นชื่อถูกล็อกไว้
-                  enabled: selectedCategory == 'other',
-                  decoration: InputDecoration(
-                    labelText: 'ชื่อรายการ',
-                    hintText: 'เช่น ค่าที่จอดรถรายเดือน',
-                    filled: selectedCategory != 'other',
-                    fillColor: Colors.grey.shade100,
-                    border:
-                        OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
-                    disabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.v12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.v12, vertical: AppSpacing.v14),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: 'ยอดต่อเดือน',
-                    suffixText: ' บาท',
-                    border:
-                        OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.v12)),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.v12, vertical: AppSpacing.v14),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-                const SizedBox(height: 12),
-                const Text('ช่วงเวลา',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s13)),
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _MonthYearField(
-                        label: 'เริ่ม',
-                        value: startDate,
-                        minDate: minDate,
-                        maxDate: maxDate,
-                        onChanged: (picked) {
-                          if (picked == null) return;
-                          setDialogState(() {
-                            startDate = picked;
-                            // ถ้าเดือนสิ้นสุดที่ตั้งไว้ดันมาก่อนเดือนเริ่มใหม่
-                            // (เพราะ user ย้ายเดือนเริ่มมาทีหลัง) ดันตามไปด้วย
-                            if (endDate != null && endDate!.isBefore(startDate)) {
-                              endDate = startDate;
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _MonthYearField(
-                        label: 'สิ้นสุด',
-                        value: endDate,
-                        enabled: hasEndDate,
-                        minDate: startDate,
-                        maxDate: maxDate,
-                        onChanged: (picked) =>
-                            setDialogState(() => endDate = picked),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                CheckboxListTile(
-                  value: hasEndDate,
-                  onChanged: (v) => setDialogState(() {
-                    hasEndDate = v ?? false;
-                    if (hasEndDate) {
-                      endDate ??= startDate;
-                    } else {
-                      endDate = null;
-                    }
-                  }),
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  dense: true,
-                  visualDensity: VisualDensity.compact,
-                  activeColor: DashboardStyles.primaryGreen,
-                  title: const Text('มีวันสิ้นสุด', style: TextStyle(fontSize: AppTypography.s13)),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(AppSpacing.v10),
-                  ),
-                  child: Text(
-                    hasEndDate
-                        ? 'จะไม่ถูกนับรวมในยอดรายจ่ายประจำหลังวันที่สิ้นสุด'
-                        : 'นับรวมทุกเดือนต่อเนื่อง ไม่มีกำหนดสิ้นสุด',
-                    style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600),
-                  ),
-                ),
-                if (errorText != null) ...[
-                  const SizedBox(height: 8),
-                  Text(errorText!,
-                      style: const TextStyle(color: Colors.red, fontSize: AppTypography.s12)),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ยกเลิก'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                final amount = double.tryParse(amountController.text);
-                if (name.isEmpty) {
-                  setDialogState(() => errorText = 'กรอกชื่อรายการด้วยค่ะ');
-                  return;
-                }
-                if (amount == null || amount <= 0) {
-                  setDialogState(() => errorText = 'กรอกยอดเงินให้ถูกต้องด้วยค่ะ');
-                  return;
-                }
-                if (hasEndDate && endDate!.isBefore(startDate)) {
-                  setDialogState(
-                      () => errorText = 'วันสิ้นสุดต้องไม่มาก่อนวันเริ่มค่ะ');
-                  return;
-                }
-
-                final item = FixedCostItemModel(
-                  id: existing?.id ?? const Uuid().v4(),
-                  uid: widget.uid,
-                  name: name,
-                  category: selectedCategory,
-                  amount: amount,
-                  createdAt: existing?.createdAt ?? DateTime.now(),
-                  startDate: startDate,
-                  endDate: hasEndDate ? endDate : null,
-                );
-                await widget.firestoreService.saveFixedCostItem(item);
-                if (context.mounted) Navigator.pop(context);
-                await _load();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: DashboardStyles.primaryGreen,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('บันทึก'),
-            ),
-          ],
-        ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _FixedCostFormSheet(
+        uid: widget.uid,
+        firestoreService: widget.firestoreService,
+        existing: existing,
       ),
     );
+    if (saved == true) await _load();
   }
 
   Future<void> _confirmDelete(FixedCostItemModel item) async {
-final confirmed = await showConfirmDialog(
+    final confirmed = await showConfirmDialog(
       context,
       title: 'ลบรายการนี้?',
       content: 'ต้องการลบ "${item.name}" ออกจากรายจ่ายประจำใช่ไหมคะ',
@@ -707,307 +506,491 @@ final confirmed = await showConfirmDialog(
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat('#,##0');
     return Scaffold(
       backgroundColor: DashboardStyles.background,
       appBar: AppTopBar(
         title: 'รายจ่ายประจำ',
         actions: [
           IconButton(
+            tooltip: 'รายจ่ายประจำคืออะไร',
             icon: const Icon(Icons.info_outline),
             onPressed: () => _showFixedCostInfoPopup(context),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
-          : Column(
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v32),
               children: [
-                // การ์ดสรุปยอดรวมด้านบน
-                Container(
-                  margin: const EdgeInsets.all(AppSpacing.v16),
-                  padding: const EdgeInsets.all(AppSpacing.v18),
-                  decoration: BoxDecoration(
-                    color: DashboardStyles.primaryGreen,
-                    borderRadius: BorderRadius.circular(AppSpacing.v16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: DashboardStyles.primaryGreen.withValues(alpha: 0.25),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                FadeSlideIn(child: _buildSummaryCard()),
+                if (_items.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.v32),
+                    child: Column(
+                      children: [
+                        Icon(Icons.receipt_long_outlined, size: 40, color: Colors.grey.shade300),
+                        const SizedBox(height: AppSpacing.v8),
+                        Text('ยังไม่มีรายจ่ายประจำ',
+                            style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade600)),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.summarize_outlined,
-                          color: Colors.white, size: 28),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                if (_active.isNotEmpty) ..._section('ใช้อยู่', _active),
+                if (_upcoming.isNotEmpty) ..._section('ยังไม่เริ่ม', _upcoming),
+                if (_ended.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.v16),
+                  InkWell(
+                    onTap: () => setState(() => _showEnded = !_showEnded),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.v6, horizontal: AppSpacing.v4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text('สิ้นสุดแล้ว (${_ended.length})',
+                                style: TextStyle(
+                                    fontSize: AppTypography.s13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700)),
+                          ),
+                          AnimatedRotation(
+                            turns: _showEnded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(Icons.expand_more_rounded, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: _showEnded
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: AppSpacing.v6),
+                            child: _itemCard(_ended, muted: true),
+                          )
+                        : const SizedBox(width: double.infinity),
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.v16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const IconBadge(icon: Icons.payments_outlined, color: AppColors.primaryGreen, size: 40),
+              const SizedBox(width: AppSpacing.v12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('รายจ่ายประจำเดือนนี้',
+                        style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600)),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: AnimatedAmount(
+                        value: _total,
+                        pattern: '#,##0',
+                        suffix: ' บาท',
+                        style: const TextStyle(
+                            fontSize: AppTypography.s24, fontWeight: FontWeight.w700, color: AppColors.textDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.v6),
+          Text(
+            _active.isEmpty
+                ? 'ค่าใช้จ่ายที่จ่ายเท่ากันทุกเดือน เช่น อินเทอร์เน็ต ค่าส่วนกลาง จะถูกนับรวมในยอดหน้าหลักค่ะ'
+                : 'นับรวมในยอดค่าใช้จ่ายหน้าหลัก · ${_active.length} รายการที่ใช้อยู่',
+            style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: AppSpacing.v14),
+          ElevatedButton.icon(
+            onPressed: () => _showAddEditItem(),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('เพิ่มรายจ่ายประจำ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _section(String title, List<FixedCostItemModel> items) {
+    return [
+      const SizedBox(height: AppSpacing.v20),
+      Padding(
+        padding: const EdgeInsets.only(left: AppSpacing.v4, bottom: AppSpacing.v8),
+        child: Text('$title (${items.length})',
+            style: TextStyle(fontSize: AppTypography.s13, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+      ),
+      _itemCard(items),
+    ];
+  }
+
+  Widget _itemCard(List<FixedCostItemModel> items, {bool muted = false}) {
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          for (final (i, item) in items.indexed) ...[
+            if (i > 0) const Divider(indent: 66),
+            _itemRow(item, muted: muted),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _itemRow(FixedCostItemModel item, {required bool muted}) {
+    final color = muted ? Colors.grey.shade500 : AppColors.primaryGreen;
+    return InkWell(
+      onTap: () => showTableRowActions(
+        context,
+        title: item.name,
+        subtitle: '${_baht.format(item.amount)} บาท/เดือน · ${_periodText(item)}',
+        onEdit: () => _showAddEditItem(existing: item),
+        onDelete: () => _confirmDelete(item),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v12, AppSpacing.v8, AppSpacing.v12),
+        child: Row(
+          children: [
+            IconBadge(icon: _iconForFixedCostCategory(item.category), color: color, size: 38),
+            const SizedBox(width: AppSpacing.v12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: AppTypography.s14,
+                          fontWeight: FontWeight.w600,
+                          color: muted ? Colors.grey.shade600 : AppColors.textDark)),
+                  const SizedBox(height: AppSpacing.v2),
+                  Text(_periodText(item),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.v8),
+            Text('${_baht.format(item.amount)} บาท',
+                style: TextStyle(
+                    fontSize: AppTypography.s14,
+                    fontWeight: FontWeight.w700,
+                    color: muted ? Colors.grey.shade500 : AppColors.textDark,
+                    fontFeatures: const [FontFeature.tabularFigures()])),
+            Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey.shade400),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== ฟอร์มเพิ่ม/แก้ไขรายจ่ายประจำ (bottom sheet) ====================
+// หมวดสำเร็จรูปล็อกชื่อตาม label ของหมวด ส่วนหมวด "อื่นๆ" พิมพ์ชื่อเองได้ ช่วงเวลา
+// เก็บระดับเดือน (วันที่ 1) — ไม่มีวันสิ้นสุด = นับทุกเดือนต่อเนื่อง
+class _FixedCostFormSheet extends StatefulWidget {
+  final String uid;
+  final FirestoreService firestoreService;
+  final FixedCostItemModel? existing;
+
+  const _FixedCostFormSheet({required this.uid, required this.firestoreService, this.existing});
+
+  @override
+  State<_FixedCostFormSheet> createState() => _FixedCostFormSheetState();
+}
+
+class _FixedCostFormSheetState extends State<_FixedCostFormSheet> {
+  late String _category = widget.existing?.category ?? _fixedCostCategories.first.key;
+  late final _nameCtrl =
+      TextEditingController(text: _category == 'other' ? (widget.existing?.name ?? '') : '');
+  late final _amountCtrl =
+      TextEditingController(text: widget.existing != null ? widget.existing!.amount.toStringAsFixed(0) : '');
+  // ขอบเขตปี/เดือนที่เลือกได้ — clamp วันที่ของรายการเดิมให้อยู่ในช่วงนี้เสมอ
+  late final DateTime _minDate = _fixedCostMinDate(widget.existing?.startDate);
+  late final DateTime _maxDate = _fixedCostMaxDate();
+  late DateTime _startDate = _clampToMonthRange(widget.existing?.startDate ?? DateTime.now(), _minDate, _maxDate);
+  late DateTime? _endDate =
+      widget.existing?.endDate == null ? null : _clampToMonthRange(widget.existing!.endDate!, _minDate, _maxDate);
+  late bool _hasEndDate = _endDate != null;
+  String? _error;
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _category == 'other' ? _nameCtrl.text.trim() : _labelForFixedCostCategory(_category);
+    final amount = double.tryParse(_amountCtrl.text.replaceAll(',', '').trim());
+    if (name.isEmpty) {
+      setState(() => _error = 'กรอกชื่อรายการด้วยค่ะ');
+      return;
+    }
+    if (amount == null || amount <= 0) {
+      setState(() => _error = 'กรอกยอดเงินต่อเดือนให้ถูกต้องด้วยค่ะ');
+      return;
+    }
+    if (_hasEndDate && _endDate!.isBefore(_startDate)) {
+      setState(() => _error = 'เดือนสิ้นสุดต้องไม่มาก่อนเดือนเริ่มค่ะ');
+      return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      final item = FixedCostItemModel(
+        id: widget.existing?.id ?? const Uuid().v4(),
+        uid: widget.uid,
+        name: name,
+        category: _category,
+        amount: amount,
+        createdAt: widget.existing?.createdAt ?? DateTime.now(),
+        startDate: _startDate,
+        endDate: _hasEndDate ? _endDate : null,
+      );
+      await widget.firestoreService.saveFixedCostItem(item);
+      if (mounted) Navigator.pop(context, true);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'บันทึกไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้งค่ะ');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.v8),
+        child: Text(text,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s13_5, color: AppColors.textDark)),
+      );
+
+  Widget _categoryTile(({String key, String label, IconData icon}) c) {
+    final selected = c.key == _category;
+    return Material(
+      color: selected ? AppColors.primaryGreen.withValues(alpha: 0.08) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        side: BorderSide(color: selected ? AppColors.primaryGreen : Colors.grey.shade300, width: selected ? 1.4 : 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => setState(() {
+          _category = c.key;
+          _error = null;
+        }),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v10),
+          child: Row(
+            children: [
+              Icon(c.icon, size: 18, color: selected ? AppColors.primaryGreen : Colors.grey.shade600),
+              const SizedBox(width: AppSpacing.v8),
+              Expanded(
+                child: Text(c.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: AppTypography.s12_5,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                        color: selected ? AppColors.primaryGreen : AppColors.textDark)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final height = MediaQuery.sizeOf(context).height * 0.9 - bottomInset;
+    const categories = _fixedCostCategories;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: SizedBox(
+        height: height < 320 ? 320 : height,
+        child: Column(
+          children: [
+            const SizedBox(height: AppSpacing.v10),
+            const _SheetGrabber(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v6, AppSpacing.v8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(widget.existing == null ? 'เพิ่มรายจ่ายประจำ' : 'แก้ไขรายจ่ายประจำ',
+                        style: const TextStyle(
+                            fontSize: AppTypography.s17, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                  ),
+                  IconButton(
+                    tooltip: 'ปิด',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v4, AppSpacing.v16, AppSpacing.v24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _label('หมวดหมู่'),
+                    // ตาราง 2 คอลัมน์ แต่ละแถวสูงเท่าช่องที่สูงที่สุด (ชื่อหมวดยาว 2 บรรทัด)
+                    for (var i = 0; i < categories.length; i += 2) ...[
+                      if (i > 0) const SizedBox(height: AppSpacing.v8),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text(
-                              'รวมรายจ่ายประจำต่อเดือน',
-                              style: TextStyle(color: Colors.white70, fontSize: AppTypography.s12),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${formatter.format(_total)} บาท',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: AppTypography.s22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            Expanded(child: _categoryTile(categories[i])),
+                            const SizedBox(width: AppSpacing.v8),
+                            Expanded(
+                                child: i + 1 < categories.length
+                                    ? _categoryTile(categories[i + 1])
+                                    : const SizedBox.shrink()),
                           ],
                         ),
                       ),
-                      Text(
-                        '${_items.length} รายการ',
-                        style: const TextStyle(color: Colors.white70, fontSize: AppTypography.s12),
+                    ],
+                    if (_category == 'other') ...[
+                      const SizedBox(height: AppSpacing.v16),
+                      _label('ชื่อรายการ'),
+                      TextField(
+                        controller: _nameCtrl,
+                        onChanged: (_) => setState(() => _error = null),
+                        decoration: const InputDecoration(hintText: 'เช่น ค่าที่จอดรถรายเดือน'),
                       ),
                     ],
-                  ),
-                ),
-
-                // รายการ Fixed Cost
-                Expanded(
-                  child: _items.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.v24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.receipt_long,
-                                    size: 48, color: Colors.grey.shade300),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'ยังไม่มีรายจ่ายประจำ\nกดปุ่ม + เพื่อเพิ่มรายการแรกได้เลยค่ะ',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
+                    const SizedBox(height: AppSpacing.v16),
+                    _label('ยอดต่อเดือน'),
+                    TextField(
+                      controller: _amountCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() => _error = null),
+                      decoration: const InputDecoration(hintText: 'เช่น 599', suffixText: 'บาท'),
+                    ),
+                    const SizedBox(height: AppSpacing.v20),
+                    _label('ช่วงเวลา'),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _MonthYearField(
+                            label: 'เดือนเริ่ม',
+                            value: _startDate,
+                            minDate: _minDate,
+                            maxDate: _maxDate,
+                            onChanged: (picked) {
+                              if (picked == null) return;
+                              setState(() {
+                                _startDate = picked;
+                                // เดือนสิ้นสุดมาก่อนเดือนเริ่มใหม่ — ดันตามไปด้วย
+                                if (_endDate != null && _endDate!.isBefore(_startDate)) _endDate = _startDate;
+                              });
+                            },
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v0, AppSpacing.v16, AppSpacing.v16),
-                          itemCount: _items.length,
-                          itemBuilder: (context, index) {
-                            final item = _items[index];
-                            final isLatest = index == 0;
-                            final isLast = index == _items.length - 1;
-                            const accent = DashboardStyles.primaryGreen;
-                            // รายการที่หมดอายุแล้วไม่ถูกนับในยอดรวมด้านบนแล้ว
-                            // การ์ดจะจางลงพร้อม badge ให้เห็นชัดว่าทำไมยอดถึงลด
-                            // เช็คแบบเดือน (ไม่ใช่วัน) ให้ตรงกับ isActiveInMonth()
-                            // ที่ใช้คำนวณยอดรวมจริง — กันไม่ให้ badge กับยอดขัดกัน
-                            final isExpired = item.endDate != null &&
-                                !item.isActiveInMonth(DateTime.now());
-                            final periodLabel = item.endDate == null
-                                ? null
-                                : 'ถึง ${thaiMonths[item.endDate!.month - 1]} ${item.endDate!.year}';
-
-                            return IntrinsicHeight(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // เส้น timeline + จุดด้านซ้าย
-                                  Column(
-                                    children: [
-                                      Container(
-                                        width: 14,
-                                        height: 14,
-                                        margin: const EdgeInsets.only(top: AppSpacing.v4),
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: isLatest
-                                              ? accent
-                                              : Colors.grey.shade300,
-                                          border: Border.all(
-                                              color: Colors.white, width: 2),
-                                          boxShadow: isLatest
-                                              ? [
-                                                  BoxShadow(
-                                                    color: accent
-                                                        .withValues(alpha: 0.4),
-                                                    blurRadius: 6,
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                      ),
-                                      if (!isLast)
-                                        Expanded(
-                                          child: Container(
-                                            width: 2,
-                                            color: Colors.grey.shade200,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  Expanded(
-                                    child: Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: AppSpacing.v8),
-                                      child: Opacity(
-                                        opacity: isExpired ? 0.55 : 1,
-                                        child: Container(
-                                        padding: const EdgeInsets.all(AppSpacing.v14),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(AppSpacing.v12),
-                                          border: isLatest
-                                              ? Border.all(
-                                                  color:
-                                                      accent.withValues(alpha: 0.3))
-                                              : null,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.grey
-                                                  .withValues(alpha: 0.1),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.all(AppSpacing.v10),
-                                              decoration: BoxDecoration(
-                                                color: accent
-                                                    .withValues(alpha: 0.1),
-                                                borderRadius:
-                                                    BorderRadius.circular(AppSpacing.v10),
-                                              ),
-                                              child: Icon(
-                                                _iconForFixedCostCategory(
-                                                    item.category),
-                                                color: accent,
-                                                size: 22,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    item.name,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      fontSize: AppTypography.s14,
-                                                    ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    _labelForFixedCostCategory(
-                                                        item.category),
-                                                    style: TextStyle(
-                                                        fontSize: AppTypography.s11_5,
-                                                        color: Colors
-                                                            .grey.shade500),
-                                                  ),
-                                                  if (isExpired) ...[
-                                                    const SizedBox(height: 4),
-                                                    Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 7,
-                                                          vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors
-                                                            .red.shade50,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(6),
-                                                      ),
-                                                      child: Text(
-                                                        'หมดอายุแล้ว',
-                                                        style: TextStyle(
-                                                            fontSize: AppTypography.s10_5,
-                                                            color: Colors
-                                                                .red.shade400),
-                                                      ),
-                                                    ),
-                                                  ] else if (periodLabel !=
-                                                      null) ...[
-                                                    const SizedBox(height: 2),
-                                                    Text(
-                                                      periodLabel,
-                                                      style: TextStyle(
-                                                          fontSize: AppTypography.s10_5,
-                                                          color: Colors.grey
-                                                              .shade400),
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                            ),
-                                            Text(
-                                              '${formatter.format(item.amount)} บาท',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: AppTypography.s14,
-                                                color: accent,
-                                              ),
-                                            ),
-                                            PopupMenuButton<String>(
-                                              icon: Icon(Icons.more_vert,
-                                                  size: 18,
-                                                  color:
-                                                      Colors.grey.shade500),
-                                              onSelected: (value) {
-                                                if (value == 'edit') {
-                                                  _showAddEditItem(
-                                                      existing: item);
-                                                } else if (value ==
-                                                    'delete') {
-                                                  _confirmDelete(item);
-                                                }
-                                              },
-                                              itemBuilder: (context) => [
-                                                const PopupMenuItem(
-                                                  value: 'edit',
-                                                  child: Text('แก้ไข'),
-                                                ),
-                                                const PopupMenuItem(
-                                                  value: 'delete',
-                                                  child: Text('ลบ',
-                                                      style: TextStyle(
-                                                          color: Colors.red)),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
                         ),
+                        const SizedBox(width: AppSpacing.v10),
+                        Expanded(
+                          child: _MonthYearField(
+                            label: 'เดือนสิ้นสุด',
+                            value: _hasEndDate ? _endDate : null,
+                            enabled: _hasEndDate,
+                            minDate: _startDate,
+                            maxDate: _maxDate,
+                            onChanged: (picked) => setState(() => _endDate = picked),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.v8),
+                    Material(
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: SwitchListTile(
+                        value: _hasEndDate,
+                        onChanged: (v) => setState(() {
+                          _hasEndDate = v;
+                          if (v) _endDate ??= _startDate;
+                        }),
+                        title: const Text('มีเดือนสิ้นสุด',
+                            style: TextStyle(fontSize: AppTypography.s13_5, fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          _hasEndDate
+                              ? 'ไม่นับรวมในยอดหลังเดือนสิ้นสุด'
+                              : 'นับรวมทุกเดือนต่อเนื่อง ไม่มีกำหนดสิ้นสุด',
+                          style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600),
+                        ),
+                      ),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: AppSpacing.v12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.error_outline_rounded, size: 16, color: Colors.red.shade700),
+                          const SizedBox(width: AppSpacing.v6),
+                          Expanded(
+                            child: Text(_error!,
+                                style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.red.shade700)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEditItem(),
-        backgroundColor: DashboardStyles.primaryGreen,
-        child: const Icon(Icons.add, color: Colors.white),
+            Container(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v12, AppSpacing.v16, AppSpacing.v16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _save,
+                  style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Text(widget.existing == null ? 'บันทึก' : 'บันทึกการแก้ไข'),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

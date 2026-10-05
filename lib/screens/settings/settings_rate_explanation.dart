@@ -1,853 +1,749 @@
 part of 'settings_screen.dart';
 
 // ==================== อธิบายอัตราค่าไฟฟ้า / น้ำ ====================
-// หน้า static content ล้วนๆ (ยกเว้นค่า Ft ที่ดึงสดจาก Firestore) ไม่มีการบันทึก/แก้ไขข้อมูล
-// แค่โชว์ตารางอัตรา + คำอธิบายตามพื้นที่และประเภทมิเตอร์ที่ผู้ใช้ตั้งไว้จริง
-class _RateExplanationScreen extends StatefulWidget {
+// หน้าแสดงอัตราที่แอปใช้คิดให้ผู้ใช้จริง (ตามพื้นที่/ประเภทมิเตอร์/ประเภทอัตรา
+// ในโปรไฟล์) ไม่มีการบันทึกข้อมูล ค่า Ft ดึงสดจาก app_config/electricity_rates
+// ลำดับ: สรุปอัตราของฉัน -> ตารางอัตรา -> บิลคิดอย่างไร -> ข้อควรรู้ -> แหล่งอ้างอิง
+class RateExplanationScreen extends StatefulWidget {
   final String area; // 'bangkok' (MEA/MWA) หรือ 'province' (PEA/PWA)
   final String meterType; // 'normal' หรือ 'tou'
   final String tariff; // ประเภทอัตราของมิเตอร์ปกติ (UserModel.electricityTariff)
+  // ตัวโหลดค่า Ft (ไม่ส่ง = EnergyCalculator.getFtInfo ตัวเดียวกับที่คิดบิลจริง)
+  final Future<FtInfo> Function()? ftLoader;
 
-  const _RateExplanationScreen({
+  const RateExplanationScreen({
+    super.key,
     required this.area,
     required this.meterType,
     required this.tariff,
+    this.ftLoader,
   });
 
   @override
-  State<_RateExplanationScreen> createState() =>
-      _RateExplanationScreenState();
+  State<RateExplanationScreen> createState() => _RateExplanationScreenState();
 }
 
-class _RateExplanationScreenState extends State<_RateExplanationScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _RateExplanationScreenState extends State<RateExplanationScreen> {
+  bool _showWater = false;
+  FtInfo? _ft;
+
+  bool get _isBangkok => widget.area == 'bangkok';
+  bool get _isTou => widget.meterType == 'tou';
+  bool get _isSmall => widget.tariff == EnergyCalculator.tariffSmall;
+  Color get _accent => _showWater ? AppColors.waterBorder : AppColors.electricityBorder;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _loadFt();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _loadFt() async {
+    final ft = await (widget.ftLoader ?? EnergyCalculator.getFtInfo)();
+    if (mounted) setState(() => _ft = ft);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppTopBar(
-        title: 'อัตราค่าไฟฟ้า / น้ำ',
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(icon: Icon(Icons.bolt), text: 'ไฟฟ้า'),
-            Tab(icon: Icon(Icons.water_drop), text: 'น้ำ'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+      appBar: const AppTopBar(title: 'อัตราค่าไฟฟ้า / น้ำ'),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v12, AppSpacing.v16, AppSpacing.v32),
         children: [
-          _ElectricityRateTab(
-              area: widget.area,
-              meterType: widget.meterType,
-              tariff: widget.tariff),
-          _WaterRateTab(area: widget.area),
+          _utilityToggle(),
+          const SizedBox(height: AppSpacing.v12),
+          FadeSlideIn(
+            key: ValueKey(_showWater),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: _showWater ? _waterContent() : _electricityContent(),
+            ),
+          ),
         ],
       ),
     );
   }
-}
 
-// ปุ่ม (i) เปิด popup อธิบายคำศัพท์ — โครงเดียวกับ _showInfoPopup ใน
-// _SettingsScreenState แต่ทำเป็นฟังก์ชันแยกเพราะหน้านี้อยู่คนละ State class
-void _showRateInfoDialog(
-    BuildContext context, String title, String message) {
-  showInfoDialog(context, title: title, message: message);
-}
-
-// การ์ดสีขาวมาตรฐาน — โทนเดียวกับการ์ดอื่นๆ ในหน้าตั้งค่าทั้งแอป
-Widget _rateCard({required Widget child}) {
-  return Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(bottom: AppSpacing.v12),
-    padding: const EdgeInsets.all(AppSpacing.v16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(AppSpacing.v12),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withValues(alpha: 0.1),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: child,
-  );
-}
-
-// หัวข้อของแต่ละการ์ด: ไอคอน + ชื่อหัวข้อ + ปุ่ม (i) ถ้ามีคำอธิบายเพิ่ม
-Widget _rateCardHeader({
-  required BuildContext context,
-  required IconData icon,
-  required String title,
-  required Color color,
-  String? infoTitle,
-  String? infoMessage,
-}) {
-  return Row(
-    children: [
-      Container(
-        padding: const EdgeInsets.all(AppSpacing.v8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppSpacing.v8),
-        ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.s15),
-        ),
-      ),
-      if (infoTitle != null && infoMessage != null)
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          icon: Icon(Icons.info_outline, color: color, size: 20),
-          onPressed: () =>
-              _showRateInfoDialog(context, infoTitle, infoMessage),
-        ),
-    ],
-  );
-}
-
-// แถวในตารางขั้นบันได: ช่วงหน่วย + ราคาต่อหน่วย — สลับสีพื้นหลังให้อ่านง่าย
-Widget _tierRow({
-  required String range,
-  required String pricePerUnit,
-  required bool isAlt,
-  required Color color,
-}) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v8),
-    color: isAlt ? color.withValues(alpha: 0.05) : Colors.transparent,
-    child: Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: Text(range, style: const TextStyle(fontSize: AppTypography.s12_5)),
-        ),
-        Expanded(
-          flex: 2,
-          child: Text(
-            pricePerUnit,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: AppTypography.s12_5,
-              fontWeight: FontWeight.w600,
-              color: color,
+  Widget _utilityToggle() {
+    Widget option(String label, IconData icon, bool water) {
+      final selected = _showWater == water;
+      final color = water ? AppColors.waterBorder : AppColors.electricityBorder;
+      return Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _showWater = water),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.v8),
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm - 2),
+              boxShadow: selected
+                  ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 1))]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: selected ? color : Colors.grey.shade500),
+                const SizedBox(width: AppSpacing.v4),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: AppTypography.s13,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                        color: selected ? color : Colors.grey.shade600)),
+              ],
             ),
           ),
         ),
-      ],
-    ),
-  );
-}
+      );
+    }
 
-// ป้ายบอกว่ากำลังดูอัตราของเกณฑ์ไหนอยู่ — ดึงจาก area/meterType ที่ผู้ใช้
-// ตั้งไว้จริงในโปรไฟล์ ไม่ใช่ให้เลือกเองในหน้านี้ เพื่อไม่ให้สับสนกับ
-// อัตราที่แอปใช้คำนวณบิลจริงให้อยู่แล้ว
-Widget _currentSettingBanner({
-  required IconData icon,
-  required String label,
-  required Color color,
-}) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v10),
-    margin: const EdgeInsets.only(bottom: AppSpacing.v12),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(AppSpacing.v10),
-      border: Border.all(color: color.withValues(alpha: 0.25)),
-    ),
-    child: Row(
-      children: [
-        Icon(icon, color: color, size: 18),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-                color: color, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-// ข้อความย่อหน้าในการ์ด — สีเทาเข้ม อ่านง่าย
-Widget _rateBody(String text) => Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.v8),
-      child: Text(text,
-          style: TextStyle(
-              fontSize: AppTypography.s12_5,
-              color: Colors.grey.shade800,
-              height: 1.5)),
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.v3),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
+      child: Row(
+        children: [
+          option('ไฟฟ้า', Icons.bolt_rounded, false),
+          option('น้ำ', Icons.water_drop_rounded, true),
+        ],
+      ),
     );
+  }
 
-// 1 ประเภทอัตราในการ์ด "ประเภทอัตรา" — ไฮไลต์ประเภทที่แอปใช้คิดให้ผู้ใช้อยู่
-Widget _tariffTypeRow({
-  required String code,
-  required String title,
-  required String detail,
-  required bool inUse,
-  required Color color,
-}) {
-  return Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(top: AppSpacing.v8),
-    padding: const EdgeInsets.all(AppSpacing.v10),
-    decoration: BoxDecoration(
-      color: inUse ? color.withValues(alpha: 0.08) : Colors.white,
-      borderRadius: BorderRadius.circular(AppSpacing.v10),
-      border: Border.all(
-          color: inUse ? color : Colors.grey.shade300, width: inUse ? 1.5 : 1),
-    ),
-    child: Column(
+  // ==================== ส่วนประกอบร่วม ====================
+
+  // หัวการ์ด: ชื่อ + คำอธิบายสั้น + ปุ่ม ⓘ (ถ้ามีรายละเอียดเพิ่ม)
+  Widget _cardTitle(String title, {String? subtitle, String? infoTitle, String? infoMessage}) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text('ประเภท $code',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: AppTypography.s13,
-                    color: color)),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(title,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
                   style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: AppTypography.s12_5)),
-            ),
-            if (inUse)
-              Text('แอปใช้อยู่',
-                  style: TextStyle(
-                      fontSize: AppTypography.s11,
-                      fontWeight: FontWeight.bold,
-                      color: color)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(detail,
-            style: TextStyle(
-                fontSize: AppTypography.s12,
-                color: Colors.grey.shade700,
-                height: 1.4)),
-      ],
-    ),
-  );
-}
-
-// การ์ดแหล่งอ้างอิงอัตรา (ข้อความล้วน กดลิงก์ไม่ได้) พร้อมวันที่ตรวจล่าสุด
-Widget _rateSourcesCard(BuildContext context, List<String> sources) {
-  return _rateCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _rateCardHeader(
-          context: context,
-          icon: Icons.verified_outlined,
-          color: Colors.grey.shade700,
-          title: 'แหล่งอ้างอิงอัตรา',
-        ),
-        _rateBody('ตรวจกับประกาศทางการล่าสุดเมื่อ 3 ต.ค. 2569\n'
-            '${sources.map((s) => '• $s').join('\n')}'),
-      ],
-    ),
-  );
-}
-
-// ==================== แท็บไฟฟ้า ====================
-class _ElectricityRateTab extends StatefulWidget {
-  final String area;
-  final String meterType;
-  final String tariff;
-
-  const _ElectricityRateTab({
-    required this.area,
-    required this.meterType,
-    required this.tariff,
-  });
-
-  @override
-  State<_ElectricityRateTab> createState() => _ElectricityRateTabState();
-}
-
-class _ElectricityRateTabState extends State<_ElectricityRateTab> {
-  static const _amber = AppColors.rateHighlight;
-  static const _green = DashboardStyles.primaryGreen;
-  FtInfo? _ft;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFtRate();
-  }
-
-  // ดึงค่า Ft ปัจจุบันจาก app_config/electricity_rates เหมือนที่
-  // EnergyCalculator ใช้คำนวณบิลจริง เพื่อให้ตัวเลขที่โชว์ตรงกับที่แอปใช้
-  Future<void> _loadFtRate() async {
-    final ft = await EnergyCalculator.getFtInfo();
-    if (mounted) setState(() => _ft = ft);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isTou = widget.meterType == 'tou';
-    final isBangkok = widget.area == 'bangkok';
-    final isSmall = widget.tariff == EnergyCalculator.tariffSmall;
-    final area = widget.area;
-    final smallCode =
-        EnergyCalculator.tariffCode(EnergyCalculator.tariffSmall, area);
-    final standardCode =
-        EnergyCalculator.tariffCode(EnergyCalculator.tariffStandard, area);
-    final touCode = EnergyCalculator.touCode(area);
-    final ftOutdated = _ft != null &&
-        EnergyCalculator.isFtOutdated(_ft!.effectiveFrom, DateTime.now());
-
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.v16),
-      children: [
-        _currentSettingBanner(
-          icon: Icons.bolt,
-          color: _amber,
-          label: isTou
-              ? 'บัญชีของคุณตั้งค่าเป็นมิเตอร์ TOU (คิดตามช่วงเวลาการใช้ไฟ)'
-              : '${isBangkok ? 'กรุงเทพฯ/นนทบุรี/สมุทรปราการ (การไฟฟ้านครหลวง - MEA)' : 'ต่างจังหวัด (การไฟฟ้าส่วนภูมิภาค - PEA)'} • มิเตอร์ปกติ ${isSmall ? 'ประเภท $smallCode' : 'ประเภท $standardCode'}',
-        ),
-
-        // 0) ประเภทอัตราบ้านอยู่อาศัยของการไฟฟ้าในพื้นที่ผู้ใช้
-        _rateCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _rateCardHeader(
-                context: context,
-                icon: Icons.category_outlined,
-                color: _green,
-                title: 'ประเภทอัตราค่าไฟบ้านอยู่อาศัย',
-              ),
-              _rateBody('ประเภทที่ใช้คิดเงินพิมพ์อยู่บนใบแจ้งหนี้ค่าไฟทุกใบ '
-                  '${isBangkok ? 'การไฟฟ้านครหลวง' : 'การไฟฟ้าส่วนภูมิภาค'}'
-                  'แบ่งบ้านอยู่อาศัยเป็น 3 ประเภท:'),
-              _tariffTypeRow(
-                code: smallCode,
-                title: 'ใช้ไม่เกิน 150 หน่วย/เดือน',
-                detail: 'เฉพาะมิเตอร์ไม่เกิน 5 แอมแปร์ อัตราถูกกว่า ค่าบริการ '
-                    '${EnergyCalculator.smallServiceFee.toStringAsFixed(2)} บาท/เดือน',
-                inUse: !isTou && isSmall,
-                color: _green,
-              ),
-              _tariffTypeRow(
-                code: standardCode,
-                title: 'ใช้เกิน 150 หน่วย/เดือน',
-                detail: 'บ้านส่วนใหญ่ (มิเตอร์ใหญ่กว่า 5 แอมแปร์จัดอยู่ประเภทนี้เสมอ) '
-                    'ค่าบริการ ${EnergyCalculator.electricityServiceFee.toStringAsFixed(2)} '
-                    'บาท/เดือน — ค่าเริ่มต้นของแอป',
-                inUse: !isTou && !isSmall,
-                color: _green,
-              ),
-              _tariffTypeRow(
-                code: touCode,
-                title: 'TOU คิดตามช่วงเวลา',
-                detail: 'ต้องติดตั้งมิเตอร์ TOU แอปใช้อัตราแรงดันต่ำกว่า '
-                    '${isBangkok ? '12' : '22'} kV ซึ่งเป็นของบ้านทั่วไป',
-                inUse: isTou,
-                color: _green,
-              ),
-              _rateBody('กติกาการเปลี่ยนประเภท (มิเตอร์ไม่เกิน 5 แอมแปร์): ใช้เกิน '
-                  '150 หน่วยติดต่อกัน 3 เดือน เดือนถัดไปเป็นประเภท $standardCode '
-                  'และใช้ไม่เกิน 150 หน่วยติดต่อกัน 3 เดือน กลับเป็นประเภท $smallCode '
-                  '— ถ้าบิลของคุณเข้าเงื่อนไข แอปจะขึ้นแจ้งให้ตรวจ\n\n'
-                  'เปลี่ยนประเภทให้ตรงใบแจ้งหนี้ได้ที่ ตั้งค่า > ประเภทอัตราค่าไฟ\n\n'
-                  'สิทธิ์ไฟฟรีไม่เกิน 50 หน่วยของผู้ถือบัตรสวัสดิการแห่งรัฐที่ลงทะเบียน'
-                  'ไว้ แอปไม่ได้หักให้'),
-            ],
-          ),
-        ),
-
-        // 1) หลักการขั้นบันได / TOU
-        _rateCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _rateCardHeader(
-                context: context,
-                icon: Icons.trending_up_rounded,
-                color: _amber,
-                title: isTou
-                    ? 'มิเตอร์ TOU คิดเงินยังไง'
-                    : 'ทำไมยิ่งใช้ไฟเยอะ ยิ่งแพงขึ้น',
-                infoTitle: isTou ? 'อัตรา TOU คืออะไร' : 'ระบบอัตราขั้นบันได',
-                infoMessage: isTou
-                    ? 'มิเตอร์ TOU คิดค่าไฟตามช่วงเวลาแทนปริมาณการใช้ '
-                        'แบ่งเป็นช่วง Peak (ไฟแพง) และ Off-Peak (ไฟถูก) '
-                        'ราคาต่อหน่วยคงที่ตลอดแต่ละช่วง ไม่ขยับตามจำนวน'
-                        'หน่วยที่ใช้เหมือนมิเตอร์ปกติ'
-                    : 'ค่าไฟฟ้าบ้านเรือนคิดแบบขั้นบันได หน่วยแรกราคาต่ำ '
-                        'และราคาต่อหน่วยเพิ่มขึ้นเป็นช่วงตามจำนวนหน่วยที่'
-                        'ใช้ทั้งเดือน',
-              ),
-            ],
-          ),
-        ),
-
-        // 2) ตารางอัตรา
-        _rateCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _rateCardHeader(
-                context: context,
-                icon: Icons.table_chart_outlined,
-                color: _green,
-                title: isTou
-                    ? 'อัตรา TOU (Peak / Off-Peak)'
-                    : 'ตารางอัตราค่าไฟฟ้า',
-              ),
-              _rateBody(isTou
-                  ? 'ประเภท $touCode'
-                  : 'ประเภท ${isSmall ? smallCode : standardCode} ที่แอปใช้คิดให้คุณอยู่'),
-              const SizedBox(height: 8),
-              if (isTou) ...[
-                _tierRow(
-                    range: 'ช่วง Peak (จ.-ศ. 09:00-22:00 น. ไม่รวมวันหยุดราชการ)',
-                    pricePerUnit: '${EnergyCalculator.touPeakRate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                _tierRow(
-                    range: 'ช่วง Off-Peak (นอกเวลาข้างต้น เสาร์-อาทิตย์ และวันหยุดราชการ)',
-                    pricePerUnit: '${EnergyCalculator.touOffPeakRate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: true,
-                    color: _green),
-                const Divider(height: 20),
-                _tierRow(
-                    range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '${EnergyCalculator.electricityServiceFee.toStringAsFixed(2)} บาท',
-                    isAlt: false,
-                    color: _green),
-              ] else if (isSmall) ...[
-                _tierRow(
-                    range: '1 - 15 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.smallTier1Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                _tierRow(
-                    range: '16 - 25 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.smallTier2Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: true,
-                    color: _green),
-                _tierRow(
-                    range: '26 - 35 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.smallTier3Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                _tierRow(
-                    range: '36 - 100 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.smallTier4Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: true,
-                    color: _green),
-                _tierRow(
-                    range: '101 - 150 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.smallTier5Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                _tierRow(
-                    range: '151 - 400 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.smallTier6Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: true,
-                    color: _green),
-                _tierRow(
-                    range: '401 หน่วยขึ้นไป',
-                    pricePerUnit: '${EnergyCalculator.smallTier7Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                const Divider(height: 20),
-                _tierRow(
-                    range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '${EnergyCalculator.smallServiceFee.toStringAsFixed(2)} บาท',
-                    isAlt: true,
-                    color: _green),
-              ] else ...[
-                _tierRow(
-                    range: '1 - 150 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.electricityTier1Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                _tierRow(
-                    range: '151 - 400 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.electricityTier2Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: true,
-                    color: _green),
-                _tierRow(
-                    range: '401 หน่วยขึ้นไป',
-                    pricePerUnit: '${EnergyCalculator.electricityTier3Rate.toStringAsFixed(4)} บาท/หน่วย',
-                    isAlt: false,
-                    color: _green),
-                const Divider(height: 20),
-                _tierRow(
-                    range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '${EnergyCalculator.electricityServiceFee.toStringAsFixed(2)} บาท',
-                    isAlt: true,
-                    color: _green),
+                      fontSize: AppTypography.s15, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+              if (subtitle != null) ...[
+                const SizedBox(height: AppSpacing.v2),
+                Text(subtitle, style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
               ],
             ],
           ),
         ),
+        if (infoTitle != null && infoMessage != null)
+          IconButton(
+            tooltip: infoTitle,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.info_outline, size: 20, color: Colors.grey.shade600),
+            onPressed: () => showInfoDialog(context, title: infoTitle, message: infoMessage),
+          ),
+      ],
+    );
+  }
 
-        // 3) ค่า Ft
-        _rateCard(
-          child: Column(
+  // การ์ด "อัตราที่แอปใช้คิดให้คุณ": ผู้ให้บริการ + ประเภท + ตัวเลขหลัก
+  Widget _summaryCard({
+    required IconData icon,
+    required String provider,
+    required String plan,
+    required List<({String label, String value, String unit})> facts,
+  }) {
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.v16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconBadge(icon: icon, color: _accent, size: 40),
+              const SizedBox(width: AppSpacing.v12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('อัตราที่แอปใช้คิดให้คุณ',
+                        style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+                    Text(provider,
+                        style: const TextStyle(
+                            fontSize: AppTypography.s15, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.v10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v6),
+            decoration: BoxDecoration(
+              color: _accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            ),
+            child: Text(plan,
+                style: TextStyle(fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600, color: _accent)),
+          ),
+          const SizedBox(height: AppSpacing.v12),
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _rateCardHeader(
-                context: context,
-                icon: Icons.show_chart,
-                color: _amber,
-                title: 'ค่า Ft คืออะไร',
-                infoTitle: 'ค่า Ft (ค่าไฟฟ้าผันแปร)',
-                infoMessage:
-                    'ค่า Ft คือค่าไฟฟ้าที่ปรับขึ้น-ลงได้ตามต้นทุนค่าเชื้อ'
-                    'เพลิงและค่าซื้อไฟจริงของการไฟฟ้าในแต่ละช่วง คณะกรรมการ'
-                    'กำกับกิจการพลังงาน (กกพ.) ประกาศใหม่ทุก 4 เดือน (งวด '
-                    'ม.ค.-เม.ย., พ.ค.-ส.ค., ก.ย.-ธ.ค.) คิดคูณกับจำนวนหน่วยไฟ'
-                    'ที่ใช้ทั้งหมด แอปดึงค่า Ft ที่ผู้ดูแลระบบตั้งไว้มาคำนวณ'
-                    'ให้อัตโนมัติ ไม่ต้องกรอกเอง',
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Text('ค่า Ft ที่แอปใช้อยู่ตอนนี้: ',
-                      style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey)),
-                  _ft == null
-                      ? const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: _green),
-                        )
-                      : Text(
-                          '${_ft!.rate.toStringAsFixed(4)} บาท/หน่วย',
-                          style: const TextStyle(
-                              fontSize: AppTypography.s12_5,
-                              fontWeight: FontWeight.bold,
-                              color: _green),
-                        ),
-                ],
-              ),
-              if (_ft?.effectiveFrom != null)
-                _rateBody('ใช้กับงวดที่เริ่ม '
-                    '${_ft!.effectiveFrom!.day} ${thaiMonths[_ft!.effectiveFrom!.month - 1]} '
-                    '${_ft!.effectiveFrom!.year + 543}'),
-              // งวดที่ตั้งไว้เก่ากว่า 4 เดือน = ยังไม่ได้อัปเดตงวดใหม่ ยอดอาจคลาด
-              if (ftOutdated)
-                Container(
-                  margin: const EdgeInsets.only(top: AppSpacing.v8),
-                  padding: const EdgeInsets.all(AppSpacing.v8),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(AppSpacing.v8),
+              for (final (i, f) in facts.indexed) ...[
+                if (i > 0)
+                  Container(
+                    width: 1,
+                    height: 34,
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.v8),
+                    color: Colors.grey.shade200,
                   ),
-                  child: const Text(
-                    'ค่า Ft งวดใหม่อาจยังไม่ได้อัปเดตในแอป ยอดค่าไฟที่คำนวณ'
-                    'อาจคลาดจากบิลจริงเล็กน้อยค่ะ',
-                    style: TextStyle(
-                        fontSize: AppTypography.s12,
-                        color: AppColors.warningText),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(f.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
+                      const SizedBox(height: AppSpacing.v2),
+                      Text(f.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: AppTypography.s15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDark,
+                              fontFeatures: [FontFeature.tabularFigures()])),
+                      Text(f.unit,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
+                    ],
                   ),
                 ),
-            ],
-          ),
-        ),
-
-        // 4) VAT
-        _rateCard(
-          child: _rateCardHeader(
-            context: context,
-            icon: Icons.percent,
-            color: _green,
-            title: 'ภาษีมูลค่าเพิ่ม (VAT) 7%',
-            infoTitle: 'VAT คิดตรงไหน',
-            infoMessage:
-                'หลังจากรวม ค่าพลังงานไฟฟ้า + ค่าบริการรายเดือน + ค่า Ft '
-                'เข้าด้วยกันแล้ว จะนำยอดรวมทั้งหมดนั้นมาคูณ VAT 7% อีกที'
-                ' เป็นขั้นตอนสุดท้ายก่อนได้ยอดบิลที่ต้องจ่ายจริง',
-          ),
-        ),
-
-        _rateSourcesCard(context, [
-          isBangkok
-              ? 'อัตราไฟฟ้า: กกพ. erc.or.th/th/tariff/1288'
-              : 'อัตราไฟฟ้า: กฟภ. ประกาศอัตราค่าไฟฟ้า (pea.co.th)',
-          'ค่า Ft: กกพ. erc.or.th (ประกาศทุก 4 เดือน)',
-        ]),
-      ],
-    );
-  }
-}
-
-// ==================== แท็บน้ำ ====================
-class _WaterRateTab extends StatelessWidget {
-  final String area;
-
-  const _WaterRateTab({required this.area});
-
-  @override
-  Widget build(BuildContext context) {
-    const blue = AppColors.rateWater;
-    const green = DashboardStyles.primaryGreen;
-    final isBangkok = area == 'bangkok';
-
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.v16),
-      children: [
-        _currentSettingBanner(
-          icon: Icons.water_drop,
-          color: blue,
-          label: isBangkok
-              ? 'กรุงเทพฯ/นนทบุรี/สมุทรปราการ (การประปานครหลวง - MWA)'
-              : 'ต่างจังหวัด (การประปาส่วนภูมิภาค - PWA)',
-        ),
-
-        _rateCard(
-          child: _rateCardHeader(
-            context: context,
-            icon: Icons.trending_up_rounded,
-            color: blue,
-            title: 'ค่าน้ำก็คิดแบบขั้นบันไดเหมือนกัน',
-            infoTitle: 'ระบบอัตราขั้นบันได',
-            infoMessage:
-                'ยิ่งใช้น้ำเยอะ หน่วยที่เกินมาก็จะถูกคิดในอัตราที่สูงขึ้น'
-                'เรื่อยๆ เหมือนหลักการของค่าไฟฟ้าเลย ไม่ได้คิดราคา'
-                'เดียวทั้งบิล',
-          ),
-        ),
-
-        _rateCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _rateCardHeader(
-                context: context,
-                icon: Icons.table_chart_outlined,
-                color: blue,
-                title: 'ตารางอัตราค่าน้ำ (ประเภทที่อยู่อาศัย)',
-              ),
-              if (!isBangkok)
-                _rateBody('ตารางหมายเลข 3 ของ กปภ. ซึ่งใช้กับสาขาส่วนใหญ่ทั่วประเทศ '
-                    '(บางสาขา เช่น ชลบุรี พัทยา ระยอง ปทุมธานี ภูเก็ต เกาะสมุย '
-                    'ใช้ตารางอื่นที่หน่วยเกิน 50 แพงกว่านี้)'),
-              const SizedBox(height: 8),
-              if (isBangkok) ...[
-                _tierRow(
-                    range: '1 - 30 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier1.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '31 - 40 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier2.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                _tierRow(
-                    range: '41 - 50 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier3.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '51 - 60 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier4.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                _tierRow(
-                    range: '61 - 70 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier5.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '71 - 80 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier6.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                _tierRow(
-                    range: '81 - 90 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier7.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '91 - 100 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier8.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                _tierRow(
-                    range: '101 - 120 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier9.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '121 - 160 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier10.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                _tierRow(
-                    range: '161 - 200 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier11.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '201 หน่วยขึ้นไป',
-                    pricePerUnit: '${EnergyCalculator.waterMwaTier12.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                const Divider(height: 20),
-                _tierRow(
-                    range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '${EnergyCalculator.waterMwaServiceFee.toStringAsFixed(2)} บาท',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: 'ค่าน้ำดิบ',
-                    pricePerUnit: '${EnergyCalculator.waterMwaRawWaterFee.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-              ] else ...[
-                Text('ที่อยู่อาศัย ใช้ไม่เกิน 50 หน่วย:',
-                    style: TextStyle(
-                        fontSize: AppTypography.s12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700)),
-                _tierRow(
-                    range: '1 - 10 หน่วยแรก',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier1.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '11 - 20 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier2.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                _tierRow(
-                    range: '21 - 30 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier3.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '31 - 50 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier4.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                const Divider(height: 20),
-                Text('ใช้เกิน 50 หน่วย (หน่วยที่ 51 ขึ้นไปคิดอัตรานี้แทน):',
-                    style: TextStyle(
-                        fontSize: AppTypography.s12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700)),
-                _tierRow(
-                    range: '51 - 80 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier5.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '81 - 100 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier6.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                _tierRow(
-                    range: '101 - 300 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier7.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '301 - 1,000 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier8.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                _tierRow(
-                    range: '1,001 - 2,000 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier9.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                _tierRow(
-                    range: '2,001 - 3,000 หน่วย',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier10.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: true,
-                    color: blue),
-                _tierRow(
-                    range: '3,001 หน่วยขึ้นไป',
-                    pricePerUnit: '${EnergyCalculator.waterPwaTier11.toStringAsFixed(2)} บาท/หน่วย',
-                    isAlt: false,
-                    color: blue),
-                const Divider(height: 20),
-                _tierRow(
-                    range: 'ค่าบริการรายเดือน',
-                    pricePerUnit: '${EnergyCalculator.waterPwaServiceFee.toStringAsFixed(2)} บาท',
-                    isAlt: true,
-                    color: blue),
               ],
             ],
           ),
-        ),
+        ],
+      ),
+    );
+  }
 
-        _rateCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _rateCardHeader(
-                context: context,
-                icon: Icons.speed_outlined,
-                color: blue,
-                title: 'ค่าบริการตามขนาดมาตรวัดน้ำ',
+  // ตารางอัตรา: หัวคอลัมน์ + แถวสลับสี — group = หัวข้อย่อยคั่นกลางตาราง
+  Widget _rateTable(List<({String range, String price, String? group})> rows,
+      {String rangeHeader = 'จำนวนหน่วยที่ใช้', String priceHeader = 'บาท/หน่วย'}) {
+    final headerStyle =
+        TextStyle(fontSize: AppTypography.s12, fontWeight: FontWeight.w600, color: Colors.grey.shade700);
+    var alt = false;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        ),
+        child: Column(
+          children: [
+            Container(
+              color: Colors.grey.shade100,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v8),
+              child: Row(
+                children: [
+                  Expanded(flex: 3, child: Text(rangeHeader, style: headerStyle)),
+                  Expanded(flex: 2, child: Text(priceHeader, textAlign: TextAlign.right, style: headerStyle)),
+                ],
               ),
-              _rateBody('ค่าบริการรายเดือนขึ้นกับขนาดมาตรวัดน้ำ แอปใช้ขนาด ½ นิ้ว '
-                  'ของบ้านทั่วไป (${(isBangkok ? EnergyCalculator.waterMwaServiceFee : EnergyCalculator.waterPwaServiceFee).toStringAsFixed(0)} บาท/เดือน) '
-                  'ถ้าบ้านคุณใช้มาตรใหญ่กว่านี้ ค่าบริการจริงจะสูงกว่า\n\n'
-                  'ประเภทที่อยู่อาศัยไม่มีค่าน้ำขั้นต่ำ ใช้น้อยก็จ่ายตามจริง'
-                  '${isBangkok ? ' (กปน. ยกเลิกค่าน้ำขั้นต่ำตั้งแต่ เม.ย. 2558)' : ''}'),
+            ),
+            for (final r in rows) ...[
+              if (r.group != null)
+                Container(
+                  width: double.infinity,
+                  color: _accent.withValues(alpha: 0.06),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.v12, AppSpacing.v8, AppSpacing.v12, AppSpacing.v6),
+                  child: Text(r.group!,
+                      style: TextStyle(fontSize: AppTypography.s12, fontWeight: FontWeight.w600, color: _accent)),
+                ),
+              Builder(builder: (context) {
+                alt = !alt;
+                return Container(
+                  color: alt ? Colors.white : Colors.grey.shade50,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v12, vertical: AppSpacing.v8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Text(r.range,
+                            style: const TextStyle(fontSize: AppTypography.s13, color: AppColors.textDark)),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(r.price,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                                fontSize: AppTypography.s13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textDark,
+                                fontFeatures: [FontFeature.tabularFigures()])),
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ],
-          ),
+          ],
         ),
+      ),
+    );
+  }
 
-        _rateCard(
-          child: _rateCardHeader(
-            context: context,
-            icon: Icons.percent,
-            color: green,
-            title: 'ภาษีมูลค่าเพิ่ม (VAT) 7%',
-            infoTitle: 'VAT คิดตรงไหน',
-            infoMessage:
-                'หลังจากรวมค่าน้ำตามขั้นบันได + ค่าบริการรายเดือน'
-                '${isBangkok ? " + ค่าน้ำดิบ" : ""} แล้ว จะนำยอดรวมมาคูณ '
-                'VAT 7% อีกที เป็นขั้นตอนสุดท้ายก่อนได้ยอดบิลที่ต้องจ่ายจริง',
+  // ขั้นตอนคิดบิลแบบเลขลำดับ — detail คือสูตรสั้นๆ ใต้ชื่อขั้น
+  Widget _steps(List<({String title, String detail, Widget? extra})> steps) {
+    return Column(
+      children: [
+        for (final (i, s) in steps.indexed)
+          Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 0 : AppSpacing.v12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: _accent.withValues(alpha: 0.12), shape: BoxShape.circle),
+                  child: Text('${i + 1}',
+                      style: TextStyle(fontSize: AppTypography.s12, fontWeight: FontWeight.w700, color: _accent)),
+                ),
+                const SizedBox(width: AppSpacing.v10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(s.title,
+                          style: const TextStyle(
+                              fontSize: AppTypography.s13_5, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+                      const SizedBox(height: AppSpacing.v2),
+                      Text(s.detail,
+                          style: TextStyle(fontSize: AppTypography.s12_5, height: 1.45, color: Colors.grey.shade700)),
+                      if (s.extra != null) s.extra!,
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-
-        _rateSourcesCard(context, [
-          isBangkok
-              ? 'อัตราค่าน้ำ: กปน. mwa.co.th (อัตราค่าน้ำและบริการ)'
-              : 'อัตราค่าน้ำ: กปภ. pwa.co.th (อัตราค่าน้ำประปาส่วนภูมิภาค)',
-        ]),
       ],
     );
+  }
+
+  // ข้อความแบบมีจุดนำ ใช้ในการ์ดข้อควรรู้
+  Widget _note(String text) => Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.v8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.v6, right: AppSpacing.v8),
+              child: Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(color: Colors.grey.shade500, shape: BoxShape.circle),
+              ),
+            ),
+            Expanded(
+              child: Text(text,
+                  style: TextStyle(fontSize: AppTypography.s12_5, height: 1.5, color: Colors.grey.shade800)),
+            ),
+          ],
+        ),
+      );
+
+  Widget _sources(List<String> sources) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v4, AppSpacing.v16, AppSpacing.v4, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.verified_outlined, size: 15, color: Colors.grey.shade600),
+              const SizedBox(width: AppSpacing.v6),
+              Expanded(
+                child: Text('ตรวจกับประกาศทางการล่าสุดเมื่อ 3 ต.ค. 2569',
+                    style: TextStyle(
+                        fontSize: AppTypography.s12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+              ),
+            ],
+          ),
+          for (final s in sources)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.v4, left: AppSpacing.v20),
+              child: Text(s, style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _rate4(double v) => v.toStringAsFixed(4);
+  String _rate2(double v) => v.toStringAsFixed(2);
+
+  // ==================== ไฟฟ้า ====================
+
+  List<Widget> _electricityContent() {
+    final area = widget.area;
+    final smallCode = EnergyCalculator.tariffCode(EnergyCalculator.tariffSmall, area);
+    final standardCode = EnergyCalculator.tariffCode(EnergyCalculator.tariffStandard, area);
+    final touCode = EnergyCalculator.touCode(area);
+    final serviceFee = !_isTou && _isSmall ? EnergyCalculator.smallServiceFee : EnergyCalculator.electricityServiceFee;
+    final ftOutdated = _ft != null && EnergyCalculator.isFtOutdated(_ft!.effectiveFrom, DateTime.now());
+    final provider = _isBangkok ? 'การไฟฟ้านครหลวง (MEA)' : 'การไฟฟ้าส่วนภูมิภาค (PEA)';
+    final plan = _isTou
+        ? 'มิเตอร์ TOU · ประเภท $touCode'
+        : 'มิเตอร์ปกติ · ประเภท ${_isSmall ? '$smallCode ใช้ไม่เกิน 150 หน่วย/เดือน' : '$standardCode ใช้เกิน 150 หน่วย/เดือน'}';
+
+    final rows = <({String range, String price, String? group})>[
+      if (_isTou) ...[
+        (range: 'On-Peak\nจ.-ศ. 09:00-22:00 น.', price: _rate4(EnergyCalculator.touPeakRate), group: null),
+        (
+          range: 'Off-Peak\nนอกเวลาข้างต้น ส.-อา. และวันหยุดราชการ',
+          price: _rate4(EnergyCalculator.touOffPeakRate),
+          group: null
+        ),
+      ] else if (_isSmall) ...[
+        (range: '1 - 15', price: _rate4(EnergyCalculator.smallTier1Rate), group: null),
+        (range: '16 - 25', price: _rate4(EnergyCalculator.smallTier2Rate), group: null),
+        (range: '26 - 35', price: _rate4(EnergyCalculator.smallTier3Rate), group: null),
+        (range: '36 - 100', price: _rate4(EnergyCalculator.smallTier4Rate), group: null),
+        (range: '101 - 150', price: _rate4(EnergyCalculator.smallTier5Rate), group: null),
+        (range: '151 - 400', price: _rate4(EnergyCalculator.smallTier6Rate), group: null),
+        (range: '401 ขึ้นไป', price: _rate4(EnergyCalculator.smallTier7Rate), group: null),
+      ] else ...[
+        (range: '1 - 150', price: _rate4(EnergyCalculator.electricityTier1Rate), group: null),
+        (range: '151 - 400', price: _rate4(EnergyCalculator.electricityTier2Rate), group: null),
+        (range: '401 ขึ้นไป', price: _rate4(EnergyCalculator.electricityTier3Rate), group: null),
+      ],
+    ];
+
+    Widget ftDetail() {
+      if (_ft == null) return const SizedBox.shrink();
+      final from = _ft!.effectiveFrom;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (from != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.v4),
+              child: Text('งวดที่เริ่ม ${from.day} ${thaiMonths[from.month - 1]} ${from.year + 543}',
+                  style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+            ),
+          // งวดที่ตั้งไว้เก่ากว่า 4 เดือน = ยังไม่ได้อัปเดตงวดใหม่ ยอดอาจคลาด
+          if (ftOutdated)
+            Container(
+              margin: const EdgeInsets.only(top: AppSpacing.v8),
+              padding: const EdgeInsets.all(AppSpacing.v8),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                border: Border.all(color: AppColors.warningBorder),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.warningIcon),
+                  SizedBox(width: AppSpacing.v6),
+                  Expanded(
+                    child: Text(
+                      'ค่า Ft งวดใหม่อาจยังไม่ได้อัปเดตในแอป ยอดค่าไฟที่คำนวณอาจคลาดจากบิลจริงเล็กน้อยค่ะ',
+                      style: TextStyle(fontSize: AppTypography.s12, color: AppColors.warningText),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      );
+    }
+
+    return [
+      _summaryCard(
+        icon: Icons.bolt_rounded,
+        provider: provider,
+        plan: plan,
+        facts: [
+          (label: 'ค่าบริการ', value: _rate2(serviceFee), unit: 'บาท/เดือน'),
+          (label: 'ค่า Ft', value: _ft == null ? '...' : _rate4(_ft!.rate), unit: 'บาท/หน่วย'),
+          (label: 'ภาษีมูลค่าเพิ่ม', value: '7%', unit: 'ของยอดรวม'),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.v12),
+      AppCard(
+        padding: const EdgeInsets.all(AppSpacing.v16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _cardTitle(
+              _isTou ? 'อัตราค่าไฟ TOU' : 'ตารางอัตราค่าไฟ',
+              subtitle: _isTou ? 'ราคาคงที่ตามช่วงเวลา ไม่ขึ้นกับจำนวนหน่วย' : 'คิดแบบขั้นบันได ยิ่งใช้มาก หน่วยท้ายๆ ยิ่งแพง',
+              infoTitle: _isTou ? 'อัตรา TOU คืออะไร' : 'อัตราขั้นบันไดคืออะไร',
+              infoMessage: _isTou
+                  ? 'มิเตอร์ TOU คิดค่าไฟตามช่วงเวลาที่ใช้ แบ่งเป็น On-Peak (ไฟแพง) และ Off-Peak (ไฟถูก) '
+                      'ราคาต่อหน่วยคงที่ตลอดแต่ละช่วง ใช้ไฟช่วง Off-Peak มากเท่าไรก็ยิ่งประหยัด'
+                  : 'หน่วยแรกๆ ของเดือนราคาต่ำ เมื่อใช้เกินแต่ละขั้น หน่วยที่เกินจะคิดราคาขั้นถัดไป '
+                      'เช่น ใช้ 200 หน่วย: 150 หน่วยแรกคิดราคาขั้นที่ 1 และอีก 50 หน่วยคิดราคาขั้นที่ 2 '
+                      'ไม่ได้คิดราคาเดียวทั้งบิล',
+            ),
+            const SizedBox(height: AppSpacing.v12),
+            _rateTable(rows, rangeHeader: _isTou ? 'ช่วงเวลา' : 'จำนวนหน่วยที่ใช้'),
+          ],
+        ),
+      ),
+      const SizedBox(height: AppSpacing.v12),
+      AppCard(
+        padding: const EdgeInsets.all(AppSpacing.v16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _cardTitle('บิลค่าไฟคิดอย่างไร',
+                subtitle: 'ลำดับเดียวกับที่แอปใช้ประมาณยอดให้คุณ',
+                infoTitle: 'ค่า Ft คืออะไร',
+                infoMessage: 'ค่า Ft (ค่าไฟฟ้าผันแปร) ปรับขึ้น-ลงตามต้นทุนเชื้อเพลิงและค่าซื้อไฟของการไฟฟ้า '
+                    'คณะกรรมการกำกับกิจการพลังงาน (กกพ.) ประกาศใหม่ทุก 4 เดือน (งวด ม.ค.-เม.ย., พ.ค.-ส.ค., ก.ย.-ธ.ค.) '
+                    'แอปดึงค่า Ft ที่ผู้ดูแลระบบตั้งไว้มาคำนวณให้อัตโนมัติ ไม่ต้องกรอกเอง'),
+            const SizedBox(height: AppSpacing.v14),
+            _steps([
+              (
+                title: 'ค่าพลังงานไฟฟ้า',
+                detail: _isTou
+                    ? 'หน่วย On-Peak × อัตรา On-Peak + หน่วย Off-Peak × อัตรา Off-Peak'
+                    : 'หน่วยที่ใช้ในแต่ละขั้น × อัตราของขั้นนั้น ตามตารางด้านบน',
+                extra: null
+              ),
+              (title: 'บวกค่าบริการรายเดือน', detail: '${_rate2(serviceFee)} บาท ทุกเดือน แม้ไม่ได้ใช้ไฟ', extra: null),
+              (
+                title: 'บวกค่า Ft',
+                detail: _ft == null
+                    ? 'หน่วยที่ใช้ทั้งหมด × ค่า Ft'
+                    : 'หน่วยที่ใช้ทั้งหมด × ${_rate4(_ft!.rate)} บาท',
+                extra: ftDetail()
+              ),
+              (title: 'บวกภาษีมูลค่าเพิ่ม 7%', detail: 'คิดจากยอดรวมข้อ 1-3 ได้เป็นยอดที่ต้องจ่าย', extra: null),
+            ]),
+          ],
+        ),
+      ),
+      const SizedBox(height: AppSpacing.v12),
+      AppCard(
+        padding: const EdgeInsets.all(AppSpacing.v16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _cardTitle('ประเภทอัตราค่าไฟบ้านอยู่อาศัย',
+                subtitle: 'ดูประเภทของบ้านคุณได้จากใบแจ้งหนี้ค่าไฟ',
+                infoTitle: 'การเปลี่ยนประเภทอัตรา',
+                infoMessage: 'มิเตอร์ไม่เกิน 5 แอมแปร์: ใช้เกิน 150 หน่วยติดต่อกัน 3 เดือน เดือนถัดไปเป็นประเภท '
+                    '$standardCode และใช้ไม่เกิน 150 หน่วยติดต่อกัน 3 เดือน กลับเป็นประเภท $smallCode '
+                    'ถ้าบิลของคุณเข้าเงื่อนไข แอปจะแจ้งให้ตรวจค่ะ\n\n'
+                    'เปลี่ยนประเภทให้ตรงใบแจ้งหนี้ได้ที่ ตั้งค่า > ประเภทอัตราค่าไฟ'),
+            const SizedBox(height: AppSpacing.v4),
+            _tariffOption(
+              code: smallCode,
+              title: 'ใช้ไม่เกิน 150 หน่วย/เดือน',
+              detail: 'มิเตอร์ไม่เกิน 5 แอมแปร์ ค่าบริการ ${_rate2(EnergyCalculator.smallServiceFee)} บาท/เดือน',
+              inUse: !_isTou && _isSmall,
+            ),
+            _tariffOption(
+              code: standardCode,
+              title: 'ใช้เกิน 150 หน่วย/เดือน',
+              detail: 'บ้านส่วนใหญ่อยู่ประเภทนี้ ค่าบริการ '
+                  '${_rate2(EnergyCalculator.electricityServiceFee)} บาท/เดือน',
+              inUse: !_isTou && !_isSmall,
+            ),
+            _tariffOption(
+              code: touCode,
+              title: 'TOU คิดตามช่วงเวลา',
+              detail: 'ต้องติดตั้งมิเตอร์ TOU แอปใช้อัตราแรงดันต่ำกว่า ${_isBangkok ? '12' : '22'} kV ของบ้านทั่วไป',
+              inUse: _isTou,
+            ),
+            _note('สิทธิ์ไฟฟรีไม่เกิน 50 หน่วยของผู้ถือบัตรสวัสดิการแห่งรัฐ แอปไม่ได้หักให้'),
+          ],
+        ),
+      ),
+      _sources([
+        _isBangkok ? 'อัตราไฟฟ้า: กกพ. erc.or.th/th/tariff/1288' : 'อัตราไฟฟ้า: กฟภ. ประกาศอัตราค่าไฟฟ้า (pea.co.th)',
+        'ค่า Ft: กกพ. erc.or.th (ประกาศทุก 4 เดือน)',
+      ]),
+    ];
+  }
+
+  // 1 ประเภทอัตรา — ไฮไลต์ประเภทที่แอปใช้คิดให้ผู้ใช้อยู่
+  Widget _tariffOption({required String code, required String title, required String detail, required bool inUse}) {
+    return Container(
+      margin: const EdgeInsets.only(top: AppSpacing.v8),
+      padding: const EdgeInsets.all(AppSpacing.v12),
+      decoration: BoxDecoration(
+        color: inUse ? _accent.withValues(alpha: 0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: inUse ? _accent : Colors.grey.shade200, width: inUse ? 1.4 : 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 46,
+            child: Text(code,
+                style: TextStyle(
+                    fontSize: AppTypography.s13,
+                    fontWeight: FontWeight.w700,
+                    color: inUse ? _accent : Colors.grey.shade700)),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: AppTypography.s13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+                const SizedBox(height: AppSpacing.v2),
+                Text(detail, style: TextStyle(fontSize: AppTypography.s12, height: 1.4, color: Colors.grey.shade600)),
+              ],
+            ),
+          ),
+          if (inUse) ...[
+            const SizedBox(width: AppSpacing.v6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v6, vertical: AppSpacing.v2),
+              decoration: BoxDecoration(color: _accent, borderRadius: BorderRadius.circular(AppTheme.radiusSm)),
+              child: const Text('ของคุณ',
+                  style: TextStyle(fontSize: AppTypography.s11, fontWeight: FontWeight.w600, color: Colors.white)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ==================== น้ำ ====================
+
+  List<Widget> _waterContent() {
+    final serviceFee = _isBangkok ? EnergyCalculator.waterMwaServiceFee : EnergyCalculator.waterPwaServiceFee;
+    final rows = <({String range, String price, String? group})>[
+      if (_isBangkok) ...[
+        (range: '1 - 30', price: _rate2(EnergyCalculator.waterMwaTier1), group: null),
+        (range: '31 - 40', price: _rate2(EnergyCalculator.waterMwaTier2), group: null),
+        (range: '41 - 50', price: _rate2(EnergyCalculator.waterMwaTier3), group: null),
+        (range: '51 - 60', price: _rate2(EnergyCalculator.waterMwaTier4), group: null),
+        (range: '61 - 70', price: _rate2(EnergyCalculator.waterMwaTier5), group: null),
+        (range: '71 - 80', price: _rate2(EnergyCalculator.waterMwaTier6), group: null),
+        (range: '81 - 90', price: _rate2(EnergyCalculator.waterMwaTier7), group: null),
+        (range: '91 - 100', price: _rate2(EnergyCalculator.waterMwaTier8), group: null),
+        (range: '101 - 120', price: _rate2(EnergyCalculator.waterMwaTier9), group: null),
+        (range: '121 - 160', price: _rate2(EnergyCalculator.waterMwaTier10), group: null),
+        (range: '161 - 200', price: _rate2(EnergyCalculator.waterMwaTier11), group: null),
+        (range: '201 ขึ้นไป', price: _rate2(EnergyCalculator.waterMwaTier12), group: null),
+      ] else ...[
+        (range: '1 - 10', price: _rate2(EnergyCalculator.waterPwaTier1), group: 'ใช้ไม่เกิน 50 หน่วย'),
+        (range: '11 - 20', price: _rate2(EnergyCalculator.waterPwaTier2), group: null),
+        (range: '21 - 30', price: _rate2(EnergyCalculator.waterPwaTier3), group: null),
+        (range: '31 - 50', price: _rate2(EnergyCalculator.waterPwaTier4), group: null),
+        (
+          range: '51 - 80',
+          price: _rate2(EnergyCalculator.waterPwaTier5),
+          group: 'ใช้เกิน 50 หน่วย (หน่วยที่ 51 ขึ้นไป)'
+        ),
+        (range: '81 - 100', price: _rate2(EnergyCalculator.waterPwaTier6), group: null),
+        (range: '101 - 300', price: _rate2(EnergyCalculator.waterPwaTier7), group: null),
+        (range: '301 - 1,000', price: _rate2(EnergyCalculator.waterPwaTier8), group: null),
+        (range: '1,001 - 2,000', price: _rate2(EnergyCalculator.waterPwaTier9), group: null),
+        (range: '2,001 - 3,000', price: _rate2(EnergyCalculator.waterPwaTier10), group: null),
+        (range: '3,001 ขึ้นไป', price: _rate2(EnergyCalculator.waterPwaTier11), group: null),
+      ],
+    ];
+
+    return [
+      _summaryCard(
+        icon: Icons.water_drop_rounded,
+        provider: _isBangkok ? 'การประปานครหลวง (MWA)' : 'การประปาส่วนภูมิภาค (PWA)',
+        plan: _isBangkok ? 'ประเภทที่อยู่อาศัย' : 'ประเภทที่อยู่อาศัย · ตารางหมายเลข 3',
+        facts: [
+          (label: 'ค่าบริการ', value: _rate2(serviceFee), unit: 'บาท/เดือน'),
+          if (_isBangkok) (label: 'ค่าน้ำดิบ', value: _rate2(EnergyCalculator.waterMwaRawWaterFee), unit: 'บาท/หน่วย'),
+          (label: 'ภาษีมูลค่าเพิ่ม', value: '7%', unit: 'ของยอดรวม'),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.v12),
+      AppCard(
+        padding: const EdgeInsets.all(AppSpacing.v16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _cardTitle(
+              'ตารางอัตราค่าน้ำ',
+              subtitle: 'คิดแบบขั้นบันไดเหมือนค่าไฟ ยิ่งใช้มาก หน่วยท้ายๆ ยิ่งแพง',
+              infoTitle: 'อัตราขั้นบันไดคืออะไร',
+              infoMessage: _isBangkok
+                  ? 'หน่วยที่ใช้แต่ละช่วงคิดราคาของช่วงนั้น เช่น ใช้ 35 หน่วย: 30 หน่วยแรกคิดราคาขั้นที่ 1 '
+                      'และอีก 5 หน่วยคิดราคาขั้นที่ 2 ไม่ได้คิดราคาเดียวทั้งบิล'
+                  : 'ถ้าใช้ไม่เกิน 50 หน่วย คิดราคาตามช่วงในกลุ่มแรก ถ้าใช้เกิน 50 หน่วย หน่วยที่ 51 ขึ้นไป '
+                      'คิดราคาตามกลุ่มที่สองแทน\n\n'
+                      'ตารางหมายเลข 3 ใช้กับสาขาส่วนใหญ่ทั่วประเทศ บางสาขา เช่น ชลบุรี พัทยา ระยอง ปทุมธานี '
+                      'ภูเก็ต เกาะสมุย ใช้ตารางอื่นที่หน่วยเกิน 50 แพงกว่านี้',
+            ),
+            const SizedBox(height: AppSpacing.v12),
+            _rateTable(rows),
+          ],
+        ),
+      ),
+      const SizedBox(height: AppSpacing.v12),
+      AppCard(
+        padding: const EdgeInsets.all(AppSpacing.v16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _cardTitle('บิลค่าน้ำคิดอย่างไร', subtitle: 'ลำดับเดียวกับที่แอปใช้ประมาณยอดให้คุณ'),
+            const SizedBox(height: AppSpacing.v14),
+            _steps([
+              (title: 'ค่าน้ำตามขั้นบันได', detail: 'หน่วยที่ใช้ในแต่ละขั้น × อัตราของขั้นนั้น', extra: null),
+              (
+                title: 'บวกค่าบริการรายเดือน',
+                detail: '${_rate2(serviceFee)} บาท สำหรับมาตรวัดขนาด ½ นิ้วของบ้านทั่วไป',
+                extra: null
+              ),
+              if (_isBangkok)
+                (
+                  title: 'บวกค่าน้ำดิบ',
+                  detail: 'หน่วยที่ใช้ทั้งหมด × ${_rate2(EnergyCalculator.waterMwaRawWaterFee)} บาท',
+                  extra: null
+                ),
+              (
+                title: 'บวกภาษีมูลค่าเพิ่ม 7%',
+                detail: 'คิดจากยอดรวมข้อ 1-${_isBangkok ? 3 : 2} ได้เป็นยอดที่ต้องจ่าย',
+                extra: null
+              ),
+            ]),
+          ],
+        ),
+      ),
+      const SizedBox(height: AppSpacing.v12),
+      AppCard(
+        padding: const EdgeInsets.all(AppSpacing.v16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _cardTitle('ข้อควรรู้'),
+            _note('ค่าบริการขึ้นกับขนาดมาตรวัดน้ำ ถ้าบ้านคุณใช้มาตรใหญ่กว่า ½ นิ้ว ค่าบริการจริงจะสูงกว่าที่แอปคิด'),
+            _note('ประเภทที่อยู่อาศัยไม่มีค่าน้ำขั้นต่ำ ใช้น้อยก็จ่ายตามจริง'
+                '${_isBangkok ? ' (กปน. ยกเลิกค่าน้ำขั้นต่ำตั้งแต่ เม.ย. 2558)' : ''}'),
+          ],
+        ),
+      ),
+      _sources([
+        _isBangkok
+            ? 'อัตราค่าน้ำ: กปน. mwa.co.th (อัตราค่าน้ำและบริการ)'
+            : 'อัตราค่าน้ำ: กปภ. pwa.co.th (อัตราค่าน้ำประปาส่วนภูมิภาค)',
+      ]),
+    ];
   }
 }

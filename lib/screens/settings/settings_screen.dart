@@ -25,6 +25,7 @@ import '../../widgets/info_dialog.dart';
 import '../../widgets/start_meter_fields.dart';
 import '../../widgets/table_row_actions.dart';
 import '../../widgets/tab_chip.dart';
+import '../../widgets/ui/animated_amount.dart';
 import '../../widgets/ui/app_card.dart';
 import '../../widgets/ui/fade_slide_in.dart';
 import '../../widgets/ui/icon_badge.dart';
@@ -700,7 +701,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _FixedCostScreen(
+        builder: (context) => FixedCostScreen(
           uid: _user!.uid,
           firestoreService: _firestoreService,
         ),
@@ -750,7 +751,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _RateExplanationScreen(
+        builder: (context) => RateExplanationScreen(
           area: _user?.area ?? 'bangkok',
           meterType: _user?.meterType ?? 'normal',
           tariff: _user?.electricityTariff ?? EnergyCalculator.tariffStandard,
