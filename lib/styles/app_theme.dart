@@ -171,8 +171,13 @@ class AppTheme {
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) =>
             states.contains(WidgetState.selected) ? Colors.white : null),
-        trackColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.selected) ? AppColors.primaryGreen : null),
+        // สวิตช์ที่กดไม่ได้ใช้สีจาง ไม่ให้ดูเหมือนเปิดใช้งานอยู่
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (!states.contains(WidgetState.selected)) return null;
+          return states.contains(WidgetState.disabled)
+              ? AppColors.primaryGreen.withValues(alpha: 0.3)
+              : AppColors.primaryGreen;
+        }),
       ),
       progressIndicatorTheme:
           const ProgressIndicatorThemeData(color: AppColors.primaryGreen),

@@ -27,6 +27,9 @@ import '../../widgets/excel_style_table.dart';
 import '../../widgets/info_dialog.dart';
 import '../../widgets/start_meter_fields.dart';
 import '../../widgets/tab_chip.dart';
+import '../../widgets/ui/app_card.dart';
+import '../../widgets/ui/fade_slide_in.dart';
+import '../../widgets/ui/icon_badge.dart';
 import '../auth/auth_gate.dart';
 import '../dashboard/dashboard_styles.dart';
 
@@ -59,11 +62,17 @@ class SettingsScreen extends StatefulWidget {
   // ทางลัดอื่นๆ นอกจาก Fixed Cost — ดู SettingsQuickAction ด้านบน
   final SettingsQuickAction? quickAction;
 
+  // ฉีดของปลอมได้ในเทส — ไม่ส่ง = ใช้ instance จริงของ Firebase
+  final FirestoreService? firestoreService;
+  final FirebaseAuth? auth;
+
   const SettingsScreen({
     super.key,
     this.onNavTap,
     this.openFixedCostOnStart = false,
     this.quickAction,
+    this.firestoreService,
+    this.auth,
   });
 
   @override
@@ -71,7 +80,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final FirestoreService _firestoreService = FirestoreService();
+  late final FirestoreService _firestoreService = widget.firestoreService ?? FirestoreService();
+  late final FirebaseAuth _auth = widget.auth ?? FirebaseAuth.instance;
   UserModel? _user;
   bool _isLoading = true;
 
@@ -114,8 +124,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadNotificationStatus() async {
-    final status = await Permission.notification.status;
-    if (mounted) setState(() => _notificationStatus = status);
+    try {
+      final status = await Permission.notification.status;
+      if (mounted) setState(() => _notificationStatus = status);
+    } catch (_) {
+      // อ่านสถานะสิทธิ์ไม่ได้ (เช่น แพลตฟอร์มที่ไม่มีปลั๊กอิน) ถือว่ายังไม่ได้อนุญาต
+    }
   }
 
   // เปิด: ขอ permission dialog ได้เลยถ้ายังไม่เคยกดปฏิเสธถาวร ถ้าเคยปฏิเสธถาวร
@@ -169,7 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadUser() async {
     setState(() => _isLoading = true);
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final uid = _auth.currentUser!.uid;
     _user = await _firestoreService.getUser(uid);
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -209,7 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (confirmed != true) return;
 
-    await FirebaseAuth.instance.signOut();
+    await _auth.signOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const AuthGate()),
@@ -223,181 +237,116 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: DashboardStyles.background,
       appBar: const AppTopBar(title: 'ตั้งค่า', showBack: false),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: DashboardStyles.primaryGreen))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.v16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ข้อมูลผู้ใช้
-                  _buildSectionHeader('บัญชีผู้ใช้',
-                      icon: Icons.person_rounded, color: _sectionColor),
-                  _buildUserCard(),
-                  const SizedBox(height: 24),
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v16, AppSpacing.v16, AppSpacing.v32),
+              children: [
+                FadeSlideIn(child: _buildProfileCard()),
 
-                  // ตั้งค่าระบบ
-                  _buildSectionHeader('ตั้งค่าระบบ',
-                      icon: Icons.tune_rounded, color: _sectionColor),
-                  _buildSettingsCard(),
-                  const SizedBox(height: 24),
+                // ค่าที่ตั้งครั้งเดียวแล้วนานๆ เปลี่ยน
+                _sectionLabel('รอบบิลและค่าใช้จ่าย'),
+                FadeSlideIn(delay: const Duration(milliseconds: 60), child: _buildSettingsGroup()),
 
-                  // ข้อมูลและบิล
-                  _buildSectionHeader('ข้อมูลและบิล',
-                      icon: Icons.receipt_long_rounded, color: _sectionColor),
-                  _buildDataCard(),
-                  const SizedBox(height: 24),
+                // ข้อมูลที่กรอก/ดูตามรอบบิล เรียงตามลำดับใช้งาน: เลขจากใบแจ้งหนี้ →
+                // ประวัติบันทึกมิเตอร์ → บิลเดือนเก่า → อัตราที่ใช้คิดเงิน
+                _sectionLabel('ข้อมูลมิเตอร์และบิล'),
+                FadeSlideIn(delay: const Duration(milliseconds: 120), child: _buildDataGroup()),
 
-                  // การแจ้งเตือน — แยกเป็นหมวดของตัวเอง เพราะคนละเรื่องกับตั้งค่าตัวเลข/รอบบิล
-                  _buildSectionHeader('การแจ้งเตือน',
-                      icon: Icons.notifications_active_rounded,
-                      color: _sectionColor),
-                  _buildNotificationCard(),
-                  const SizedBox(height: 24),
+                _sectionLabel('การแจ้งเตือน'),
+                FadeSlideIn(delay: const Duration(milliseconds: 180), child: _buildNotificationCard()),
 
-                  // ออกจากระบบ
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _confirmSignOut(),
-                      icon: const Icon(Icons.logout),
-                      label: const Text('ออกจากระบบ'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.v20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.v12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // โซนอันตราย — ลบบัญชี+ข้อมูลทั้งหมดถาวร (PDPA: สิทธิขอให้ลบข้อมูล
-                  // ส่วนบุคคล) แยกเป็นการ์ดขอบแดงต่างหาก กันกดโดนโดยไม่ตั้งใจ
-                  _buildSectionHeader('โซนอันตราย',
-                      icon: Icons.warning_amber_rounded, color: Colors.red),
-                  _buildDangerZoneCard(),
-                  const SizedBox(height: 24),
-                ],
-              ),
+                // ออกจากระบบ + ลบบัญชี (PDPA: สิทธิขอให้ลบข้อมูลส่วนบุคคล) อยู่ท้ายสุด
+                // แยกจากเมนูอื่น ลบบัญชีเป็นแถวสีแดงและต้องยืนยันก่อนเสมอ
+                _sectionLabel('บัญชี'),
+                _buildAccountGroup(),
+              ],
             ),
-      bottomNavigationBar:
-          AppBottomNavBar(currentIndex: 3, onTap: widget.onNavTap),
+      bottomNavigationBar: AppBottomNavBar(currentIndex: 3, onTap: widget.onNavTap),
     );
   }
 
-  // หัวหมวด: ไอคอนในกรอบสีจาง + ชื่อหมวด — ทุกหมวดใช้ _sectionColor (เขียว)
-  // ยกเว้น "โซนอันตราย" ที่ใช้สีแดง
-  Widget _buildSectionHeader(
-    String title, {
-    required IconData icon,
-    required Color color,
-  }) {
+  // หัวกลุ่มเมนู — ตัวหนังสือเล็กสีเทาเหนือการ์ด
+  Widget _sectionLabel(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.v12),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v4, AppSpacing.v24, AppSpacing.v4, AppSpacing.v8),
+      child: Text(
+        title,
+        style: TextStyle(fontSize: AppTypography.s13, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+      ),
+    );
+  }
+
+  // การ์ดรวมแถวเมนูหลายแถว คั่นด้วยเส้นบางที่เริ่มหลังไอคอน
+  Widget _group(List<Widget> tiles) {
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.v6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppSpacing.v8),
-            ),
-            child: Icon(icon, size: 15, color: color),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: AppTypography.s14_5,
-              color: color,
-            ),
-          ),
+          for (final (i, tile) in tiles.indexed) ...[
+            if (i > 0) const Divider(indent: 66),
+            tile,
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildUserCard() {
-    final initials = _getInitials(_user?.name ?? '');
-    return Container(
+  Widget _buildProfileCard() {
+    final user = _user;
+    final isBangkok = user?.area == 'bangkok';
+    return AppCard(
       padding: const EdgeInsets.all(AppSpacing.v16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               CircleAvatar(
-                radius: 22,
+                radius: 26,
                 backgroundColor: _sectionColor.withValues(alpha: 0.12),
                 child: Text(
-                  initials,
+                  _getInitials(user?.name ?? ''),
                   style: const TextStyle(
-                    color: _sectionColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: AppTypography.s15,
-                  ),
+                      color: _sectionColor, fontWeight: FontWeight.w700, fontSize: AppTypography.s16),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.v14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _user?.name ?? '-',
+                      user?.name ?? '-',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: AppTypography.s15,
-                      ),
+                          fontWeight: FontWeight.w700, fontSize: AppTypography.s16, color: AppColors.textDark),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.v2),
                     Text(
-                      _user?.email ?? '-',
-                      style: TextStyle(
-                        fontSize: AppTypography.s12_5,
-                        color: Colors.grey.shade600,
-                      ),
+                      user?.email ?? '-',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
               ),
               // แก้ได้เฉพาะชื่อ — อีเมลไม่มีปุ่มแก้ไข
               IconButton(
-                icon: const Icon(Icons.edit_outlined,
-                    size: 18, color: Colors.grey),
-                visualDensity: VisualDensity.compact,
+                tooltip: 'แก้ไขชื่อ',
+                icon: Icon(Icons.edit_outlined, size: 20, color: Colors.grey.shade600),
                 onPressed: _showEditName,
               ),
             ],
           ),
-          const Divider(height: 20),
-          Row(
+          const SizedBox(height: AppSpacing.v12),
+          Wrap(
+            spacing: AppSpacing.v8,
+            runSpacing: AppSpacing.v6,
             children: [
-              Icon(Icons.electric_meter, size: 16, color: Colors.grey.shade500),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${_user?.area == 'bangkok' ? 'กรุงเทพและปริมณฑล' : 'ต่างจังหวัด'}'
-                  ' · ${_user?.meterType == 'tou' ? 'TOU' : 'ปกติ'}',
-                  style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600),
-                ),
-              ),
+              _infoChip(Icons.location_on_outlined, isBangkok ? 'กรุงเทพและปริมณฑล' : 'ต่างจังหวัด'),
+              _infoChip(Icons.electric_meter_outlined, user?.meterType == 'tou' ? 'มิเตอร์ TOU' : 'มิเตอร์ปกติ'),
             ],
           ),
         ],
@@ -405,288 +354,135 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-// ตัวอักษรย่อสำหรับ avatar — ชื่อเดียวเอา 2 ตัวแรก, ชื่อ+นามสกุลเอาตัวแรก
-// ของแต่ละคำ (เช่น "kidsnoi" → "KI", "สมชาย ใจดี" → "สจ")
+  Widget _infoChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v5),
+      decoration: BoxDecoration(
+        color: DashboardStyles.background,
+        borderRadius: BorderRadius.circular(AppSpacing.v20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.grey.shade700),
+          const SizedBox(width: AppSpacing.v4),
+          Flexible(
+            child: Text(text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade800)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ตัวอักษรย่อสำหรับ avatar — ชื่อเดียวเอา 2 ตัวแรก, ชื่อ+นามสกุลเอาตัวแรกของแต่ละ
+  // คำ (เช่น "kidsnoi" → "KI", "สมชาย ใจดี" → "สจ") ภาษาไทยข้ามสระที่เขียนหน้า
+  // พยัญชนะ (เ แ โ ใ ไ) ให้ได้ตัวพยัญชนะ
   String _getInitials(String name) {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return '?';
     final parts = trimmed.split(RegExp(r'\s+'));
+    String firstLetter(String word) =>
+        word.characters.firstWhere((c) => !'เแโใไ'.contains(c), orElse: () => word.characters.first);
     if (parts.length == 1) {
-      return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+      final letters = parts[0].characters.where((c) => !'เแโใไ'.contains(c)).take(2).join();
+      return (letters.isEmpty ? parts[0].characters.first : letters).toUpperCase();
     }
-    return (parts[0][0] + parts[1][0]).toUpperCase();
+    return (firstLetter(parts[0]) + firstLetter(parts[1])).toUpperCase();
   }
 
-  // ตั้งค่าระบบ = ค่าที่ตั้งครั้งเดียวแล้วนานๆ เปลี่ยน (วันตัดรอบ, ประเภทอัตรา,
-  // รายจ่ายประจำ) ส่วนข้อมูลที่กรอกตามรอบบิลอยู่ในการ์ด "ข้อมูลและบิล"
-  Widget _buildSettingsCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          _buildSettingsTile(
-            icon: Icons.calendar_today,
-            title: 'วันตัดรอบบิล',
-            subtitle: 'รอบบิลเริ่มทุกวันที่ ${_user?.billingDay ?? 30} ของเดือน',
-            color: _sectionColor,
-            onTap: () => _showBillingDayDialog(
-              context,
-              user: _user,
-              firestoreService: _firestoreService,
-              onSaved: _loadUser,
-            ),
-          ),
-          // ประเภทอัตราใช้กับมิเตอร์ปกติเท่านั้น (TOU มีอัตราของตัวเอง)
-          if (_user != null && _user!.meterType != 'tou') ...[
-            const Divider(height: 1, indent: 56),
-            _buildSettingsTile(
-              icon: Icons.receipt,
-              title: 'ประเภทอัตราค่าไฟ',
-              subtitle: '${tariffLabel(_user!.electricityTariff, _user!.area)} (ดูได้จากใบแจ้งหนี้)',
-              color: _sectionColor,
-              onTap: () => showElectricityTariffDialog(
-                context,
-                user: _user!,
-                firestoreService: _firestoreService,
-                onSaved: _loadUser,
-              ),
-            ),
-          ],
-          const Divider(height: 1, indent: 56),
-          _buildSettingsTile(
-            icon: Icons.attach_money,
-            title: 'รายจ่ายประจำ',
-            subtitle: 'ค่าใช้จ่ายที่คงที่ทุกเดือน',
-            color: _sectionColor,
-            onTap: () => _showEditFixedCost(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // การ์ดการแจ้งเตือน — แยกเป็นหมวดของตัวเอง เพราะเป็นเรื่องสิทธิ์การแจ้งเตือน
-  // ของเครื่อง คนละประเภทกับตัวเลข/รอบบิล — สวิตช์บนสุดคุมสิทธิ์แจ้งเตือนของเครื่อง
-  // ทั้งหมด ส่วน 4 toggle ย่อยด้านล่างคุมประเภทที่อยากรับ ถ้าสวิตช์บนปิด toggle
-  // ย่อยจะกดไม่ได้ (ไม่มีสิทธิ์แจ้งเตือนอยู่แล้วไม่ว่าตั้งประเภทไหนไว้ก็ไม่มีผล)
-  Widget _buildNotificationCard() {
-    final granted = _notificationStatus == PermissionStatus.granted;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v8),
-            leading: Container(
-              padding: const EdgeInsets.all(AppSpacing.v8),
-              decoration: BoxDecoration(
-                color: _sectionColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppSpacing.v8),
-              ),
-              child: const Icon(Icons.notifications_active_outlined,
-                  color: _sectionColor, size: 20),
-            ),
-            title: const Text(
-              'การแจ้งเตือนทั้งหมด',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s14),
-            ),
-            subtitle: Text(
-              granted ? 'เปิดอยู่' : 'ปิดอยู่',
-              style: const TextStyle(fontSize: AppTypography.s12, color: Colors.grey),
-            ),
-            trailing: Switch(
-              value: granted,
-              activeThumbColor: _sectionColor,
-              onChanged: (val) => _toggleNotification(val),
-            ),
-          ),
-          const Divider(height: 1, indent: 56),
-          _notifTypeToggle(
-            icon: Icons.event_available_outlined,
-            title: 'ถึงวันตัดรอบบิล',
-            subtitle: 'เตือนเช้าวันตัดรอบ ให้บันทึกเลขมิเตอร์จากใบแจ้งหนี้ใหม่',
-            type: 'billing',
-            enabled: granted,
-          ),
-          _notifTypeToggle(
-            icon: Icons.speed_outlined,
-            title: 'ยังไม่บันทึกมิเตอร์',
-            subtitle: 'เตือนเมื่อถึงเวลาแล้วแต่ยังไม่ได้จดมิเตอร์',
-            type: 'meter',
-            enabled: granted,
-          ),
-          _notifTypeToggle(
-            icon: Icons.trending_up_rounded,
-            title: 'ใช้ไฟ/น้ำพุ่งขึ้นผิดปกติ',
-            subtitle: 'เตือนเมื่อค่าไฟหรือค่าน้ำสูงผิดปกติจากที่ผ่านมา',
-            type: 'spike',
-            enabled: granted,
-          ),
-          _notifTypeToggle(
-            icon: Icons.summarize_outlined,
-            title: 'สรุปยอดท้ายรอบบิล',
-            subtitle: 'แจ้งสรุปค่าใช้จ่ายทันทีที่จบรอบบิล และแนะนำเมื่อควรตรวจประเภทอัตราค่าไฟ',
-            type: 'summary',
-            enabled: granted,
-            isLast: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // toggle ย่อยแต่ละประเภท — ใช้ SwitchListTile แทน ListTile+Switch แยกกัน
-  // เพราะกดได้ทั้งแถว ไม่ต้องเล็งโดนตัวสวิตช์เป๊ะๆ
-  Widget _notifTypeToggle({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String type,
-    required bool enabled,
-    bool isLast = false,
-  }) {
-    final value = _notifPrefs[type] ?? true;
-    return Column(
-      children: [
-        SwitchListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v8),
-          secondary: Container(
-            padding: const EdgeInsets.all(AppSpacing.v8),
-            decoration: BoxDecoration(
-              color: (enabled ? _sectionColor : Colors.grey).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppSpacing.v8),
-            ),
-            child: Icon(icon,
-                size: 20,
-                color: enabled ? _sectionColor : Colors.grey.shade400),
-          ),
-          title: Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: AppTypography.s14,
-              color: enabled ? Colors.black87 : Colors.grey.shade400,
-            ),
-          ),
-          subtitle: Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: AppTypography.s12,
-              color: enabled ? Colors.grey : Colors.grey.shade400,
-            ),
-          ),
-          value: value,
-          activeThumbColor: _sectionColor,
-          onChanged: enabled ? (val) => _setNotifPref(type, val) : null,
+  // ค่าที่ตั้งครั้งเดียวแล้วนานๆ เปลี่ยน (วันตัดรอบ, ประเภทอัตรา, รายจ่ายประจำ)
+  // แต่ละแถวแสดงค่าปัจจุบันไว้ด้านขวา ไม่ต้องกดเข้าไปดู
+  Widget _buildSettingsGroup() {
+    final user = _user;
+    final fixedCost = user?.fixedCost ?? 0;
+    return _group([
+      _buildSettingsTile(
+        icon: Icons.event_repeat_rounded,
+        title: 'วันตัดรอบบิล',
+        subtitle: 'วันแรกของรอบบิลใหม่ ดูได้จากใบแจ้งหนี้',
+        value: user == null || !user.billingDayConfigured ? 'ยังไม่ได้ตั้ง' : 'วันที่ ${user.billingDay}',
+        onTap: () => _showBillingDayDialog(
+          context,
+          user: _user,
+          firestoreService: _firestoreService,
+          onSaved: _loadUser,
         ),
-        if (!isLast) const Divider(height: 1, indent: 56),
-      ],
-    );
+      ),
+      // ประเภทอัตราใช้กับมิเตอร์ปกติเท่านั้น (TOU มีอัตราของตัวเอง)
+      if (user != null && user.meterType != 'tou')
+        _buildSettingsTile(
+          icon: Icons.receipt_outlined,
+          title: 'ประเภทอัตราค่าไฟ',
+          subtitle: 'ดูได้จากใบแจ้งหนี้ค่าไฟ',
+          value: tariffLabel(user.electricityTariff, user.area),
+          onTap: () => showElectricityTariffDialog(
+            context,
+            user: user,
+            firestoreService: _firestoreService,
+            onSaved: _loadUser,
+          ),
+        ),
+      _buildSettingsTile(
+        icon: Icons.payments_outlined,
+        title: 'รายจ่ายประจำ',
+        subtitle: 'ค่าใช้จ่ายที่จ่ายทุกเดือน เช่น อินเทอร์เน็ต ค่าส่วนกลาง',
+        value: fixedCost > 0 ? 'เดือนนี้ ${NumberFormat('#,##0').format(fixedCost)} บาท' : 'ยังไม่มี',
+        onTap: () => _showEditFixedCost(),
+      ),
+    ]);
   }
 
-  // ข้อมูลและบิล = ข้อมูลที่กรอก/ดูตามรอบบิล เรียงตามลำดับใช้งาน: เลขจาก
-  // ใบแจ้งหนี้ → ประวัติบันทึกมิเตอร์ → บิลเดือนเก่า → อัตราที่ใช้คิดเงิน
-  Widget _buildDataCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+  Widget _buildDataGroup() {
+    return _group([
+      // หน้าเดียวรวมประวัติ + เพิ่มค่าใหม่ (มีปุ่ม + ในหน้านั้น)
+      _buildSettingsTile(
+        icon: Icons.receipt_long_outlined,
+        title: 'เลขมิเตอร์จากใบแจ้งหนี้',
+        subtitle: 'กรอกทุกครั้งที่ได้ใบแจ้งหนี้ใหม่ ใช้เป็นจุดเริ่มคำนวณรอบบิล',
+        onTap: () => _showStartMeterHistory(),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          // หน้าเดียวรวมประวัติ + เพิ่มค่าใหม่ (มีปุ่ม + ในหน้านั้น)
-          _buildSettingsTile(
-            icon: Icons.history,
-            title: 'เลขมิเตอร์จากใบแจ้งหนี้',
-            subtitle: 'กรอกทุกครั้งที่ได้ใบแจ้งหนี้ใหม่ ใช้เป็นจุดเริ่มคำนวณรอบบิล',
-            color: _sectionColor,
-            onTap: () => _showStartMeterHistory(),
-          ),
-          const Divider(height: 1, indent: 56),
-          _buildSettingsTile(
-            icon: Icons.bolt,
-            title: 'ประวัติการบันทึกมิเตอร์',
-            subtitle: 'ดูและจัดการประวัติการบันทึก ไฟฟ้า-น้ำ',
-            color: _sectionColor,
-            onTap: () => _showUtilityHistory(),
-          ),
-          const Divider(height: 1, indent: 56),
-          _buildSettingsTile(
-            icon: Icons.receipt_long,
-            title: 'เพิ่มบิลเดือนเก่าเข้าระบบ',
-            subtitle: 'เพิ่ม แก้ไข หรือลบบิลในอดีต',
-            color: _sectionColor,
-            onTap: () => _showHistoricalBillList(),
-          ),
-          const Divider(height: 1, indent: 56),
-          // ให้ผู้ใช้เข้าใจว่าตัวเลขในบิลมาจากไหน — โชว์ตารางอัตราขั้นบันได/TOU
-          // และคำอธิบายประเภทอัตรา/Ft/VAT/ค่าบริการน้ำ ตามเกณฑ์ที่ผู้ใช้ตั้งไว้จริง
-          _buildSettingsTile(
-            icon: Icons.calculate_outlined,
-            title: 'อัตราค่าไฟฟ้า / น้ำ คำนวณยังไง',
-            subtitle: 'ตารางอัตราและวิธีคิดบิล อ่านเข้าใจง่าย',
-            color: _sectionColor,
-            onTap: () => _showRateExplanation(),
-          ),
-        ],
+      _buildSettingsTile(
+        icon: Icons.history_rounded,
+        title: 'ประวัติการบันทึกมิเตอร์',
+        subtitle: 'ดูและลบรายการที่บันทึกไว้ ทั้งไฟฟ้าและน้ำ',
+        onTap: () => _showUtilityHistory(),
       ),
-    );
+      _buildSettingsTile(
+        icon: Icons.inventory_2_outlined,
+        title: 'บิลย้อนหลัง',
+        subtitle: 'เพิ่ม แก้ไข หรือลบบิลเดือนเก่า เพื่อให้กราฟและการคาดการณ์แม่นขึ้น',
+        onTap: () => _showHistoricalBillList(),
+      ),
+      // ตารางอัตราขั้นบันได/TOU และคำอธิบายประเภทอัตรา/Ft/VAT/ค่าบริการน้ำ
+      // ตามเกณฑ์ที่ผู้ใช้ตั้งไว้จริง
+      _buildSettingsTile(
+        icon: Icons.calculate_outlined,
+        title: 'อัตราค่าไฟฟ้าและค่าน้ำ',
+        subtitle: 'ตารางอัตราและวิธีคิดบิลที่แอปใช้',
+        onTap: () => _showRateExplanation(),
+      ),
+    ]);
   }
 
-  // โซนอันตราย: ลบบัญชี + ข้อมูลทั้งหมดถาวร — แยกการ์ดขอบแดงจาก _buildDataCard
-  // ตั้งใจ ไม่ให้ปุ่มทำลายล้างปนกับ tile ธรรมดา ลดโอกาสกดพลาด
-  Widget _buildDangerZoneCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSpacing.v12),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+  Widget _buildAccountGroup() {
+    return _group([
+      _buildSettingsTile(
+        icon: Icons.logout_rounded,
+        title: 'ออกจากระบบ',
+        color: Colors.grey.shade700,
+        showChevron: false,
+        onTap: _confirmSignOut,
       ),
-      clipBehavior: Clip.antiAlias,
-      child: _buildSettingsTile(
-        icon: Icons.delete_forever_rounded,
+      _buildSettingsTile(
+        icon: Icons.delete_forever_outlined,
         title: 'ลบบัญชีและข้อมูลทั้งหมด',
-        subtitle: 'ลบถาวร กู้คืนไม่ได้ • ตามสิทธิ PDPA',
-        color: Colors.red,
+        subtitle: 'ลบถาวร กู้คืนไม่ได้ (ตามสิทธิ PDPA)',
+        color: Colors.red.shade700,
+        titleColor: Colors.red.shade700,
+        showChevron: false,
         onTap: () => _confirmDeleteAccount(
           context,
           firestoreService: _firestoreService,
@@ -695,36 +491,162 @@ class _SettingsScreenState extends State<SettingsScreen> {
           },
         ),
       ),
-    );
+    ]);
   }
 
-  Widget _buildSettingsTile({
+  // การ์ดการแจ้งเตือน — สวิตช์บนสุดคุมสิทธิ์แจ้งเตือนของเครื่องทั้งหมด ส่วน 4
+  // สวิตช์ย่อยคุมประเภทที่อยากรับ แสดงเมื่อได้รับสิทธิ์แล้วเท่านั้น
+  Widget _buildNotificationCard() {
+    final granted = _notificationStatus == PermissionStatus.granted;
+    return _group([
+      _switchTile(
+        icon: Icons.notifications_active_outlined,
+        title: 'การแจ้งเตือนของแอป',
+        subtitle: granted
+            ? 'เปิดอยู่ เลือกประเภทที่อยากรับได้ด้านล่าง'
+            : 'ปิดอยู่ เปิดเพื่อรับการแจ้งเตือนวันตัดรอบบิล การจดมิเตอร์ และสรุปค่าใช้จ่ายค่ะ',
+        value: granted,
+        onChanged: (val) => _toggleNotification(val),
+      ),
+      // ยังไม่ได้รับสิทธิ์ ประเภทย่อยไม่มีผล จึงซ่อนไว้จนกว่าจะเปิดสวิตช์บน
+      if (granted) ..._notifTypeToggles(),
+    ]);
+  }
+
+  List<Widget> _notifTypeToggles() {
+    return [
+      _notifTypeToggle(
+        icon: Icons.event_available_outlined,
+        title: 'ถึงวันตัดรอบบิล',
+        subtitle: 'เตือนเช้าวันตัดรอบ ให้บันทึกเลขมิเตอร์จากใบแจ้งหนี้ใหม่',
+        type: 'billing',
+      ),
+      _notifTypeToggle(
+        icon: Icons.speed_outlined,
+        title: 'ยังไม่บันทึกมิเตอร์',
+        subtitle: 'เตือนเมื่อถึงเวลาแล้วแต่ยังไม่ได้จดมิเตอร์',
+        type: 'meter',
+      ),
+      _notifTypeToggle(
+        icon: Icons.trending_up_rounded,
+        title: 'ใช้ไฟ/น้ำพุ่งขึ้นผิดปกติ',
+        subtitle: 'เตือนเมื่อค่าไฟหรือค่าน้ำสูงผิดปกติจากที่ผ่านมา',
+        type: 'spike',
+      ),
+      _notifTypeToggle(
+        icon: Icons.summarize_outlined,
+        title: 'สรุปยอดท้ายรอบบิล',
+        subtitle: 'สรุปค่าใช้จ่ายเมื่อจบรอบบิล และแนะนำเมื่อควรตรวจประเภทอัตราค่าไฟ',
+        type: 'summary',
+      ),
+    ];
+  }
+
+  Widget _notifTypeToggle({
     required IconData icon,
     required String title,
     required String subtitle,
+    required String type,
+  }) {
+    return _switchTile(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      value: _notifPrefs[type] ?? true,
+      onChanged: (val) => _setNotifPref(type, val),
+    );
+  }
+
+  // แถวที่มีสวิตช์ — กดได้ทั้งแถว ไม่ต้องเล็งโดนตัวสวิตช์ ([onChanged] null = ปิดใช้งาน)
+  Widget _switchTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    final enabled = onChanged != null;
+    return InkWell(
+      onTap: enabled ? () => onChanged(!value) : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v12, AppSpacing.v10, AppSpacing.v12),
+        child: Row(
+          children: [
+            IconBadge(icon: icon, color: enabled ? _sectionColor : Colors.grey.shade400, size: 38),
+            const SizedBox(width: AppSpacing.v12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: AppTypography.s14,
+                          color: enabled ? AppColors.textDark : Colors.grey.shade500)),
+                  const SizedBox(height: AppSpacing.v2),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: AppTypography.s12,
+                          height: 1.4,
+                          color: enabled ? Colors.grey.shade600 : Colors.grey.shade400)),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.v4),
+            Switch(value: value, onChanged: onChanged),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // แถวเมนู: ไอคอน + ชื่อ + คำอธิบาย + ค่าปัจจุบัน ([value]) + ลูกศร
+  Widget _buildSettingsTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    String? value,
     required VoidCallback onTap,
     Color color = _sectionColor,
+    Color titleColor = AppColors.textDark,
+    bool showChevron = true,
   }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v8),
-      leading: Container(
-        padding: const EdgeInsets.all(AppSpacing.v8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppSpacing.v8),
-        ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s14),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(fontSize: AppTypography.s12, color: Colors.grey),
-      ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+    return InkWell(
       onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v12, AppSpacing.v12, AppSpacing.v12),
+        child: Row(
+          children: [
+            IconBadge(icon: icon, color: color, size: 38),
+            const SizedBox(width: AppSpacing.v12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.s14, color: titleColor)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: AppSpacing.v2),
+                    Text(subtitle,
+                        style: TextStyle(fontSize: AppTypography.s12, height: 1.4, color: Colors.grey.shade600)),
+                  ],
+                ],
+              ),
+            ),
+            if (value != null) ...[
+              const SizedBox(width: AppSpacing.v8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
+                child: Text(value,
+                    textAlign: TextAlign.end,
+                    style: const TextStyle(
+                        fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600, color: _sectionColor)),
+              ),
+            ],
+            if (showChevron) Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 22),
+          ],
+        ),
+      ),
     );
   }
 
@@ -758,8 +680,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (newName.isEmpty) return;
               await _firestoreService.updateUser(_user!.uid, {'name': newName});
               // อัปเดต displayName ของ Firebase Auth ด้วย ให้ข้อมูลตรงกันทั้งสองที่
-              await FirebaseAuth.instance.currentUser
-                  ?.updateDisplayName(newName);
+              await _auth.currentUser?.updateDisplayName(newName);
               await _loadUser();
               if (context.mounted) Navigator.pop(context);
             },
@@ -808,7 +729,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => _UtilityHistoryScreen(
-          uid: FirebaseAuth.instance.currentUser!.uid,
+          uid: _auth.currentUser!.uid,
           firestoreService: _firestoreService,
         ),
       ),
