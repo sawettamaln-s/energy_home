@@ -1,10 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
-import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
-import '../utils/appliance_energy.dart';
-import '../utils/appliance_rate.dart';
 import '../utils/calculator.dart';
 import '../utils/cycle_projection.dart';
 import '../utils/forecaster.dart';
@@ -19,20 +16,6 @@ typedef UnitPricer = double Function({
   required double peakUnits,
   required double offPeakUnits,
 });
-
-/// สรุปสัดส่วนการใช้พลังงานของอุปกรณ์ 1 ชิ้น ในช่วงเวลาที่กำหนด
-class ApplianceUsage {
-  final ApplianceModel appliance;
-  final double kWh;
-  final double cost; // ประมาณการด้วยอัตราเฉลี่ยต่อหน่วยเดียวกับหน้าอุปกรณ์ (ApplianceRate)
-  double percentOfTotal = 0; // จะถูกเซ็ตหลังคำนวณรวมทุกอุปกรณ์แล้ว
-
-  ApplianceUsage({
-    required this.appliance,
-    required this.kWh,
-    required this.cost,
-  });
-}
 
 /// ผลลัพธ์การเปรียบเทียบ (ใช้ได้ทั้ง MoM และ YoY)
 class ComparisonResult {
@@ -99,7 +82,7 @@ class AnalysisInsight {
   final InsightLevel level;
 
   // true เฉพาะข้อสังเกตที่ชี้ไปยัง "เดือนที่ใช้สูงสุด" — ให้ UI ต่อท้ายด้วย
-  // ปุ่มลิงก์ไปแท็บอุปกรณ์ เพื่อให้ผู้ใช้ตรวจสอบต่อได้ทันทีว่าอุปกรณ์ไหน
+  // ปุ่มลิงก์ไปหน้าอุปกรณ์ เพื่อให้ผู้ใช้ตรวจสอบต่อได้ทันทีว่าอุปกรณ์ไหน
   // กินไฟเยอะสุด แทนที่จะบอกข้อสังเกตเฉยๆ แล้วจบ
   final bool showApplianceCta;
 
@@ -504,39 +487,6 @@ class AnalysisService {
     };
   }
 
-  /// จัดอันดับอุปกรณ์ตามการใช้พลังงาน (มาก -> น้อย) พร้อม % ของยอดรวม
-  /// totalDaysInPeriod: 30 = รายเดือน, 365 = รายปี
-  /// avgRatePerUnit: อัตราค่าไฟเฉลี่ย บาท/หน่วย — ผู้เรียกส่งอัตราจาก ApplianceRate
-  /// ตัวเดียวกับหน้าอุปกรณ์ ไม่ส่ง = ค่าเฉลี่ยประมาณการ
-  ///
-  /// นับเฉพาะอุปกรณ์ที่มีตารางการใช้งาน (schedules ไม่ว่าง) เท่านั้น
-  List<ApplianceUsage> applianceBreakdown(
-    List<ApplianceModel> appliances, {
-    int totalDaysInPeriod = 30,
-    double avgRatePerUnit = ApplianceRate.defaultPerUnit,
-  }) {
-    final active = appliances.where((a) => a.schedules.isNotEmpty);
-
-    final usages = active.map((a) {
-      final kWh = ApplianceEnergy.kWhForPeriod(a, totalDaysInPeriod);
-      return ApplianceUsage(
-        appliance: a,
-        kWh: kWh,
-        cost: kWh * avgRatePerUnit,
-      );
-    }).toList();
-
-    final totalKwh = usages.fold<double>(0, (acc, u) => acc + u.kWh);
-    if (totalKwh > 0) {
-      for (final u in usages) {
-        u.percentOfTotal = (u.kWh / totalKwh) * 100;
-      }
-    }
-
-    usages.sort((a, b) => b.kWh.compareTo(a.kWh)); // มาก -> น้อย
-    return usages;
-  }
-
   /// สร้างข้อสังเกต/คำแนะนำอัตโนมัติจากข้อมูลค่าไฟ/ค่าน้ำของผู้ใช้
   /// label: ใช้ขึ้นต้นข้อความ เช่น 'ค่าไฟ' หรือ 'ค่าน้ำ'
   /// includeComparisons: false = ไม่สร้างข้อ 3-4 (เทียบปีก่อน/เดือนก่อน) สำหรับ
@@ -647,32 +597,6 @@ class AnalysisService {
     if (insights.isEmpty && bills.length >= 2) {
       insights.add(AnalysisInsight(
         '$labelอยู่ในเกณฑ์ปกติ ไม่มีความผิดปกติที่ต้องสนใจในช่วงนี้',
-        InsightLevel.neutral,
-      ));
-    }
-
-    return insights;
-  }
-
-  /// ข้อสังเกตเกี่ยวกับสัดส่วนการใช้ไฟของอุปกรณ์
-  List<AnalysisInsight> generateApplianceInsights(
-    List<ApplianceUsage> breakdown,
-  ) {
-    final insights = <AnalysisInsight>[];
-    if (breakdown.isEmpty) return insights;
-
-    final top = breakdown.first;
-    if (top.percentOfTotal >= 50) {
-      insights.add(AnalysisInsight(
-        '${top.appliance.name} ใช้ไฟคิดเป็น ${top.percentOfTotal.toStringAsFixed(0)}% '
-        'ของทั้งหมดเพียงเครื่องเดียว ถ้าลดเวลาใช้งานเครื่องนี้ลงจะเห็นผลชัดเจนที่สุด',
-        InsightLevel.warning,
-      ));
-    } else if (breakdown.length >= 3) {
-      insights.add(AnalysisInsight(
-        'อุปกรณ์ 3 อันดับแรก (${breakdown.take(3).map((u) => u.appliance.name).join(", ")}) '
-        'รวมกันใช้ไฟ ${breakdown.take(3).fold<double>(0, (s, u) => s + u.percentOfTotal).toStringAsFixed(0)}% '
-        'ของทั้งหมด',
         InsightLevel.neutral,
       ));
     }

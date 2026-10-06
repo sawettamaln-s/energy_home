@@ -33,4 +33,16 @@ void main() {
     expect(ApplianceEnergy.kWhForPeriod(_appliance(1200, 'iron', '01:00', days: [5, 6]), 30),
         closeTo(1.2 * 2 / 7 * 30, 1e-9));
   });
+
+  test('ข้อมูลเก่าที่ไม่มี iconKey แต่ชื่อตรงรายการ (ตู้เย็น) -> คิดแบบตู้เย็น', () {
+    final old = ApplianceModel(
+      id: 'a',
+      uid: 'u',
+      name: 'ตู้เย็น',
+      watt: 100,
+      schedules: [ScheduleModel(days: const [0, 1, 2, 3, 4, 5, 6], startTime: '00:00', endTime: '24:00')],
+    );
+    expect(ApplianceEnergy.typeKey(old), 'kitchen');
+    expect(ApplianceEnergy.kWhPerActiveDay(old), closeTo(0.84, 1e-9));
+  });
 }

@@ -1,4 +1,5 @@
 import '../models/appliance_model.dart';
+import 'default_appliances.dart';
 
 // หน่วยไฟ (kWh) ของเครื่องใช้ไฟฟ้า — สูตรเดียวทั้งแอป (หน้ารายการอุปกรณ์,
 // ฟอร์มเพิ่ม/แก้ไข และแท็บอุปกรณ์ในหน้าวิเคราะห์)
@@ -27,14 +28,19 @@ class ApplianceEnergy {
   static double kWhPerDay(double watt, double hours, String? iconKey) =>
       watt * hours / 1000 * dutyCycle(iconKey);
 
+  // ประเภทของอุปกรณ์ที่บันทึกแล้ว: iconKey ที่เก็บตอนเลือก ข้อมูลเก่าที่ยังไม่มี
+  // iconKey จับคู่จากชื่อกับรายการสามัญประจำบ้าน (กติกาเดียวกับไอคอนในหน้ารายการ)
+  static String? typeKey(ApplianceModel a) =>
+      a.iconKey ?? DefaultAppliances.byName(a.name)?.icon;
+
   // หน่วยต่อวันที่เปิดใช้ (รวมทุกตารางเวลา ไม่เฉลี่ยวันที่ไม่ได้ใช้)
   static double kWhPerActiveDay(ApplianceModel a) => a.schedules
-      .fold(0.0, (sum, s) => sum + kWhPerDay(a.watt, s.hoursPerDay, a.iconKey));
+      .fold(0.0, (sum, s) => sum + kWhPerDay(a.watt, s.hoursPerDay, typeKey(a)));
 
   // หน่วยรวมในช่วง [days] วัน (30 = เดือน, 365 = ปี) ตามจำนวนวัน/สัปดาห์
   // ที่ตั้งไว้ในแต่ละตารางเวลา
   static double kWhForPeriod(ApplianceModel a, int days) => a.schedules.fold(
       0.0,
       (sum, s) =>
-          sum + kWhPerDay(a.watt, s.hoursPerDay, a.iconKey) * s.days.length / 7 * days);
+          sum + kWhPerDay(a.watt, s.hoursPerDay, typeKey(a)) * s.days.length / 7 * days);
 }

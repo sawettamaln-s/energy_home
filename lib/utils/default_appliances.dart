@@ -88,4 +88,13 @@ class DefaultAppliances {
       defaultWatt: 50,
     ),
   ];
+
+  // รายการที่ชื่อตรงกับ [name] พอดี (ไม่เจอ = null) — ใช้กับอุปกรณ์ที่บันทึกก่อน
+  // มีฟิลด์ iconKey ให้ยังจับประเภทได้จากชื่อ
+  static DefaultAppliance? byName(String name) {
+    for (final d in list) {
+      if (d.name == name) return d;
+    }
+    return null;
+  }
 }

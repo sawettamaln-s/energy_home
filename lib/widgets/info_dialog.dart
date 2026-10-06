@@ -53,7 +53,7 @@ void showInfoDialog(
 }
 
 /// Popup อธิบายที่มาของตัวเลขประมาณการค่าไฟอุปกรณ์ — ใช้ร่วมกันระหว่าง
-/// appliance_screen.dart และ analysis_appliance_tab.dart — [rate] คืออัตราที่
+/// หน้าอุปกรณ์และฟอร์มเพิ่ม/แก้ไขอุปกรณ์ — [rate] คืออัตราที่
 /// หน้านั้นใช้คำนวณจริง (จากบิลล่าสุดของผู้ใช้ หรือค่าเฉลี่ยประมาณการ)
 void showApplianceEstimateInfoDialog(
   BuildContext context, {

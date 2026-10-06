@@ -72,7 +72,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     if (existing != null) {
       _showForm = true;
       _nameController.text = existing.name;
-      _selectedDefault = _defaultForName(existing.name);
+      _selectedDefault = DefaultAppliances.byName(existing.name);
       _iconKey = existing.iconKey ?? _selectedDefault?.icon;
       _wattController.text = existing.watt.toStringAsFixed(0);
       if (existing.schedules.isNotEmpty) {

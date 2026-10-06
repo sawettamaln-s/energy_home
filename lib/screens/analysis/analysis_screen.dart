@@ -6,11 +6,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../models/appliance_model.dart';
 import '../../models/bill_model.dart';
 import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
-import '../../utils/appliance_rate.dart';
 import '../../utils/calculator.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../utils/thai_date_utils.dart';
@@ -23,7 +21,6 @@ import '../../widgets/ui/fade_slide_in.dart';
 import '../../widgets/ui/icon_badge.dart';
 import '../dashboard/dashboard_styles.dart';
 
-part 'analysis_appliance_tab.dart'; // แท็บอุปกรณ์ — พาย์ชาร์ต + อันดับอุปกรณ์กินไฟ
 part 'analysis_trend_bars.dart'; // ตัววาดกราฟแท่ง (ใช้ร่วมการ์ดกับหน้าประวัติ)
 part 'analysis_trend_chart.dart'; // การ์ดกราฟเทรนด์ค่าใช้จ่าย/หน่วยที่ใช้ (สลับมุมมองได้)
 part 'analysis_trend_history.dart'; // หน้าประวัติกราฟเทรนด์รายปี
@@ -58,7 +55,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   late TabController _tabController;
   List<BillModel> _bills = [];
-  List<ApplianceModel> _appliances = [];
   Map<String, CurrentCycleForecast>? _currentCycle;
   bool _isLoading = true;
   // ใช้ตัดสินว่าแท็บไฟฟ้าควรโชว์กราฟแท่งซ้อน On-Peak/Off-Peak หรือแท่งเดียว
@@ -71,17 +67,12 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   String _tariff = EnergyCalculator.tariffStandard;
   double _ftRate = EnergyCalculator.defaultFtRate;
 
-  // เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
-  // (กัน setState ถูกเรียกหลัง widget dispose ถ้า user ออกจากหน้านี้ระหว่างที่
-  // Firestore ยังส่ง snapshot ใหม่เข้ามา)
-  StreamSubscription<List<ApplianceModel>>? _applianceSub;
-
   static const _green = DashboardStyles.primaryGreen;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _loadData();
 
     // แท็บนี้ถูกเก็บไว้ใน IndexedStack ของ MainShell ตลอด ไม่มี route
@@ -99,7 +90,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   @override
   void dispose() {
     DataRefreshBus.instance.version.removeListener(_onDataChangedElsewhere);
-    _applianceSub?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -130,11 +120,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         tariff: user?.electricityTariff ?? 'standard',
       );
 
-      _applianceSub?.cancel();
-      _applianceSub = _firestoreService.getAppliances(uid).listen((data) {
-        if (mounted) setState(() => _appliances = data);
-      });
-
       if (!mounted) return;
       setState(() {
         _bills = bills;
@@ -164,6 +149,13 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               peakUnits: peakUnits, offPeakUnits: offPeakUnits, ftRate: _ftRate)
           : EnergyCalculator.electricityCost(units, ftRate: _ftRate, tariff: _tariff);
 
+  // ปุ่ม "ดูอุปกรณ์ที่ใช้ไฟมากสุด" ในข้อสังเกต — สลับไปแท็บอุปกรณ์ของ MainShell
+  // (index 2) เปิดหน้านี้นอก shell ไม่มีแท็บให้สลับ จึงไม่แสดงปุ่ม
+  VoidCallback? get _openAppliances {
+    final onNavTap = widget.onNavTap;
+    return onNavTap == null ? null : () => onNavTap(2);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -179,7 +171,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           tabs: const [
             Tab(text: 'ไฟฟ้า'),
             Tab(text: 'น้ำ'),
-            Tab(text: 'อุปกรณ์'),
           ],
         ),
       ),
@@ -208,7 +199,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     unitColor: AppColors.electricityUnit,
                     touOffPeakColor: AppColors.electricityOffPeak,
                     currentCycle: _currentCycle?['electricity'],
-                    onViewAppliances: () => _tabController.animateTo(2),
+                    onViewAppliances: _openAppliances,
                     isTou: _isTou,
                     peakUsedSelector: (b) => b.electricityPeakUsed,
                     offPeakUsedSelector: (b) => b.electricityOffPeakUsed,
@@ -231,16 +222,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     costColor: AppColors.waterBorder,
                     unitColor: AppColors.waterUnit,
                     currentCycle: _currentCycle?['water'],
-                    onViewAppliances: () => _tabController.animateTo(2),
+                    onViewAppliances: _openAppliances,
                     trackAppliances: false,
                     area: _userArea,
                     meterType: _isTou ? 'tou' : 'normal',
                     isWater: true,
-                  ),
-                  _ApplianceTab(
-                    appliances: _appliances,
-                    analysisService: _analysisService,
-                    rate: ApplianceRate.fromBills(_bills),
                   ),
                 ],
               ),

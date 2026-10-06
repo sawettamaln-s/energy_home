@@ -53,20 +53,10 @@ IconData _defaultApplianceIcon(String key) {
 }
 
 // รายการสามัญประจำบ้านที่ชื่อตรงกับ [name] (ไม่เจอ = null)
-DefaultAppliance? _defaultForName(String name) {
-  for (final d in DefaultAppliances.list) {
-    if (d.name == name) return d;
-  }
-  return null;
-}
-
-// key ไอคอนของรายการสามัญประจำบ้านที่ชื่อตรงกับ [name] (ไม่เจอ = null)
-String? _defaultIconKeyForName(String name) => _defaultForName(name)?.icon;
-
 // ไอคอนของเครื่องใช้ไฟฟ้าที่บันทึกแล้ว: ใช้ iconKey ที่เก็บไว้ตอนเลือก (เปลี่ยนชื่อ
 // ทีหลังไอคอนก็ยังเดิม) ข้อมูลเก่าที่ยังไม่มี iconKey ลองจับคู่จากชื่อ
 IconData _applianceIcon(ApplianceModel a) =>
-    _defaultApplianceIcon(a.iconKey ?? _defaultIconKeyForName(a.name) ?? '');
+    _defaultApplianceIcon(ApplianceEnergy.typeKey(a) ?? '');
 
 // ยอดเงินในหน้านี้เป็นค่าประมาณทั้งหมด แสดงเป็นบาทเต็ม
 final _bahtFmt = NumberFormat('#,##0');
@@ -168,6 +158,11 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   double _monthlyCost(ApplianceModel a) => ApplianceEnergy.kWhForPeriod(a, 30) * _rate.perUnit;
 
   double _yearlyCost(ApplianceModel a) => ApplianceEnergy.kWhForPeriod(a, 365) * _rate.perUnit;
+
+  // เรียงจากกินไฟมากไปน้อย (อุปกรณ์ที่ยังไม่ตั้งเวลาใช้งานอยู่ท้ายสุด) ให้เห็น
+  // เครื่องที่ควรลดก่อนอยู่บนสุด
+  List<ApplianceModel> get _sortedAppliances =>
+      [..._appliances]..sort((a, b) => _monthlyCost(b).compareTo(_monthlyCost(a)));
 
   double get _totalMonthlyCost =>
       _appliances.where((a) => a.schedules.isNotEmpty).fold(0.0, (sum, a) => sum + _monthlyCost(a));
@@ -271,7 +266,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
           ],
         ),
         const SizedBox(height: AppSpacing.v10),
-        for (final (i, a) in _appliances.indexed) ...[
+        for (final (i, a) in _sortedAppliances.indexed) ...[
           if (i > 0) const SizedBox(height: AppSpacing.v10),
           FadeSlideIn(
             delay: Duration(milliseconds: 60 + 40 * (i < 6 ? i : 6)),
@@ -282,7 +277,17 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     );
   }
 
+  // การ์ดบนสุด: เครื่องที่กินไฟมากที่สุด (สิ่งที่ผู้ใช้เอาไปลดได้ทันที) ยอดรวม
+  // ของทุกเครื่องเป็นบรรทัดรอง — ผู้ใช้กรอกไม่ครบทุกเครื่องและชั่วโมงเป็นการ
+  // กะเอา ยอดรวมจึงไม่ใช่ตัวเลขที่ควรเด่นหรือเอาไปเทียบบิลตรงๆ
   Widget _buildSummaryCard() {
+    final scheduled = _sortedAppliances.where((a) => a.schedules.isNotEmpty).toList();
+    final top = scheduled.isEmpty ? null : scheduled.first;
+    final bill = _rate.sourceBill;
+    final billCost = bill?.electricityCost ?? 0;
+    final billName = bill == null ? '' : '${thaiMonthsShort[bill.month - 1]} ${(bill.year + 543) % 100}';
+    String ofBill(double cost) => '${(cost / billCost * 100).toStringAsFixed(0)}%';
+
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.v16),
       child: Column(
@@ -290,12 +295,9 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
         children: [
           Row(
             children: [
-              const IconBadge(icon: Icons.bolt_rounded, color: AppColors.primaryGreen, size: 34),
-              const SizedBox(width: AppSpacing.v10),
-              const Expanded(
-                child: Text('ค่าไฟจากอุปกรณ์ที่บันทึกไว้',
-                    style: TextStyle(
-                        fontSize: AppTypography.s14, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+              Expanded(
+                child: Text(top == null ? 'ค่าไฟจากอุปกรณ์' : 'กินไฟมากที่สุด',
+                    style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade700)),
               ),
               IconButton(
                 onPressed: () => showApplianceEstimateInfoDialog(context, rate: _rate),
@@ -305,81 +307,123 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.v10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.v4),
-                child: Text('ประมาณ', style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade700)),
-              ),
-              const SizedBox(width: AppSpacing.v6),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: AnimatedAmount(
-                    value: _totalMonthlyCost.roundToDouble(),
-                    pattern: '#,##0',
-                    suffix: ' บาท/เดือน',
-                    style: const TextStyle(
-                        fontSize: AppTypography.s26, fontWeight: FontWeight.w700, color: AppColors.primaryGreen),
+          if (top == null)
+            Text('ตั้งเวลาใช้งานให้อุปกรณ์ เพื่อดูว่าเครื่องไหนกินไฟมากที่สุดค่ะ',
+                style: TextStyle(fontSize: AppTypography.s13, height: 1.5, color: Colors.grey.shade600))
+          else ...[
+            Row(
+              children: [
+                IconBadge(icon: _applianceIcon(top), color: AppColors.primaryGreen, size: 44),
+                const SizedBox(width: AppSpacing.v12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(top.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: AppTypography.s16, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.v4),
+                            child: Text('ประมาณ',
+                                style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade700)),
+                          ),
+                          const SizedBox(width: AppSpacing.v6),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: AnimatedAmount(
+                                value: _monthlyCost(top).roundToDouble(),
+                                pattern: '#,##0',
+                                suffix: ' บาท/เดือน',
+                                style: const TextStyle(
+                                    fontSize: AppTypography.s22,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primaryGreen),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (billCost > 0)
+                        Text('ราว ${ofBill(_monthlyCost(top))} ของค่าไฟบิล $billName',
+                            style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+                    ],
                   ),
                 ),
+              ],
+            ),
+            // เครื่องเดียวกินไฟเกินครึ่งของที่บันทึกไว้ — บอกว่าลดเครื่องนี้คุ้มที่สุด
+            if (scheduled.length >= 2 && _monthlyCost(top) / _totalMonthlyCost >= 0.5) ...[
+              const SizedBox(height: AppSpacing.v10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(Icons.lightbulb_outline_rounded, size: 16, color: AppColors.primaryGreen),
+                  ),
+                  const SizedBox(width: AppSpacing.v6),
+                  Expanded(
+                    child: Text(
+                      'คิดเป็น ${(_monthlyCost(top) / _totalMonthlyCost * 100).toStringAsFixed(0)}% '
+                      'ของเครื่องที่บันทึกไว้ ลดเวลาใช้เครื่องนี้จะเห็นผลชัดที่สุดค่ะ',
+                      style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.v6),
-          Text(
-            '${_appliances.length} รายการ · คิดที่ ${_rate.perUnit.toStringAsFixed(2)} บาท/หน่วย '
-            '${_rate.isFromBill ? '(จากบิลล่าสุดของคุณ)' : '(ค่าเฉลี่ยประมาณการ)'}',
-            style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade600),
-          ),
-          if (_billComparison() case final note?) ...[
+            const SizedBox(height: AppSpacing.v12),
+            const Divider(height: 1),
             const SizedBox(height: AppSpacing.v10),
-            note,
+            Text(
+              'รวม ${scheduled.length} เครื่องที่บันทึกไว้ ประมาณ ${_bahtFmt.format(_totalMonthlyCost)} บาท/เดือน'
+              '${billCost > 0 && _totalMonthlyCost <= billCost ? ' (${ofBill(_totalMonthlyCost)} ของบิล)' : ''}',
+              style: TextStyle(fontSize: AppTypography.s12_5, height: 1.45, color: Colors.grey.shade700),
+            ),
+            Text(
+              'คิดที่ ${_rate.perUnit.toStringAsFixed(2)} บาท/หน่วย '
+              '${_rate.isFromBill ? '(จากบิลล่าสุดของคุณ)' : '(ค่าเฉลี่ยประมาณการ)'}',
+              style: TextStyle(fontSize: AppTypography.s11_5, height: 1.45, color: Colors.grey.shade500),
+            ),
+            if (billCost > 0 && _totalMonthlyCost > billCost) ...[
+              const SizedBox(height: AppSpacing.v10),
+              _overBillWarning(billName, billCost),
+            ],
           ],
         ],
       ),
     );
   }
 
-  // เทียบยอดรวมของอุปกรณ์กับค่าไฟจริงในบิลที่ใช้คิดอัตรา — เกินบิลแปลว่าวัตต์
-  // หรือชั่วโมงที่กรอกน่าจะสูงกว่าที่ใช้จริง (ผลรวมของอุปกรณ์บางส่วนไม่ควรเกิน
-  // ค่าไฟทั้งบ้าน) ไม่มีบิลให้เทียบ = ไม่แสดง
-  Widget? _billComparison() {
-    final bill = _rate.sourceBill;
-    if (bill == null || bill.electricityCost <= 0) return null;
-    final pct = _totalMonthlyCost / bill.electricityCost * 100;
-    final billName = '${thaiMonthsShort[bill.month - 1]} ${(bill.year + 543) % 100}';
-    final over = pct > 100;
+  // ยอดรวมของอุปกรณ์เกินค่าไฟทั้งบ้านในบิล — วัตต์หรือชั่วโมงที่กรอกน่าจะสูงเกิน
+  Widget _overBillWarning(String billName, double billCost) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v8),
       decoration: BoxDecoration(
-        color: over ? AppColors.warning.withValues(alpha: 0.08) : Colors.grey.shade100,
+        color: AppColors.warning.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        border: over ? Border.all(color: AppColors.warningBorder) : null,
+        border: Border.all(color: AppColors.warningBorder),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: Icon(over ? Icons.warning_amber_rounded : Icons.pie_chart_outline_rounded,
-                size: 16, color: over ? AppColors.warningIcon : Colors.grey.shade700),
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.warningIcon),
           ),
           const SizedBox(width: AppSpacing.v8),
           Expanded(
             child: Text(
-              over
-                  ? 'สูงกว่าค่าไฟทั้งบ้านในบิล $billName (${_bahtFmt.format(bill.electricityCost)} บาท) '
-                      'วัตต์หรือชั่วโมงที่กรอกอาจสูงกว่าที่ใช้จริง ลองตรวจอีกครั้งค่ะ'
-                  : 'คิดเป็นประมาณ ${pct.toStringAsFixed(0)}% ของค่าไฟบิล $billName '
-                      '(${_bahtFmt.format(bill.electricityCost)} บาท)',
-              style: TextStyle(
-                  fontSize: AppTypography.s12,
-                  height: 1.45,
-                  color: over ? AppColors.warningText : Colors.grey.shade700),
+              'ยอดรวมสูงกว่าค่าไฟทั้งบ้านในบิล $billName (${_bahtFmt.format(billCost)} บาท) '
+              'วัตต์หรือชั่วโมงที่กรอกอาจสูงกว่าที่ใช้จริง ลองตรวจอีกครั้งค่ะ',
+              style: const TextStyle(fontSize: AppTypography.s12, height: 1.45, color: AppColors.warningText),
             ),
           ),
         ],

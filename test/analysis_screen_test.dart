@@ -154,11 +154,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    for (final tab in ['น้ำ', 'อุปกรณ์']) {
-      await tester.tap(find.widgetWithText(Tab, tab));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    }
-    expect(find.text('อุปกรณ์ที่ใช้ไฟ'), findsOneWidget);
+    await tester.tap(find.widgetWithText(Tab, 'น้ำ'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    // เรื่องอุปกรณ์อยู่ที่หน้าอุปกรณ์ หน้าวิเคราะห์มีแค่ไฟฟ้ากับน้ำ
+    expect(find.widgetWithText(Tab, 'อุปกรณ์'), findsNothing);
   });
 }

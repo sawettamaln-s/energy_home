@@ -80,10 +80,12 @@ void main() {
     await addAircon();
     await pumpScreen(tester);
 
-    expect(find.text('ค่าไฟจากอุปกรณ์ที่บันทึกไว้'), findsOneWidget);
+    // การ์ดบนสุดบอกเครื่องที่กินไฟมากที่สุด ชื่อจึงขึ้นทั้งในการ์ดและในรายการ
+    expect(find.text('กินไฟมากที่สุด'), findsOneWidget);
+    expect(find.text('แอร์ห้องนอน'), findsNWidgets(2));
     expect(find.text('ทุกวัน · วันละ 8 ชม.'), findsOneWidget);
 
-    await tap(tester, find.text('แอร์ห้องนอน'));
+    await tap(tester, find.text('แอร์ห้องนอน').last);
     expect(find.text('แก้ไข'), findsOneWidget);
     expect(find.text('ลบ'), findsOneWidget);
   });
@@ -92,7 +94,7 @@ void main() {
     await addAircon();
     await pumpScreen(tester);
 
-    await tap(tester, find.text('แอร์ห้องนอน'));
+    await tap(tester, find.text('แอร์ห้องนอน').last);
     await tap(tester, find.text('ลบ'));
     expect(find.text('ต้องการลบ "แอร์ห้องนอน" ใช่ไหมคะ'), findsOneWidget);
 

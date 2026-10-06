@@ -42,8 +42,8 @@ class _UtilityTab extends StatelessWidget {
   // true เฉพาะแท็บน้ำ — ใช้เลือก SeasonalCurves.water แทน .elec
   final bool isWater;
 
-  // เรียกตอนกดปุ่ม "ดูอุปกรณ์ที่ใช้ไฟมากสุด" ในข้อสังเกต — ให้ AnalysisScreen
-  // สลับไปแท็บอุปกรณ์ (index 2)
+  // เรียกตอนกดปุ่ม "ดูอุปกรณ์ที่ใช้ไฟมากสุด" ในข้อสังเกต — พาไปหน้าอุปกรณ์
+  // (null = ไม่แสดงปุ่ม)
   final VoidCallback? onViewAppliances;
 
   // หน้าอุปกรณ์เก็บเฉพาะข้อมูลการใช้ไฟฟ้า — แท็บน้ำปิดปุ่มนี้
@@ -749,7 +749,7 @@ class _InfoButton extends StatelessWidget {
 }
 
 // =====================================================================
-// การ์ดข้อสังเกต — ใช้ร่วมกันทั้งแท็บไฟฟ้า/น้ำ และแท็บอุปกรณ์
+// การ์ดข้อสังเกต — ใช้ร่วมกันทั้งแท็บไฟฟ้าและน้ำ
 // =====================================================================
 class _InsightsCard extends StatelessWidget {
   final List<AnalysisInsight> insights;
