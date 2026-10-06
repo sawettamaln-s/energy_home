@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/notification_service.dart';
 import '../dashboard/dashboard_styles.dart';
 import '../main_shell.dart';
 import 'setup_screen.dart';
@@ -121,7 +122,10 @@ class _UserGateState extends State<_UserGate> {
       case _LoadStatus.error:
         return _LoadErrorScaffold(
           onRetry: _load,
-          onSignOut: () => widget.auth.signOut(),
+          onSignOut: () async {
+            await NotificationService.instance.cancelScheduledForSignOut();
+            await widget.auth.signOut();
+          },
         );
       case _LoadStatus.loaded:
         // โหลดสำเร็จแต่ไม่มีข้อมูล User → บัญชีใหม่ ไปหน้า Setup

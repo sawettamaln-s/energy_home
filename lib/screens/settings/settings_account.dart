@@ -49,6 +49,7 @@ Future<void> _confirmDeleteAccount(
     final user = FirebaseAuth.instance.currentUser!;
     await user.reauthenticateWithCredential(credential);
 
+    await NotificationService.instance.cancelScheduledForSignOut();
     await firestoreService.deleteAllUserData(user.uid);
     await user.delete();
 

@@ -222,6 +222,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (confirmed != true) return;
 
+    await NotificationService.instance.cancelScheduledForSignOut();
     await _auth.signOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

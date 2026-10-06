@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -262,6 +262,23 @@ class NotificationService {
         scheduledTime.toIso8601String());
   }
 
+  // ยกเลิกเตือนวันตัดรอบที่ตั้งเวลาไว้กับเครื่องของบัญชีที่ login อยู่ — เรียก
+  // "ก่อน" ออกจากระบบ/ลบบัญชี (key ผูกกับ uid ปัจจุบัน) ไม่งั้นเครื่องยังเตือน
+  // ตามวันตัดรอบของบัญชีเดิมต่อ ล้มเหลวก็ไม่ขวางการออกจากระบบ
+  Future<void> cancelScheduledForSignOut() async {
+    try {
+      await _plugin.cancel(idBillingReminder);
+    } catch (e) {
+      debugPrint('Error cancelling billing reminder: $e');
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_scopedKey('pending_billing_reminder_time'));
+    } catch (e) {
+      debugPrint('Error clearing pending billing reminder: $e');
+    }
+  }
+
   // เรียกตอนเปิดแอป (ทุกครั้งที่ _loadData ทำงาน) เพื่อเช็คว่า scheduled
   // notification ที่ตั้งไว้ "ถึงเวลาแล้ว" หรือยัง ถ้าถึงแล้วให้บันทึกเข้า
   // history เพื่อให้หน้า Notification Center เห็นรายการนี้ด้วย
@@ -349,9 +366,10 @@ class NotificationService {
           !await _alreadyNotifiedThisCycle('spike_electricity', cycleStart)) {
         await _showAndLog(
           pluginId: idSpikeElectricity,
-          title: 'ค่าไฟเดือนนี้สูงขึ้นค่ะ',
+          title: 'ค่าไฟรอบบิลนี้เกินบิลก่อนแล้วค่ะ',
           body:
-              'ค่าไฟเดือนนี้ของคุณสูงกว่าเดือนก่อน ${percentChange.toStringAsFixed(0)}% ลองดูรายละเอียดการใช้งานได้นะคะ',
+              'ค่าไฟที่ใช้ไปแล้วในรอบบิลนี้เกินยอดบิลก่อนทั้งใบ ${percentChange.toStringAsFixed(0)}% '
+              'แตะเพื่อดูรายละเอียดที่หน้าวิเคราะห์ค่ะ',
           type: 'spike',
           silent: silent,
         );
@@ -366,9 +384,10 @@ class NotificationService {
           !await _alreadyNotifiedThisCycle('spike_water', cycleStart)) {
         await _showAndLog(
           pluginId: idSpikeWater,
-          title: 'ค่าน้ำเดือนนี้สูงขึ้นค่ะ',
+          title: 'ค่าน้ำรอบบิลนี้เกินบิลก่อนแล้วค่ะ',
           body:
-              'ค่าน้ำเดือนนี้ของคุณสูงกว่าเดือนก่อน ${percentChange.toStringAsFixed(0)}% ลองดูรายละเอียดการใช้งานได้นะคะ',
+              'ค่าน้ำที่ใช้ไปแล้วในรอบบิลนี้เกินยอดบิลก่อนทั้งใบ ${percentChange.toStringAsFixed(0)}% '
+              'แตะเพื่อดูรายละเอียดที่หน้าวิเคราะห์ค่ะ',
           type: 'spike',
           silent: silent,
         );
@@ -405,8 +424,8 @@ class NotificationService {
       pluginId: idForecastHigher,
       title: 'แนวโน้มค่าใช้จ่ายรอบนี้สูงขึ้นค่ะ',
       body:
-          'คาดว่าค่าไฟ+ค่าน้ำรอบบิลนี้จะสูงกว่าเดือนก่อนประมาณ ${percentChange.toStringAsFixed(0)}% '
-          'ลองดูการใช้พลังงานตอนนี้เลยดีกว่าค่ะ',
+          'คาดว่าค่าไฟ+ค่าน้ำรอบบิลนี้จะสูงกว่าบิลก่อนประมาณ ${percentChange.toStringAsFixed(0)}% '
+          'แตะเพื่อดูคาดการณ์ที่หน้าวิเคราะห์ค่ะ',
       type: 'forecast',
       silent: silent,
     );

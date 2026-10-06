@@ -20,7 +20,11 @@ import 'dashboard_styles.dart';
 /// "ลบทั้งหมด"
 /// ===========================================================
 class NotificationScreen extends StatefulWidget {
-  const NotificationScreen({super.key});
+  // พาไปแท็บวิเคราะห์ (ผู้เรียกปิดหน้านี้แล้วสลับแท็บเอง) — null = แจ้งเตือน
+  // ค่าใช้จ่ายพุ่ง/คาดการณ์แตะแล้วแค่ทำเครื่องหมายว่าอ่าน
+  final VoidCallback? onOpenAnalysis;
+
+  const NotificationScreen({super.key, this.onOpenAnalysis});
 
   @override
   State<NotificationScreen> createState() => _NotificationScreenState();
@@ -29,7 +33,8 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen> {
   List<NotificationItem> _items = [];
   bool _isLoading = true;
-  final FirestoreService _firestoreService = FirestoreService();
+  // สร้างเมื่อใช้จริง (แตะแจ้งเตือนที่ต้องเปิดหน้าตั้งค่า) — เทสเปิดหน้านี้ได้โดยไม่ต้องมี Firebase
+  late final FirestoreService _firestoreService = FirestoreService();
 
   @override
   void initState() {
@@ -53,6 +58,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
       await _load();
     }
     // ประเภทที่ไม่ได้ระบุด้านล่าง แตะแล้วแค่ทำเครื่องหมายว่าอ่าน
+    // ค่าใช้จ่ายพุ่ง/คาดการณ์สิ้นรอบสูงขึ้น แตะแล้วพาไปดูตัวเลขที่แท็บวิเคราะห์
+    final openAnalysis = widget.onOpenAnalysis;
+    if ((item.type == 'spike' || item.type == 'forecast') &&
+        openAnalysis != null &&
+        mounted) {
+      Navigator.pop(context);
+      openAnalysis();
+      return;
+    }
     // ค่า Ft งวดใหม่ (ดู notifyFtChanged) แตะแล้วพาไปหน้าอัตราที่แอปใช้คิด
     if (item.type == 'ft_rate' && mounted) {
       final uid = FirebaseAuth.instance.currentUser?.uid;

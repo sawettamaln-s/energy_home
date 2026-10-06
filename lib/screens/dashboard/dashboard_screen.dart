@@ -197,7 +197,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _onNotificationTap() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const NotificationScreen()),
+      MaterialPageRoute(
+        builder: (context) => NotificationScreen(
+          onOpenAnalysis:
+              widget.onNavTap == null ? null : () => widget.onNavTap!(1),
+        ),
+      ),
     );
     final count = await _loader.notifications.getUnreadCount();
     if (mounted) setState(() => _unreadNotifications = count);
