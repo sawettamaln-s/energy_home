@@ -22,15 +22,19 @@ class EnergyForecaster {
     required DateTime cycleEnd,
     required DateTime lastRecordedAt, // วันเวลาที่บันทึกมิเตอร์ล่าสุดในรอบนี้
     double? priorPerDay,
+    // น้ำหนักของบิลรอบก่อน (วัน) — สคริปต์วัดความแม่นยำใช้ลองหลายค่า
+    // (tool/backtest_cycle_projection.dart) แอปใช้ค่าเริ่มต้นเสมอ
+    double priorWeight = priorWeightDays,
   }) {
     final daysSoFar = lastRecordedAt.difference(cycleStart).inMinutes / 1440;
     if (daysSoFar < 1) return null;
     final daysLeft = cycleEnd.difference(lastRecordedAt).inMinutes / 1440;
-    final usePrior =
-        priorPerDay != null && priorPerDay > 0 && currentTotal > 0;
+    final usePrior = priorPerDay != null &&
+        priorPerDay > 0 &&
+        currentTotal > 0 &&
+        priorWeight > 0;
     final perDay = usePrior
-        ? (currentTotal + priorPerDay * priorWeightDays) /
-            (daysSoFar + priorWeightDays)
+        ? (currentTotal + priorPerDay * priorWeight) / (daysSoFar + priorWeight)
         : currentTotal / daysSoFar;
     final forecast = currentTotal + perDay * (daysLeft > 0 ? daysLeft : 0);
     return double.parse(forecast.toStringAsFixed(2));

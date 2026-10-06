@@ -64,6 +64,7 @@ CI (`.github/workflows/flutter-ci.yml`) runs `flutter analyze` and then `flutter
 Standalone scripts, not part of the app. Scripts that write to Firestore are dry runs until `--apply` is passed. They can't import `calculator.dart` (it depends on `cloud_firestore`), so they import the pure `tariff_tables.dart`/`forecaster.dart` instead of copying formulas.
 - `seasonal_curves/` (Python): `build_seasonal_curves.py` builds the seasonal curves; `backtest_forecast_methods.py` reports MAPE of the forecast methods on the same real data.
 - `backtest_forecast.dart`: walk-forward backtest of the app's forecast functions on one account's real bills.
+- `backtest_cycle_projection.dart` (core in `cycle_backtest/`, tested by `test/cycle_backtest_test.dart`): read-only backtest of the end-of-cycle projection on one account. Ground truth is the next cycle's start reading minus this one's; it projects at days 3–25 with `projectToCycleEnd` (its `priorWeight` parameter lets the script try several prior weights), reports MAPE/MAE/bias, the best prior weight and a leave-one-cycle-out cross-validation.
 - `demo_data/generate_demo_account.dart` fills an existing account with demo data for one of the 4 cases (`bangkok_normal`, `bangkok_tou`, `upcountry_normal`, `upcountry_tou`) using the app's own cycle rules and seasonal curves. `--reset` clears the account's data first.
 - `migrate_tou_bills.dart`: see `tool/README_migrate_tou_bills.md`.
 - `list_bills.dart`: read-only listing of one account's bills.
