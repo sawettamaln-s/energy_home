@@ -514,6 +514,12 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
           const SizedBox(height: AppSpacing.v6),
           _errorText(_timeError!),
         ],
+        // ตู้เย็น/แอร์ คอมเพรสเซอร์ตัดเข้า-ออกเป็นรอบ ถ้ากรอกชั่วโมงที่เปิดเครื่อง
+        // ค่าไฟจะสูงกว่าจริง จึงแนะนำให้กรอกชั่วโมงที่เครื่องทำงานจริง
+        if (_compressorHint case final hint?) ...[
+          const SizedBox(height: AppSpacing.v8),
+          _note(hint, icon: Icons.lightbulb_outline_rounded, color: Colors.grey.shade700),
+        ],
         const SizedBox(height: AppSpacing.v20),
 
         _label('วันที่ใช้งาน'),
@@ -559,6 +565,14 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
       child: Text(text, style: TextStyle(fontSize: AppTypography.s12, color: Theme.of(context).colorScheme.error)),
     );
   }
+
+  String? get _compressorHint => switch (_iconKey) {
+        'kitchen' => 'ตู้เย็นเสียบปลั๊กทั้งวัน แต่คอมเพรสเซอร์ทำงานเป็นช่วงๆ '
+            'ถ้าอยากได้ค่าใกล้เคียงจริง กรอกราว 8–12 ชม. แทน 24 ชม. ค่ะ',
+        'ac_unit' => 'แอร์จะหยุดคอมเพรสเซอร์เป็นช่วงเมื่อห้องเย็นพอ '
+            'ค่าไฟจากชั่วโมงที่เปิดจึงเป็นค่าสูงสุด ค่าจริงมักต่ำกว่านี้ค่ะ',
+        _ => null,
+      };
 
   Widget _note(String text, {required IconData icon, required Color color}) {
     return Row(
@@ -649,8 +663,7 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     final ready = watt > 0 && hours > 0 && hours <= 24 && _selectedDays.isNotEmpty;
     final activeDaysPerWeek = _selectedDays.length;
 
-    final duty = ApplianceEnergy.dutyCycle(_iconKey);
-    final kWhPerDay = ApplianceEnergy.kWhPerDay(watt, hours, _iconKey);
+    final kWhPerDay = ApplianceEnergy.kWhPerDay(watt, hours);
     // อัตราเดียวกับหน้ารายการ (ดู ApplianceRate)
     final costPerDay = kWhPerDay * widget.rate.perUnit;
     final costPerMonth = costPerDay * (activeDaysPerWeek / 7) * 30;
@@ -694,19 +707,10 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                     fontSize: AppTypography.s24, fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
             const SizedBox(height: AppSpacing.v4),
             Text(
-              '${_wattFmt.format(watt)} วัตต์ × ${_durationLabel(hours)}'
-              '${duty < 1 ? ' × ${(duty * 100).round()}%' : ''} = '
+              '${_wattFmt.format(watt)} วัตต์ × ${_durationLabel(hours)} ÷ 1,000 = '
               '${kWhPerDay.toStringAsFixed(2)} หน่วยต่อวันที่ใช้ · ${_daysLabel(_selectedDays)}',
               style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
             ),
-            if (duty < 1) ...[
-              const SizedBox(height: AppSpacing.v4),
-              Text(
-                'คอมเพรสเซอร์ตัดเข้า-ออกเป็นรอบ คิดว่าทำงานเต็มกำลังประมาณ '
-                '${(duty * 100).round()}% ของเวลาที่เปิดค่ะ',
-                style: TextStyle(fontSize: AppTypography.s11_5, height: 1.45, color: Colors.grey.shade600),
-              ),
-            ],
             const SizedBox(height: AppSpacing.v10),
             Row(
               children: [
