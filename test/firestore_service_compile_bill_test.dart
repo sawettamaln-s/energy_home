@@ -326,4 +326,24 @@ void main() {
     expect(await service.compileBill(uid, 2026, 6, startDate, endDate),
         CompileBillResult.created);
   });
+
+  test('ปิดบิลจากบันทึกช่วงต้นรอบ -> ถ่วงด้วยหน่วยต่อวันของบิลรอบก่อน', () async {
+    final service = FirestoreService(firestore: FakeFirebaseFirestore());
+    const uid = 'user-prior';
+    await service.createUser(
+        UserModel(uid: uid, name: 'x', email: 'x@x.com', billingDay: 1));
+    // บันทึกครั้งสุดท้าย 4 มิ.ย. (ผ่านไป 3 วัน) ใช้ 60 หน่วย = วันละ 20
+    await service.saveElectricityLog(ElectricityLogModel(
+        id: 'e1', uid: uid, date: DateTime(2026, 6, 4),
+        meterValue: 1060, usedFromStart: 60, cost: 250));
+    // บิลรอบก่อน (เดือนบิล มิ.ย. = รอบ 1 พ.ค. - 1 มิ.ย. 31 วัน) วันละ 10
+    await service.saveBill(BillModel(
+        id: 'prev', uid: uid, year: 2026, month: 6,
+        electricityUsed: 310, electricityCost: 1400, source: 'imported'));
+
+    await service.compileBill(uid, 2026, 7, startDate, endDate);
+    final bill = await service.getBillForMonth(uid, 2026, 7);
+    // อัตราต่อวัน = (60 + 10 × 5) ÷ (3 + 5) = 13.75 เหลือ 27 วัน
+    expect(bill!.electricityUsed, closeTo(60 + 13.75 * 27, 0.01));
+  });
 }

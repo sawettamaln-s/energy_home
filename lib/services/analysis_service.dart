@@ -460,6 +460,10 @@ class AnalysisService {
     // log เรียงใหม่สุดก่อน — ตัวแรกคือยอดสะสม ณ วันที่บันทึกล่าสุด
     final eLast = eLogs.isNotEmpty ? eLogs.first : null;
     final wLast = wLogs.isNotEmpty ? wLogs.first : null;
+    // บิลของรอบก่อน (เดือนบิล = เดือนที่รอบนี้เริ่ม) ถ่วงยอดคาดการณ์ช่วงต้นรอบ
+    // กติกาเดียวกับหน้าหลัก (DashboardLoader) และ compileBill
+    final priorBill = await firestoreService.getBillForMonth(
+        uid, startDate.year, startDate.month);
     final eProjection = await projectElectricityToCycleEnd(
       latest: eLast,
       cycleStart: startDate,
@@ -469,12 +473,15 @@ class AnalysisService {
       startPeak: startPeak,
       startOffPeak: startOffPeak,
       tariff: tariff,
+      priorPerDay:
+          billUnitsPerDay(priorBill, priorBill?.electricityUsed, billingDay),
     );
     final wProjection = projectWaterToCycleEnd(
       latest: wLast,
       cycleStart: startDate,
       cycleEnd: endDate,
       area: area,
+      priorPerDay: billUnitsPerDay(priorBill, priorBill?.waterUsed, billingDay),
     );
 
     CurrentCycleForecast build(

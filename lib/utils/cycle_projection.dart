@@ -1,3 +1,4 @@
+import '../models/bill_model.dart';
 import '../models/electricity_log_model.dart';
 import '../models/water_log_model.dart';
 import 'calculator.dart';
@@ -31,16 +32,29 @@ class CycleProjection {
 }
 
 double? _project(double total, DateTime cycleStart, DateTime cycleEnd,
-        DateTime lastRecordedAt) =>
+        DateTime lastRecordedAt, double? priorPerDay) =>
     EnergyForecaster.projectToCycleEnd(
       currentTotal: total,
       cycleStart: cycleStart,
       cycleEnd: cycleEnd,
       lastRecordedAt: lastRecordedAt,
+      priorPerDay: priorPerDay,
     );
+
+// หน่วยเฉลี่ยต่อวันของบิล = หน่วยทั้งรอบ ÷ จำนวนวันของรอบนั้น (บิลตั้งชื่อตาม
+// เดือนที่ปิดรอบ รอบจึงจบที่วันตัดรอบของเดือนบิล) — null = ไม่มีบิล/ไม่มีหน่วย
+double? billUnitsPerDay(BillModel? bill, double? units, int billingDay) {
+  if (bill == null || units == null || units <= 0) return null;
+  final end =
+      EnergyForecaster.safeBillingDate(bill.year, bill.month, billingDay);
+  final start = EnergyForecaster.getPreviousCycleStart(end, billingDay);
+  final days = end.difference(start).inDays;
+  return days > 0 ? units / days : null;
+}
 
 // [startPeak]/[startOffPeak] = เลขมิเตอร์ต้นรอบของรอบที่ log นี้อยู่ (TOU เท่านั้น)
 // [tariff] = ประเภทอัตราของมิเตอร์ปกติ (UserModel.electricityTariff)
+// [priorPerDay] = หน่วยไฟเฉลี่ยต่อวันของบิลรอบก่อน (ดู EnergyForecaster.projectToCycleEnd)
 Future<CycleProjection> projectElectricityToCycleEnd({
   required ElectricityLogModel? latest,
   required DateTime cycleStart,
@@ -50,6 +64,7 @@ Future<CycleProjection> projectElectricityToCycleEnd({
   double startPeak = 0,
   double startOffPeak = 0,
   String tariff = EnergyCalculator.tariffStandard,
+  double? priorPerDay,
 }) async {
   if (latest == null) return CycleProjection.empty;
   final isTou = meterType == 'tou';
@@ -60,8 +75,8 @@ Future<CycleProjection> projectElectricityToCycleEnd({
       ? EnergyCalculator.calculateUsed(latest.offPeakMeterValue ?? 0, startOffPeak)
       : 0.0;
 
-  final units =
-      _project(latest.usedFromStart, cycleStart, cycleEnd, latest.date);
+  final units = _project(
+      latest.usedFromStart, cycleStart, cycleEnd, latest.date, priorPerDay);
   if (units == null) {
     return CycleProjection(
       units: latest.usedFromStart,
@@ -71,12 +86,10 @@ Future<CycleProjection> projectElectricityToCycleEnd({
       projected: false,
     );
   }
-  final peak = isTou
-      ? _project(peakNow, cycleStart, cycleEnd, latest.date) ?? peakNow
-      : 0.0;
-  final offPeak = isTou
-      ? _project(offPeakNow, cycleStart, cycleEnd, latest.date) ?? offPeakNow
-      : 0.0;
+  // TOU แบ่งหน่วยที่ประมาณได้เป็น On/Off-Peak ตามสัดส่วนที่ใช้จริงในรอบนี้
+  final touNow = peakNow + offPeakNow;
+  final peak = isTou && touNow > 0 ? units * peakNow / touNow : 0.0;
+  final offPeak = isTou && touNow > 0 ? units * offPeakNow / touNow : 0.0;
 
   // บันทึกตรงวันตัดรอบพอดี หน่วยไม่เพิ่ม — ใช้ยอดเงินของ log ตามที่บันทึกไว้
   final cost = units <= latest.usedFromStart
@@ -103,10 +116,11 @@ CycleProjection projectWaterToCycleEnd({
   required DateTime cycleStart,
   required DateTime cycleEnd,
   required String area,
+  double? priorPerDay, // หน่วยน้ำเฉลี่ยต่อวันของบิลรอบก่อน
 }) {
   if (latest == null) return CycleProjection.empty;
-  final units =
-      _project(latest.usedFromStart, cycleStart, cycleEnd, latest.date);
+  final units = _project(
+      latest.usedFromStart, cycleStart, cycleEnd, latest.date, priorPerDay);
   if (units == null) {
     return CycleProjection(
         units: latest.usedFromStart, cost: latest.cost, projected: false);

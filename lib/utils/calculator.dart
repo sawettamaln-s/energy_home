@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 // อัตราค่าไฟฟ้า/ค่าน้ำประปาบ้านอยู่อาศัย — ตรวจกับแหล่งทางการเมื่อ 3 ต.ค. 2569:
 //   ไฟฟ้า กฟน. : กกพ. https://www.erc.or.th/th/tariff/1288
@@ -19,17 +20,53 @@ class EnergyCalculator {
 
   static Future<double> getFtRate() async => (await getFtInfo()).rate;
 
+  // ตัวอ่านเอกสาร app_config/electricity_rates — เทสเปลี่ยนเป็นตัวปลอมได้
+  // (คืนค่าเดิมด้วย resetFtSource)
+  static Future<Map<String, dynamic>?> Function() ftDocLoader = _readFtDoc;
+
+  static Future<Map<String, dynamic>?> _readFtDoc() async =>
+      (await FirebaseFirestore.instance
+              .collection('app_config')
+              .doc('electricity_rates')
+              .get())
+          .data();
+
+  // จำค่า Ft ที่อ่านได้ไว้ชั่วคราว — การคิดเงินทีละหลายยอด (คิดใหม่ทั้งรอบ, ปิด
+  // บิลย้อนหลัง) จึงไม่อ่าน Firestore ซ้ำทุกยอด อ่านไม่สำเร็จไม่จำ ครั้งหน้าลองใหม่
+  static const Duration ftCacheDuration = Duration(minutes: 10);
+  static FtInfo? _ftCache;
+  static DateTime? _ftCachedAt;
+
   // ft_rate = บาท/หน่วย, ft_effective_from = วันเริ่มงวด (ISO เช่น 2026-09-01)
   static Future<FtInfo> getFtInfo() async {
+    final cached = _ftCache;
+    final cachedAt = _ftCachedAt;
+    if (cached != null &&
+        cachedAt != null &&
+        DateTime.now().difference(cachedAt) < ftCacheDuration) {
+      return cached;
+    }
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('app_config')
-          .doc('electricity_rates')
-          .get();
-      return ftInfoFromMap(doc.data());
+      final info = ftInfoFromMap(await ftDocLoader());
+      rememberFtInfo(info);
+      return info;
     } catch (e) {
       return (rate: defaultFtRate, effectiveFrom: null);
     }
+  }
+
+  // ใช้ค่า Ft ที่เพิ่งอ่านมาจากที่อื่น (เช่น FirestoreService.getFtInfo ตอนโหลด
+  // หน้าหลัก) เป็นค่าที่จำไว้ การคิดเงินหลังจากนั้นจึงใช้งวดล่าสุดทันที
+  static void rememberFtInfo(FtInfo info) {
+    _ftCache = info;
+    _ftCachedAt = DateTime.now();
+  }
+
+  @visibleForTesting
+  static void resetFtSource() {
+    ftDocLoader = _readFtDoc;
+    _ftCache = null;
+    _ftCachedAt = null;
   }
 
   // แปลงเอกสาร app_config/electricity_rates เป็น FtInfo (ไม่มี ft_rate = ค่า default)
@@ -132,13 +169,15 @@ class EnergyCalculator {
   // คำนวณค่าไฟฟ้าแบบปกติ
   // area: 'bangkok' = MEA, 'province' = PEA (ทั้งสองใช้ตารางอัตราเดียวกัน)
   // tariff: ประเภทอัตรา (ดู tariffStandard/tariffSmall) ไม่ส่ง = ใช้เกิน 150 หน่วย
+  // ใช้ 0 หน่วยยังเสียค่าบริการรายเดือน (+ VAT) เหมือนใบแจ้งหนี้จริง
   static Future<double> calculateElectricity(
     double units,
     String area, {
     String tariff = tariffStandard,
   }) async {
-    if (units <= 0) return 0;
-    return electricityCost(units, ftRate: await getFtRate(), tariff: tariff);
+    // 0 หน่วยไม่มีค่า Ft ให้คิด ไม่ต้องอ่าน Firestore
+    final ftRate = units > 0 ? await getFtRate() : 0.0;
+    return electricityCost(units, ftRate: ftRate, tariff: tariff);
   }
 
   // ค่าไฟฟ้าแบบปกติด้วยค่า Ft ที่ส่งมา (ไม่อ่าน Firestore) — ใช้เมื่อต้องคิด
@@ -148,7 +187,7 @@ class EnergyCalculator {
     required double ftRate,
     String tariff = tariffStandard,
   }) {
-    if (units <= 0) return 0;
+    if (units < 0) units = 0;
     final isSmall = tariff == tariffSmall;
     double energyCost = isSmall
         ? _calculateEnergyRateSmall(units)
@@ -166,11 +205,11 @@ class EnergyCalculator {
     required double peakUnits,
     required double offPeakUnits,
   }) async {
-    if (peakUnits <= 0 && offPeakUnits <= 0) return 0;
+    final ftRate = peakUnits > 0 || offPeakUnits > 0 ? await getFtRate() : 0.0;
     return electricityTouCost(
       peakUnits: peakUnits,
       offPeakUnits: offPeakUnits,
-      ftRate: await getFtRate(),
+      ftRate: ftRate,
     );
   }
 
@@ -180,7 +219,8 @@ class EnergyCalculator {
     required double offPeakUnits,
     required double ftRate,
   }) {
-    if (peakUnits <= 0 && offPeakUnits <= 0) return 0;
+    if (peakUnits < 0) peakUnits = 0;
+    if (offPeakUnits < 0) offPeakUnits = 0;
     double totalUnits = peakUnits + offPeakUnits;
 
     double energyCost =
@@ -235,8 +275,9 @@ class EnergyCalculator {
   static const double waterMwaServiceFee = 25.00;
   static const double waterMwaRawWaterFee = 0.15;
 
+  // ใช้ 0 หน่วยยังเสียค่าบริการรายเดือน (+ VAT)
   static double calculateWaterMWA(double units) {
-    if (units <= 0) return 0;
+    if (units < 0) units = 0;
     double cost = 0;
 
     if (units <= 30) {
@@ -362,7 +403,7 @@ class EnergyCalculator {
   // ครอบคลุมสาขาส่วนใหญ่ของประเทศ (ยกเว้นบางสาขาในตารางหมายเลข 1, 2 ที่มี
   // อัตราของตัวเองต่างหาก ซึ่งแอปนี้ไม่ได้แยกตามสาขา)
   static double calculateWaterPWA(double units) {
-    if (units <= 0) return 0;
+    if (units < 0) units = 0;
     double cost = 0;
 
     // ประเภท 1 ที่อยู่อาศัย: ใช้อัตรานี้เฉพาะหน่วยที่ 1-50 เท่านั้น

@@ -68,4 +68,48 @@ void main() {
     );
     expect(forecast, 300);
   });
+
+  group('ถ่วงด้วยหน่วยต่อวันของบิลรอบก่อน', () {
+    test('วันแรกใช้เยอะผิดปกติ -> ยอดคาดการณ์ถูกดึงเข้าหาบิลก่อน', () {
+      // วันแรกใช้ 30 (ปกติวันละ 10) — ไม่ถ่วง = 900, ถ่วง 5 วัน = (30+50)/6 ต่อวัน
+      final raw = EnergyForecaster.projectToCycleEnd(
+        currentTotal: 30,
+        cycleStart: cycleStart,
+        cycleEnd: cycleEnd,
+        lastRecordedAt: DateTime(2026, 6, 2),
+      );
+      final blended = EnergyForecaster.projectToCycleEnd(
+        currentTotal: 30,
+        cycleStart: cycleStart,
+        cycleEnd: cycleEnd,
+        lastRecordedAt: DateTime(2026, 6, 2),
+        priorPerDay: 10,
+      );
+      expect(raw, 900);
+      expect(blended, closeTo(30 + 80 / 6 * 29, 0.01));
+    });
+
+    test('ยิ่งบันทึกนาน ข้อมูลรอบนี้ยิ่งมีน้ำหนัก', () {
+      // วันละ 20 ตลอด 20 วัน บิลก่อนวันละ 10 -> อัตรา (400+50)/25 = 18
+      final forecast = EnergyForecaster.projectToCycleEnd(
+        currentTotal: 400,
+        cycleStart: cycleStart,
+        cycleEnd: cycleEnd,
+        lastRecordedAt: DateTime(2026, 6, 21),
+        priorPerDay: 10,
+      );
+      expect(forecast, closeTo(400 + 18 * 10, 0.01));
+    });
+
+    test('ยังไม่ได้ใช้เลย (ยอดสะสม 0) -> ไม่ถ่วง คาดการณ์ 0', () {
+      final forecast = EnergyForecaster.projectToCycleEnd(
+        currentTotal: 0,
+        cycleStart: cycleStart,
+        cycleEnd: cycleEnd,
+        lastRecordedAt: DateTime(2026, 6, 4),
+        priorPerDay: 10,
+      );
+      expect(forecast, 0);
+    });
+  });
 }

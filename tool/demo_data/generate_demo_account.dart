@@ -492,7 +492,7 @@ const _vat = 1.07;
 const _serviceFee = 24.62;
 
 double _electricity(double units, double ft) {
-  if (units <= 0) return 0;
+  if (units < 0) units = 0; // 0 หน่วยยังเสียค่าบริการ
   double energy;
   if (units <= 150) {
     energy = units * 3.2484;
@@ -505,7 +505,6 @@ double _electricity(double units, double ft) {
 }
 
 double _electricityTou(double peak, double offPeak, double ft) {
-  if (peak <= 0 && offPeak <= 0) return 0;
   final energy = peak * 5.7982 + offPeak * 2.6369;
   return _round2((energy + _serviceFee + (peak + offPeak) * ft) * _vat);
 }
@@ -522,7 +521,7 @@ double _tiered(double units, List<List<double>> tiers) {
 }
 
 double _waterMwa(double units) {
-  if (units <= 0) return 0;
+  if (units < 0) units = 0;
   final cost = _tiered(units, const [
     [30, 8.50], [40, 10.03], [50, 10.35], [60, 10.68], [70, 11.00], [80, 11.33],
     [90, 12.50], [100, 12.82], [120, 13.15], [160, 13.47], [200, 13.80], [double.infinity, 14.45],
@@ -532,7 +531,7 @@ double _waterMwa(double units) {
 }
 
 double _waterPwa(double units) {
-  if (units <= 0) return 0;
+  if (units < 0) units = 0;
   final cost = _tiered(units, const [
     [10, 10.20], [20, 16.00], [30, 19.00], [50, 21.20], [80, 21.60], [100, 21.65],
     [300, 21.70], [1000, 21.75], [2000, 21.80], [3000, 21.85], [double.infinity, 21.90],

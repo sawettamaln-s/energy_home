@@ -6,16 +6,32 @@ class EnergyForecaster {
   //   คาดการณ์    = ยอดสะสม + อัตราต่อวัน × จำนวนวันที่เหลือจากวันนั้นถึงวันตัดรอบ
   // นับวันตามเวลาจริง จึงถูกต้องไม่ว่าจะบันทึกทุกวันหรือเว้นหลายวัน
   // คืน null ถ้าบันทึกล่าสุดห่างจากต้นรอบไม่ถึง 1 วัน (ยังหาอัตราที่เชื่อถือได้ไม่ได้)
+  //
+  // [priorPerDay] = หน่วยเฉลี่ยต่อวันของบิลรอบก่อน (ไม่มี = null) — ช่วงต้นรอบ
+  // ข้อมูลไม่กี่วันแกว่งตามการใช้รายวันได้มาก จึงถ่วงอัตราต่อวันด้วยค่านี้
+  // เสมือนมีข้อมูลรอบก่อนเพิ่มอีก [priorWeightDays] วัน:
+  //   อัตราต่อวัน = (ยอดสะสม + priorPerDay × priorWeightDays) ÷ (วันที่ผ่านไป + priorWeightDays)
+  // น้ำหนักของข้อมูลจริง = วันที่ผ่านไป ÷ (วันที่ผ่านไป + 5) เช่น วันที่ 1 = 17%,
+  // วันที่ 5 = 50%, วันที่ 20 = 80% ยิ่งบันทึกนานยิ่งเชื่อข้อมูลรอบนี้มากขึ้น
+  // ยอดสะสมเป็น 0 (ยังไม่ได้ใช้เลยจริงๆ เช่น ไม่อยู่บ้าน) ไม่ถ่วง
+  static const double priorWeightDays = 5;
+
   static double? projectToCycleEnd({
     required double currentTotal, // ยอดสะสมตั้งแต่ต้นรอบ ณ วันที่บันทึกล่าสุด
     required DateTime cycleStart,
     required DateTime cycleEnd,
     required DateTime lastRecordedAt, // วันเวลาที่บันทึกมิเตอร์ล่าสุดในรอบนี้
+    double? priorPerDay,
   }) {
     final daysSoFar = lastRecordedAt.difference(cycleStart).inMinutes / 1440;
     if (daysSoFar < 1) return null;
     final daysLeft = cycleEnd.difference(lastRecordedAt).inMinutes / 1440;
-    final perDay = currentTotal / daysSoFar;
+    final usePrior =
+        priorPerDay != null && priorPerDay > 0 && currentTotal > 0;
+    final perDay = usePrior
+        ? (currentTotal + priorPerDay * priorWeightDays) /
+            (daysSoFar + priorWeightDays)
+        : currentTotal / daysSoFar;
     final forecast = currentTotal + perDay * (daysLeft > 0 ? daysLeft : 0);
     return double.parse(forecast.toStringAsFixed(2));
   }

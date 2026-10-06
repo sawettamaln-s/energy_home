@@ -181,16 +181,6 @@ class DashboardLoader {
   })  : firestoreService = firestoreService ?? FirestoreService(),
         notifications = notifications ?? NotificationService.instance;
 
-  // หน่วยต่อวันของบิล = หน่วยทั้งรอบ ÷ จำนวนวันของรอบนั้น (บิลตั้งชื่อตาม
-  // เดือนที่ปิดรอบ รอบจึงจบที่วันตัดรอบของเดือนบิล)
-  static double? _perDay(BillModel? bill, double? used, int billingDay) {
-    if (bill == null || used == null || used <= 0) return null;
-    final end = EnergyForecaster.safeBillingDate(bill.year, bill.month, billingDay);
-    final start = EnergyForecaster.getPreviousCycleStart(end, billingDay);
-    final days = end.difference(start).inDays;
-    return days > 0 ? used / days : null;
-  }
-
   Future<DashboardData> load(String uid, {DateTime? now}) async {
     final today = now ?? DateTime.now();
     // ต้องรู้ billingDay ก่อนถึงจะรู้ขอบเขตรอบบิล
@@ -214,10 +204,15 @@ class DashboardLoader {
       // compileBill ยอดบนหน้าหลักจึงตรงกับบิลที่จะปิดออกมา
       firestoreService.calcFixedCostForMonth(
           uid, DateTime(cycleEnd.year, cycleEnd.month, 1)),
+      // บิลของรอบก่อน (เดือนบิล = เดือนที่รอบนี้เริ่ม) ใช้ถ่วงยอดคาดการณ์ช่วงต้นรอบ
+      firestoreService
+          .getBillForMonth(uid, cycleStart.year, cycleStart.month)
+          .then<BillModel?>((b) => b, onError: (_) => null),
     ]);
     final electricityLogs = results[2] as List<ElectricityLogModel>;
     final waterLogs = results[3] as List<WaterLogModel>;
     final latestBill = results[4] as BillModel?;
+    final priorBill = results[6] as BillModel?;
 
     // คาดการณ์สิ้นรอบ: ประมาณหน่วยจากอัตราต่อวัน แล้วคิดเงินด้วยตารางอัตรา
     // จริง — ฝั่งไหนยังหาอัตราไม่ได้ใช้ยอดที่ใช้ไปแล้วแทน
@@ -231,12 +226,15 @@ class DashboardLoader {
       startPeak: user?.startPeakValue ?? 0,
       startOffPeak: user?.startOffPeakValue ?? 0,
       tariff: user?.electricityTariff ?? EnergyCalculator.tariffStandard,
+      priorPerDay:
+          billUnitsPerDay(priorBill, priorBill?.electricityUsed, billingDay),
     );
     final water = projectWaterToCycleEnd(
       latest: waterLogs.isNotEmpty ? waterLogs.first : null,
       cycleStart: cycleStart,
       cycleEnd: cycleEnd,
       area: area,
+      priorPerDay: billUnitsPerDay(priorBill, priorBill?.waterUsed, billingDay),
     );
 
     return DashboardData(
@@ -250,8 +248,9 @@ class DashboardLoader {
       lastMonthElectricityCost: latestBill?.electricityCost ?? 0,
       lastMonthWaterCost: latestBill?.waterCost ?? 0,
       lastBillElectricityPerDay:
-          _perDay(latestBill, latestBill?.electricityUsed, billingDay),
-      lastBillWaterPerDay: _perDay(latestBill, latestBill?.waterUsed, billingDay),
+          billUnitsPerDay(latestBill, latestBill?.electricityUsed, billingDay),
+      lastBillWaterPerDay:
+          billUnitsPerDay(latestBill, latestBill?.waterUsed, billingDay),
       billFixedCost: results[5] as double,
       forecastElectricityCost: elec.cost,
       forecastWaterCost: water.cost,
@@ -329,6 +328,8 @@ class DashboardLoader {
       // ค่า Ft งวดใหม่ (ผู้ดูแลแก้ใน Firebase) — อ่านไม่ได้ไม่ถือว่าเปลี่ยน
       final ft = await firestoreService.getFtInfo();
       if (ft != null) {
+        // การคิดเงินหลังจากนี้ (เช่น บันทึกมิเตอร์) ใช้ค่าล่าสุดที่เพิ่งอ่าน
+        EnergyCalculator.rememberFtInfo(ft);
         await notifications.notifyFtChanged(ft: ft, silent: silent);
       }
 

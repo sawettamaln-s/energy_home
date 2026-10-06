@@ -420,7 +420,10 @@ class FirestoreService {
 
       // ประมาณหน่วยจากวันที่บันทึกล่าสุดไปถึงวันตัดรอบ แล้วคิดเงินด้วยตาราง
       // อัตราจริง (ดู cycle_projection.dart) — ไฟกับน้ำบันทึกคนละวันได้ จึงใช้
-      // วันที่ของ log แต่ละฝั่งเอง
+      // วันที่ของ log แต่ละฝั่งเอง ถ่วงด้วยบิลของรอบก่อนหน้า (เดือนบิล =
+      // เดือนของ startDate) กติกาเดียวกับการ์ดคาดการณ์รอบปัจจุบัน
+      final priorBill =
+          await getBillForMonth(uid, startDate.year, startDate.month);
       final elec = await projectElectricityToCycleEnd(
         latest: eLast,
         cycleStart: startDate,
@@ -430,12 +433,16 @@ class FirestoreService {
         startPeak: cycleStartPeak,
         startOffPeak: cycleStartOffPeak,
         tariff: user.electricityTariff,
+        priorPerDay: billUnitsPerDay(
+            priorBill, priorBill?.electricityUsed, user.billingDay),
       );
       final water = projectWaterToCycleEnd(
         latest: wLast,
         cycleStart: startDate,
         cycleEnd: endDate,
         area: user.area,
+        priorPerDay:
+            billUnitsPerDay(priorBill, priorBill?.waterUsed, user.billingDay),
       );
       final totalElec = elec.cost;
       final totalWater = water.cost;
@@ -503,6 +510,24 @@ class FirestoreService {
     if (snapshot.docs.isEmpty) return null;
     final doc = snapshot.docs.first;
     return BillModel.fromMap({...doc.data(), 'id': doc.id});
+  }
+
+  // บิลของเดือน year/month — มีหลายใบ (เช่น ปิดอัตโนมัติ + กรอกจากใบแจ้งหนี้)
+  // ใช้ใบที่มาจากใบแจ้งหนี้จริงก่อน ('compiled' เป็นยอดประมาณ) ไม่มีคืน null
+  Future<BillModel?> getBillForMonth(String uid, int year, int month) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('bills')
+        .where('year', isEqualTo: year)
+        .where('month', isEqualTo: month)
+        .get();
+    final bills = snapshot.docs
+        .map((d) => BillModel.fromMap({...d.data(), 'id': d.id}))
+        .toList()
+      ..sort((a, b) => (a.source == 'compiled' ? 1 : 0)
+          .compareTo(b.source == 'compiled' ? 1 : 0));
+    return bills.isEmpty ? null : bills.first;
   }
 
   // ดึงบิลทั้งหมด เรียงเดือนล่าสุดก่อน

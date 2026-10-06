@@ -1,6 +1,7 @@
 // ยอดคาดการณ์สิ้นรอบของ DashboardLoader (ใช้ตัดสินแจ้งเตือน "คาดการณ์สูงกว่า
 // เดือนก่อน") กับการ์ดคาดการณ์ "บิลรอบนี้" ของหน้าวิเคราะห์
 // (AnalysisService.forecastCurrentCycle) ต้องเป็นตัวเลขเดียวกันทั้งค่าไฟและค่าน้ำ
+import 'package:energy_home/models/bill_model.dart';
 import 'package:energy_home/models/electricity_log_model.dart';
 import 'package:energy_home/models/user_model.dart';
 import 'package:energy_home/models/water_log_model.dart';
@@ -52,6 +53,11 @@ void main() {
       usedFromLast: 3,
       cost: 30,
     ));
+
+    // บิลของรอบก่อน — ทั้งสองหน้าต้องใช้ถ่วงยอดคาดการณ์ช่วงต้นรอบเหมือนกัน
+    await service.saveBill(BillModel(
+        id: 'prev', uid: _uid, year: cycleStart.year, month: cycleStart.month,
+        electricityUsed: 300, waterUsed: 15, source: 'imported'));
 
     final dashboard = await DashboardLoader(firestoreService: service).load(_uid, now: now);
     final analysis = await AnalysisService(firestore: db).forecastCurrentCycle(

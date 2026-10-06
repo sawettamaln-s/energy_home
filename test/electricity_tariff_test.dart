@@ -200,4 +200,52 @@ void main() {
       expect(await service.getHistory(), isEmpty);
     });
   });
+
+  test('ใช้ 0 หน่วย -> ยังเสียค่าบริการรายเดือน + VAT เหมือนใบแจ้งหนี้จริง', () async {
+    expect(await EnergyCalculator.calculateElectricity(0, 'bangkok'), 26.34);
+    expect(
+        await EnergyCalculator.calculateElectricity(0, 'bangkok',
+            tariff: EnergyCalculator.tariffSmall),
+        8.76);
+    expect(
+        await EnergyCalculator.calculateElectricityTOU(
+            peakUnits: 0, offPeakUnits: 0),
+        26.34);
+    expect(EnergyCalculator.calculateWater(0, 'bangkok'), 26.75);
+    expect(EnergyCalculator.calculateWater(0, 'province'), 32.1);
+  });
+
+  group('ค่า Ft ที่ใช้คิดเงิน', () {
+    tearDown(EnergyCalculator.resetFtSource);
+
+    test('อ่านครั้งเดียวแล้วจำไว้ คิดหลายยอดไม่อ่านซ้ำ', () async {
+      var reads = 0;
+      EnergyCalculator.ftDocLoader = () async {
+        reads++;
+        return {'ft_rate': 0.4};
+      };
+      final a = await EnergyCalculator.calculateElectricity(100, 'bangkok');
+      final b = await EnergyCalculator.calculateElectricity(200, 'bangkok');
+      expect(reads, 1);
+      expect(a, EnergyCalculator.electricityCost(100, ftRate: 0.4));
+      expect(b, EnergyCalculator.electricityCost(200, ftRate: 0.4));
+    });
+
+    test('อ่านไม่สำเร็จ -> ใช้ค่า default และไม่จำ ครั้งหน้าลองอ่านใหม่', () async {
+      var reads = 0;
+      EnergyCalculator.ftDocLoader = () async {
+        reads++;
+        if (reads == 1) throw Exception('offline');
+        return {'ft_rate': 0.4};
+      };
+      expect(await EnergyCalculator.getFtRate(), EnergyCalculator.defaultFtRate);
+      expect(await EnergyCalculator.getFtRate(), 0.4);
+    });
+
+    test('ค่าที่อ่านจากที่อื่น (rememberFtInfo) ใช้ทันที', () async {
+      EnergyCalculator.ftDocLoader = () async => {'ft_rate': 0.4};
+      EnergyCalculator.rememberFtInfo((rate: 0.25, effectiveFrom: null));
+      expect(await EnergyCalculator.getFtRate(), 0.25);
+    });
+  });
 }

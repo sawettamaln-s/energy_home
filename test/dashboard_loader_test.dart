@@ -43,6 +43,8 @@ void main() {
 
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
+    // ค่า Ft ที่เทสก่อนหน้าจำไว้ ต้องไม่ติดมาเทสนี้
+    EnergyCalculator.resetFtSource();
     SharedPreferences.setMockInitialValues({});
     NotificationService.instance.uidProvider = () => _uid;
     service = FirestoreService(firestore: FakeFirebaseFirestore());
@@ -95,6 +97,23 @@ void main() {
       expect(data.billFixedCost, 500);
       expect(data.electricityMeterReady, isTrue);
       expect(data.waterMeterReady, isTrue);
+    });
+
+    test('ช่วงต้นรอบ ยอดคาดการณ์ถ่วงด้วยหน่วยต่อวันของบิลรอบก่อน', () async {
+      await createUser();
+      // บันทึก 6 มิ.ย. (ผ่านไป 5 วัน) ใช้ 100 หน่วย = วันละ 20
+      await service.saveElectricityLog(ElectricityLogModel(
+          id: 'e1', uid: _uid, date: DateTime(2026, 6, 6),
+          meterValue: 1100, usedFromStart: 100, cost: 400));
+      // บิลรอบก่อน (1 พ.ค. - 1 มิ.ย. = 31 วัน) ใช้ 310 หน่วย = วันละ 10
+      await service.saveBill(BillModel(
+          id: 'b6', uid: _uid, year: 2026, month: 6,
+          electricityUsed: 310, electricityCost: 1400, source: 'imported'));
+
+      final data = await loader.load(_uid, now: now);
+      // อัตราต่อวัน = (100 + 10 × 5) ÷ (5 + 5) = 15 เหลือ 25 วัน -> 475 หน่วย
+      expect(data.forecastElectricityCost,
+          await EnergyCalculator.calculateElectricity(475, 'bangkok'));
     });
 
     test('บันทึกหลังต้นรอบเกิน 1 วัน -> คาดการณ์สิ้นรอบได้', () async {
