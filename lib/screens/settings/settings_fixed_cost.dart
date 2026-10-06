@@ -508,16 +508,7 @@ class _FixedCostScreenState extends State<FixedCostScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppTopBar(
-        title: 'รายจ่ายประจำ',
-        actions: [
-          IconButton(
-            tooltip: 'รายจ่ายประจำคืออะไร',
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showFixedCostInfoPopup(context),
-          ),
-        ],
-      ),
+      appBar: const AppTopBar(title: 'รายจ่ายประจำ'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -609,6 +600,10 @@ class _FixedCostScreenState extends State<FixedCostScreen> {
                     ),
                   ],
                 ),
+              ),
+              _pageInfoButton(
+                tooltip: 'รายจ่ายประจำคืออะไร',
+                onPressed: () => _showFixedCostInfoPopup(context),
               ),
             ],
           ),

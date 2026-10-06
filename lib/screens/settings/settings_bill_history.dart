@@ -61,6 +61,16 @@ Widget _infoSectionHeader(String label, {IconData icon = Icons.checklist_rounded
   );
 }
 
+// ปุ่ม ⓘ อธิบายหน้า วางที่มุมขวาบนของการ์ดแรกในหน้า
+Widget _pageInfoButton({required String tooltip, required VoidCallback onPressed}) {
+  return IconButton(
+    tooltip: tooltip,
+    visualDensity: VisualDensity.compact,
+    icon: Icon(Icons.info_outline, size: 20, color: Colors.grey.shade600),
+    onPressed: onPressed,
+  );
+}
+
 // กล่องข้อควรระวัง
 Widget _infoWarningBox(String text) {
   return Container(
@@ -313,16 +323,7 @@ class HistoricalBillListScreenState extends State<HistoricalBillListScreen> {
 
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppTopBar(
-        title: 'บิลย้อนหลัง',
-        actions: [
-          IconButton(
-            tooltip: 'หน้านี้ใช้ทำอะไร',
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showHistoricalBillInfoPopup(context),
-          ),
-        ],
-      ),
+      appBar: const AppTopBar(title: 'บิลย้อนหลัง'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -402,6 +403,10 @@ class HistoricalBillListScreenState extends State<HistoricalBillListScreen> {
                     ),
                   ],
                 ),
+              ),
+              _pageInfoButton(
+                tooltip: 'หน้านี้ใช้ทำอะไร',
+                onPressed: () => _showHistoricalBillInfoPopup(context),
               ),
             ],
           ),

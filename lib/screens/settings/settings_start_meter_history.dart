@@ -1,6 +1,6 @@
 part of 'settings_screen.dart';
 
-// ประวัติเลขมิเตอร์ต้นรอบ — คำอธิบายภาพรวมอยู่ที่ AppBar ของหน้านี้แล้ว
+// ประวัติเลขมิเตอร์ต้นรอบ — คำอธิบายภาพรวมอยู่ที่ปุ่ม ⓘ บนการ์ดรอบปัจจุบัน
 Future<void> openStartMeterSetup(
   BuildContext context,
   String uid,
@@ -265,16 +265,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DashboardStyles.background,
-      appBar: AppTopBar(
-        title: 'เลขมิเตอร์จากใบแจ้งหนี้',
-        actions: [
-          IconButton(
-            tooltip: 'หน้านี้ใช้ทำอะไร',
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showStartMeterInfoPopup(context),
-          ),
-        ],
-      ),
+      appBar: const AppTopBar(title: 'เลขมิเตอร์จากใบแจ้งหนี้'),
       body: _isLoading ? const Center(child: CircularProgressIndicator()) : _buildBody(),
     );
   }
@@ -389,6 +380,10 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
                     ],
                   ),
                 ),
+                _pageInfoButton(
+                  tooltip: 'หน้านี้ใช้ทำอะไร',
+                  onPressed: () => _showStartMeterInfoPopup(context),
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.v14),
@@ -434,6 +429,10 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
                 style: OutlinedButton.styleFrom(minimumSize: const Size(0, 38)),
                 icon: const Icon(Icons.edit_outlined, size: 16),
                 label: const Text('จัดการ'),
+              ),
+              _pageInfoButton(
+                tooltip: 'หน้านี้ใช้ทำอะไร',
+                onPressed: () => _showStartMeterInfoPopup(context),
               ),
             ],
           ),
