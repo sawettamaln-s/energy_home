@@ -1,8 +1,8 @@
 # TOU bill migration — standalone script
 
-พอร์ตมาจาก `FirestoreService.migrateTouCompiledBills()` ให้รันนอกแอปได้ผ่าน
-`dart run` ตรงๆ (ไม่ต้อง `pub get` เพิ่มอะไร ใช้แค่ `dart:io`/`dart:convert`
-ที่มากับ Dart SDK)
+สคริปต์ซ่อมข้อมูลครั้งเดียว (ไม่มีในแอป) รันนอกแอปได้ผ่าน `dart run` ตรงๆ
+คุยกับ Firebase ผ่าน REST ด้วย `dart:io`/`dart:convert` และใช้ขอบเขตรอบบิล
+จาก `lib/utils/forecaster.dart` ตัวเดียวกับแอป
 
 ## ใช้เมื่อไหร่
 

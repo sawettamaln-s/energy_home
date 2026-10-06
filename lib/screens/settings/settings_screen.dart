@@ -15,6 +15,7 @@ import '../../services/google_auth_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/forecaster.dart';
+import '../../utils/tariff_tables.dart';
 import '../../utils/tariff_advisor.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';

@@ -5,6 +5,7 @@
 // เก่าเกิน 4 เดือน, สลับไปแท็บน้ำได้ และเลย์เอาต์ไม่ล้นบนจอเล็ก
 import 'package:energy_home/screens/settings/settings_screen.dart';
 import 'package:energy_home/utils/calculator.dart';
+import 'package:energy_home/utils/tariff_tables.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,7 +37,7 @@ void main() {
 
     expect(find.text('การไฟฟ้านครหลวง (MEA)'), findsOneWidget);
     expect(find.textContaining('ประเภท 1.2 ใช้เกิน 150'), findsOneWidget);
-    expect(find.text(EnergyCalculator.electricityTier3Rate.toStringAsFixed(4)), findsOneWidget);
+    expect(find.text(TariffTables.electricityStandard.last.rate.toStringAsFixed(4)), findsOneWidget);
     expect(find.text('0.1623'), findsOneWidget);
     expect(find.textContaining('งวดใหม่อาจยังไม่ได้อัปเดต'), findsNothing);
   });
@@ -46,8 +47,8 @@ void main() {
 
     expect(find.text('การไฟฟ้าส่วนภูมิภาค (PEA)'), findsOneWidget);
     expect(find.text('มิเตอร์ TOU · ประเภท 1.2.2'), findsOneWidget);
-    expect(find.text(EnergyCalculator.touPeakRate.toStringAsFixed(4)), findsOneWidget);
-    expect(find.text(EnergyCalculator.touOffPeakRate.toStringAsFixed(4)), findsOneWidget);
+    expect(find.text(TariffTables.touPeakRate.toStringAsFixed(4)), findsOneWidget);
+    expect(find.text(TariffTables.touOffPeakRate.toStringAsFixed(4)), findsOneWidget);
   });
 
   testWidgets('งวด Ft เก่าเกิน 4 เดือน -> ขึ้นคำเตือน', (tester) async {

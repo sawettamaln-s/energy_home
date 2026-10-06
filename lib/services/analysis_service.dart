@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/appliance_model.dart';
 import '../models/bill_model.dart';
+import '../utils/appliance_energy.dart';
 import '../utils/appliance_rate.dart';
 import '../utils/calculator.dart';
 import '../utils/cycle_projection.dart';
@@ -503,17 +504,6 @@ class AnalysisService {
     };
   }
 
-  /// คำนวณ kWh ของอุปกรณ์ 1 ชิ้นในช่วง totalDaysInPeriod วัน
-  /// (สูตรเดียวกับที่ใช้ในหน้าอุปกรณ์ เพื่อให้ตัวเลขตรงกันทั้งแอป)
-  double _kWhForPeriod(ApplianceModel a, int totalDaysInPeriod) {
-    double kWh = 0;
-    for (final s in a.schedules) {
-      final activeDays = (s.days.length / 7) * totalDaysInPeriod;
-      kWh += (a.watt * s.hoursPerDay / 1000) * activeDays;
-    }
-    return kWh;
-  }
-
   /// จัดอันดับอุปกรณ์ตามการใช้พลังงาน (มาก -> น้อย) พร้อม % ของยอดรวม
   /// totalDaysInPeriod: 30 = รายเดือน, 365 = รายปี
   /// avgRatePerUnit: อัตราค่าไฟเฉลี่ย บาท/หน่วย — ผู้เรียกส่งอัตราจาก ApplianceRate
@@ -528,7 +518,7 @@ class AnalysisService {
     final active = appliances.where((a) => a.schedules.isNotEmpty);
 
     final usages = active.map((a) {
-      final kWh = _kWhForPeriod(a, totalDaysInPeriod);
+      final kWh = ApplianceEnergy.kWhForPeriod(a, totalDaysInPeriod);
       return ApplianceUsage(
         appliance: a,
         kWh: kWh,

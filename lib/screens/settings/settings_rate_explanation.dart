@@ -390,6 +390,26 @@ class _RateExplanationScreenState extends State<RateExplanationScreen> {
   String _rate4(double v) => v.toStringAsFixed(4);
   String _rate2(double v) => v.toStringAsFixed(2);
 
+  // แถวตารางอัตราจากขั้นบันไดใน TariffTables — ช่วงหน่วย ("1 - 30", "201 ขึ้นไป")
+  // สร้างจากตารางเดียวกับที่ใช้คิดเงิน [groups] = หัวกลุ่มเหนือแถวลำดับนั้น
+  List<({String range, String price, String? group})> _tierRows(
+    List<TariffTier> tiers,
+    String Function(double) price, {
+    Map<int, String> groups = const {},
+  }) {
+    final fmt = NumberFormat('#,##0');
+    final rows = <({String range, String price, String? group})>[];
+    var lower = 0.0;
+    for (var i = 0; i < tiers.length; i++) {
+      final t = tiers[i];
+      final from = fmt.format(lower + 1);
+      final range = t.upTo == double.infinity ? '$from ขึ้นไป' : '$from - ${fmt.format(t.upTo)}';
+      rows.add((range: range, price: price(t.rate), group: groups[i]));
+      lower = t.upTo;
+    }
+    return rows;
+  }
+
   // ==================== ไฟฟ้า ====================
 
   List<Widget> _electricityContent() {
@@ -397,7 +417,11 @@ class _RateExplanationScreenState extends State<RateExplanationScreen> {
     final smallCode = EnergyCalculator.tariffCode(EnergyCalculator.tariffSmall, area);
     final standardCode = EnergyCalculator.tariffCode(EnergyCalculator.tariffStandard, area);
     final touCode = EnergyCalculator.touCode(area);
-    final serviceFee = !_isTou && _isSmall ? EnergyCalculator.smallServiceFee : EnergyCalculator.electricityServiceFee;
+    final serviceFee = _isTou
+        ? TariffTables.touServiceFee
+        : _isSmall
+            ? TariffTables.electricitySmallServiceFee
+            : TariffTables.electricityStandardServiceFee;
     final ftOutdated = _ft != null && EnergyCalculator.isFtOutdated(_ft!.effectiveFrom, DateTime.now());
     final provider = _isBangkok ? 'การไฟฟ้านครหลวง (MEA)' : 'การไฟฟ้าส่วนภูมิภาค (PEA)';
     final plan = _isTou
@@ -406,25 +430,14 @@ class _RateExplanationScreenState extends State<RateExplanationScreen> {
 
     final rows = <({String range, String price, String? group})>[
       if (_isTou) ...[
-        (range: 'On-Peak\nจ.-ศ. 09:00-22:00 น.', price: _rate4(EnergyCalculator.touPeakRate), group: null),
+        (range: 'On-Peak\nจ.-ศ. 09:00-22:00 น.', price: _rate4(TariffTables.touPeakRate), group: null),
         (
           range: 'Off-Peak\nนอกเวลาข้างต้น ส.-อา. และวันหยุดราชการ',
-          price: _rate4(EnergyCalculator.touOffPeakRate),
+          price: _rate4(TariffTables.touOffPeakRate),
           group: null
         ),
-      ] else if (_isSmall) ...[
-        (range: '1 - 15', price: _rate4(EnergyCalculator.smallTier1Rate), group: null),
-        (range: '16 - 25', price: _rate4(EnergyCalculator.smallTier2Rate), group: null),
-        (range: '26 - 35', price: _rate4(EnergyCalculator.smallTier3Rate), group: null),
-        (range: '36 - 100', price: _rate4(EnergyCalculator.smallTier4Rate), group: null),
-        (range: '101 - 150', price: _rate4(EnergyCalculator.smallTier5Rate), group: null),
-        (range: '151 - 400', price: _rate4(EnergyCalculator.smallTier6Rate), group: null),
-        (range: '401 ขึ้นไป', price: _rate4(EnergyCalculator.smallTier7Rate), group: null),
-      ] else ...[
-        (range: '1 - 150', price: _rate4(EnergyCalculator.electricityTier1Rate), group: null),
-        (range: '151 - 400', price: _rate4(EnergyCalculator.electricityTier2Rate), group: null),
-        (range: '401 ขึ้นไป', price: _rate4(EnergyCalculator.electricityTier3Rate), group: null),
-      ],
+      ] else
+        ..._tierRows(_isSmall ? TariffTables.electricitySmall : TariffTables.electricityStandard, _rate4),
     ];
 
     Widget ftDetail() {
@@ -551,14 +564,14 @@ class _RateExplanationScreenState extends State<RateExplanationScreen> {
             _tariffOption(
               code: smallCode,
               title: 'ใช้ไม่เกิน 150 หน่วย/เดือน',
-              detail: 'มิเตอร์ไม่เกิน 5 แอมแปร์ ค่าบริการ ${_rate2(EnergyCalculator.smallServiceFee)} บาท/เดือน',
+              detail: 'มิเตอร์ไม่เกิน 5 แอมแปร์ ค่าบริการ ${_rate2(TariffTables.electricitySmallServiceFee)} บาท/เดือน',
               inUse: !_isTou && _isSmall,
             ),
             _tariffOption(
               code: standardCode,
               title: 'ใช้เกิน 150 หน่วย/เดือน',
               detail: 'บ้านส่วนใหญ่อยู่ประเภทนี้ ค่าบริการ '
-                  '${_rate2(EnergyCalculator.electricityServiceFee)} บาท/เดือน',
+                  '${_rate2(TariffTables.electricityStandardServiceFee)} บาท/เดือน',
               inUse: !_isTou && !_isSmall,
             ),
             _tariffOption(
@@ -628,39 +641,13 @@ class _RateExplanationScreenState extends State<RateExplanationScreen> {
   // ==================== น้ำ ====================
 
   List<Widget> _waterContent() {
-    final serviceFee = _isBangkok ? EnergyCalculator.waterMwaServiceFee : EnergyCalculator.waterPwaServiceFee;
-    final rows = <({String range, String price, String? group})>[
-      if (_isBangkok) ...[
-        (range: '1 - 30', price: _rate2(EnergyCalculator.waterMwaTier1), group: null),
-        (range: '31 - 40', price: _rate2(EnergyCalculator.waterMwaTier2), group: null),
-        (range: '41 - 50', price: _rate2(EnergyCalculator.waterMwaTier3), group: null),
-        (range: '51 - 60', price: _rate2(EnergyCalculator.waterMwaTier4), group: null),
-        (range: '61 - 70', price: _rate2(EnergyCalculator.waterMwaTier5), group: null),
-        (range: '71 - 80', price: _rate2(EnergyCalculator.waterMwaTier6), group: null),
-        (range: '81 - 90', price: _rate2(EnergyCalculator.waterMwaTier7), group: null),
-        (range: '91 - 100', price: _rate2(EnergyCalculator.waterMwaTier8), group: null),
-        (range: '101 - 120', price: _rate2(EnergyCalculator.waterMwaTier9), group: null),
-        (range: '121 - 160', price: _rate2(EnergyCalculator.waterMwaTier10), group: null),
-        (range: '161 - 200', price: _rate2(EnergyCalculator.waterMwaTier11), group: null),
-        (range: '201 ขึ้นไป', price: _rate2(EnergyCalculator.waterMwaTier12), group: null),
-      ] else ...[
-        (range: '1 - 10', price: _rate2(EnergyCalculator.waterPwaTier1), group: 'ใช้ไม่เกิน 50 หน่วย'),
-        (range: '11 - 20', price: _rate2(EnergyCalculator.waterPwaTier2), group: null),
-        (range: '21 - 30', price: _rate2(EnergyCalculator.waterPwaTier3), group: null),
-        (range: '31 - 50', price: _rate2(EnergyCalculator.waterPwaTier4), group: null),
-        (
-          range: '51 - 80',
-          price: _rate2(EnergyCalculator.waterPwaTier5),
-          group: 'ใช้เกิน 50 หน่วย (หน่วยที่ 51 ขึ้นไป)'
-        ),
-        (range: '81 - 100', price: _rate2(EnergyCalculator.waterPwaTier6), group: null),
-        (range: '101 - 300', price: _rate2(EnergyCalculator.waterPwaTier7), group: null),
-        (range: '301 - 1,000', price: _rate2(EnergyCalculator.waterPwaTier8), group: null),
-        (range: '1,001 - 2,000', price: _rate2(EnergyCalculator.waterPwaTier9), group: null),
-        (range: '2,001 - 3,000', price: _rate2(EnergyCalculator.waterPwaTier10), group: null),
-        (range: '3,001 ขึ้นไป', price: _rate2(EnergyCalculator.waterPwaTier11), group: null),
-      ],
-    ];
+    final serviceFee = _isBangkok ? TariffTables.waterMwaServiceFee : TariffTables.waterPwaServiceFee;
+    final rows = _isBangkok
+        ? _tierRows(TariffTables.waterMwa, _rate2)
+        : _tierRows(TariffTables.waterPwa, _rate2, groups: {
+            0: 'ใช้ไม่เกิน 50 หน่วย',
+            4: 'ใช้เกิน 50 หน่วย (หน่วยที่ 51 ขึ้นไป)',
+          });
 
     return [
       _summaryCard(
@@ -669,7 +656,7 @@ class _RateExplanationScreenState extends State<RateExplanationScreen> {
         plan: _isBangkok ? 'ประเภทที่อยู่อาศัย' : 'ประเภทที่อยู่อาศัย · ตารางหมายเลข 3',
         facts: [
           (label: 'ค่าบริการ', value: _rate2(serviceFee), unit: 'บาท/เดือน'),
-          if (_isBangkok) (label: 'ค่าน้ำดิบ', value: _rate2(EnergyCalculator.waterMwaRawWaterFee), unit: 'บาท/หน่วย'),
+          if (_isBangkok) (label: 'ค่าน้ำดิบ', value: _rate2(TariffTables.waterMwaRawWaterFee), unit: 'บาท/หน่วย'),
           (label: 'ภาษีมูลค่าเพิ่ม', value: '7%', unit: 'ของยอดรวม'),
         ],
       ),
@@ -714,7 +701,7 @@ class _RateExplanationScreenState extends State<RateExplanationScreen> {
               if (_isBangkok)
                 (
                   title: 'บวกค่าน้ำดิบ',
-                  detail: 'หน่วยที่ใช้ทั้งหมด × ${_rate2(EnergyCalculator.waterMwaRawWaterFee)} บาท',
+                  detail: 'หน่วยที่ใช้ทั้งหมด × ${_rate2(TariffTables.waterMwaRawWaterFee)} บาท',
                   extra: null
                 ),
               (

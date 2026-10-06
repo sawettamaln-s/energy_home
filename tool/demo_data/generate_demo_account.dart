@@ -20,9 +20,8 @@
 //   - การใช้ไฟ/น้ำรายเดือน = ค่าเฉลี่ยจากอุปกรณ์ x ตัวคูณฤดูกาลจริงของแอป
 //     (lib/utils/seasonal_curves.dart) x แนวโน้มเล็กน้อย x ความผันผวนสุ่ม
 //     (seed ตายตัว รันซ้ำได้ผลเดิม)
-//   - ค่าไฟ/ค่าน้ำคำนวณด้วยสูตรที่คัดลอกจาก lib/utils/calculator.dart
-//     (ไฟล์นั้น import cloud_firestore จึงเรียกจาก `dart run` ตรงๆ ไม่ได้)
-//     ถ้าแก้อัตราในแอป ต้องแก้ที่นี่ด้วย
+//   - ค่าไฟ/ค่าน้ำคำนวณด้วย lib/utils/tariff_tables.dart ตัวเดียวกับแอป
+//     (ไฟล์ Dart ล้วน เรียกจาก `dart run` ได้ แก้อัตราที่นั่นที่เดียว)
 //
 // ต้องมีบัญชีก่อน: สคริปต์ sign-in ด้วยอีเมล/รหัสผ่าน (สร้างบัญชีใหม่ให้ไม่ได้)
 // ให้สมัครบัญชีในแอปและทำขั้นตอนตั้งค่าเริ่มต้นให้เสร็จก่อน
@@ -44,6 +43,7 @@ import 'dart:math';
 
 import 'package:energy_home/utils/forecaster.dart';
 import 'package:energy_home/utils/seasonal_curves.dart';
+import 'package:energy_home/utils/tariff_tables.dart';
 
 const _identityToolkitUrl =
     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
@@ -199,7 +199,6 @@ _Usage _usageForBillMonth(_Options o, List<_Appliance> appliances, DateTime bill
 }
 
 double _round1(double v) => double.parse(v.toStringAsFixed(1));
-double _round2(double v) => double.parse(v.toStringAsFixed(2));
 
 // วันที่บันทึกมิเตอร์ภายในรอบ: กระจายตลอดรอบ ครั้งสุดท้ายคือวันก่อนวันตัดรอบ
 // (วันตัดรอบเป็นของรอบถัดไป) รอบปัจจุบันบันทึกถึงเมื่อวานเท่านั้น
@@ -231,9 +230,9 @@ Map<String, List<Map<String, dynamic>>> _buildDocuments(
   var waterMeter = o.waterStart;
 
   double elecCost(double peakUsed, double offPeakUsed) => o.isTou
-      ? _electricityTou(peakUsed, offPeakUsed, ftRate)
-      : _electricity(peakUsed + offPeakUsed, ftRate);
-  double waterCost(double units) => o.isUpcountry ? _waterPwa(units) : _waterMwa(units);
+      ? TariffTables.electricityTou(peakUsed, offPeakUsed, ftRate: ftRate)
+      : TariffTables.electricity(peakUsed + offPeakUsed, ftRate: ftRate);
+  double waterCost(double units) => o.isUpcountry ? TariffTables.waterPwaCost(units) : TariffTables.waterMwaCost(units);
 
   void addCycle(_Cycle c, {required bool isCurrent}) {
     final startId = '${c.start.year}_${c.start.month.toString().padLeft(2, '0')}';
@@ -279,7 +278,7 @@ Map<String, List<Map<String, dynamic>>> _buildDocuments(
         'peakMeterValue': o.isTou ? _round1(peakMeter + peakUsed) : null,
         'offPeakMeterValue': o.isTou ? _round1(offPeakMeter + offUsed) : null,
         'usedFromStart': usedFromStart,
-        'usedFromLast': _round2(peakUsed - prevPeak + offUsed - prevOff),
+        'usedFromLast': TariffTables.round2(peakUsed - prevPeak + offUsed - prevOff),
         'cost': elecCost(peakUsed, offUsed),
       });
       waterLogs.add({
@@ -288,7 +287,7 @@ Map<String, List<Map<String, dynamic>>> _buildDocuments(
         'date': dates[i].toIso8601String(),
         'meterValue': _round1(waterMeter + waterUsed),
         'usedFromStart': waterUsed,
-        'usedFromLast': _round2(waterUsed - prevWater),
+        'usedFromLast': TariffTables.round2(waterUsed - prevWater),
         'cost': waterCost(waterUsed),
       });
       prevPeak = peakUsed;
@@ -312,7 +311,7 @@ Map<String, List<Map<String, dynamic>>> _buildDocuments(
       'electricityCost': eCost,
       'waterCost': wCost,
       'fixedCost': 0.0,
-      'totalCost': _round2(eCost + wCost),
+      'totalCost': TariffTables.round2(eCost + wCost),
       'source': 'compiled',
     });
     peakMeter += c.usage.peakKwh;
@@ -485,60 +484,6 @@ List<_Appliance> _appliancesFor(bool isUpcountry) => isUpcountry
             peakFraction: 0.0),
         _Appliance('เตารีดไฟฟ้า', 'iron', 1200, [_Schedule([2], 1)], peakFraction: 0.5),
       ];
-
-// ==================== อัตราค่าไฟ/ค่าน้ำ (คัดลอกจาก lib/utils/calculator.dart) ====================
-
-const _vat = 1.07;
-const _serviceFee = 24.62;
-
-double _electricity(double units, double ft) {
-  if (units < 0) units = 0; // 0 หน่วยยังเสียค่าบริการ
-  double energy;
-  if (units <= 150) {
-    energy = units * 3.2484;
-  } else if (units <= 400) {
-    energy = 150 * 3.2484 + (units - 150) * 4.2218;
-  } else {
-    energy = 150 * 3.2484 + 250 * 4.2218 + (units - 400) * 4.4217;
-  }
-  return _round2((energy + _serviceFee + units * ft) * _vat);
-}
-
-double _electricityTou(double peak, double offPeak, double ft) {
-  final energy = peak * 5.7982 + offPeak * 2.6369;
-  return _round2((energy + _serviceFee + (peak + offPeak) * ft) * _vat);
-}
-
-// ขั้นบันได [หน่วยสูงสุดของขั้น, ราคาต่อหน่วย]
-double _tiered(double units, List<List<double>> tiers) {
-  double cost = 0, previous = 0;
-  for (final t in tiers) {
-    if (units <= previous) break;
-    cost += (min(units, t[0]) - previous) * t[1];
-    previous = t[0];
-  }
-  return cost;
-}
-
-double _waterMwa(double units) {
-  if (units < 0) units = 0;
-  final cost = _tiered(units, const [
-    [30, 8.50], [40, 10.03], [50, 10.35], [60, 10.68], [70, 11.00], [80, 11.33],
-    [90, 12.50], [100, 12.82], [120, 13.15], [160, 13.47], [200, 13.80], [double.infinity, 14.45],
-  ]);
-  final subtotal = cost + 25.0 + units * 0.15; // ที่พักอาศัยไม่มีค่าน้ำขั้นต่ำ
-  return _round2(subtotal * _vat);
-}
-
-double _waterPwa(double units) {
-  if (units < 0) units = 0;
-  final cost = _tiered(units, const [
-    [10, 10.20], [20, 16.00], [30, 19.00], [50, 21.20], [80, 21.60], [100, 21.65],
-    [300, 21.70], [1000, 21.75], [2000, 21.80], [3000, 21.85], [double.infinity, 21.90],
-  ]);
-  final subtotal = cost + 30.0; // ที่อยู่อาศัยไม่มีค่าน้ำขั้นต่ำ
-  return _round2(subtotal * _vat);
-}
 
 Future<double> _getFtRate(_FirestoreRestClient firestore) async {
   try {

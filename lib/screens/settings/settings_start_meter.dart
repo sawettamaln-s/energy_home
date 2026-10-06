@@ -657,6 +657,10 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
         if (eComplete || wComplete) {
           final newECost = eComplete ? eCost : (existingBillForMonth?.electricityCost ?? 0);
           final newWCost = wComplete ? wCost : (existingBillForMonth?.waterCost ?? 0);
+          // รายจ่ายประจำที่ active ในเดือนบิลนี้ (กติกาเดียวกับ compileBill และ
+          // ฟอร์มบิลย้อนหลัง) ยอดรวมของบิลทุกแหล่งจึงรวมรายจ่ายประจำเหมือนกัน
+          final fixedCost = await widget.firestoreService.calcFixedCostForMonth(
+              widget.uid, DateTime(_selectedYear, _selectedMonth, 1));
           await widget.firestoreService.saveBill(
             BillModel(
               id: existingBillForMonth?.id ?? const Uuid().v4(),
@@ -665,7 +669,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
               month: _selectedMonth,
               electricityCost: newECost,
               waterCost: newWCost,
-              totalCost: newECost + newWCost,
+              totalCost: newECost + newWCost + fixedCost,
               electricityUsed:
                   eComplete ? eUsed : (existingBillForMonth?.electricityUsed ?? 0),
               electricityPeakUsed: eComplete
@@ -676,7 +680,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                   : (existingBillForMonth?.electricityOffPeakUsed ?? 0),
               waterUsed:
                   wComplete ? wUsed : (existingBillForMonth?.waterUsed ?? 0),
-              fixedCost: existingBillForMonth?.fixedCost ?? 0,
+              fixedCost: fixedCost,
               // 'startMeter' = บิลที่สร้าง/อัปเดตจากหน้านี้ (ต่างจาก 'imported') — ล็อกไม่ให้แก้/ลบจากหน้าบันทึกบิลย้อนหลัง
               source: 'startMeter',
             ),

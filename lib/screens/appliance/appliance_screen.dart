@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../models/appliance_model.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/appliance_energy.dart';
 import '../../utils/appliance_rate.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../utils/default_appliances.dart';
@@ -163,30 +164,10 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     return firstEvent.future;
   }
 
-  // kWh รวมของอุปกรณ์ในช่วง totalDaysInPeriod วัน (30 = เดือน, 365 = ปี)
-  // คิดตามจำนวนวัน/สัปดาห์ที่ตั้งไว้จริงในแต่ละ schedule (ไม่ใช่ทุกวันเสมอ)
-  double _kWhForPeriod(ApplianceModel a, int totalDaysInPeriod) {
-    double kWh = 0;
-    for (final s in a.schedules) {
-      final activeDays = (s.days.length / 7) * totalDaysInPeriod;
-      kWh += (a.watt * s.hoursPerDay / 1000) * activeDays;
-    }
-    return kWh;
-  }
-
-  // หน่วยที่ใช้ต่อวันที่เปิดใช้งาน (ไม่เฉลี่ยรวมวันที่ไม่ได้ใช้)
-  double _kWhPerActiveDay(ApplianceModel a) {
-    double kWh = 0;
-    for (final s in a.schedules) {
-      kWh += (a.watt * s.hoursPerDay) / 1000;
-    }
-    return kWh;
-  }
-
   // ทุกตัวเลขในไฟล์ใช้อัตราเดียวกัน (_rate) — ดู ApplianceRate
-  double _monthlyCost(ApplianceModel a) => _kWhForPeriod(a, 30) * _rate.perUnit;
+  double _monthlyCost(ApplianceModel a) => ApplianceEnergy.kWhForPeriod(a, 30) * _rate.perUnit;
 
-  double _yearlyCost(ApplianceModel a) => _kWhForPeriod(a, 365) * _rate.perUnit;
+  double _yearlyCost(ApplianceModel a) => ApplianceEnergy.kWhForPeriod(a, 365) * _rate.perUnit;
 
   double get _totalMonthlyCost =>
       _appliances.where((a) => a.schedules.isNotEmpty).fold(0.0, (sum, a) => sum + _monthlyCost(a));
@@ -354,6 +335,53 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
             '${_rate.isFromBill ? '(จากบิลล่าสุดของคุณ)' : '(ค่าเฉลี่ยประมาณการ)'}',
             style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade600),
           ),
+          if (_billComparison() case final note?) ...[
+            const SizedBox(height: AppSpacing.v10),
+            note,
+          ],
+        ],
+      ),
+    );
+  }
+
+  // เทียบยอดรวมของอุปกรณ์กับค่าไฟจริงในบิลที่ใช้คิดอัตรา — เกินบิลแปลว่าวัตต์
+  // หรือชั่วโมงที่กรอกน่าจะสูงกว่าที่ใช้จริง (ผลรวมของอุปกรณ์บางส่วนไม่ควรเกิน
+  // ค่าไฟทั้งบ้าน) ไม่มีบิลให้เทียบ = ไม่แสดง
+  Widget? _billComparison() {
+    final bill = _rate.sourceBill;
+    if (bill == null || bill.electricityCost <= 0) return null;
+    final pct = _totalMonthlyCost / bill.electricityCost * 100;
+    final billName = '${thaiMonthsShort[bill.month - 1]} ${(bill.year + 543) % 100}';
+    final over = pct > 100;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v8),
+      decoration: BoxDecoration(
+        color: over ? AppColors.warning.withValues(alpha: 0.08) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: over ? Border.all(color: AppColors.warningBorder) : null,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(over ? Icons.warning_amber_rounded : Icons.pie_chart_outline_rounded,
+                size: 16, color: over ? AppColors.warningIcon : Colors.grey.shade700),
+          ),
+          const SizedBox(width: AppSpacing.v8),
+          Expanded(
+            child: Text(
+              over
+                  ? 'สูงกว่าค่าไฟทั้งบ้านในบิล $billName (${_bahtFmt.format(bill.electricityCost)} บาท) '
+                      'วัตต์หรือชั่วโมงที่กรอกอาจสูงกว่าที่ใช้จริง ลองตรวจอีกครั้งค่ะ'
+                  : 'คิดเป็นประมาณ ${pct.toStringAsFixed(0)}% ของค่าไฟบิล $billName '
+                      '(${_bahtFmt.format(bill.electricityCost)} บาท)',
+              style: TextStyle(
+                  fontSize: AppTypography.s12,
+                  height: 1.45,
+                  color: over ? AppColors.warningText : Colors.grey.shade700),
+            ),
+          ),
         ],
       ),
     );
@@ -460,7 +488,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
   // รายละเอียดค่าไฟของอุปกรณ์ (เดือน/ปี/วัน) พร้อมปุ่มแก้ไขและลบ
   void _showDetailSheet(ApplianceModel a) {
     final hasSchedule = a.schedules.isNotEmpty;
-    final kWhPerActiveDay = _kWhPerActiveDay(a);
+    final kWhPerActiveDay = ApplianceEnergy.kWhPerActiveDay(a);
     final costPerMonth = _monthlyCost(a);
 
     showModalBottomSheet(

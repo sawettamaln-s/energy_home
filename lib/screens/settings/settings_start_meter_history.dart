@@ -169,7 +169,7 @@ class _StartMeterHistoryScreenState extends State<_StartMeterHistoryScreen> {
             month: pairedBill.month,
             electricityCost: isElectricity ? 0 : pairedBill.electricityCost,
             waterCost: isElectricity ? pairedBill.waterCost : 0,
-            totalCost: remainingCost,
+            totalCost: remainingCost + pairedBill.fixedCost,
             electricityUsed: isElectricity ? 0 : pairedBill.electricityUsed,
             electricityPeakUsed:
                 isElectricity ? 0 : pairedBill.electricityPeakUsed,

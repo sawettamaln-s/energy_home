@@ -15,13 +15,16 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-BillModel _bill(int year, int month, double used) => BillModel(
+// บิลจากใบแจ้งหนี้จริง ([source] 'compiled' = บิลที่ระบบปิดให้จากยอดประมาณ)
+BillModel _bill(int year, int month, double used, {String source = 'imported'}) =>
+    BillModel(
       id: 'b_${year}_$month',
       uid: 'u',
       year: year,
       month: month,
       electricityUsed: used,
       electricityCost: used * 4,
+      source: source,
     );
 
 void main() {
@@ -108,6 +111,18 @@ void main() {
       expect(hint?.latest.month, 9);
     });
 
+    test('บิลที่ระบบปิดให้ (ยอดประมาณ) ไม่นับ -> ไม่แนะนำ', () {
+      final hint = TariffAdvisor.check(
+        bills: [
+          _bill(2026, 3, 120),
+          _bill(2026, 4, 130),
+          _bill(2026, 5, 140, source: 'compiled'),
+        ],
+        currentTariff: EnergyCalculator.tariffStandard,
+        meterType: 'normal',
+      );
+      expect(hint, isNull);
+    });
     test('เดือนไม่ติดกัน -> ไม่แนะนำ', () {
       expect(check([_bill(2026, 5, 100), _bill(2026, 7, 100), _bill(2026, 8, 100)]),
           isNull);

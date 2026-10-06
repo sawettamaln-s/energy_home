@@ -22,7 +22,6 @@ class DashboardStyles {
   static const Color background = AppColors.background;
   static const Color primaryGreen = AppColors.primaryGreen;
   static const Color textDark = AppColors.textDark;
-  static const Color creamBorder = AppColors.creamBorder;
 
   // ---------- พื้นหลังไฮไลท์ด้านบนของหน้าแดชบอร์ด ----------
   // ไล่เฉดเขียว-เหลืองอ่อนจากกึ่งกลางด้านบน จางลงมาเป็นพื้นครีม `background`
@@ -40,9 +39,7 @@ class DashboardStyles {
 
   // ---------- สีเฉพาะมิเตอร์ไฟฟ้า/น้ำ ----------
   static const Color electricityAccent = AppColors.electricityAccent;
-  static const Color electricityFieldBg = AppColors.electricityFieldBg;
   static const Color waterAccent = AppColors.waterAccent;
-  static const Color waterFieldBg = AppColors.waterFieldBg;
 
   // ---------- สีประจำไฟฟ้า/น้ำ (กรอบการ์ดมิเตอร์, ปุ่ม, หัวหน้าบันทึกมิเตอร์) ----------
   static const Color electricityBorder = AppColors.electricityBorder;
@@ -52,54 +49,13 @@ class DashboardStyles {
   static const Color spikeUp = AppColors.spikeUp;
   static const Color spikeDown = AppColors.spikeDown;
 
-  // ---------- ข้อความจาง: hint ในช่องกรอก และค่ารองใต้ตัวเลข ----------
+  // ---------- ข้อความจาง: hint ในช่องกรอก ----------
   static TextStyle hintStyle =
       TextStyle(color: Colors.grey.shade400, fontSize: AppTypography.body);
-  static TextStyle lastValueStyle =
-      TextStyle(fontSize: AppTypography.caption, color: Colors.grey.shade400);
 
   // ---------- Text style ที่ใช้บ่อย ----------
-  static const TextStyle greeting = TextStyle(
-      fontSize: AppTypography.heading,
-      fontWeight: FontWeight.bold,
-      color: textDark);
-  // ฟอนต์ขาว อ่านออกได้เพราะ chip พื้นหลังทึบ (ดู pageHighlight
-  // header chip ใน dashboard/widgets/dashboard_header.dart) — ไม่ต้องพึ่งสีตัวอักษรเข้ม
-  static const TextStyle subGreeting = TextStyle(
-      fontSize: AppTypography.hint,
-      color: Colors.white,
-      fontWeight: FontWeight.w500);
   static const TextStyle sectionTitle = TextStyle(
       fontWeight: FontWeight.bold,
       fontSize: AppTypography.subtitle,
       color: textDark);
-
-  // ---------- กล่อง/เงา ที่ใช้ซ้ำกันหลายการ์ด ----------
-  static BoxDecoration whiteCard({double radius = 14}) => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(radius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      );
-
-  // การ์ดพื้นขาวมีกรอบสี — ใช้กับการ์ดมิเตอร์ไฟฟ้า/น้ำ แต่ละการ์ดมีกรอบสี
-  // ของตัวเอง
-  static BoxDecoration accentCard(Color borderColor, {double radius = 16}) =>
-      BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: borderColor, width: 1.4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      );
 }

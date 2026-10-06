@@ -21,13 +21,17 @@ class TariffAdvisor {
 
   // คืนคำแนะนำเมื่อบิล 3 เดือนล่าสุด (ติดกันตามเดือนจริง และมีหน่วยไฟทุกใบ)
   // เข้าเงื่อนไขเปลี่ยนประเภท ไม่เข้าเงื่อนไข/ข้อมูลไม่พอ/มิเตอร์ TOU คืน null
+  // นับเฉพาะบิลที่หน่วยมาจากเลขมิเตอร์จริง (ใบแจ้งหนี้/เลขต้นรอบ/บิลที่กรอกเอง)
+  // ไม่นับบิล 'compiled' ซึ่งประมาณหน่วยถึงวันตัดรอบ — หน่วยใกล้ 150 ตัวเลข
+  // ประมาณอาจพาให้แนะนำผิดฝั่ง
   static TariffHint? check({
     required List<BillModel> bills,
     required String currentTariff,
     required String meterType,
   }) {
     if (meterType == 'tou' || bills.isEmpty) return null;
-    final sorted = [...bills]..sort((a, b) => a.yearMonth.compareTo(b.yearMonth));
+    final sorted = bills.where((b) => b.source != 'compiled').toList()
+      ..sort((a, b) => a.yearMonth.compareTo(b.yearMonth));
     if (sorted.length < consecutiveMonths) return null;
     final recent = sorted.sublist(sorted.length - consecutiveMonths);
 

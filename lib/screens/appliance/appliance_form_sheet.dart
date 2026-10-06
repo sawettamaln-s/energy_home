@@ -649,7 +649,8 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
     final ready = watt > 0 && hours > 0 && hours <= 24 && _selectedDays.isNotEmpty;
     final activeDaysPerWeek = _selectedDays.length;
 
-    final kWhPerDay = (watt * hours) / 1000;
+    final duty = ApplianceEnergy.dutyCycle(_iconKey);
+    final kWhPerDay = ApplianceEnergy.kWhPerDay(watt, hours, _iconKey);
     // อัตราเดียวกับหน้ารายการ (ดู ApplianceRate)
     final costPerDay = kWhPerDay * widget.rate.perUnit;
     final costPerMonth = costPerDay * (activeDaysPerWeek / 7) * 30;
@@ -693,10 +694,19 @@ class _AddApplianceSheetState extends State<_AddApplianceSheet> {
                     fontSize: AppTypography.s24, fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
             const SizedBox(height: AppSpacing.v4),
             Text(
-              '${_wattFmt.format(watt)} วัตต์ × ${_durationLabel(hours)} = '
+              '${_wattFmt.format(watt)} วัตต์ × ${_durationLabel(hours)}'
+              '${duty < 1 ? ' × ${(duty * 100).round()}%' : ''} = '
               '${kWhPerDay.toStringAsFixed(2)} หน่วยต่อวันที่ใช้ · ${_daysLabel(_selectedDays)}',
               style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
             ),
+            if (duty < 1) ...[
+              const SizedBox(height: AppSpacing.v4),
+              Text(
+                'คอมเพรสเซอร์ตัดเข้า-ออกเป็นรอบ คิดว่าทำงานเต็มกำลังประมาณ '
+                '${(duty * 100).round()}% ของเวลาที่เปิดค่ะ',
+                style: TextStyle(fontSize: AppTypography.s11_5, height: 1.45, color: Colors.grey.shade600),
+              ),
+            ],
             const SizedBox(height: AppSpacing.v10),
             Row(
               children: [

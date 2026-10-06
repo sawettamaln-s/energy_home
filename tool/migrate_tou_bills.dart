@@ -1,20 +1,17 @@
 // migrate_tou_bills.dart
 //
-// เครื่องมือ migration แบบใช้ครั้งเดียว (ไม่ใช่ฟีเจอร์ถาวร) — พอร์ตมาจาก
-// FirestoreService.migrateTouCompiledBills() ใน lib/services/firestore_service.dart
-// ให้รันเป็นสคริปต์ Dart standalone ได้ตรงๆ โดยไม่ต้องเปิดแอป Flutter
+// เครื่องมือ migration แบบใช้ครั้งเดียว (ไม่ใช่ฟีเจอร์ถาวร ไม่มีในแอป) — รันเป็น
+// สคริปต์ Dart standalone ได้ตรงๆ โดยไม่ต้องเปิดแอป Flutter
 //
-// ทำไมต้องพอร์ตแทนเรียกโค้ดเดิมตรงๆ:
-//   ฟังก์ชันเดิมอยู่ใน FirestoreService ซึ่ง import 'package:cloud_firestore'
-//   และ 'package:flutter/material.dart' — ทั้งคู่ผูกกับ Flutter engine
-//   (platform channels) เรียกจาก `dart run` ตรงๆ ไม่ได้ สคริปต์นี้เลยคุยกับ
-//   Firebase ผ่าน REST API แทน (Identity Toolkit สำหรับ sign-in + Firestore
-//   REST สำหรับอ่าน/เขียนเอกสาร) โดยใช้แค่ dart:io / dart:convert ที่มากับ
-//   Dart SDK เท่านั้น — ไม่ต้อง `dart pub get` เพิ่ม แพ็กเกจอะไรเลย
+// คุยกับ Firebase ผ่าน REST API (Identity Toolkit สำหรับ sign-in + Firestore
+// REST สำหรับอ่าน/เขียนเอกสาร) ด้วย dart:io / dart:convert เพราะ
+// cloud_firestore ผูกกับ Flutter engine เรียกจาก `dart run` ไม่ได้ ส่วนขอบเขต
+// รอบบิลและการลบเลขมิเตอร์ import จากไฟล์ Dart ล้วนของแอป (forecaster.dart,
+// tariff_tables.dart) ตัวเดียวกับที่แอปใช้
 //
-// ตรรกะการคำนวณ (เดินฐานมิเตอร์สะสมทีละรอบ, เงื่อนไขข้าม, การกันของเดิม
-// ไม่ให้เขียนทับโดยไม่ตั้งใจ) เหมือนต้นฉบับทุกจุด — อ่านคอมเมนต์ในไฟล์เดิม
-// ประกอบด้วยถ้าจะแก้ตรรกะ
+// ตรรกะ: เดินฐานมิเตอร์สะสมทีละรอบ (เลข On/Off-Peak ของ log ปิดรอบ − ของรอบ
+// ก่อนหน้า) ไม่พึ่งการจับคู่กับเลขต้นรอบ รอบที่ไม่มี log ข้ามพร้อมเหตุผล และ
+// ไม่เขียนอะไรจนกว่าจะส่ง --apply
 //
 // วิธีใช้:
 //   1) หา Firebase Web API Key ของโปรเจกต์ (Firebase Console > Project
@@ -47,6 +44,9 @@
 
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:energy_home/utils/forecaster.dart';
+import 'package:energy_home/utils/tariff_tables.dart';
 
 const _identityToolkitUrl =
     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword';
@@ -164,8 +164,8 @@ void main(List<String> args) async {
     for (final bill in bills) {
       final year = (bill['year'] as num).toInt();
       final month = (bill['month'] as num).toInt();
-      final endDate = _safeBillingDate(year, month, billingDay);
-      final startDate = _getPreviousCycleStart(endDate, billingDay);
+      final endDate = EnergyForecaster.safeBillingDate(year, month, billingDay);
+      final startDate = EnergyForecaster.getPreviousCycleStart(endDate, billingDay);
 
       final logsInCycle = allLogs
           .where((l) =>
@@ -204,8 +204,8 @@ void main(List<String> args) async {
       final closingOffPeak =
           (closingLog['offPeakMeterValue'] as double?) ?? baseOffPeak;
 
-      final newPeakUsed = _calculateUsed(closingPeak, basePeak);
-      final newOffPeakUsed = _calculateUsed(closingOffPeak, baseOffPeak);
+      final newPeakUsed = TariffTables.unitsUsed(closingPeak, basePeak);
+      final newOffPeakUsed = TariffTables.unitsUsed(closingOffPeak, baseOffPeak);
 
       results.add(_BillPreview(
         billId: bill['id'] as String,
@@ -276,26 +276,6 @@ void main(List<String> args) async {
 }
 
 // ==================== ตรรกะที่พอร์ตมาจากแอป (ต้องตรงกับต้นฉบับเป๊ะ) ====================
-
-// ต้องเหมือน EnergyForecaster._safeBillingDate เป๊ะ เพื่อ reconstruct ขอบเขต
-// รอบเก่าให้ตรงกับที่แอปใช้จริงตอน compileBill()
-DateTime _safeBillingDate(int year, int month, int billingDay) {
-  final lastDayOfMonth = DateTime(year, month + 1, 0).day;
-  final safeDay = billingDay > lastDayOfMonth ? lastDayOfMonth : billingDay;
-  return DateTime(year, month, safeDay);
-}
-
-// ต้องเหมือน EnergyForecaster.getPreviousCycleStart เป๊ะ
-DateTime _getPreviousCycleStart(DateTime cycleStart, int billingDay) {
-  final prevMonth = DateTime(cycleStart.year, cycleStart.month - 1, 1);
-  return _safeBillingDate(prevMonth.year, prevMonth.month, billingDay);
-}
-
-// ต้องเหมือน EnergyCalculator.calculateUsed เป๊ะ
-double _calculateUsed(double current, double previous) {
-  if (current <= previous) return 0;
-  return double.parse((current - previous).toStringAsFixed(2));
-}
 
 String _fmtDate(DateTime d) => d.toIso8601String().split('T').first;
 

@@ -15,7 +15,6 @@ class AppColors {
   // เขียวอ่อนกว่า primaryGreen หนึ่งขั้น — ใช้คู่กันเป็นไล่เฉดของการ์ดเด่น
   static const Color primaryGreenLight = Color(0xFF41703A);
   static const Color textDark = Color(0xFF333333);
-  static const Color creamBorder = Color(0xFFE9DCC5);
 
   // ---------- พื้นหลังไฮไลท์ของหน้าเนื้อหา (ไล่เฉดเขียว-เหลืองอ่อน) ----------
   static const List<Color> pageHighlightColors = [
@@ -29,9 +28,7 @@ class AppColors {
 
   // ---------- สีเฉพาะมิเตอร์ไฟฟ้า/น้ำ ----------
   static const Color electricityAccent = Colors.orange;
-  static const Color electricityFieldBg = Color(0xFFFFE9D6);
   static const Color waterAccent = Colors.blue;
-  static const Color waterFieldBg = Color(0xFFE3F2FD);
 
   // ---------- สีประจำไฟฟ้า/น้ำ (กรอบการ์ดมิเตอร์, ปุ่ม, หัวหน้าบันทึกมิเตอร์) ----------
   static const Color electricityBorder = Color(0xFFC98A4B); // น้ำตาล-ส้ม
@@ -47,13 +44,6 @@ class AppColors {
   static const Color textMuted = Color(0xFF555555); // เนื้อความรองในกล่องข้อความ
   static const Color inputFill = Color(0xFFFAF9F4); // พื้นช่องเลือก (โทนครีม)
   static const Color inputBorder = Color(0xFFD8D5C8);
-
-  // ---------- พื้นอ่อนสำหรับกรอบไอคอน/กล่องไฮไลต์ ----------
-  static const Color softGreenBg = Color(0xFFE8F5E9);
-  static const Color softGreenBgAlt = Color(0xFFE4F2E4);
-  static const Color softOrangeBg = Color(0xFFFFF3E0);
-  static const Color softAmberBg = Color(0xFFFFF8E1);
-  static const Color softRedBg = Color(0xFFFFEBEE);
 
   // ---------- กล่องเตือน/ข้อควรระวัง (โทนส้ม) ----------
   // ใช้ warning.withValues(alpha: ...) เป็นพื้นกล่อง ไอคอนใช้ warningIcon
@@ -90,10 +80,6 @@ class AppColors {
   static const Color seasonSummer = Color(0xFFF57C00);
   static const Color seasonRainy = Color(0xFF1E88E5);
   static const Color seasonCool = Color(0xFF0097A7);
-
-  // ---------- หน้าอธิบายอัตรา ----------
-  static const Color rateHighlight = Color(0xFFF9A825); // ไฮไลต์ค่า Ft/ตัวเลขสำคัญ
-  static const Color rateWater = Color(0xFF0288D1);
 
   // ---------- กลุ่มหน้าเข้าสู่ระบบ ----------
   static const Color authGreenDark = Color(0xFF1B5E20);

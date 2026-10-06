@@ -204,14 +204,14 @@ class _TariffSheetState extends State<_TariffSheet> {
                   tariff: EnergyCalculator.tariffStandard,
                   title: 'ใช้เกิน 150 หน่วย/เดือน',
                   detail: 'บ้านส่วนใหญ่ (มิเตอร์ใหญ่กว่า 5 แอมแปร์) ถ้าไม่แน่ใจให้เลือกประเภทนี้',
-                  serviceFee: EnergyCalculator.electricityServiceFee.toStringAsFixed(2),
+                  serviceFee: TariffTables.electricityStandardServiceFee.toStringAsFixed(2),
                 ),
                 const SizedBox(height: AppSpacing.v8),
                 _option(
                   tariff: EnergyCalculator.tariffSmall,
                   title: 'ใช้ไม่เกิน 150 หน่วย/เดือน',
                   detail: 'มิเตอร์ไม่เกิน 5 แอมแปร์ ที่ใช้ไม่เกิน 150 หน่วยติดต่อกัน 3 เดือน อัตราถูกกว่า',
-                  serviceFee: EnergyCalculator.smallServiceFee.toStringAsFixed(2),
+                  serviceFee: TariffTables.electricitySmallServiceFee.toStringAsFixed(2),
                 ),
                 const SizedBox(height: AppSpacing.v12),
                 Row(

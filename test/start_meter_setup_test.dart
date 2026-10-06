@@ -13,6 +13,7 @@
 // DateTime.now() ด้วย EnergyForecaster ตัวเดียวกับแอป เทสจึงไม่ผูกกับวันที่รัน
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:energy_home/models/electricity_log_model.dart';
+import 'package:energy_home/models/fixed_cost_item_model.dart';
 import 'package:energy_home/models/start_meter_record_model.dart';
 import 'package:energy_home/models/user_model.dart';
 import 'package:energy_home/screens/settings/settings_screen.dart'
@@ -294,6 +295,27 @@ void main() {
       final bills = await docs('bills');
       expect(bills.single['electricityUsed'], 300);
       expect(bills.single['electricityCost'], double.parse(autoCost));
+    });
+
+    testWidgets('บิลจากเลขต้นรอบ: ยอดรวมนับรายจ่ายประจำของเดือนบิลเหมือนบิลแหล่งอื่น',
+        (tester) async {
+      await seedUser();
+      await seedRecord('r-prev', prevCycle, electricity: 5000);
+      await userDoc().collection('fixed_costs').doc('f1').set(FixedCostItemModel(
+            id: 'f1', uid: _uid, name: 'เน็ต', category: 'internet',
+            amount: 500, createdAt: DateTime(2020, 1, 1),
+            startDate: DateTime(2020, 1, 1),
+          ).toMap());
+      await openSetup(tester);
+      await openSheet(tester);
+
+      await enter(tester, meterLabel, '5300');
+      final autoCost = tester.widget<TextField>(fieldFor(costLabel)).controller!.text;
+      await tapText(tester, 'บันทึก');
+
+      final bill = (await docs('bills')).single;
+      expect(bill['fixedCost'], 500);
+      expect(bill['totalCost'], closeTo(double.parse(autoCost) + 500, 0.001));
     });
 
     testWidgets('ติ๊ก "ยังไม่มีบิล" -> กรอกแค่เลขมิเตอร์ก็บันทึกได้ ค่าใช้จ่ายเป็น 0',
