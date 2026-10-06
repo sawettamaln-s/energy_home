@@ -859,7 +859,9 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                               ],
                             ),
                           ],
-                          if (_user?.startMeterConfigured == true) ...[
+                          // ล้างได้เฉพาะตอนแก้เลขของรอบปัจจุบัน — ตอนกรอกรอบใหม่ ค่าต้นรอบ
+                          // ที่มีอยู่เป็นของรอบที่แล้ว (หมดอายุแล้ว) ไม่มีอะไรให้ล้าง
+                          if (_isEditingCurrentCycle) ...[
                             const SizedBox(height: AppSpacing.v16),
                             TextButton.icon(
                               onPressed: _isSaving ? null : _confirmClearStartMeter,

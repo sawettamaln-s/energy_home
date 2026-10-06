@@ -463,6 +463,21 @@ void main() {
       expect(logs.single['usedFromStart'], 100);
     });
 
+    testWidgets('กรอกรอบใหม่ (ค่าต้นรอบเดิมเป็นของรอบก่อน) -> ไม่มีปุ่มล้างเลขมิเตอร์ต้นรอบ',
+        (tester) async {
+      await seedUser();
+      await seedRecord('r-prev', prevCycle, electricity: 5000);
+      await userDoc().update({
+        'startMeterConfigured': true,
+        'startBillingMonth': prevCycle.month,
+        'startBillingYear': prevCycle.year,
+      });
+      await openSetup(tester);
+      await openSheet(tester);
+
+      expect(find.text('ล้างเลขมิเตอร์ต้นรอบ'), findsNothing);
+    });
+
     testWidgets('ล้างเลขมิเตอร์ต้นรอบ -> รีเซ็ต user และลบ record/บิลของรอบนี้',
         (tester) async {
       await seedCurrentCycle();

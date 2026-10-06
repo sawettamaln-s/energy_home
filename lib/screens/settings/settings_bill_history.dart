@@ -643,8 +643,9 @@ class HistoricalBillListScreenState extends State<HistoricalBillListScreen> {
     final notFilled = isMissing || cost <= 0;
     final muted = TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade400);
 
-    // ป้ายที่มาใต้ชื่อเดือน: ยังไม่กรอก / ประมาณ (ระบบปิดบิลให้) / จากหน้าเลขมิเตอร์
-    String? sourceLabel;
+    // ป้ายที่มาใต้ชื่อเดือน: ยังไม่กรอก / ประมาณ (ระบบปิดบิลให้) / ใบแจ้งหนี้
+    // (ทั้งที่กรอกในหน้านี้และจากหน้าเลขมิเตอร์ — แบบหลังแยกด้วยไอคอนกุญแจท้ายแถว)
+    final String sourceLabel;
     Color sourceColor = Colors.grey.shade600;
     if (notFilled) {
       sourceLabel = 'ยังไม่กรอก';
@@ -652,7 +653,7 @@ class HistoricalBillListScreenState extends State<HistoricalBillListScreen> {
     } else if (_isCompiledBill(b)) {
       sourceLabel = 'ประมาณ';
       sourceColor = AppColors.warningIcon;
-    } else if (_isStartMeterBill(b)) {
+    } else {
       sourceLabel = 'ใบแจ้งหนี้';
     }
 
@@ -709,12 +710,10 @@ class HistoricalBillListScreenState extends State<HistoricalBillListScreen> {
                           fontSize: AppTypography.s14,
                           fontWeight: FontWeight.w600,
                           color: notFilled ? Colors.grey.shade500 : AppColors.textDark)),
-                  if (sourceLabel != null)
-                    Text(sourceLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            TextStyle(fontSize: AppTypography.s10_5, fontWeight: FontWeight.w600, color: sourceColor)),
+                  Text(sourceLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: AppTypography.s10_5, fontWeight: FontWeight.w600, color: sourceColor)),
                 ],
               ),
             ),

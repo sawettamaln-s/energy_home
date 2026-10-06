@@ -122,7 +122,7 @@ void main() {
     await pumpAnalysis(tester);
 
     expect(find.textContaining('เดือนเดียวกันของปีก่อน'), findsNothing);
-    expect(find.textContaining('พุ่งขึ้นจากเดือนก่อน'), findsNothing);
+    expect(find.textContaining('พุ่งขึ้นจากบิลก่อนหน้า'), findsNothing);
   });
 
   testWidgets('ยังไม่มีบิลและยังไม่บันทึกรอบนี้ -> การ์ดคาดการณ์บอกวิธีให้มีข้อมูล ไม่มีการ์ดเปรียบเทียบ',

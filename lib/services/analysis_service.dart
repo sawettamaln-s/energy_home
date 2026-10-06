@@ -502,23 +502,30 @@ class AnalysisService {
     bool includeComparisons = true,
   }) {
     final insights = <AnalysisInsight>[];
+    // ทุกข้อบอกชื่อบิลที่พูดถึง (เช่น "บิล พ.ย. 69") — ข้อสังเกตแต่ละข้อพูดถึง
+    // คนละรอบได้ ถ้าเขียนแค่ "เดือนนี้/เดือนก่อน" จะอ่านแล้วดูขัดกันเอง
+    String billName(int year, int month) =>
+        'บิล ${thaiMonthsShort[month - 1]} ${(year + 543) % 100}';
 
-    // ----- 1. คาดการณ์ยอดรอบปัจจุบัน เทียบกับเดือนก่อน -----
+    // ----- 1. คาดการณ์ยอดรอบปัจจุบัน เทียบกับบิลล่าสุด -----
     if (currentCycle != null && currentCycle.hasData && bills.isNotEmpty) {
       final lastActual = selector(bills.last);
       if (lastActual > 0) {
         final diffPercent =
             ((currentCycle.forecastCost - lastActual) / lastActual) * 100;
+        final thisBill =
+            billName(currentCycle.billMonth.year, currentCycle.billMonth.month);
+        final lastBill = billName(bills.last.year, bills.last.month);
         if (diffPercent >= 15) {
           insights.add(AnalysisInsight(
-            'แนวโน้ม$labelรอบนี้คาดว่าจะสูงกว่าเดือนก่อนประมาณ '
+            '$labelรอบนี้ ($thisBill) คาดว่าจะสูงกว่า$lastBill ประมาณ '
             '${diffPercent.toStringAsFixed(0)}% หากใช้งานในอัตราเดิมต่อไป '
             'อาจลองลดการใช้งานในช่วงที่เหลือของรอบบิล',
             InsightLevel.warning,
           ));
         } else if (diffPercent <= -15) {
           insights.add(AnalysisInsight(
-            '$labelรอบนี้มีแนวโน้มลดลงจากเดือนก่อนประมาณ '
+            '$labelรอบนี้ ($thisBill) มีแนวโน้มต่ำกว่า$lastBill ประมาณ '
             '${diffPercent.abs().toStringAsFixed(0)}% ทำได้ดีมาก',
             InsightLevel.good,
           ));
@@ -542,14 +549,18 @@ class AnalysisService {
         final last3 = [selector(billMinus2), selector(billMinus1), selector(current)];
         final increasing = last3[0] < last3[1] && last3[1] < last3[2];
         final decreasing = last3[0] > last3[1] && last3[1] > last3[2];
+        // ช่วงบิลที่ปิดแล้ว เช่น "ส.ค.–ต.ค. 69" (ยังไม่รวมรอบที่กำลังใช้อยู่)
+        final range = '${thaiMonthsShort[mMinus2.month - 1]}–'
+            '${thaiMonthsShort[current.month - 1]} ${(current.year + 543) % 100}';
         if (increasing) {
           insights.add(AnalysisInsight(
-            '$labelเพิ่มขึ้นต่อเนื่อง 3 เดือนล่าสุด ควรตรวจสอบว่ามีอุปกรณ์ใช้งานเพิ่มขึ้นหรือไม่',
+            '$labelในบิลที่ปิดแล้วเพิ่มขึ้นต่อเนื่อง 3 เดือน ($range) '
+            'ควรตรวจสอบว่ามีอุปกรณ์ใช้งานเพิ่มขึ้นหรือไม่',
             InsightLevel.warning,
           ));
         } else if (decreasing) {
           insights.add(AnalysisInsight(
-            '$labelลดลงต่อเนื่อง 3 เดือนล่าสุด แนวโน้มดีขึ้นเรื่อย ๆ',
+            '$labelในบิลที่ปิดแล้วลดลงต่อเนื่อง 3 เดือน ($range) แนวโน้มดีขึ้นเรื่อย ๆ',
             InsightLevel.good,
           ));
         }
@@ -560,7 +571,7 @@ class AnalysisService {
     if (includeComparisons && yoy != null && yoy.percentChange != null) {
       if (yoy.isIncrease && yoy.percentChange! >= 25) {
         insights.add(AnalysisInsight(
-          '$labelเดือนนี้สูงกว่าเดือนเดียวกันของปีก่อนถึง '
+          '$label${billName(bills.last.year, bills.last.month)} สูงกว่าบิลเดือนเดียวกันของปีก่อนถึง '
           '${yoy.percentChange!.toStringAsFixed(0)}% มากกว่าปกติ',
           InsightLevel.warning,
         ));
@@ -571,8 +582,8 @@ class AnalysisService {
     if (includeComparisons && mom != null && mom.percentChange != null) {
       if (mom.isIncrease && mom.percentChange! >= 30) {
         insights.add(AnalysisInsight(
-          '$labelเดือนนี้พุ่งขึ้นจากเดือนก่อน ${mom.percentChange!.toStringAsFixed(0)}% '
-          'แบบกะทันหัน ลองเช็กว่ามีอุปกรณ์ตัวไหนใช้งานนานขึ้นผิดปกติ',
+          '$label${billName(bills.last.year, bills.last.month)} พุ่งขึ้นจากบิลก่อนหน้า '
+          '${mom.percentChange!.toStringAsFixed(0)}% แบบกะทันหัน ลองเช็กว่ามีอุปกรณ์ตัวไหนใช้งานนานขึ้นผิดปกติ',
           InsightLevel.warning,
         ));
       }
@@ -584,8 +595,7 @@ class AnalysisService {
           (a, b) => selector(a) >= selector(b) ? a : b);
       if (peak != bills.last) {
         insights.add(AnalysisInsight(
-          'เดือนที่ใช้$labelสูงสุดในข้อมูลที่เก็บไว้คือ '
-          '${thaiMonthsShort[peak.month - 1]} ${(peak.year + 543) % 100} '
+          '$labelสูงสุดในบิลที่เก็บไว้คือ${billName(peak.year, peak.month)} '
           'ที่ ${NumberFormat('#,##0').format(selector(peak))} บาท ลองสังเกตว่าช่วงนั้นมีอะไรต่างจากปกติ',
           InsightLevel.neutral,
           showApplianceCta: trackAppliances,
