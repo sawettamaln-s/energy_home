@@ -138,8 +138,17 @@ class EnergyCalculator {
     String tariff = tariffStandard,
   }) async {
     if (units <= 0) return 0;
+    return electricityCost(units, ftRate: await getFtRate(), tariff: tariff);
+  }
 
-    final ftRate = await getFtRate();
+  // ค่าไฟฟ้าแบบปกติด้วยค่า Ft ที่ส่งมา (ไม่อ่าน Firestore) — ใช้เมื่อต้องคิด
+  // หลายยอดต่อกัน เช่น คาดการณ์หลายเดือนในหน้าวิเคราะห์ ให้อ่าน Ft ครั้งเดียว
+  static double electricityCost(
+    double units, {
+    required double ftRate,
+    String tariff = tariffStandard,
+  }) {
+    if (units <= 0) return 0;
     final isSmall = tariff == tariffSmall;
     double energyCost = isSmall
         ? _calculateEnergyRateSmall(units)
@@ -158,8 +167,20 @@ class EnergyCalculator {
     required double offPeakUnits,
   }) async {
     if (peakUnits <= 0 && offPeakUnits <= 0) return 0;
+    return electricityTouCost(
+      peakUnits: peakUnits,
+      offPeakUnits: offPeakUnits,
+      ftRate: await getFtRate(),
+    );
+  }
 
-    final ftRate = await getFtRate();
+  // ค่าไฟฟ้าแบบ TOU ด้วยค่า Ft ที่ส่งมา (ไม่อ่าน Firestore)
+  static double electricityTouCost({
+    required double peakUnits,
+    required double offPeakUnits,
+    required double ftRate,
+  }) {
+    if (peakUnits <= 0 && offPeakUnits <= 0) return 0;
     double totalUnits = peakUnits + offPeakUnits;
 
     double energyCost =

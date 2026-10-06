@@ -15,6 +15,8 @@ class _UtilityTab extends StatelessWidget {
   // เดือนอาจมีค่าใช้จ่ายแต่ไม่มีหน่วย (เช่น บิลที่มาจากการตั้งเลขมิเตอร์
   // ต้นรอบครั้งแรกสุดของบัญชี ที่คำนวณ delta หน่วยที่ใช้ไม่ได้จริงๆ)
   final double Function(BillModel) usedSelector;
+  // คิดเงินจากหน่วยที่คาดการณ์ตามอัตราของผู้ใช้ (ดู AnalysisService.forecastCostFromUnits)
+  final UnitPricer price;
   final String unitLabel; // หน่วยที่ใช้ เช่น 'หน่วย'
   final String title; // หัวข้อยาว เช่น 'ค่าไฟฟ้า' ใช้ในกราฟเทรนด์
   final String label; // หัวข้อสั้น เช่น 'ค่าไฟ' ใช้ในข้อความ insight
@@ -56,6 +58,7 @@ class _UtilityTab extends StatelessWidget {
     required this.analysisService,
     required this.selector,
     required this.usedSelector,
+    required this.price,
     required this.unitLabel,
     required this.title,
     required this.label,
@@ -80,18 +83,29 @@ class _UtilityTab extends StatelessWidget {
     final yoy = analysisService.compareYoY(bills, selector: selector);
     final avg6 = analysisService.compareToAverage(bills, selector: selector);
     final nextBillMonth = _nextBillMonth;
-    final forecast = analysisService.forecastNextMonth(
+    // ยอดเงินคาดการณ์คิดจากหน่วยที่คาดการณ์ด้วยตารางอัตรา หน่วยกับเงินจึงตรงกัน
+    final peakSel = isTou ? peakUsedSelector : null;
+    final offPeakSel = isTou ? offPeakUsedSelector : null;
+    final forecast = analysisService.forecastCostFromUnits(
       bills,
-      selector: selector,
+      costSelector: selector,
+      usedSelector: usedSelector,
+      price: price,
+      peakSelector: peakSel,
+      offPeakSelector: offPeakSel,
       area: area,
       meterType: meterType,
       isWater: isWater,
       targetMonth: nextBillMonth,
     );
     final multiMonthForecast = _withCurrentCycle(
-      analysisService.forecastNextMonths(
+      analysisService.forecastNextMonthsCost(
         bills,
-        selector: selector,
+        costSelector: selector,
+        usedSelector: usedSelector,
+        price: price,
+        peakSelector: peakSel,
+        offPeakSelector: offPeakSel,
         months: 3,
         area: area,
         meterType: meterType,
@@ -99,17 +113,24 @@ class _UtilityTab extends StatelessWidget {
       ),
       (c) => c.forecastCost,
     );
-    // คาดการณ์ฝั่ง "หน่วยที่ใช้" (กราฟเทรนด์สลับโหมดได้) — เส้นฤดูกาลสร้างจาก
-    // ยอดหน่วยอยู่แล้ว (tool/seasonal_curves) ยอดรวมทั้งเดือนไม่แยก On/Off-Peak
+    // คาดการณ์ฝั่ง "หน่วยที่ใช้" (กราฟเทรนด์สลับโหมดได้) — ใช้เฉพาะบิลที่มีหน่วย
+    // ชุดเดียวกับที่ใช้คิดยอดเงินด้านบน เส้นฤดูกาลสร้างจากยอดหน่วยอยู่แล้ว
+    // (tool/seasonal_curves) ยอดรวมทั้งเดือนไม่แยก On/Off-Peak
+    final billsWithUnits = bills.where((b) => usedSelector(b) > 0).toList();
     final multiMonthUsedForecast = _withCurrentCycle(
-      analysisService.forecastNextMonths(
-        bills,
-        selector: usedSelector,
-        months: 3,
-        area: area,
-        meterType: meterType,
-        isWater: isWater,
-      ),
+      [
+        for (var i = 1; i <= 3; i++)
+          billsWithUnits.isEmpty
+              ? 0.0
+              : analysisService.forecastNextMonth(
+                  billsWithUnits,
+                  selector: usedSelector,
+                  area: area,
+                  meterType: meterType,
+                  isWater: isWater,
+                  targetMonth: DateTime(bills.last.year, bills.last.month + i, 1),
+                ),
+      ],
       (c) => c.forecastUnits,
     );
 
@@ -357,8 +378,7 @@ class _UtilityTab extends StatelessWidget {
   }
 
   // ยอดคาดการณ์ "ประมาณ 2,065 บาท" — บาทเต็มไม่มีทศนิยม (เป็นค่าประมาณ) แต่ไม่ปัด
-  // หลักสิบ/ร้อยแยกทีละยอด ค่าไฟ + ค่าน้ำรอบนี้จึงบวกกันได้เท่ากับยอดคาดการณ์
-  // สิ้นรอบที่หน้าหลัก (หน้าหลักบวกรายจ่ายประจำแล้วปัดยอดรวมครั้งเดียว)
+  // หลักสิบ/ร้อย ค่าไฟ + ค่าน้ำรอบนี้จึงบวกกันได้ตรงกับยอดรวม
   Widget _estimateLine(double value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -461,12 +481,13 @@ class _UtilityTab extends StatelessWidget {
         '(อัตราขั้นบันได ค่าบริการ และ VAT) หากใช้งานไม่สม่ำเสมอมาก ตัวเลขอาจคลาดเคลื่อนได้บ้าง';
     final next = usesSeasonalCurve
         ? 'รอบถัดไป\n'
-            'เอาค่าเฉลี่ย$labelไม่กี่เดือนล่าสุดของคุณ มาปรับด้วยรูปแบบฤดูกาล '
-            '(เช่น เดือนร้อนมักใช้ไฟมากกว่าเดือนหนาว) รูปแบบฤดูกาลคำนวณจากสถิติการใช้'
+            'เอาหน่วยที่ใช้เฉลี่ยไม่กี่เดือนล่าสุดของคุณ มาปรับด้วยรูปแบบฤดูกาล '
+            '(เช่น เดือนร้อนมักใช้ไฟมากกว่าเดือนหนาว) แล้วคิดเงินด้วยอัตราจริงเหมือนรอบนี้ '
+            'รูปแบบฤดูกาลคำนวณจากสถิติการใช้'
             'ไฟฟ้า/น้ำประปาจริงรายเดือนย้อนหลังหลายปี (ข้อมูลเปิดของ สนพ., กปน. และ กปภ.) '
             'แยกตามพื้นที่ของคุณ'
         : 'รอบถัดไป\n'
-            'ประมาณแนวโน้มจากยอด$labelย้อนหลังทั้งหมดที่บันทึกไว้ แล้วลากเส้นแนวโน้มต่อไป '
+            'ลากเส้นแนวโน้มจากหน่วยที่ใช้ย้อนหลังทั้งหมดที่บันทึกไว้ แล้วคิดเงินด้วยอัตราจริง '
             'ยิ่งมีข้อมูลสะสมหลายเดือน ตัวเลขยิ่งแม่นยำขึ้น';
     return '$current\n\n$next';
   }

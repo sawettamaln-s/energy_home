@@ -11,6 +11,7 @@ import '../../models/bill_model.dart';
 import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/appliance_rate.dart';
+import '../../utils/calculator.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
@@ -64,8 +65,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   // ปกติ — เฉพาะแท็บไฟฟ้าเท่านั้น แท็บน้ำไม่มี TOU จึงไม่ต้องส่งไปเลย
   bool _isTou = false;
   // area ของ user คนนี้ ('bangkok'/'province') — ส่งต่อให้ analysisService
-  // เลือก seasonal curve ให้ตรงเคส (ดู forecastNextMonth/forecastNextMonths)
+  // เลือก seasonal curve ให้ตรงเคส (ดู forecastNextMonth/forecastCostFromUnits)
   String? _userArea;
+  // ใช้คิดเงินจากหน่วยที่คาดการณ์ (บิลรอบถัดไป/กราฟคาดการณ์) — อ่าน Ft ครั้งเดียวต่อการโหลด
+  String _tariff = EnergyCalculator.tariffStandard;
+  double _ftRate = EnergyCalculator.defaultFtRate;
 
   // เก็บ subscription ของ stream อุปกรณ์ไว้ เพื่อ cancel ตอน dispose
   // (กัน setState ถูกเรียกหลัง widget dispose ถ้า user ออกจากหน้านี้ระหว่างที่
@@ -113,6 +117,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       final isTou = user?.meterType == 'tou';
 
       final bills = await _analysisService.fetchBills(uid);
+      final ft = await _firestoreService.getFtInfo();
 
       final currentCycle = await _analysisService.forecastCurrentCycle(
         uid: uid,
@@ -136,6 +141,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         _currentCycle = currentCycle;
         _isTou = isTou;
         _userArea = user?.area;
+        _tariff = user?.electricityTariff ?? EnergyCalculator.tariffStandard;
+        _ftRate = ft?.rate ?? EnergyCalculator.defaultFtRate;
         _isLoading = false;
       });
     } catch (e) {
@@ -146,6 +153,16 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       );
     }
   }
+
+  double _priceElectricity({
+    required double units,
+    required double peakUnits,
+    required double offPeakUnits,
+  }) =>
+      _isTou
+          ? EnergyCalculator.electricityTouCost(
+              peakUnits: peakUnits, offPeakUnits: offPeakUnits, ftRate: _ftRate)
+          : EnergyCalculator.electricityCost(units, ftRate: _ftRate, tariff: _tariff);
 
   @override
   Widget build(BuildContext context) {
@@ -179,6 +196,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     analysisService: _analysisService,
                     selector: (b) => b.electricityCost,
                     usedSelector: (b) => b.electricityUsed,
+                    price: _priceElectricity,
                     unitLabel: 'หน่วย',
                     title: 'ค่าไฟฟ้า',
                     label: 'ค่าไฟ',
@@ -202,6 +220,8 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     analysisService: _analysisService,
                     selector: (b) => b.waterCost,
                     usedSelector: (b) => b.waterUsed,
+                    price: ({required units, required peakUnits, required offPeakUnits}) =>
+                        EnergyCalculator.calculateWater(units, _userArea ?? 'bangkok'),
                     unitLabel: 'ลบ.ม.',
                     title: 'ค่าน้ำ',
                     label: 'ค่าน้ำ',

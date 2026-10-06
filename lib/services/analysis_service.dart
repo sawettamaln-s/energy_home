@@ -11,6 +11,14 @@ import '../utils/seasonal_curves.dart';
 import '../utils/thai_date_utils.dart';
 import 'firestore_service.dart';
 
+// คิดเงินจากหน่วยที่คาดการณ์ (TOU ใช้ peakUnits/offPeakUnits, อื่นๆ ใช้ units)
+// ผู้เรียกผูกอัตราของผู้ใช้ไว้ให้ เช่น ประเภทอัตรา พื้นที่ และค่า Ft
+typedef UnitPricer = double Function({
+  required double units,
+  required double peakUnits,
+  required double offPeakUnits,
+});
+
 /// สรุปสัดส่วนการใช้พลังงานของอุปกรณ์ 1 ชิ้น ในช่วงเวลาที่กำหนด
 class ApplianceUsage {
   final ApplianceModel appliance;
@@ -281,58 +289,108 @@ class AnalysisService {
   List<int> _monthIndexes(List<BillModel> bills) =>
       [for (final b in bills) _monthIndex(bills, b.year, b.month)];
 
-  /// คาดการณ์แนวโน้มหลายเดือนล่วงหน้า
+  /// คาดการณ์ "ค่าใช้จ่าย" ของบิลเดือน [targetMonth] (ไม่ส่ง = เดือนถัดจากบิล
+  /// ล่าสุด): ทายหน่วยด้วย [forecastNextMonth] แล้วคิดเงินด้วย [price] — ไม่
+  /// เอายอดเงินไปคูณตัวคูณฤดูกาลตรงๆ เพราะค่าบริการรายเดือนไม่ขึ้นกับหน่วย และ
+  /// อัตราเป็นขั้นบันได หน่วยกับเงินที่คาดการณ์จึงตรงกันตามตารางอัตรา
   ///
-  /// ถ้าใส่ area+meterType มา ใช้ seasonal curve เดือนต่อเดือน (แต่ละเดือน
-  /// ในอนาคตมีตัวคูณฤดูกาลของตัวเอง) ถ้าไม่ใส่มา fallback เป็น linear regression
-  /// (ลากเส้นเดียวกัน ขยับจุด X ที่ทำนายออกไปทีละเดือน ยิ่งเดือนไกลยิ่งไม่แน่นอน
-  /// สูง เพราะไม่จับ seasonality)
-  List<double> forecastNextMonths(
+  /// ใช้เฉพาะบิลที่มีหน่วย (บิลแรกสุดจากการตั้งเลขต้นรอบอาจมีแต่ยอดเงิน)
+  /// TOU แบ่งหน่วยเป็น On/Off-Peak ตามสัดส่วนของบิลที่มีหน่วยแยกช่วง ถ้าไม่มี
+  /// บิลที่มีหน่วยเลย (หรือ TOU ที่ไม่มีบิลแยกช่วง) ทายจากยอดเงินแทน
+  double forecastCostFromUnits(
     List<BillModel> bills, {
-    required double Function(BillModel) selector,
+    required double Function(BillModel) costSelector,
+    required double Function(BillModel) usedSelector,
+    required UnitPricer price,
+    double Function(BillModel)? peakSelector,
+    double Function(BillModel)? offPeakSelector,
+    String? area,
+    String? meterType,
+    bool isWater = false,
+    DateTime? targetMonth,
+  }) {
+    if (bills.isEmpty) return 0;
+    final target =
+        targetMonth ?? DateTime(bills.last.year, bills.last.month + 1, 1);
+    double fromCost() => forecastNextMonth(
+          bills,
+          selector: costSelector,
+          area: area,
+          meterType: meterType,
+          isWater: isWater,
+          targetMonth: target,
+        );
+
+    final withUnits = bills.where((b) => usedSelector(b) > 0).toList();
+    if (withUnits.isEmpty) return fromCost();
+
+    final isTou = peakSelector != null && offPeakSelector != null;
+    var peakShare = 0.0;
+    if (isTou) {
+      var peak = 0.0;
+      var total = 0.0;
+      for (final b in withUnits) {
+        final p = peakSelector(b);
+        final o = offPeakSelector(b);
+        if (p + o <= 0) continue;
+        peak += p;
+        total += p + o;
+      }
+      if (total <= 0) return fromCost();
+      peakShare = peak / total;
+    }
+
+    final units = forecastNextMonth(
+      withUnits,
+      selector: usedSelector,
+      area: area,
+      meterType: meterType,
+      isWater: isWater,
+      targetMonth: target,
+    );
+    return price(
+      units: units,
+      peakUnits: isTou ? units * peakShare : 0,
+      offPeakUnits: isTou ? units * (1 - peakShare) : 0,
+    );
+  }
+
+  /// [forecastCostFromUnits] ของ [months] เดือนถัดจากบิลล่าสุด เรียงตามเดือน
+  List<double> forecastNextMonthsCost(
+    List<BillModel> bills, {
+    required double Function(BillModel) costSelector,
+    required double Function(BillModel) usedSelector,
+    required UnitPricer price,
+    double Function(BillModel)? peakSelector,
+    double Function(BillModel)? offPeakSelector,
     int months = 3,
     String? area,
     String? meterType,
     bool isWater = false,
   }) {
     if (bills.isEmpty) return List.filled(months, 0);
-    final monthlyValues = bills.map(selector).toList();
-
-    final curve = _resolveCurve(area: area, meterType: meterType, isWater: isWater);
-    if (curve != null) {
-      final current = bills.last;
-      final recentBills = _recentWindow(bills);
-      final recentValues = recentBills.map(selector).toList();
-      final recentMonths = recentBills.map((b) => b.month).toList();
-      return List.generate(months, (i) {
-        final targetMonth =
-            DateTime(current.year, current.month + i + 1, 1).month;
-        return EnergyForecaster.seasonalForecast(
-          recentMonthlyValues: recentValues,
-          recentMonths: recentMonths,
-          curve: curve,
-          forecastMonth: targetMonth,
-        );
-      });
-    }
-
-    final current = bills.last;
-    final lastIndex = _monthIndex(bills, current.year, current.month);
-    final monthIndexes = _monthIndexes(bills);
-    return List.generate(
-      months,
-      (i) => EnergyForecaster.linearRegression(
-        monthlyValues: monthlyValues,
-        monthIndexes: monthIndexes,
-        forecastMonth: lastIndex + i + 1,
-      ),
-    );
+    final last = bills.last;
+    return [
+      for (var i = 1; i <= months; i++)
+        forecastCostFromUnits(
+          bills,
+          costSelector: costSelector,
+          usedSelector: usedSelector,
+          price: price,
+          peakSelector: peakSelector,
+          offPeakSelector: offPeakSelector,
+          area: area,
+          meterType: meterType,
+          isWater: isWater,
+          targetMonth: DateTime(last.year, last.month + i, 1),
+        ),
+    ];
   }
 
   /// คืนตัวคูณฤดูกาลของเดือนที่ระบุ (1 = ม.ค. ... 12 = ธ.ค.) ตาม area+meterType
   /// ที่ส่งมา ใช้ประกอบคำอธิบายเหตุผลในการ์ดคาดการณ์ (ดู _seasonReasonText ใน
   /// analysis_utility_tab.dart) — ไม่ได้ใช้คำนวณตัวเลขคาดการณ์เอง (ตัวเลขนั้น
-  /// คำนวณผ่าน forecastNextMonth/forecastNextMonths ที่เรียก curve ตรงๆ อยู่แล้ว)
+  /// คำนวณผ่าน forecastNextMonth ที่เรียก curve ตรงๆ อยู่แล้ว)
   ///
   /// คืน 1.0 (ไม่มีผลปรับ) ถ้ายังไม่รู้ area/meterType ของ user คนนี้ หรือไม่มี
   /// เคสตรงกับ curve ที่มี
