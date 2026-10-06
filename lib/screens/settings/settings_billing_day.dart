@@ -284,6 +284,33 @@ class _BillingDaySheetState extends State<_BillingDaySheet> {
                 ),
                 Text('ดูวันที่จดเลขมิเตอร์บนใบแจ้งหนี้ใบล่าสุด แล้วแตะวันนั้นค่ะ',
                     style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade600)),
+                const SizedBox(height: AppSpacing.v10),
+                // ไฟฟ้ากับน้ำใช้วันตัดรอบเดียวกัน แต่การไฟฟ้า/การประปาจดมิเตอร์คนละวัน
+                // ใบที่มาทีหลังคือวันที่มีเลขต้นรอบครบทั้งสองใบ
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v10, vertical: AppSpacing.v8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Icon(Icons.receipt_long_outlined, size: 16, color: Colors.grey.shade700),
+                      ),
+                      const SizedBox(width: AppSpacing.v8),
+                      Expanded(
+                        child: Text(
+                          'ไฟฟ้าและน้ำใช้วันตัดรอบเดียวกัน\n'
+                          'ถ้าจดมิเตอร์คนละวัน ให้เลือกวันของใบที่มาทีหลังค่ะ',
+                          style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.v14),
                 GridView.count(
                   crossAxisCount: 7,
