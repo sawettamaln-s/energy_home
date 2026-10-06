@@ -308,4 +308,22 @@ void main() {
             'ไม่รวมรายการที่เพิ่งเริ่มวันนี้ (999)');
     expect(bill.totalCost, 888 + 590);
   });
+
+  test('ผลของ compileBill: สร้างแล้ว / ไม่มี log / ไม่มีผู้ใช้ (ทำไม่สำเร็จ)',
+      () async {
+    final service = FirestoreService(firestore: FakeFirebaseFirestore());
+    const uid = 'user-result';
+    expect(await service.compileBill(uid, 2026, 6, startDate, endDate),
+        CompileBillResult.failed);
+
+    await service.createUser(UserModel(uid: uid, name: 'x', email: 'x@x.com'));
+    expect(await service.compileBill(uid, 2026, 6, startDate, endDate),
+        CompileBillResult.noLogs);
+
+    await service.saveElectricityLog(ElectricityLogModel(
+        id: 'e1', uid: uid, date: logDate,
+        meterValue: 1100, usedFromStart: 100, cost: 400));
+    expect(await service.compileBill(uid, 2026, 6, startDate, endDate),
+        CompileBillResult.created);
+  });
 }

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/notification_item_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/calculator.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/confirm_dialog.dart';
@@ -51,9 +52,28 @@ class _NotificationScreenState extends State<NotificationScreen> {
       await NotificationService.instance.markAsRead(item.id);
       await _load();
     }
+    // ประเภทที่ไม่ได้ระบุด้านล่าง แตะแล้วแค่ทำเครื่องหมายว่าอ่าน
+    // ค่า Ft งวดใหม่ (ดู notifyFtChanged) แตะแล้วพาไปหน้าอัตราที่แอปใช้คิด
+    if (item.type == 'ft_rate' && mounted) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final user = await _firestoreService.getUser(uid);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RateExplanationScreen(
+            area: user?.area ?? 'bangkok',
+            meterType: user?.meterType ?? 'normal',
+            tariff: user?.electricityTariff ?? EnergyCalculator.tariffStandard,
+          ),
+        ),
+      );
+      return;
+    }
     // แจ้งเตือนรอบบิลที่ขาดหาย (ดู notifyMissedCycles ใน notification_service.dart)
     // แตะแล้วพาไปหน้าประวัติบิลตรงๆ เลย เดือนที่ขาดจะโชว์เป็นแถว "- -"
-    // ให้กดแก้ไขกรอกย้อนหลังได้ทันที — ประเภทอื่นแตะแล้วแค่ทำเครื่องหมายว่าอ่าน
+    // ให้กดแก้ไขกรอกย้อนหลังได้ทันที
     if (item.type == 'missed_cycle' && mounted) {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
@@ -110,6 +130,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return (icon: Icons.show_chart_rounded, color: Colors.deepOrange);
       case 'summary':
         return (icon: Icons.receipt_long_rounded, color: Colors.orange);
+      case 'ft_rate':
+        return (icon: Icons.price_change_outlined, color: Colors.teal);
       case 'welcome':
         return (icon: Icons.waving_hand_rounded, color: Colors.purple);
       default:

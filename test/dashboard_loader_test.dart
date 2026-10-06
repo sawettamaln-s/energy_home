@@ -22,6 +22,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _uid = 'u1';
 
+// compileBill ที่สั่งให้ "ทำไม่สำเร็จ" ได้ — จำลองตอนออฟไลน์
+class _FlakyCompileService extends FirestoreService {
+  _FlakyCompileService() : super(firestore: FakeFirebaseFirestore());
+  bool fail = true;
+
+  @override
+  Future<CompileBillResult> compileBill(String uid, int year, int month,
+      DateTime startDate, DateTime endDate) async {
+    if (fail) return CompileBillResult.failed;
+    return super.compileBill(uid, year, month, startDate, endDate);
+  }
+}
+
 void main() {
   late FirestoreService service;
   late DashboardLoader loader;
@@ -148,6 +161,44 @@ void main() {
       final history = await NotificationService.instance.getHistory();
       expect(history.map((e) => e.type), contains('summary'));
       expect(result.unreadNotifications, isNotNull);
+    });
+
+    test('ปิดบิลย้อนหลังไม่สำเร็จ -> ไม่ติดป้าย "ไม่ได้บันทึก" และไล่ใหม่ครั้งถัดไป',
+        () async {
+      final flaky = _FlakyCompileService();
+      service = flaky;
+      loader = DashboardLoader(firestoreService: flaky);
+      // เริ่มใช้ตั้งแต่รอบ เม.ย. ไม่มี log เลย — รอบบิล พ.ค. ต้องถูกไล่ย้อน
+      await createUser(startMonth: 4);
+      final data = await loader.load(_uid, now: now);
+
+      await loader.runBackgroundTasks(data, silent: true);
+      final notifications = NotificationService.instance;
+      expect(await notifications.isCycleFlaggedMissing('5/2026'), isFalse);
+      expect((await notifications.getHistory()).map((e) => e.type),
+          isNot(contains('missed_cycle')));
+
+      flaky.fail = false;
+      await loader.runBackgroundTasks(data, silent: true);
+      expect(await notifications.isCycleFlaggedMissing('5/2026'), isTrue);
+    });
+
+    test('ผู้ดูแลแก้ค่า Ft ใน Firebase -> แจ้งค่า Ft งวดใหม่', () async {
+      final db = FakeFirebaseFirestore();
+      service = FirestoreService(firestore: db);
+      loader = DashboardLoader(firestoreService: service);
+      await createUser();
+      final rates = db.collection('app_config').doc('electricity_rates');
+      await rates.set({'ft_rate': 0.3972, 'ft_effective_from': '2026-05-01'});
+      final data = await loader.load(_uid, now: now);
+
+      await loader.runBackgroundTasks(data, silent: true);
+      await rates.set({'ft_rate': 0.1623, 'ft_effective_from': '2026-09-01'});
+      await loader.runBackgroundTasks(data, silent: true);
+
+      final types = (await NotificationService.instance.getHistory())
+          .map((e) => e.type);
+      expect(types.where((t) => t == 'ft_rate'), hasLength(1));
     });
 
     test('บิล 3 เดือนใช้ไม่เกิน 150 หน่วย -> คำแนะนำประเภทอัตราครั้งแรกเท่านั้น',

@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import '../models/notification_item_model.dart';
 import '../utils/calculator.dart';
 import '../utils/tariff_advisor.dart';
+import '../utils/thai_date_utils.dart';
 
 /// ===========================================================
 /// NotificationService
@@ -47,6 +48,7 @@ class NotificationService {
   static const int idForecastHigher = 1007;
   static const int idMissedCycle = 1008;
   static const int idTariffHint = 1009;
+  static const int idFtChanged = 1010;
 
   // ----- Channel สำหรับ Android -----
   static const String _channelId = 'energy_home_channel';
@@ -65,7 +67,7 @@ class NotificationService {
   //   'billing' -> เตือนเช้าวันตัดรอบบิล
   //   'meter'   -> เตือนยังไม่บันทึกมิเตอร์ + รอบบิลที่ไม่มีข้อมูล
   //   'spike'   -> ค่าใช้จ่ายพุ่งขึ้น + คาดการณ์สิ้นรอบสูงกว่าเดือนก่อน
-  //   'summary' -> สรุปยอดท้ายรอบบิล
+  //   'summary' -> สรุปยอดท้ายรอบบิล + แนะนำประเภทอัตรา + ค่า Ft งวดใหม่
   // (แจ้งเตือนต้อนรับยิงเสมอ ไม่มี toggle)
   // ค่าเริ่มต้นของทุกประเภทคือ "เปิด" (true) ถ้ายังไม่เคยตั้งค่าไว้
   static const List<String> notificationTypes = [
@@ -472,6 +474,52 @@ class NotificationService {
               'อัตราประเภทใช้เกิน 150 หน่วย ตรวจประเภทบนใบแจ้งหนี้ใบถัดไป แล้วปรับได้ที่ ตั้งค่า > '
               'ประเภทอัตราค่าไฟค่ะ',
       type: 'summary',
+      silent: silent,
+    );
+    return true;
+  }
+
+  // =====================================================================
+  // (Instant) แจ้งว่าค่า Ft งวดใหม่มีผลแล้ว — ผู้ดูแลแก้ app_config/
+  // electricity_rates แล้วเครื่องผู้ใช้เห็นค่าที่ต่างจากครั้งก่อน (ค่า Ft หรือ
+  // วันเริ่มงวด) ครั้งแรกที่เห็นค่า Ft แค่จำไว้ ไม่แจ้ง เพราะยังไม่มีค่าเดิมให้
+  // เทียบ อยู่ใต้สวิตช์ "สรุปยอดท้ายรอบบิล" ซึ่งเป็นเรื่องยอดค่าใช้จ่าย
+  // คืน true เมื่อแจ้งเตือนครั้งนี้
+  // =====================================================================
+  Future<bool> notifyFtChanged({
+    required FtInfo ft,
+    bool silent = false,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final rateKey = _scopedKey('ft_seen_rate');
+    final fromKey = _scopedKey('ft_seen_effective_from');
+    final seenRate = prefs.getDouble(rateKey);
+    final seenFrom = prefs.getString(fromKey) ?? '';
+    final from = ft.effectiveFrom?.toIso8601String() ?? '';
+    if (seenRate == ft.rate && seenFrom == from) return false;
+
+    await prefs.setDouble(rateKey, ft.rate);
+    await prefs.setString(fromKey, from);
+    if (seenRate == null) return false;
+    if (!await isTypeEnabled('summary')) return false;
+
+    String satang(double rate) => (rate * 100).toStringAsFixed(2);
+    final change = ft.rate > seenRate
+        ? 'เพิ่มขึ้นจาก ${satang(seenRate)} สตางค์'
+        : ft.rate < seenRate
+            ? 'ลดลงจาก ${satang(seenRate)} สตางค์'
+            : 'เท่ากับงวดก่อน';
+    final d = ft.effectiveFrom;
+    final since = d == null
+        ? ''
+        : ' มีผลตั้งแต่ ${d.day} ${thaiMonths[d.month - 1]} ${d.year + 543}';
+    await _showAndLog(
+      pluginId: idFtChanged,
+      title: 'ค่า Ft งวดใหม่มีผลแล้วค่ะ',
+      body: 'ค่า Ft งวดนี้ ${satang(ft.rate)} สตางค์/หน่วย ($change)$since '
+          'ค่าไฟที่บันทึกต่อจากนี้และยอดคาดการณ์จะคิดด้วยค่าใหม่ค่ะ '
+          'แตะเพื่อดูอัตราที่แอปใช้',
+      type: 'ft_rate',
       silent: silent,
     );
     return true;

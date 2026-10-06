@@ -182,6 +182,38 @@ void main() {
     });
   });
 
+  group('ค่า Ft งวดใหม่', () {
+    final may = (rate: 0.3972, effectiveFrom: DateTime(2026, 5, 1));
+    final sep = (rate: 0.1623, effectiveFrom: DateTime(2026, 9, 1));
+
+    test('เห็นค่า Ft ครั้งแรก -> จำไว้ ไม่แจ้ง', () async {
+      expect(await service.notifyFtChanged(ft: may, silent: true), isFalse);
+      expect(await historyTypes(), isEmpty);
+    });
+
+    test('ค่า Ft เปลี่ยน -> แจ้งครั้งเดียว บอกค่าใหม่ ค่าเดิม และวันเริ่มงวด',
+        () async {
+      await service.notifyFtChanged(ft: may, silent: true);
+      expect(await service.notifyFtChanged(ft: sep, silent: true), isTrue);
+      expect(await service.notifyFtChanged(ft: sep, silent: true), isFalse);
+
+      final history = await service.getHistory();
+      expect(history.map((e) => e.type), ['ft_rate']);
+      expect(history.single.body, contains('16.23 สตางค์/หน่วย'));
+      expect(history.single.body, contains('ลดลงจาก 39.72 สตางค์'));
+      expect(history.single.body, contains('1 กันยายน 2569'));
+    });
+
+    test('ปิด "summary" -> ไม่แจ้ง แต่ยังจำค่าล่าสุด', () async {
+      await service.notifyFtChanged(ft: may, silent: true);
+      await service.setTypeEnabled('summary', false);
+      expect(await service.notifyFtChanged(ft: sep, silent: true), isFalse);
+      await service.setTypeEnabled('summary', true);
+      expect(await service.notifyFtChanged(ft: sep, silent: true), isFalse);
+      expect(await historyTypes(), isEmpty);
+    });
+  });
+
   group('เตือนเช้าวันตัดรอบบิล', () {
     final start = DateTime(2026, 6, 30);
     final end = DateTime(2026, 7, 30);

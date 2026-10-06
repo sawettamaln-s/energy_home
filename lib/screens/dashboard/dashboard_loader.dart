@@ -177,7 +177,7 @@ class DashboardBackgroundResult {
 // จากภายนอกได้ (เทสส่ง FakeFirebaseFirestore เข้ามา) ไม่แตะ widget
 //   load()               : โหลดเฉพาะที่หน้าจอแสดง (พร้อมกัน) แล้วคำนวณยอด
 //   runBackgroundTasks() : ปิดบิลรอบที่จบ, ไล่รอบที่ขาด, คำแนะนำประเภทอัตรา,
-//                          เช็คแจ้งเตือน — ทำหลังหน้าจอแสดงแล้ว
+//                          ค่า Ft งวดใหม่, เช็คแจ้งเตือน — ทำหลังหน้าจอแสดงแล้ว
 // =====================================================================
 class DashboardLoader {
   final FirestoreService firestoreService;
@@ -334,6 +334,12 @@ class DashboardLoader {
         }
       }
 
+      // ค่า Ft งวดใหม่ (ผู้ดูแลแก้ใน Firebase) — อ่านไม่ได้ไม่ถือว่าเปลี่ยน
+      final ft = await firestoreService.getFtInfo();
+      if (ft != null) {
+        await notifications.notifyFtChanged(ft: ft, silent: silent);
+      }
+
       await _runNotificationChecks(
         data,
         lastMonthElectricityCost: lastElectricity,
@@ -363,7 +369,7 @@ class DashboardLoader {
   // compile ให้ ที่นี่จึงไล่ย้อนต่อจาก [from] ไปเรื่อยๆ จนกว่าจะ
   // (1) เจอบิลที่ compile ไว้แล้ว (แปลว่าตามทันประวัติแล้ว) หรือ (2) ย้อนไปถึง
   // เดือนที่ user เริ่มตั้งค่าระบบครั้งแรก (startBillingMonth/Year) หรือ
-  // (3) ชนเพดานความปลอดภัย
+  // (3) ชนเพดานความปลอดภัย หรือ (4) compile ไม่สำเร็จ (ลองใหม่โหลดครั้งถัดไป)
   // รอบไหนไล่ compile แล้วไม่มี log เลย (user ไม่ได้บันทึกจริงๆ ในรอบนั้น)
   // จะถูกเก็บไว้แจ้งเตือน ไม่ใช่ปล่อยให้หายไปเงียบๆ
   Future<void> _backfillMissedCycles({
@@ -403,12 +409,13 @@ class DashboardLoader {
           uid, backfillCycleEnd.year, backfillCycleEnd.month);
       if (alreadyExists) break; // ตามทันประวัติที่ compile ไปก่อนหน้านี้แล้ว
 
-      await firestoreService.compileBill(uid, backfillCycleEnd.year,
-          backfillCycleEnd.month, backfillCycleStart, backfillCycleEnd);
-
-      final createdNow = await firestoreService.billExistsForMonth(
-          uid, backfillCycleEnd.year, backfillCycleEnd.month);
-      if (!createdNow) {
+      final result = await firestoreService.compileBill(uid,
+          backfillCycleEnd.year, backfillCycleEnd.month, backfillCycleStart,
+          backfillCycleEnd);
+      // ทำไม่สำเร็จ (เช่น ออฟไลน์) ไม่ได้แปลว่ารอบนี้ไม่ได้บันทึก — หยุดไล่
+      // ตรงนี้โดยไม่ติดป้ายรอบนี้ โหลดครั้งถัดไปจะไล่ต่อจากรอบเดิมเอง
+      if (result == CompileBillResult.failed) break;
+      if (result == CompileBillResult.noLogs) {
         // ไม่มี log เลยในรอบนี้ = รอบที่ user ไม่ได้บันทึกจริงๆ
         missedCycles.add(monthKey);
       }

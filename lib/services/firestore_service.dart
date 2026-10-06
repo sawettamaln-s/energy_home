@@ -13,6 +13,11 @@ import '../utils/cycle_projection.dart';
 import '../utils/data_refresh_bus.dart';
 import '../utils/forecaster.dart';
 
+// ผลของ compileBill — แยก "ไม่มี log ในรอบ" ออกจาก "ทำไม่สำเร็จ" (เช่น ออฟไลน์)
+// เพราะผู้เรียกตัดสินต่างกัน: ไม่มี log = รอบที่ไม่ได้บันทึกจริง แจ้งผู้ใช้ได้,
+// ทำไม่สำเร็จ = ลองใหม่ตอนโหลดครั้งถัดไป ห้ามสรุปว่ารอบนั้นไม่ได้บันทึก
+enum CompileBillResult { created, noLogs, failed }
+
 class FirestoreService {
   // รับ FirebaseFirestore instance ผ่าน constructor ได้ (optional) เพื่อให้
   // เทสอัตโนมัติ (flutter test) ฉีด instance ปลอม (เช่น FakeFirebaseFirestore)
@@ -258,6 +263,24 @@ class FirestoreService {
     }
   }
 
+  // ==================== ค่า Ft ====================
+
+  // ค่า Ft ที่ผู้ดูแลตั้งไว้ใน app_config/electricity_rates — คืน null เมื่ออ่าน
+  // ไม่ได้หรือยังไม่มีเอกสาร (ไม่แทนด้วยค่า default เพราะผู้เรียกใช้เทียบว่า Ft
+  // เปลี่ยนหรือยัง ค่าที่เดาเองจะดูเหมือน Ft เปลี่ยนทั้งที่ไม่ได้เปลี่ยน)
+  Future<FtInfo?> getFtInfo() async {
+    try {
+      final doc =
+          await _db.collection('app_config').doc('electricity_rates').get();
+      final data = doc.data();
+      if (data == null || data['ft_rate'] == null) return null;
+      return EnergyCalculator.ftInfoFromMap(data);
+    } catch (e) {
+      debugPrint('Error reading Ft rate: $e');
+      return null;
+    }
+  }
+
   // ==================== ประวัติค่ามิเตอร์ต้นรอบ ====================
 
   // บันทึกเลขมิเตอร์ต้นรอบของรอบบิลหนึ่ง (id เดิม = เขียนทับรายการเดิม)
@@ -339,7 +362,9 @@ class FirestoreService {
   /// compile (ไม่รับเป็น parameter และไม่ใช้ user.fixedCost ซึ่งเป็น cache ของ
   /// "เดือนปัจจุบัน" เท่านั้น) เพื่อให้บิลย้อนหลังที่ compile ตอน backfill
   /// (ได้ถึง 24 รอบ) ใช้ยอดที่ active จริงในรอบนั้น
-  Future<void> compileBill(
+  ///
+  /// ไม่ throw — error ใดๆ คืน [CompileBillResult.failed]
+  Future<CompileBillResult> compileBill(
     String uid,
     int year,
     int month,
@@ -348,7 +373,7 @@ class FirestoreService {
   ) async {
     try {
       final user = await getUser(uid);
-      if (user == null) return;
+      if (user == null) return CompileBillResult.failed;
 
       // ดึง logs ของรอบบิลที่ปิดแล้ว
       final eLogs =
@@ -356,7 +381,7 @@ class FirestoreService {
       final wLogs = await getCurrentMonthWaterLogs(uid, startDate, endDate);
 
       // ไม่มี log เลยในรอบนี้ → ไม่ต้องสร้างบิลเปล่า
-      if (eLogs.isEmpty && wLogs.isEmpty) return;
+      if (eLogs.isEmpty && wLogs.isEmpty) return CompileBillResult.noLogs;
 
       final fixedCost =
           await _calcFixedCostForMonth(uid, DateTime(year, month, 1));
@@ -439,8 +464,10 @@ class FirestoreService {
       // บันทึกลง Firestore
       await saveBill(bill);
       debugPrint('✅ Bill compiled for $year-$month');
+      return CompileBillResult.created;
     } catch (e) {
       debugPrint('❌ Error compiling bill: $e');
+      return CompileBillResult.failed;
     }
   }
 

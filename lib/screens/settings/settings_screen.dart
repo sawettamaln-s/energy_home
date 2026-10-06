@@ -536,7 +536,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _notifTypeToggle(
         icon: Icons.summarize_outlined,
         title: 'สรุปยอดท้ายรอบบิล',
-        subtitle: 'สรุปค่าใช้จ่ายเมื่อจบรอบบิล และแนะนำเมื่อควรตรวจประเภทอัตราค่าไฟ',
+        subtitle: 'สรุปค่าใช้จ่ายเมื่อจบรอบบิล แนะนำเมื่อควรตรวจประเภทอัตราค่าไฟ และแจ้งเมื่อค่า Ft งวดใหม่มีผล',
         type: 'summary',
       ),
     ];

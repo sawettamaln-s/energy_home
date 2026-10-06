@@ -26,15 +26,17 @@ class EnergyCalculator {
           .collection('app_config')
           .doc('electricity_rates')
           .get();
-      final data = doc.data();
-      return (
-        rate: ((data?['ft_rate'] ?? defaultFtRate) as num).toDouble(),
-        effectiveFrom: DateTime.tryParse('${data?['ft_effective_from'] ?? ''}'),
-      );
+      return ftInfoFromMap(doc.data());
     } catch (e) {
       return (rate: defaultFtRate, effectiveFrom: null);
     }
   }
+
+  // แปลงเอกสาร app_config/electricity_rates เป็น FtInfo (ไม่มี ft_rate = ค่า default)
+  static FtInfo ftInfoFromMap(Map<String, dynamic>? data) => (
+        rate: ((data?['ft_rate'] ?? defaultFtRate) as num).toDouble(),
+        effectiveFrom: DateTime.tryParse('${data?['ft_effective_from'] ?? ''}'),
+      );
 
   // ค่า Ft ประกาศใหม่ทุก 4 เดือน — งวดที่ใช้อยู่เริ่มก่อน [now] เกิน 4 เดือน
   // แปลว่าผู้ดูแลยังไม่ได้อัปเดตงวดใหม่ (ไม่รู้วันเริ่มงวด = ตัดสินไม่ได้ คืน false)
