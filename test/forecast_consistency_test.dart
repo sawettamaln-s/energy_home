@@ -1,6 +1,6 @@
-// ยอดคาดการณ์สิ้นรอบของหน้าหลัก (DashboardLoader) กับการ์ดคาดการณ์ "บิลรอบนี้"
-// ของหน้าวิเคราะห์ (AnalysisService.forecastCurrentCycle) ต้องเป็นตัวเลขเดียวกัน
-// ทั้งค่าไฟและค่าน้ำ — หน้าหลักแสดงผลรวม (+ รายจ่ายประจำ) หน้าวิเคราะห์แยกทีละยอด
+// ยอดคาดการณ์สิ้นรอบของ DashboardLoader (ใช้ตัดสินแจ้งเตือน "คาดการณ์สูงกว่า
+// เดือนก่อน") กับการ์ดคาดการณ์ "บิลรอบนี้" ของหน้าวิเคราะห์
+// (AnalysisService.forecastCurrentCycle) ต้องเป็นตัวเลขเดียวกันทั้งค่าไฟและค่าน้ำ
 import 'package:energy_home/models/electricity_log_model.dart';
 import 'package:energy_home/models/user_model.dart';
 import 'package:energy_home/models/water_log_model.dart';

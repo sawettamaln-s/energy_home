@@ -326,7 +326,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 18),
 
-        // (2) การ์ดสรุปบิลรอบนี้: วันที่เหลือ + คาดการณ์บิลทั้งรอบ + รวมถึงตอนนี้
+        // (2) การ์ดสรุปบิลรอบนี้: ยอดที่ใช้ไปแล้ว + ความคืบหน้าของรอบ
         stagger(
           1,
           BillHeroCard(
@@ -335,6 +335,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             daysElapsed: EnergyForecaster.getDaysElapsed(now, billingDay),
             cycleLengthDays:
                 EnergyForecaster.getCycleLengthDays(now, billingDay),
+            // คาดการณ์สิ้นรอบบิลอยู่ที่แท็บวิเคราะห์ (index 1 ของ MainShell)
+            onViewForecast:
+                widget.onNavTap == null ? null : () => widget.onNavTap!(1),
           ),
         ),
         const SizedBox(height: 24),

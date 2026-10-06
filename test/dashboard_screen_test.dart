@@ -8,7 +8,6 @@ import 'package:energy_home/models/electricity_log_model.dart';
 import 'package:energy_home/models/user_model.dart';
 import 'package:energy_home/screens/dashboard/dashboard_loader.dart';
 import 'package:energy_home/screens/dashboard/dashboard_screen.dart';
-import 'package:energy_home/screens/dashboard/widgets/bill_hero_card.dart';
 import 'package:energy_home/screens/dashboard/widgets/meter_cards.dart';
 import 'package:energy_home/services/firestore_service.dart';
 import 'package:energy_home/services/notification_service.dart';
@@ -59,6 +58,7 @@ void main() {
     bool signedIn = true,
     double width = 390,
     double textScale = 1.0,
+    ValueChanged<int>? onNavTap,
   }) async {
     tester.view.devicePixelRatio = 3;
     tester.view.physicalSize = Size(width * 3, 844 * 3);
@@ -72,6 +72,7 @@ void main() {
           loader: DashboardLoader(firestoreService: service),
           auth: MockFirebaseAuth(
               signedIn: signedIn, mockUser: MockUser(uid: _uid)),
+          onNavTap: onNavTap,
         ),
       ),
     ));
@@ -95,17 +96,17 @@ void main() {
         meterValue: 1050, usedFromStart: 50, cost: 250));
     await pumpDashboard(tester);
 
-    expect(find.text('วันที่เหลือ'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^เหลือ \d+ วัน$')), findsOneWidget);
     // ตัวเลขหลักเป็นยอดที่ใช้ไปแล้ว การ์ดไฟฟ้าบอกค่าไฟ หน่วยที่ใช้ และวันที่จด
     expect(find.text('ใช้ไปแล้วรอบนี้'), findsOneWidget);
+    expect(find.text('ค่าไฟ + ค่าน้ำ'), findsOneWidget);
     expect(find.text('ใช้ 50 หน่วย'), findsOneWidget);
     expect(find.text('รอบนี้ยังไม่ได้จด'), findsOneWidget); // ฝั่งน้ำ
     // ยอดใช้ไปแล้ว (การ์ดเด่น) กับค่าไฟในการ์ดไฟฟ้า (ยังไม่มีรายจ่ายประจำ)
     // เป็นยอดเดียวกัน
     expect(find.text('250.00 บาท'), findsNWidgets(2));
-    // ยอดคาดการณ์เป็นบรรทัดรอง ต้นรอบ (ผ่านไปไม่ถึง 7 วัน) ติดป้ายประมาณเบื้องต้น
-    expect(find.text('ถ้าใช้แบบนี้ต่อไป สิ้นรอบบิลน่าจะประมาณ'), findsOneWidget);
-    expect(find.text('ประมาณการเบื้องต้น'), findsOneWidget);
+    // หน้าหลักแสดงแต่ยอดจริง ไม่แสดงยอดคาดการณ์สิ้นรอบ
+    expect(find.textContaining('สิ้นรอบบิลน่าจะ'), findsNothing);
     expect(find.text('บันทึกมิเตอร์'), findsNWidgets(2));
   });
 
@@ -146,11 +147,13 @@ void main() {
     expect(find.text('ลองใหม่'), findsOneWidget);
   });
 
-  test('ปัดยอดคาดการณ์: ต่ำกว่าพันปัดหลักสิบ ตั้งแต่พันปัดหลักร้อย', () {
-    expect(BillHeroCard.roundEstimate(884.6), 880);
-    expect(BillHeroCard.roundEstimate(885.0), 890);
-    expect(BillHeroCard.roundEstimate(5605.85), 5600);
-    expect(BillHeroCard.roundEstimate(9964.03), 10000);
+  testWidgets('ชิปดูคาดการณ์ -> สลับไปแท็บวิเคราะห์', (tester) async {
+    await createUser(configured: true);
+    final tapped = <int>[];
+    await pumpDashboard(tester, onNavTap: tapped.add);
+
+    await tester.tap(find.text('ดูคาดการณ์'));
+    expect(tapped, [1]);
   });
 
   test('ข้อความจดล่าสุด: นับวันตามปฏิทิน ไม่สนเวลา', () {

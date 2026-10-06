@@ -97,29 +97,13 @@ void main() {
       expect(data.waterMeterReady, isTrue);
     });
 
-    test('เทียบยอดคาดการณ์ค่าไฟ+ค่าน้ำกับบิลล่าสุดเป็น %', () async {
-      await createUser();
-      final cost = await EnergyCalculator.calculateElectricity(100, 'bangkok');
-      await service.saveElectricityLog(ElectricityLogModel(
-          id: 'e1', uid: _uid, date: DateTime(2026, 6, 6),
-          meterValue: 1100, usedFromStart: 100, cost: cost));
-      final forecast = await EnergyCalculator.calculateElectricity(600, 'bangkok');
-      await service.saveBill(BillModel(
-          id: 'b5', uid: _uid, year: 2026, month: 6,
-          electricityCost: forecast / 2, waterCost: 0));
-
-      final data = await loader.load(_uid, now: now);
-      expect(data.forecastChangeVsLastBill, closeTo(100, 0.01));
-    });
-
-    test('ยังไม่มีบิลก่อนให้เทียบ -> ไม่มีตัวเลขเทียบ', () async {
+    test('บันทึกหลังต้นรอบเกิน 1 วัน -> คาดการณ์สิ้นรอบได้', () async {
       await createUser();
       await service.saveElectricityLog(ElectricityLogModel(
           id: 'e1', uid: _uid, date: DateTime(2026, 6, 6),
           meterValue: 1100, usedFromStart: 100, cost: 400));
       final data = await loader.load(_uid, now: now);
       expect(data.hasForecastData, isTrue);
-      expect(data.forecastChangeVsLastBill, isNull);
     });
 
     test('ยังไม่มีบันทึก -> ยังไม่คาดการณ์ ยอดเป็นศูนย์', () async {

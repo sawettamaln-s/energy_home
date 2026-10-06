@@ -35,25 +35,30 @@ class DashboardHeader extends StatelessWidget {
 
     return Row(
       children: [
-        // Avatar ตัวอักษรแรกของชื่อ บนวงกลมไล่เฉดเขียว
+        // Avatar ตัวอักษรแรกของชื่อ บนวงกลมขาวลอย (คู่กับปุ่มกระดิ่งฝั่งขวา)
+        // ด้านในเป็นวงเขียวอ่อน ตัวอักษรสีเขียวหลัก
         Container(
           width: 46,
           height: 46,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.primaryGreenLight, AppColors.primaryGreen],
-            ),
+            color: Colors.white,
+            boxShadow: AppCard.softShadow,
           ),
-          child: Text(
-            name.substring(0, 1).toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: AppTypography.s18,
+          child: Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primaryGreen.withValues(alpha: 0.10),
+            ),
+            child: Text(
+              name.substring(0, 1).toUpperCase(),
+              style: const TextStyle(
+                color: AppColors.primaryGreen,
+                fontWeight: FontWeight.w700,
+                fontSize: AppTypography.s17,
+              ),
             ),
           ),
         ),

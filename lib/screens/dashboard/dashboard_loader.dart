@@ -81,14 +81,6 @@ class DashboardData {
   double get currentWaterUnits => cycleLatestWaterLog?.usedFromStart ?? 0;
   double get forecastTotal => forecastElectricityCost + forecastWaterCost;
 
-  // ยอดคาดการณ์ค่าไฟ+ค่าน้ำทั้งรอบ เทียบกับค่าไฟ+ค่าน้ำของบิลล่าสุด (เป็น %)
-  // ไม่รวมรายจ่ายประจำทั้งสองฝั่ง — null = ยังไม่คาดการณ์ หรือไม่มีบิลก่อนให้เทียบ
-  double? get forecastChangeVsLastBill {
-    final last = lastMonthElectricityCost + lastMonthWaterCost;
-    if (!hasForecastData || last <= 0) return null;
-    return (forecastTotal - last) / last * 100;
-  }
-
   bool get isTou => user?.meterType == 'tou';
 
   // สัดส่วนหน่วย On-Peak (0–1) ที่ใช้ในรอบนี้ของมิเตอร์ TOU = เลขล่าสุดลบ
