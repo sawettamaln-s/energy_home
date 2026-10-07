@@ -80,16 +80,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // แทน — พอมีการแก้/ลบข้อมูลจากแท็บอื่น (เช่น ลบ log ที่หน้าตั้งค่า)
     // หน้านี้จะโหลดข้อมูลใหม่ให้เองโดยไม่ต้องรอผู้ใช้ pull-to-refresh
     DataRefreshBus.instance.version.addListener(_onDataChangedElsewhere);
-
-    // โชว์คู่มือเริ่มต้นใช้งาน (เฉพาะครั้งแรกที่เข้า Dashboard เท่านั้น)
-    // ใช้ addPostFrameCallback เพื่อรอให้ widget tree พร้อมก่อนเปิด dialog
-    //
-    // หมายเหตุ: notifyWelcome() ยิงที่ setup_screen.dart (ไม่ใช่ที่นี่) เพราะ
-    // Dashboard.initState รันทุกครั้งที่เข้าหน้านี้ (ทั้ง login เก่าและใหม่)
-    // ขณะที่ setup_screen.dart รันแค่ครั้งเดียวตอนบัญชีใหม่ทำ setup เสร็จ
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      OnboardingGuide.showIfFirstTime(context);
-    });
   }
 
   void _onDataChangedElsewhere() {
@@ -109,6 +99,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ถ้ามีคำขอโหลดใหม่เข้ามาระหว่างที่กำลังโหลด (เช่น ปิดบิลแล้ว DataRefreshBus
   // แจ้งกลับมา) จะโหลดซ้ำอีกรอบหลังรอบนี้จบ ไม่โหลดซ้อนกัน
   // =====================================================================
+  bool _onboardingChecked = false;
+
   Future<void> _loadData() async {
     if (_loadInFlight) {
       _reloadPending = true;
@@ -146,7 +138,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _loadData();
       return;
     }
-    if (loaded != null) _runBackgroundTasks(loaded, silent: silentThisLoad);
+    if (loaded != null) {
+      // คู่มือเริ่มต้นใช้งาน (เฉพาะครั้งแรกที่เข้า Dashboard) — เปิดหลังโหลดสำเร็จรอบแรก
+      // เพราะต้องรู้พื้นที่/ประเภทมิเตอร์เพื่อบอกรหัสประเภทอัตราค่าไฟ
+      // (notifyWelcome() ยิงที่ setup_screen.dart ซึ่งรันครั้งเดียวตอนบัญชีใหม่ทำ setup เสร็จ)
+      if (!_onboardingChecked) {
+        _onboardingChecked = true;
+        OnboardingGuide.showIfFirstTime(context, area: loaded.user?.area, meterType: loaded.user?.meterType);
+      }
+      _runBackgroundTasks(loaded, silent: silentThisLoad);
+    }
   }
 
   // งานเบื้องหลังหลังหน้าจอแสดงแล้ว (ดู DashboardLoader.runBackgroundTasks)

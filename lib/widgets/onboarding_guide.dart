@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/dashboard/dashboard_styles.dart';
+import '../utils/calculator.dart';
 
 /// ===========================================================
 /// OnboardingGuide
@@ -13,9 +14,10 @@ import '../screens/dashboard/dashboard_styles.dart';
 class OnboardingGuide {
   static const String _prefKey = 'has_seen_onboarding_guide';
 
-  /// เรียกจาก initState ของ DashboardScreen
-  /// เช็คก่อนว่าเคยเห็นคู่มือนี้แล้วหรือยัง ถ้ายังไม่เคย ค่อยแสดง dialog
-  static Future<void> showIfFirstTime(BuildContext context) async {
+  /// เรียกจาก DashboardScreen หลังโหลดข้อมูลรอบแรก (ต้องรู้ [area]/[meterType] ของ
+  /// ผู้ใช้ก่อน เพื่อบอกรหัสประเภทอัตราค่าไฟให้ตรงการไฟฟ้า) เช็คก่อนว่าเคยเห็นคู่มือนี้
+  /// แล้วหรือยัง ถ้ายังไม่เคย ค่อยแสดง dialog
+  static Future<void> showIfFirstTime(BuildContext context, {String? area, String? meterType}) async {
     final prefs = await SharedPreferences.getInstance();
     final hasSeen = prefs.getBool(_prefKey) ?? false;
     if (hasSeen) return;
@@ -24,7 +26,7 @@ class OnboardingGuide {
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const _OnboardingDialog(),
+      builder: (ctx) => _OnboardingDialog(area: area, meterType: meterType),
     );
 
     await prefs.setBool(_prefKey, true);
@@ -32,7 +34,10 @@ class OnboardingGuide {
 }
 
 class _OnboardingDialog extends StatefulWidget {
-  const _OnboardingDialog();
+  final String? area;
+  final String? meterType;
+
+  const _OnboardingDialog({this.area, this.meterType});
 
   @override
   State<_OnboardingDialog> createState() => _OnboardingDialogState();
@@ -44,8 +49,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
   // เนื้อหาคู่มือ 3 หน้า: แอปทำอะไร / ตั้งค่าเริ่มต้น 3 ขั้น / ใช้งานประจำวัน
   // (ชื่อหมวด/เมนูต้องตรงกับหน้าตั้งค่า: ขั้น 1 อยู่หมวด "รอบบิลและค่าใช้จ่าย" ขั้น 2-3
   // อยู่หมวด "ข้อมูลมิเตอร์และบิล" และตรงกับการ์ดเช็คลิสต์บนหน้าหลัก)
-  final List<_GuidePage> _pages = const [
-    _GuidePage(
+  late final List<_GuidePage> _pages = [
+    const _GuidePage(
       icon: Icons.waving_hand_rounded,
       title: 'ยินดีต้อนรับสู่ Energy Home ค่ะ',
       body:
@@ -65,8 +70,9 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
           'และยอดเงินจากใบแจ้งหนี้ล่าสุด ใช้เป็นจุดเริ่มคำนวณ\n'
           '3. บิลย้อนหลัง (อยู่ในหน้าเดียวกัน ไม่บังคับ) — '
           'ย้อนหลังได้ 5 เดือน ให้หน้าวิเคราะห์มีข้อมูลเปรียบเทียบตั้งแต่วันแรก',
+      note: _tariffNote(),
     ),
-    _GuidePage(
+    const _GuidePage(
       icon: Icons.edit_note_rounded,
       title: 'ใช้งานประจำวัน',
       body:
@@ -79,6 +85,19 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
     ),
   ];
 
+  // หมายเหตุประเภทอัตราค่าไฟ — ประเภทขึ้นกับขนาดมิเตอร์ แอปตั้งค่าเริ่มต้นเป็นประเภท
+  // ของบ้านส่วนใหญ่ (มิเตอร์ใหญ่กว่า 5 แอมแปร์) รหัสต่างกันตามการไฟฟ้าจึงต้องรู้ area
+  // มิเตอร์ TOU มีอัตราของตัวเอง ไม่ต้องเลือกประเภท จึงไม่แสดง
+  String? _tariffNote() {
+    final area = widget.area;
+    if (area == null || widget.meterType == null || widget.meterType == 'tou') return null;
+    final standard = EnergyCalculator.tariffCode(EnergyCalculator.tariffStandard, area);
+    final small = EnergyCalculator.tariffCode(EnergyCalculator.tariffSmall, area);
+    return 'ตรวจเพิ่มเติม: แอปตั้งประเภทอัตราค่าไฟไว้ที่ $standard ของบ้านส่วนใหญ่ '
+        'ถ้าใบแจ้งหนี้ระบุ $small (มิเตอร์ไม่เกิน 5 แอมแปร์) เปลี่ยนได้ที่ '
+        '"ประเภทอัตราค่าไฟ" ในหมวด "รอบบิลและค่าใช้จ่าย" ค่ะ';
+  }
+
   @override
   Widget build(BuildContext context) {
     final page = _pages[_page];
@@ -86,7 +105,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.v20)),
-      child: Padding(
+      // เลื่อนได้เมื่อเนื้อหาสูงกว่าจอ (จอเล็กหรือตัวอักษรใหญ่)
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.v24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -111,6 +131,30 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
                 color: AppColors.textMuted,
               ),
             ),
+            if (page.note != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.v10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(AppSpacing.v10),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: AppColors.primaryGreen),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        page.note!,
+                        style: const TextStyle(
+                            fontSize: AppTypography.s12_5, height: 1.5, color: AppColors.textMuted),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
 
             // จุดบอกความคืบหน้า (เหมือน dot indicator)
@@ -134,37 +178,49 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
             ),
             const SizedBox(height: 18),
 
-            Row(
+            // จอแคบหรือตัวอักษรใหญ่จนปุ่มไม่พอแถวเดียว จะเรียงลงเป็นแนวตั้งแทนการล้น
+            OverflowBar(
+              alignment: MainAxisAlignment.spaceBetween,
+              overflowAlignment: OverflowBarAlignment.end,
+              overflowSpacing: 4,
               children: [
                 if (_page > 0)
                   TextButton(
                     onPressed: () => setState(() => _page--),
                     child: const Text('ย้อนกลับ'),
-                  ),
-                const Spacer(),
-                if (!isLast)
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('ข้าม',
-                        style: TextStyle(color: Colors.grey)),
-                  ),
-                const SizedBox(width: 4),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: DashboardStyles.primaryGreen,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.v10),
+                  )
+                else
+                  const SizedBox.shrink(),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    if (!isLast)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('ข้าม',
+                            style: TextStyle(color: Colors.grey)),
+                      ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: DashboardStyles.primaryGreen,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.v10),
+                        ),
+                      ),
+                      onPressed: () {
+                        if (isLast) {
+                          Navigator.of(context).pop();
+                        } else {
+                          setState(() => _page++);
+                        }
+                      },
+                      child: Text(isLast ? 'เข้าใจแล้ว' : 'ถัดไป'),
                     ),
-                  ),
-                  onPressed: () {
-                    if (isLast) {
-                      Navigator.of(context).pop();
-                    } else {
-                      setState(() => _page++);
-                    }
-                  },
-                  child: Text(isLast ? 'เข้าใจแล้ว' : 'ถัดไป'),
+                  ],
                 ),
               ],
             ),
@@ -179,10 +235,12 @@ class _GuidePage {
   final IconData icon;
   final String title;
   final String body;
+  final String? note; // กล่องหมายเหตุใต้เนื้อหา (ไม่มี = ไม่แสดง)
 
   const _GuidePage({
     required this.icon,
     required this.title,
     required this.body,
+    this.note,
   });
 }
