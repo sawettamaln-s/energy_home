@@ -86,20 +86,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
       return;
     }
     // แจ้งเตือนรอบบิลที่ขาดหาย (ดู notifyMissedCycles ใน notification_service.dart)
-    // แตะแล้วพาไปหน้าประวัติบิลตรงๆ เลย เดือนที่ขาดจะโชว์เป็นแถว "- -"
-    // ให้กดแก้ไขกรอกย้อนหลังได้ทันที
+    // แตะแล้วพาไปหน้าเลขมิเตอร์จากใบแจ้งหนี้ เดือนที่ขาดขึ้นเป็นแถว "ยังไม่กรอก" กดกรอกได้ทันที
     if (item.type == 'missed_cycle' && mounted) {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HistoricalBillListScreen(
-            uid: uid,
-            firestoreService: _firestoreService,
-          ),
-        ),
-      );
+      openInvoiceScreen(context, uid, _firestoreService);
     }
   }
 

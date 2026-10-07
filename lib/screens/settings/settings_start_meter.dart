@@ -470,7 +470,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                           padding: const EdgeInsets.only(top: AppSpacing.v4),
                           child: Text(
                             'รวม ${skippedMonths.length} รอบที่ไม่ได้บันทึก (${skippedMonths.join(', ')}) '
-                            'ถ้าจำหน่วยแยกรายเดือนได้ กรอกย้อนหลังทีละเดือนที่หน้า "บิลย้อนหลัง" จะแม่นกว่าค่ะ',
+                            'ถ้าจำหน่วยแยกรายเดือนได้ กรอกย้อนหลังทีละเดือนที่ "บิลย้อนหลัง" จะแม่นกว่าค่ะ',
                             style: const TextStyle(
                                 fontSize: AppTypography.s11_5, height: 1.4, color: AppColors.warningText),
                           ),
@@ -681,7 +681,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
               waterUsed:
                   wComplete ? wUsed : (existingBillForMonth?.waterUsed ?? 0),
               fixedCost: fixedCost,
-              // 'startMeter' = บิลที่สร้าง/อัปเดตจากหน้านี้ (ต่างจาก 'imported') — ล็อกไม่ให้แก้/ลบจากหน้าบันทึกบิลย้อนหลัง
+              // 'startMeter' = บิลที่สร้าง/อัปเดตจากฟอร์มนี้ (ต่างจาก 'imported') — แก้ได้จากฟอร์มนี้เท่านั้น
               source: 'startMeter',
             ),
           );

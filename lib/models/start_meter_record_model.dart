@@ -26,6 +26,22 @@ class StartMeterRecordModel {
     required this.recordedAt,
   });
 
+  /// เดือนแรกที่เริ่มติดตาม (year * 12 + month) = ใบแจ้งหนี้ใบแรกสุดที่กรอกเลขต้นรอบ
+  /// ไว้ เทียบกับเดือนตั้งต้นของรอบปัจจุบัน [startYear]/[startMonth] แล้วเอาที่เก่ากว่า
+  /// (ยังไม่มี record ใช้เดือนตั้งต้น ซึ่งตอนสมัครคือเดือนที่สมัคร) — 0 = ไม่รู้
+  ///
+  /// ใช้เป็นขอบเขตย้อนหลังของการหารอบที่ขาด แทน startBillingMonth/Year ตรงๆ
+  /// เพราะค่านั้นถูกเขียนทับเป็นเดือนของใบล่าสุดทุกครั้งที่กรอกใบใหม่
+  static int trackingStartKey(Iterable<StartMeterRecordModel> records,
+      {required int startYear, required int startMonth}) {
+    final keys = [
+      for (final r in records)
+        if (r.billingYear != 0) r.billingYear * 12 + r.billingMonth,
+      if (startYear != 0) startYear * 12 + startMonth,
+    ];
+    return keys.isEmpty ? 0 : keys.reduce((a, b) => a < b ? a : b);
+  }
+
   factory StartMeterRecordModel.fromMap(Map<String, dynamic> map) {
     return StartMeterRecordModel(
       id: map['id'] ?? '',

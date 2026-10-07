@@ -10,6 +10,7 @@
 import 'package:energy_home/models/bill_model.dart';
 import 'package:energy_home/models/electricity_log_model.dart';
 import 'package:energy_home/models/fixed_cost_item_model.dart';
+import 'package:energy_home/models/start_meter_record_model.dart';
 import 'package:energy_home/models/user_model.dart';
 import 'package:energy_home/screens/dashboard/dashboard_loader.dart';
 import 'package:energy_home/screens/dashboard/record_meter_screen.dart';
@@ -184,6 +185,20 @@ void main() {
       flaky.fail = false;
       await loader.runBackgroundTasks(data, silent: true);
       expect(await notifications.isCycleFlaggedMissing('5/2026'), isTrue);
+    });
+
+    test('ไล่ปิดบิลย้อนหลังถึงใบแรกสุดที่กรอกเลขต้นรอบ ไม่หยุดที่เดือนตั้งต้นของรอบปัจจุบัน',
+        () async {
+      // เดือนตั้งต้นของ user ถูกเขียนทับเป็นรอบปัจจุบัน (มิ.ย.) แต่เริ่มติดตามตั้งแต่ เม.ย.
+      await createUser(startMonth: 6);
+      await service.saveStartMeterRecord(StartMeterRecordModel(
+          id: 'r4', uid: _uid, electricityValue: 800, waterValue: 90,
+          billingMonth: 4, billingYear: 2026, recordedAt: DateTime(2026, 4, 1)));
+      final data = await loader.load(_uid, now: now);
+
+      await loader.runBackgroundTasks(data, silent: true);
+      // รอบบิล พ.ค. ไม่มี log -> ต้องถูกไล่ถึงและแจ้งว่าไม่ได้บันทึก
+      expect(await NotificationService.instance.isCycleFlaggedMissing('5/2026'), isTrue);
     });
 
     test('ผู้ดูแลแก้ค่า Ft ใน Firebase -> แจ้งค่า Ft งวดใหม่', () async {

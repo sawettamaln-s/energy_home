@@ -16,7 +16,7 @@ import '../../widgets/ui/app_card.dart';
 import '../../widgets/ui/fade_slide_in.dart';
 import '../../widgets/ui/icon_badge.dart';
 import '../settings/settings_screen.dart'
-    show openStartMeterSetup, openUtilityHistory;
+    show openInvoiceScreen, openUtilityHistory;
 import 'dashboard_styles.dart';
 
 enum MeterKind { electricity, water }
@@ -392,7 +392,7 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
   }
 
   Future<void> _openStartMeterSetup() => _openAndReturnIfChanged(() =>
-      openStartMeterSetup(context, widget.uid, widget.firestoreService, widget.isTou));
+      openInvoiceScreen(context, widget.uid, widget.firestoreService));
 
   Future<void> _openUtilityHistory() => _openAndReturnIfChanged(() => openUtilityHistory(
         context,

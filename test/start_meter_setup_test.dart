@@ -1,9 +1,9 @@
-// เทสหน้าตั้งเลขมิเตอร์ต้นรอบ (lib/screens/settings/settings_start_meter.dart)
-// เปิดผ่าน openStartMeterSetup() ตัวเดียวกับที่แดชบอร์ด/หน้าบันทึกมิเตอร์ใช้
+// เทสฟอร์มใบแจ้งหนี้ล่าสุด (เลขมิเตอร์ต้นรอบ, lib/screens/settings/settings_start_meter.dart)
+// เปิดผ่าน openInvoiceScreen() ตัวเดียวกับที่แดชบอร์ด/หน้าบันทึกมิเตอร์ใช้
 //
 // ครอบ 3 ส่วน:
-//   1) หน้าประวัติ — รายการว่าง, ซ่อนปุ่มกรอกเลขเมื่อรอบปัจจุบันตั้งครบแล้ว,
-//      ลบข้อมูลฝั่งเดียวของแถวรอบปัจจุบัน
+//   1) หน้าใบแจ้งหนี้ — ยังไม่มีข้อมูล, ซ่อนปุ่มกรอกใบล่าสุดเมื่อรอบปัจจุบันตั้งครบแล้ว,
+//      ลบข้อมูลฝั่งเดียวของใบล่าสุด
 //   2) ฟอร์มตั้งค่าใหม่ — ครั้งแรกสุด (ต้องกรอกหน่วยที่ใช้), รอบถัดไป (คำนวณ
 //      หน่วยจาก delta รอบก่อน), กรอกไม่ครบ, ยังไม่มีบิล, เลขต่ำกว่ารอบก่อน
 //      (เตือน + ถามยืนยัน ไม่บล็อก เพราะอาจเปลี่ยนมิเตอร์ใหม่จริง), TOU, น้ำอย่างเดียว
@@ -17,7 +17,7 @@ import 'package:energy_home/models/fixed_cost_item_model.dart';
 import 'package:energy_home/models/start_meter_record_model.dart';
 import 'package:energy_home/models/user_model.dart';
 import 'package:energy_home/screens/settings/settings_screen.dart'
-    show openStartMeterSetup;
+    show openInvoiceScreen;
 import 'package:energy_home/services/firestore_service.dart';
 import 'package:energy_home/utils/forecaster.dart';
 import 'package:energy_home/utils/thai_date_utils.dart';
@@ -98,12 +98,16 @@ void main() {
           .map((d) => d.data())
           .toList();
 
-  Future<void> openSetup(WidgetTester tester, {bool isTou = false}) async {
+  Future<void> openSetup(WidgetTester tester) async {
+    // ขนาดจอมือถือ (สูงพอให้ตารางใต้การ์ดถูกสร้าง)
+    tester.view.devicePixelRatio = 3;
+    tester.view.physicalSize = const Size(390 * 3, 1600 * 3);
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(
       home: Builder(
         builder: (context) => Scaffold(
           body: ElevatedButton(
-            onPressed: () => openStartMeterSetup(context, _uid, service, isTou),
+            onPressed: () => openInvoiceScreen(context, _uid, service),
             child: const Text('open'),
           ),
         ),
@@ -113,8 +117,12 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  // ปุ่ม "กรอกเลขรอบนี้" อยู่ในการ์ดรอบปัจจุบัน (มีเฉพาะตอนรอบนี้ยังไม่ได้ตั้งค่า)
-  final addButton = find.text('กรอกเลขรอบนี้');
+  // ปุ่ม "กรอกใบแจ้งหนี้ล่าสุด" อยู่ในการ์ดใบล่าสุด (มีเฉพาะตอนรอบนี้ยังไม่ได้ตั้งค่า)
+  final addButton = find.text('กรอกใบแจ้งหนี้ล่าสุด');
+  // ตารางรายเดือนขึ้นเมื่อมีใบแจ้งหนี้อย่างน้อยหนึ่งเดือน
+  final table = find.text('บิลแต่ละเดือน');
+  // แถวของใบล่าสุดในตาราง (ชื่อเดือนย่อ)
+  final latestRow = find.text(thaiMonthsShort[cycle.month - 1]);
 
   Future<void> openSheet(WidgetTester tester) async {
     await tester.tap(addButton);
@@ -149,16 +157,19 @@ void main() {
   const costLabel = 'ยอดเงินตามใบแจ้งหนี้';
   const generalError = 'กรอกให้ครบอย่างน้อย 1 ประเภท (ไฟฟ้า หรือ น้ำ) ก่อนถึงจะบันทึกได้';
 
-  group('หน้าประวัติ', () {
-    testWidgets('ยังไม่มีประวัติ -> โชว์ข้อความว่าง และมีปุ่มกรอกเลขรอบนี้', (tester) async {
+  group('หน้าใบแจ้งหนี้', () {
+    testWidgets('ยังไม่มีข้อมูล -> ไม่มีตาราง มีปุ่มกรอกใบล่าสุด (จำเป็น) และปุ่มเพิ่มบิลย้อนหลัง',
+        (tester) async {
       await seedUser();
       await openSetup(tester);
 
-      expect(find.text('ยังไม่มีประวัติการตั้งเลขมิเตอร์ต้นรอบ'), findsOneWidget);
+      expect(table, findsNothing);
       expect(addButton, findsOneWidget);
+      expect(find.text('จำเป็น'), findsOneWidget);
+      expect(find.text('เพิ่มบิลย้อนหลัง'), findsOneWidget);
     });
 
-    testWidgets('รอบปัจจุบันตั้งครบแล้ว -> ซ่อนปุ่มกรอกเลข และโชว์การ์ดของรอบนี้',
+    testWidgets('รอบปัจจุบันตั้งครบแล้ว -> ซ่อนปุ่มกรอก โชว์การ์ดใบล่าสุดและแถวในตาราง',
         (tester) async {
       await seedUser(
           configuredForCurrentCycle: true,
@@ -168,7 +179,9 @@ void main() {
       await openSetup(tester);
 
       expect(addButton, findsNothing);
-      expect(find.text(monthLabel(cycle)), findsWidgets);
+      expect(find.text(monthLabel(cycle)), findsOneWidget);
+      expect(table, findsOneWidget);
+      expect(find.text('ใบล่าสุด'), findsOneWidget);
     });
 
     testWidgets('ลบฝั่งไฟฟ้าของรอบปัจจุบันที่มีน้ำด้วย -> เก็บน้ำไว้ รีเซ็ตเฉพาะไฟฟ้า',
@@ -182,9 +195,9 @@ void main() {
       await seedRecord('r-current', cycle, electricity: 5000, water: 300);
       await openSetup(tester);
 
-      await tapText(tester, monthLabel(cycle));
-      await tapText(tester, 'ลบข้อมูลไฟฟ้า');
-      expect(find.text('ลบข้อมูลไฟฟ้ารายการนี้?'), findsOneWidget);
+      await tapText(tester, thaiMonthsShort[cycle.month - 1]);
+      await tapText(tester, 'ลบข้อมูลไฟฟ้าของบิลนี้');
+      expect(find.text('ลบข้อมูลไฟฟ้าของบิลนี้?'), findsOneWidget);
       await tapText(tester, 'ลบ');
 
       final records = await docs('start_meter_history');
@@ -209,8 +222,8 @@ void main() {
       await seedRecord('r-current', cycle, electricity: 5000);
       await openSetup(tester);
 
-      await tapText(tester, monthLabel(cycle));
-      await tapText(tester, 'ลบข้อมูลไฟฟ้า');
+      await tapText(tester, thaiMonthsShort[cycle.month - 1]);
+      await tapText(tester, 'ลบข้อมูลไฟฟ้าของบิลนี้');
       await tapText(tester, 'ลบ');
 
       expect(await docs('start_meter_history'), isEmpty);
@@ -218,7 +231,7 @@ void main() {
       expect(user['electricityStartConfigured'], isFalse);
       expect(user['startMeterConfigured'], isFalse);
       expect(user['startBillingMonth'], 0);
-      // ไม่มีรอบปัจจุบันแล้ว ปุ่มกรอกเลขต้องกลับมา
+      // ไม่มีใบล่าสุดแล้ว ปุ่มกรอกต้องกลับมา
       expect(addButton, findsOneWidget);
     });
   });
@@ -253,8 +266,9 @@ void main() {
       expect(bills.single['electricityCost'], 1200);
       expect(bills.single['source'], 'startMeter');
 
-      // ปิด sheet แล้วหน้าประวัติโหลดใหม่ เห็นแถวของรอบนี้
-      expect(find.text('ยังไม่มีประวัติการตั้งเลขมิเตอร์ต้นรอบ'), findsNothing);
+      // ปิด sheet แล้วหน้าใบแจ้งหนี้โหลดใหม่ เห็นตารางและแถวของใบนี้
+      expect(table, findsOneWidget);
+      expect(latestRow, findsOneWidget);
     });
 
     testWidgets('กรอกเลขมิเตอร์อย่างเดียว ไม่มีค่าใช้จ่าย -> ขึ้น "กรอกไม่ครบ" และบันทึกไม่ได้',
@@ -389,7 +403,7 @@ void main() {
     testWidgets('TOU ครั้งแรกสุด: บันทึกเลข On/Off-Peak และหน่วยที่ใช้แยกช่วง',
         (tester) async {
       await seedUser(meterType: 'tou');
-      await openSetup(tester, isTou: true);
+      await openSetup(tester);
       await openSheet(tester);
 
       await enter(tester, 'เลขอ่านครั้งหลัง On-Peak', '1000');
@@ -445,10 +459,9 @@ void main() {
       await userDoc().collection('electricity_logs').doc(log.id).set(log.toMap());
 
       await openSetup(tester);
-      await tapText(tester, monthLabel(cycle));
-      await tapText(tester, 'แก้ไขรายการนี้');
+      await tapText(tester, 'แก้ไข');
 
-      expect(find.text('แก้ไข'), findsOneWidget);
+      expect(find.descendant(of: find.byType(BottomSheet), matching: find.text('แก้ไข')), findsOneWidget);
       expect(tester.widget<TextField>(fieldFor(meterLabel)).controller!.text,
           '5000.0');
 
@@ -482,8 +495,9 @@ void main() {
         (tester) async {
       await seedCurrentCycle();
       await openSetup(tester);
-      await tapText(tester, monthLabel(cycle));
-      await tapText(tester, 'แก้ไขรายการนี้');
+      // แก้จากเมนูของแถวในตาราง (อีกทางคือปุ่ม "แก้ไข" บนการ์ดใบล่าสุด)
+      await tapText(tester, thaiMonthsShort[cycle.month - 1]);
+      await tapText(tester, 'แก้ไขใบแจ้งหนี้ล่าสุด');
 
       await tapText(tester, 'ล้างเลขมิเตอร์ต้นรอบ');
       expect(find.textContaining('เลขมิเตอร์ต้นรอบทั้งหมดจะถูกล้าง'), findsOneWidget);
@@ -498,7 +512,7 @@ void main() {
     });
   });
 
-  testWidgets('จอเล็ก (กว้าง 320) ตัวอักษรใหญ่สุดที่แอปอนุญาต -> ประวัติ (TOU) และฟอร์มไม่ล้น',
+  testWidgets('จอเล็ก (กว้าง 320) ตัวอักษรใหญ่สุดที่แอปอนุญาต -> หน้าใบแจ้งหนี้ (TOU) และฟอร์มไม่ล้น',
       (tester) async {
     tester.view.devicePixelRatio = 3;
     tester.view.physicalSize = const Size(320 * 3, 700 * 3);
@@ -515,7 +529,7 @@ void main() {
       home: Builder(
         builder: (context) => Scaffold(
           body: ElevatedButton(
-            onPressed: () => openStartMeterSetup(context, _uid, service, true),
+            onPressed: () => openInvoiceScreen(context, _uid, service),
             child: const Text('open'),
           ),
         ),

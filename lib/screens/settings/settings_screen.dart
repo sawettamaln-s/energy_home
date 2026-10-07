@@ -37,13 +37,12 @@ import '../dashboard/dashboard_styles.dart';
 // implementation detail ของหน้า Settings ล้วนๆ ไม่มีที่อื่นเรียกใช้ตรงๆ
 part 'settings_account.dart'; // ลบบัญชีและข้อมูลทั้งหมด (PDPA)
 part 'settings_bill_form.dart'; // ฟอร์มเพิ่ม/แก้ไขบิลเดือนเก่า
-part 'settings_bill_history.dart'; // หน้ารายการบิลเดือนเก่า
 part 'settings_billing_day.dart'; // หน้าต่างเลือกวันตัดรอบบิล
 part 'settings_cost_autofill.dart'; // คำนวณค่าใช้จ่ายอัตโนมัติขณะพิมพ์ (ใช้ร่วม 2 ฟอร์ม)
 part 'settings_fixed_cost.dart'; // รายการค่าใช้จ่ายคงที่
+part 'settings_invoices.dart'; // หน้าเลขมิเตอร์จากใบแจ้งหนี้ (ใบล่าสุด + บิลย้อนหลัง + ตารางรายเดือน)
 part 'settings_rate_explanation.dart'; // อธิบายอัตราค่าไฟฟ้า/น้ำ (ไฟฟ้า+น้ำ)
 part 'settings_start_meter.dart'; // ฟอร์มตั้งเลขมิเตอร์ต้นรอบ
-part 'settings_start_meter_history.dart'; // หน้าประวัติเลขมิเตอร์ต้นรอบ
 part 'settings_tariff.dart'; // ประเภทอัตราค่าไฟ + popup แนะนำให้ตรวจประเภท
 part 'settings_utility_log.dart'; // ประวัติมิเตอร์ไฟฟ้า/น้ำที่บันทึกแต่ละวัน
 
@@ -439,24 +438,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildDataGroup() {
     return _group([
-      // หน้าเดียวรวมประวัติ + เพิ่มค่าใหม่ (มีปุ่ม + ในหน้านั้น)
+      // หน้าเดียวรวมใบแจ้งหนี้ล่าสุด (ตั้งต้นรอบ) กับบิลย้อนหลัง
       _buildSettingsTile(
         icon: Icons.receipt_long_outlined,
         title: 'เลขมิเตอร์จากใบแจ้งหนี้',
-        subtitle: 'กรอกทุกครั้งที่ได้ใบแจ้งหนี้ใหม่ ใช้เป็นจุดเริ่มคำนวณรอบบิล',
-        onTap: () => _showStartMeterHistory(),
+        subtitle: 'กรอกทุกครั้งที่ได้ใบใหม่ และเพิ่มบิลย้อนหลัง',
+        onTap: () => _showInvoices(),
       ),
       _buildSettingsTile(
         icon: Icons.history_rounded,
         title: 'ประวัติการบันทึกมิเตอร์',
         subtitle: 'ดูและลบรายการที่บันทึกไว้ ทั้งไฟฟ้าและน้ำ',
         onTap: () => _showUtilityHistory(),
-      ),
-      _buildSettingsTile(
-        icon: Icons.inventory_2_outlined,
-        title: 'บิลย้อนหลัง',
-        subtitle: 'เพิ่ม แก้ไข หรือลบบิลเดือนเก่า เพื่อให้กราฟและการคาดการณ์แม่นขึ้น',
-        onTap: () => _showHistoricalBillList(),
       ),
       // ตารางอัตราขั้นบันได/TOU และคำอธิบายประเภทอัตรา/Ft/VAT/ค่าบริการน้ำ
       // ตามเกณฑ์ที่ผู้ใช้ตั้งไว้จริง
@@ -713,18 +706,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _loadUser();
   }
 
-  void _showStartMeterHistory() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => _StartMeterHistoryScreen(
-          uid: _user!.uid,
-          firestoreService: _firestoreService,
-          isTou: _user?.meterType == 'tou',
-        ),
-      ),
-    );
-  }
+  void _showInvoices() => openInvoiceScreen(context, _user!.uid, _firestoreService);
 
   void _showUtilityHistory() {
     Navigator.push(
@@ -732,18 +714,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(
         builder: (context) => _UtilityHistoryScreen(
           uid: _auth.currentUser!.uid,
-          firestoreService: _firestoreService,
-        ),
-      ),
-    );
-  }
-
-  void _showHistoricalBillList() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => HistoricalBillListScreen(
-          uid: _user!.uid,
           firestoreService: _firestoreService,
         ),
       ),

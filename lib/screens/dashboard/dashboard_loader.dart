@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/bill_model.dart';
 import '../../models/electricity_log_model.dart';
+import '../../models/start_meter_record_model.dart';
 import '../../models/user_model.dart';
 import '../../models/water_log_model.dart';
 import '../../services/firestore_service.dart';
@@ -361,7 +362,7 @@ class DashboardLoader {
   // ถ้า user ไม่ได้เปิดแอปข้าม 2-3 รอบบิลติดกัน รอบที่อยู่ตรงกลางจะไม่มีใครไป
   // compile ให้ ที่นี่จึงไล่ย้อนต่อจาก [from] ไปเรื่อยๆ จนกว่าจะ
   // (1) เจอบิลที่ compile ไว้แล้ว (แปลว่าตามทันประวัติแล้ว) หรือ (2) ย้อนไปถึง
-  // เดือนที่ user เริ่มตั้งค่าระบบครั้งแรก (startBillingMonth/Year) หรือ
+  // เดือนแรกที่เริ่มติดตาม (StartMeterRecordModel.trackingStartKey) หรือ
   // (3) ชนเพดานความปลอดภัย หรือ (4) compile ไม่สำเร็จ (ลองใหม่โหลดครั้งถัดไป)
   // รอบไหนไล่ compile แล้วไม่มี log เลย (user ไม่ได้บันทึกจริงๆ ในรอบนั้น)
   // จะถูกเก็บไว้แจ้งเตือน ไม่ใช่ปล่อยให้หายไปเงียบๆ
@@ -374,16 +375,17 @@ class DashboardLoader {
     final missedCycles = <String>[];
     DateTime backfillCycleEnd = from;
     const maxBackfillLookback = 24; // กันลูปยาวเกินไปถ้าข้อมูล user ผิดปกติ
+    final trackingStart = StartMeterRecordModel.trackingStartKey(
+      await firestoreService.getStartMeterHistory(uid),
+      startYear: user.startBillingYear,
+      startMonth: user.startBillingMonth,
+    );
     for (var i = 0; i < maxBackfillLookback; i++) {
       final backfillCycleStart = EnergyForecaster.getPreviousCycleStart(
           backfillCycleEnd, user.billingDay);
 
-      final startY = user.startBillingYear;
-      final startM = user.startBillingMonth;
-      if (startY != 0 &&
-          (backfillCycleEnd.year < startY ||
-              (backfillCycleEnd.year == startY &&
-                  backfillCycleEnd.month < startM))) {
+      if (trackingStart != 0 &&
+          backfillCycleEnd.year * 12 + backfillCycleEnd.month < trackingStart) {
         break;
       }
 

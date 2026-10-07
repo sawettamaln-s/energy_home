@@ -237,7 +237,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
     setState(() => _fixedCostForSelectedMonth = amount);
   }
 
-  // เปิดฟอร์มตั้งเลขมิเตอร์ต้นรอบจริง (ตัวเดียวกับปุ่ม FAB ในหน้าประวัติมิเตอร์ต้นรอบ)
+  // เปิดฟอร์มตั้งเลขมิเตอร์ต้นรอบจริง (ตัวเดียวกับการ์ดใบแจ้งหนี้ล่าสุดในหน้าเลขมิเตอร์จากใบแจ้งหนี้)
   // ปิด sheet นี้ก่อนแล้วค่อยเปิดตัวใหม่ (กัน backdrop ซ้อนกัน 2 ชั้น) — ถ้ากรอกข้อมูล
   // ไว้บ้างแล้ว (มีค่าไฟ/น้ำ) ให้ถามยืนยันก่อนทิ้งข้อมูล
   Future<void> _goSetStartMeter() async {
@@ -606,7 +606,7 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
                   IconButton(
                     tooltip: 'หน้านี้ใช้ทำอะไร',
                     icon: Icon(Icons.info_outline, color: Colors.grey.shade600),
-                    onPressed: () => _showHistoricalBillInfoPopup(context),
+                    onPressed: () => _showInvoiceInfoPopup(context),
                   ),
                   IconButton(
                     tooltip: 'ปิด',

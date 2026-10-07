@@ -186,11 +186,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _openSettings(SettingsScreen screen) => _openAndReload(
       () => Navigator.push(context, MaterialPageRoute(builder: (_) => screen)));
 
-  Future<void> _openStartMeterSetup() {
-    final user = _data!.user!;
-    return _openAndReload(() => openStartMeterSetup(
-        context, user.uid, _firestoreService, user.meterType == 'tou'));
-  }
+  Future<void> _openStartMeterSetup() =>
+      _openAndReload(() => openInvoiceScreen(context, _data!.user!.uid, _firestoreService));
 
   // กดปุ่มแจ้งเตือน -> หน้า Notification Center พอกลับมา (เผื่อมีการอ่าน/ลบ)
   // รีเฟรชจำนวนที่ยังไม่อ่านใหม่
@@ -294,15 +291,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onBillingDay: () => _openSettings(const SettingsScreen(
                 quickAction: SettingsQuickAction.billingDay)),
             onStartMeter: _openStartMeterSetup,
-            onPastBills: () => _openAndReload(() => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => HistoricalBillListScreen(
-                      uid: user!.uid,
-                      firestoreService: _firestoreService,
-                    ),
-                  ),
-                )),
+            onPastBills: _openStartMeterSetup,
           )
         // การ์ดไฟฟ้า/น้ำคู่กัน: ฝั่งที่พร้อมเป็นการ์ดมิเตอร์ ฝั่งที่ยังไม่พร้อม
         // เป็นการ์ดล็อก (IntrinsicHeight ให้สองการ์ดสูงเท่ากัน)
