@@ -402,11 +402,12 @@ class AnalysisService {
     return curveMap[caseKey];
   }
 
-  /// ใช้ 3 เดือนล่าสุดเป็นตัวแทน "ระดับการใช้ปัจจุบัน" ของ user คนนี้
-  /// (ถ้ามีน้อยกว่า 3 เดือน ใช้เท่าที่มี) — คืนเป็น BillModel เพื่อให้ผู้เรียก
-  /// ดึงได้ทั้งค่าที่ต้องการ (ผ่าน selector) และเดือนปฏิทิน (.month) สำหรับหัก
-  /// ฤดูกาลออกก่อนเฉลี่ยใน seasonalForecast
-  List<BillModel> _recentWindow(List<BillModel> bills, {int months = 3}) {
+  /// บิลล่าสุด [EnergyForecaster.seasonalRecentMonths] เดือนเป็นตัวแทน "ระดับการใช้
+  /// ปัจจุบัน" ของ user คนนี้ (มีน้อยกว่านั้นใช้เท่าที่มี) — คืนเป็น BillModel เพื่อให้
+  /// ผู้เรียกดึงได้ทั้งค่าที่ต้องการ (ผ่าน selector) และเดือนปฏิทิน (.month) สำหรับ
+  /// หักฤดูกาลออกใน seasonalForecast
+  List<BillModel> _recentWindow(List<BillModel> bills,
+      {int months = EnergyForecaster.seasonalRecentMonths}) {
     if (bills.length <= months) return bills;
     return bills.sublist(bills.length - months);
   }

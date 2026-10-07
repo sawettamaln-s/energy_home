@@ -4,6 +4,7 @@
 import 'package:energy_home/models/bill_model.dart';
 import 'package:energy_home/services/analysis_service.dart';
 import 'package:energy_home/utils/calculator.dart';
+import 'package:energy_home/utils/forecaster.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -141,5 +142,14 @@ void main() {
           targetMonth: DateTime(2026, m, 1),
         ),
     ]);
+  });
+
+  test('พยากรณ์เดือนถัดไปใช้บิลล่าสุด EnergyForecaster.seasonalRecentMonths เดือน', () {
+    // บิลก่อนหน้าใช้ไฟต่างกันมาก ผลต้องขึ้นกับบิลล่าสุดเท่านั้น
+    final a = [bill(4, 100, 0), bill(5, 900, 0), bill(6, 300, 0)];
+    final b = [bill(4, 800, 0), bill(5, 50, 0), bill(6, 300, 0)];
+    expect(EnergyForecaster.seasonalRecentMonths, 1);
+    expect(unitsForecast(a), unitsForecast(b));
+    expect(unitsForecast(a), unitsForecast([bill(6, 300, 0)]));
   });
 }

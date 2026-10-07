@@ -121,10 +121,11 @@ void _runComparison(
 
   final scActuals = <double>[];
   final scPredicted = <double>[];
-  // เลียนแบบ _recentWindow ใน analysis_service.dart: ใช้ 3 เดือนล่าสุดก่อน
-  // จุดที่จะทาย (หรือเท่าที่มีถ้าน้อยกว่า 3) เป็น "ระดับการใช้ปัจจุบัน"
+  // เลียนแบบ _recentWindow ใน analysis_service.dart: ใช้บิลล่าสุด
+  // EnergyForecaster.seasonalRecentMonths เดือนก่อนจุดที่จะทาย เป็น "ระดับการใช้ปัจจุบัน"
+  // (เริ่มทายที่จุดที่ 4 เท่าเดิม ให้เทียบกับ Linear Regression บนชุดเดียวกัน)
   for (int i = 3; i < values.length; i++) {
-    final windowStart = max(0, i - 3);
+    final windowStart = max(0, i - EnergyForecaster.seasonalRecentMonths);
     final recentValues = values.sublist(windowStart, i);
     final recentMonths = months.sublist(windowStart, i);
     final targetMonth = months[i];

@@ -150,16 +150,15 @@ class _UtilityTab extends StatelessWidget {
         .take(3)
         .toList();
 
-    // ข้อมูลน้อยกว่า 3 เดือน = ค่าคาดการณ์ยังไม่น่าเชื่อถือ ไม่ว่าจะใช้วิธีไหน:
-    // - รู้ area+meterType → seasonal curve หา "ระดับการใช้ปัจจุบัน" จากบิล
-    //   ล่าสุดไม่เกิน 3 เดือน ถ้ามีแค่ 1-2 เดือน ระดับนี้จะแกว่งตามเดือนที่มี
-    // - ไม่รู้ → เส้นแนวโน้ม (linear regression) บนจุดข้อมูล 1-2 จุดก็แค่ทาบ
-    //   เส้นผ่านจุดที่มีเท่านั้น
-    final forecastLowConfidence = bills.length < 3;
-
     // true เมื่อรู้ area+meterType ของ user คนนี้แล้ว (เงื่อนไขเดียวกับ
     // _resolveCurve ใน analysis_service.dart)
     final usesSeasonalCurve = area != null && meterType != null;
+
+    // ค่าคาดการณ์ยังไม่น่าเชื่อถือเฉพาะวิธีสำรอง (เส้นแนวโน้ม) ที่มีบิลน้อยกว่า
+    // 3 เดือน — เส้นบนจุดข้อมูล 1-2 จุดแค่ทาบผ่านจุดที่มี ส่วนวิธีฤดูกาลใช้
+    // บิลล่าสุดเดือนเดียวอยู่แล้ว (EnergyForecaster.seasonalRecentMonths)
+    // จำนวนบิลจึงไม่ทำให้ผลต่างกัน
+    final forecastLowConfidence = !usesSeasonalCurve && bills.length < 3;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -484,7 +483,7 @@ class _UtilityTab extends StatelessWidget {
         'ยิ่งอิงการใช้จริงของรอบนี้มากขึ้น';
     final next = usesSeasonalCurve
         ? 'รอบถัดไป\n'
-            'เอาหน่วยที่ใช้เฉลี่ยไม่กี่เดือนล่าสุดของคุณ มาปรับด้วยรูปแบบฤดูกาล '
+            'เอาหน่วยที่ใช้ในบิลล่าสุดของคุณ มาปรับด้วยรูปแบบฤดูกาล '
             '(เช่น เดือนร้อนมักใช้ไฟมากกว่าเดือนหนาว) แล้วคิดเงินด้วยอัตราจริงเหมือนรอบนี้ '
             'รูปแบบฤดูกาลคำนวณจากสถิติการใช้'
             'ไฟฟ้า/น้ำประปาจริงรายเดือนย้อนหลังหลายปี (ข้อมูลเปิดของ สนพ., กปน. และ กปภ.) '

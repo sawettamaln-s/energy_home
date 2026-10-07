@@ -102,6 +102,13 @@ class EnergyForecaster {
   // ของเคสนั้น (ดู lib/utils/seasonal_curves.dart ที่สร้างจากสถิติการใช้จริง
   // รายเดือนของภาคที่อยู่อาศัย ด้วย tool/seasonal_curves/)
 
+  // จำนวนบิลล่าสุดที่ใช้หา "ระดับการใช้ปัจจุบัน" — 1 เดือนแม่นที่สุดในการทดลอง
+  // ทั้งสถิติไทย (tool/seasonal_curves/backtest_forecast_methods.py) และบิลจริง
+  // 3,990 บ้านของชุดข้อมูล RECON-SL (tool/backtest_seasonal_personal.dart,
+  // cross-validation แบ่งตามบ้านเลือก 1 ทุกกลุ่ม): การใช้ไฟเปลี่ยนระดับได้ (ย้ายบ้าน
+  // ซื้อเครื่องใช้ใหม่) เฉลี่ยหลายเดือนจึงตามไม่ทัน
+  static const int seasonalRecentMonths = 1;
+
   static double seasonalForecast({
     required List<double> recentMonthlyValues, // ค่าใช้จ่ายย้อนหลังไม่กี่เดือนล่าสุดของ user คนนี้
     required List<int> recentMonths, // เดือนปฏิทิน (1-12) ของแต่ละค่าใน recentMonthlyValues ตำแหน่งตรงกัน

@@ -12,7 +12,8 @@
   (walk-forward / one-step-ahead) แล้วเทียบกับค่าจริง
 
 วิธีที่เทียบ (สูตรเดียวกับ lib/utils/forecaster.dart):
-  - seasonal : เฉลี่ย 3 เดือนล่าสุดหลังหักฤดูกาล x ตัวคูณของเดือนเป้าหมาย
+  - seasonal : เดือนล่าสุด (RECENT_MONTHS = EnergyForecaster.seasonalRecentMonths)
+               หลังหักฤดูกาล x ตัวคูณของเดือนเป้าหมาย
   - linear   : เส้นถดถอยเชิงเส้นจาก 12 เดือนล่าสุด (วิธีสำรองของแอป)
   - naive    : ใช้ค่าเดือนล่าสุดตรงๆ (เกณฑ์พื้นฐานสำหรับเทียบ)
 
@@ -31,6 +32,8 @@ import sys
 from build_seasonal_curves import SERIES_FILES, read_series, seasonal_index
 
 TRAIN_YEARS = [y for y in range(2016, 2023) if y not in (2020, 2021)]
+# จำนวนเดือนล่าสุดที่ใช้หาระดับการใช้ ต้องตรงกับ EnergyForecaster.seasonalRecentMonths
+RECENT_MONTHS = 1
 TEST_FROM = (2023, 1)
 
 # ชุดข้อมูลที่เริ่มช้ากว่า ใช้ช่วงฝึก/ทดสอบของตัวเอง
@@ -75,10 +78,10 @@ def evaluate(series, train_years=TRAIN_YEARS, test_from=TEST_FROM, extra_curves=
             continue
         actual = series[key]
         history = [series[k] for k in keys[:i]]
-        last3_keys = keys[i - 3:i]
+        recent_keys = keys[i - RECENT_MONTHS:i]
         preds = {
-            **{m: seasonal_forecast([series[k] for k in last3_keys],
-                                    [k[1] for k in last3_keys], c, key[1])
+            **{m: seasonal_forecast([series[k] for k in recent_keys],
+                                    [k[1] for k in recent_keys], c, key[1])
                for m, c in curves.items()},
             'linear': linear_forecast(history[-12:]),
             'naive': history[-1],
