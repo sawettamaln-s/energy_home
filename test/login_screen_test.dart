@@ -52,6 +52,8 @@ void main() {
     await tester.enterText(
         find.byType(TextField).at(0), 'test@example.com'); // ช่องอีเมล
     await tester.enterText(find.byType(TextField).at(1), 'password123'); // ช่องรหัสผ่าน
+    // จอเทส 800x600 เตี้ยกว่ามือถือ ต้องเลื่อนให้เห็นปุ่มก่อนกด
+    await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'เข้าสู่ระบบ'));
     await tester.tap(find.widgetWithText(ElevatedButton, 'เข้าสู่ระบบ'));
     await tester.pumpAndSettle();
 
@@ -71,6 +73,8 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), 'test@example.com');
     await tester.enterText(find.byType(TextField).at(1), 'wrong-password');
+    // จอเทส 800x600 เตี้ยกว่ามือถือ ต้องเลื่อนให้เห็นปุ่มก่อนกด
+    await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'เข้าสู่ระบบ'));
     await tester.tap(find.widgetWithText(ElevatedButton, 'เข้าสู่ระบบ'));
     await tester.pumpAndSettle();
 
@@ -90,6 +94,8 @@ void main() {
     await tester.enterText(
         find.byType(TextField).at(0), 'ghost@example.com');
     await tester.enterText(find.byType(TextField).at(1), 'password123');
+    // จอเทส 800x600 เตี้ยกว่ามือถือ ต้องเลื่อนให้เห็นปุ่มก่อนกด
+    await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'เข้าสู่ระบบ'));
     await tester.tap(find.widgetWithText(ElevatedButton, 'เข้าสู่ระบบ'));
     await tester.pumpAndSettle();
 

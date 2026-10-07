@@ -44,9 +44,30 @@ dev_dependencies:
   # (จำลอง FirebaseAuthException ตอนเทส เช่น wrong-password, user-not-found)
   # ประกาศตรงๆ เพราะเทส import โดยตรง (ไม่พึ่ง transitive dependency)
   mock_exceptions: ^0.8.2
+  # สร้างไอคอนแอปจาก assets/icon/ (รัน: dart run flutter_launcher_icons)
+  flutter_launcher_icons: ^0.14.4
+
+# ไอคอนแอป: โลโก้ Energy Home บ้านสีขาวบนพื้นเขียว (AppColors.primaryGreen)
+# Android 8+ ใช้ adaptive icon (พื้นเขียว + ตัวบ้านโปร่งใส เผื่อขอบให้ launcher ตัดเป็นวงกลม)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: assets/icon/app_icon.png
+  adaptive_icon_background: "#2B4E24"
+  adaptive_icon_foreground: assets/icon/app_icon_foreground.png
+  web:
+    generate: true
+    image_path: assets/icon/app_icon.png
+    background_color: "#2B4E24"
+    theme_color: "#2B4E24"
 
 flutter:
   uses-material-design: true
+
+  # โลโก้ Energy Home: logo_mark (บ้านเขียว ใช้บนพื้นสว่าง), logo_mark_white (บ้านขาว ใช้บนพื้นเขียว)
+  assets:
+    - assets/images/
 
   # ฟอนต์หลักของแอป (ฝังในแอป ใช้ได้แม้ออฟไลน์) — สัญญาอนุญาต SIL OFL 1.1
   # ดู assets/fonts/OFL.txt

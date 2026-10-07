@@ -145,7 +145,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const Center(
                 child: Column(
                   children: [
-                    AuthLogoBadge(),
+                    AuthLogo(),
                     SizedBox(height: 16),
                     Text(
                       'สร้างบัญชีใหม่',

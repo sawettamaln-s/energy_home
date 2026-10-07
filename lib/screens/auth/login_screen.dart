@@ -250,7 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Center(
                         child: Column(
                           children: [
-                            AuthLogoBadge(),
+                            AuthLogo(),
                             SizedBox(height: 16),
                             Text(
                               'ยินดีต้อนรับกลับมา',

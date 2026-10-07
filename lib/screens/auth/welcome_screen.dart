@@ -119,7 +119,7 @@ class _WelcomeContent extends StatelessWidget {
 
               // ชื่อแอปและคำโปรย
               const Text(
-                'EnergyHome',
+                'Energy Home',
                 style: TextStyle(
                   fontSize: AppTypography.s32,
                   fontWeight: FontWeight.bold,
@@ -208,7 +208,7 @@ class _WelcomeIllustration extends StatelessWidget {
           ),
 
           // โลโก้หลักตรงกลาง
-          const AuthLogoBadge(size: 92, iconSize: 52, onDarkBackground: true),
+          const AuthLogo(width: 150, onDarkBackground: true),
 
           // ไอคอนลอยรอบๆ
           const Positioned(

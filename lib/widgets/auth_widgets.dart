@@ -154,8 +154,7 @@ class AuthDivider extends StatelessWidget {
 }
 
 /// ปุ่ม "เข้าสู่ระบบด้วย Google" — พื้นขาวขอบเทาตาม Google branding
-/// guideline ทั่วไป ใช้ตัวอักษร G สีแบรนด์แทนโลโก้ภาพจริง (โปรเจกต์นี้ไม่มี
-/// asset ภาพ ใช้แนวทางเดียวกับ AuthLogoBadge ที่วาดด้วยโค้ดล้วน)
+/// guideline ทั่วไป ใช้ตัวอักษร G สีแบรนด์แทนโลโก้ภาพจริงของ Google
 class AuthGoogleButton extends StatelessWidget {
   const AuthGoogleButton({
     super.key,
@@ -293,41 +292,27 @@ class AuthErrorBox extends StatelessWidget {
   }
 }
 
-/// โลโก้แอป (วงกลม/สี่เหลี่ยมมุมโค้งพื้นเขียว + ไอคอนสายฟ้า) — ใช้ทั้งบนพื้น
-/// เขียวเข้ม (Welcome) และพื้นขาว (Login/Register) โดยสลับสีตาม
-/// [onDarkBackground]
-class AuthLogoBadge extends StatelessWidget {
-  const AuthLogoBadge({
+/// โลโก้ Energy Home (บ้าน+สายฟ้า+ก๊อกน้ำ) จากไฟล์ใน assets/images/ — บนพื้นสว่าง
+/// (Login/Register) ใช้บ้านสีเขียว ส่วนบนพื้นเขียวเข้ม (Welcome, [onDarkBackground])
+/// ใช้บ้านสีขาว
+class AuthLogo extends StatelessWidget {
+  const AuthLogo({
     super.key,
-    this.size = 76,
-    this.iconSize = 44,
+    this.width = 110,
     this.onDarkBackground = false,
   });
 
-  final double size;
-  final double iconSize;
+  final double width;
   final bool onDarkBackground;
 
   @override
   Widget build(BuildContext context) {
-    final bg = onDarkBackground ? Colors.white : AuthStyle.green;
-    final iconColor = onDarkBackground ? AuthStyle.green : Colors.white;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(size * 0.26),
-        boxShadow: [
-          BoxShadow(
-            color: (onDarkBackground ? Colors.black : AuthStyle.green)
-                .withValues(alpha: 0.2),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Icon(Icons.bolt, color: iconColor, size: iconSize),
+    return Image.asset(
+      onDarkBackground
+          ? 'assets/images/logo_mark_white.png'
+          : 'assets/images/logo_mark.png',
+      width: width,
+      semanticLabel: 'โลโก้ Energy Home',
     );
   }
 }
