@@ -810,7 +810,7 @@ class InvoiceScreenState extends State<InvoiceScreen> {
   // ---- ตาราง ----
 
   // ตัวกรองของตาราง 2 แถว มีป้ายบอกว่าแต่ละแถวเลือกอะไร: ประเภท (ไฟฟ้า/น้ำ) และ
-  // แสดง (ยอดเงิน/เลขมิเตอร์) — ตัวที่เลือกเป็นปุ่มทึบสีเข้ม ตัวที่ไม่ได้เลือกเป็นปุ่มขอบ
+  // แสดง (ยอดเงิน/เลขมิเตอร์) — ตัวที่เลือกเป็นพื้นสีจางขอบสีพร้อม ✓ ตัวที่ไม่ได้เลือกเป็นพื้นครีม
   Widget _buildFilters() {
     Widget row(String label, List<Widget> options) => Row(
           children: [
@@ -850,15 +850,16 @@ class InvoiceScreenState extends State<InvoiceScreen> {
   }
 
   Widget _filterOption(String label, IconData icon, Color color, bool selected, VoidCallback onTap) {
-    final fg = selected ? Colors.white : Colors.grey.shade700;
+    final fg = selected ? color : Colors.grey.shade600;
     return Semantics(
       selected: selected,
       button: true,
       child: Material(
-        color: selected ? color : Colors.white,
+        color: selected ? color.withValues(alpha: 0.10) : AppColors.inputFill,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-          side: BorderSide(color: selected ? color : Colors.grey.shade300),
+          side: BorderSide(
+              color: selected ? color.withValues(alpha: 0.55) : AppColors.inputBorder, width: selected ? 1.2 : 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -870,13 +871,17 @@ class InvoiceScreenState extends State<InvoiceScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(selected ? Icons.check_rounded : icon, size: 16, color: selected ? Colors.white : color),
+                Icon(selected ? Icons.check_rounded : icon,
+                    size: 16, color: selected ? color : color.withValues(alpha: 0.55)),
                 const SizedBox(width: AppSpacing.v4),
                 Flexible(
                   child: Text(label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: AppTypography.s13, fontWeight: FontWeight.w600, color: fg)),
+                      style: TextStyle(
+                          fontSize: AppTypography.s13,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          color: fg)),
                 ),
               ],
             ),
