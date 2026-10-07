@@ -12,6 +12,8 @@
 //      cross-validation: ทุกรอบถูกทำนายด้วย k ที่เลือกจากรอบอื่นเท่านั้น
 //      ความแม่นยำที่รายงานจึงไม่ได้มาจากการเลือก k ให้เข้ากับข้อมูลชุดทดสอบเอง
 
+import 'dart:math';
+
 import 'package:energy_home/utils/forecaster.dart';
 
 // บันทึกมิเตอร์ 1 ครั้ง: วันเวลา + หน่วยสะสมตั้งแต่ต้นรอบ (usedFromStart)
@@ -121,11 +123,16 @@ double? projectAt(BacktestCycle c, int day, double k) {
 class ErrorStats {
   final List<double> _pct = []; // % error แบบมีเครื่องหมาย (ทำนาย − จริง) ÷ จริง
   final List<double> _abs = []; // หน่วย
+  double _actualSum = 0;
 
   void add(double predicted, double actual) {
     _pct.add((predicted - actual) / actual * 100);
     _abs.add((predicted - actual).abs());
+    _actualSum += actual;
   }
+
+  // WAPE = ผลรวมความคลาดเคลื่อน ÷ ผลรวมหน่วยจริง (%) — ไม่พุ่งเมื่อบางรอบหน่วยจริงน้อย
+  double get wape => n == 0 ? double.nan : _abs.reduce((a, b) => a + b) / _actualSum * 100;
 
   int get n => _pct.length;
   double get mape => n == 0 ? double.nan : _pct.map((e) => e.abs()).reduce((a, b) => a + b) / n;
@@ -203,7 +210,9 @@ double bestWeight(List<BacktestCycle> cycles) {
 }
 
 // รายงานผลเป็นข้อความตาราง
-String report(String title, List<BacktestCycle> cycles) {
+// [households] (ไม่บังคับ) = รอบแยกตามบ้าน — ส่งมาเมื่อมีหลายบ้าน จะทำ
+// cross-validation แบ่งตามบ้านแทน leave-one-cycle-out
+String report(String title, List<BacktestCycle> cycles, {List<List<BacktestCycle>>? households}) {
   final b = StringBuffer();
   b.writeln('===== $title =====');
   if (cycles.isEmpty) {
@@ -234,12 +243,19 @@ String report(String title, List<BacktestCycle> cycles) {
   final appStats = evaluate(cycles, EnergyForecaster.priorWeightDays);
   b.writeln('\nความเอนเอียงของแอป (k=${EnergyForecaster.priorWeightDays.toStringAsFixed(0)}): '
       '${overallBias(appStats).toStringAsFixed(1)}% (บวก = ทายสูงกว่าจริง)');
-  b.writeln('MAE ของแอป: ${overallMae(appStats).toStringAsFixed(1)} หน่วย');
+  b.writeln('MAE ของแอป: ${overallMae(appStats).toStringAsFixed(1)} หน่วย · '
+      'WAPE ของแอป: ${overallWape(appStats).toStringAsFixed(1)}% · '
+      'WAPE ของ k=0: ${overallWape(evaluate(cycles, 0)).toStringAsFixed(1)}%');
 
   final best = bestWeight(cycles);
   b.writeln('\nk ที่แม่นที่สุดกับข้อมูลชุดนี้ = ${best.toStringAsFixed(0)} '
       '(MAPE เฉลี่ย ${overallMape(evaluate(cycles, best)).toStringAsFixed(1)}%)');
-  if (cycles.length >= 3) {
+  if (households != null && households.length >= 5) {
+    final cv = crossValidateByHousehold(households);
+    b.writeln('cross-validation แบ่งตามบ้าน 5 กลุ่ม (เลือก k จากบ้านกลุ่มอื่น ทดสอบกับบ้านที่กันไว้): '
+        'MAPE ${overallMape(cv.stats).toStringAsFixed(1)}%, '
+        'k ที่ถูกเลือกแต่ละกลุ่ม ${cv.chosen.map((k) => k.toStringAsFixed(0)).join(', ')}');
+  } else if (cycles.length >= 3) {
     final cv = crossValidate(cycles);
     b.writeln('leave-one-cycle-out (เลือก k จากรอบอื่น ทดสอบกับรอบที่กันไว้): '
         'MAPE ${overallMape(cv.stats).toStringAsFixed(1)}%, '
@@ -252,6 +268,7 @@ String report(String title, List<BacktestCycle> cycles) {
 }
 
 double overallBias(Map<int, ErrorStats> stats) => _weighted(stats, (s) => s.bias);
+double overallWape(Map<int, ErrorStats> stats) => _weighted(stats, (s) => s.wape);
 double overallMae(Map<int, ErrorStats> stats) => _weighted(stats, (s) => s.mae);
 
 double _weighted(Map<int, ErrorStats> stats, double Function(ErrorStats) f) {
@@ -263,4 +280,119 @@ double _weighted(Map<int, ErrorStats> stats, double Function(ErrorStats) f) {
     n += s.n;
   }
   return n == 0 ? double.nan : sum / n;
+}
+
+// ==================== ชุดข้อมูลมิเตอร์อัจฉริยะ (เลขมิเตอร์สะสม) ====================
+// ใช้กับ tool/backtest_cycle_dataset.dart: ไม่มีบันทึกจากผู้ใช้จริง จึงจำลองเฉพาะ
+// "ตารางการจดมิเตอร์" ส่วนเลขมิเตอร์และหน่วยจริงของรอบมาจากมิเตอร์จริงทั้งหมด
+
+typedef MeterPoint = ({DateTime at, double kwh});
+
+// เลขมิเตอร์ ณ เวลา [t] ประมาณเชิงเส้นจากค่าก่อน-หลังที่ใกล้ที่สุด — null เมื่อ
+// ค่าใดค่าหนึ่งห่างจาก [t] เกิน [maxGap] (ข้อมูลขาดช่วง) [series] เรียงตามเวลา
+double? meterAt(List<MeterPoint> series, DateTime t,
+    {Duration maxGap = const Duration(hours: 24)}) {
+  var lo = 0;
+  var hi = series.length;
+  while (lo < hi) {
+    final mid = (lo + hi) >> 1;
+    if (series[mid].at.isBefore(t)) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  if (lo < series.length && series[lo].at == t) return series[lo].kwh;
+  if (lo == 0 || lo == series.length) return null;
+  final a = series[lo - 1];
+  final b = series[lo];
+  if (t.difference(a.at) > maxGap || b.at.difference(t) > maxGap) return null;
+  final span = b.at.difference(a.at).inSeconds;
+  if (span <= 0) return a.kwh;
+  return a.kwh + (b.kwh - a.kwh) * t.difference(a.at).inSeconds / span;
+}
+
+// สร้างรอบบิลที่ปิดแล้วจากเลขมิเตอร์สะสมของบ้านหนึ่ง: หน่วยจริงของรอบ = เลข ณ
+// วันตัดรอบถัดไป − เลข ณ วันตัดรอบนี้ ผู้ใช้จำลองจดมิเตอร์เวลา 20:00 ทุก
+// [everyDays] วัน และลืมจดแต่ละครั้งด้วยโอกาส [skipChance]
+// รอบที่หน่วยจริงอยู่นอกช่วง [minUnits]–[maxUnits] ถือว่าผิดปกติ (บ้านว่าง/มิเตอร์
+// ไม่บันทึก หรือเลขมิเตอร์กระโดด) ไม่นำมาวัด และไม่ใช้เป็นบิลรอบก่อนของรอบถัดไป
+List<BacktestCycle> cyclesFromMeter(
+  List<MeterPoint> series, {
+  required int billingDay,
+  required int everyDays,
+  required Random rng,
+  double skipChance = 0.2,
+  double minUnits = 20,
+  double maxUnits = 1500,
+}) {
+  if (series.length < 2) return [];
+  final cycles = <BacktestCycle>[];
+  double? prevPerDay;
+  DateTime? prevEnd;
+  var month = DateTime(series.first.at.year, series.first.at.month, 1);
+  final lastAt = series.last.at;
+  while (true) {
+    final start = EnergyForecaster.safeBillingDate(month.year, month.month, billingDay);
+    final next = DateTime(month.year, month.month + 1, 1);
+    final end = EnergyForecaster.safeBillingDate(next.year, next.month, billingDay);
+    if (end.isAfter(lastAt)) break;
+    month = next;
+    final startKwh = meterAt(series, start);
+    final endKwh = meterAt(series, end);
+    if (startKwh == null ||
+        endKwh == null ||
+        endKwh - startKwh < minUnits ||
+        endKwh - startKwh > maxUnits) {
+      prevPerDay = null;
+      continue;
+    }
+    final days = end.difference(start).inDays;
+    final readings = <Reading>[];
+    for (var d = everyDays; d < days; d += everyDays) {
+      if (rng.nextDouble() < skipChance) continue;
+      final at = DateTime(start.year, start.month, start.day + d, 20);
+      final kwh = meterAt(series, at);
+      if (kwh != null) readings.add((at: at, usedFromStart: kwh - startKwh));
+    }
+    final actual = endKwh - startKwh;
+    if (readings.isNotEmpty) {
+      cycles.add(BacktestCycle(
+        start: start,
+        end: end,
+        actualUnits: actual,
+        priorPerDay: prevEnd == start ? prevPerDay : null,
+        readings: readings,
+      ));
+    }
+    prevPerDay = actual / days;
+    prevEnd = end;
+  }
+  return cycles;
+}
+
+// cross-validation แบ่งตามบ้าน: แบ่งบ้านเป็น [folds] กลุ่ม เลือก k จากบ้านกลุ่มอื่น
+// แล้วทดสอบกับบ้านกลุ่มที่กันไว้ — รอบของบ้านเดียวกันไม่ข้ามระหว่างชุดฝึกกับชุดทดสอบ
+({Map<int, ErrorStats> stats, List<double> chosen}) crossValidateByHousehold(
+    List<List<BacktestCycle>> households,
+    {int folds = 5}) {
+  final result = {for (final d in checkpoints) d: ErrorStats()};
+  final chosen = <double>[];
+  for (var f = 0; f < folds; f++) {
+    final train = <BacktestCycle>[];
+    final test = <BacktestCycle>[];
+    for (var i = 0; i < households.length; i++) {
+      (i % folds == f ? test : train).addAll(households[i]);
+    }
+    if (train.isEmpty || test.isEmpty) continue;
+    final k = bestWeight(train);
+    chosen.add(k);
+    for (final c in test) {
+      for (final d in checkpoints) {
+        final p = projectAt(c, d, k);
+        if (p != null) result[d]!.add(p, c.actualUnits);
+      }
+    }
+  }
+  return (stats: result, chosen: chosen);
 }

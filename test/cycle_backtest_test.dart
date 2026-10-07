@@ -1,4 +1,6 @@
 // เทสแกนคำนวณของสคริปต์วัดความแม่นยำยอดสิ้นรอบ (tool/cycle_backtest/cycle_backtest.dart)
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import '../tool/cycle_backtest/cycle_backtest.dart';
@@ -76,6 +78,39 @@ void main() {
     final cv = crossValidate(cycles);
     expect(cv.chosen, hasLength(cycles.length));
     expect(report('ไฟฟ้า', cycles), contains('leave-one-cycle-out'));
+  });
+
+  group('ข้อมูลมิเตอร์สะสม (ชุดข้อมูลมิเตอร์อัจฉริยะ)', () {
+    // มิเตอร์สะสมทุก 6 ชม. ใช้วันละ 4 หน่วย (ชั่วโมงละ 1/6) ตลอด มี.ค.–มิ.ย. 2026
+    List<MeterPoint> steady({double perDay = 4}) => [
+          for (var t = DateTime(2026, 3, 1); t.isBefore(DateTime(2026, 7, 1)); t = t.add(const Duration(hours: 6)))
+            (at: t, kwh: 1000 + perDay * t.difference(DateTime(2026, 3, 1)).inHours / 24),
+        ];
+
+    test('meterAt ประมาณเชิงเส้นระหว่างสองค่า และคืน null เมื่อข้อมูลขาดช่วงเกิน 1 วัน', () {
+      final s = steady();
+      expect(meterAt(s, DateTime(2026, 3, 1, 3)), closeTo(1000.5, 1e-9));
+      final gap = [s.first, (at: DateTime(2026, 3, 5), kwh: 1016.0)];
+      expect(meterAt(gap, DateTime(2026, 3, 2)), isNull);
+    });
+
+    test('หน่วยจริงของรอบมาจากเลขมิเตอร์ ณ วันตัดรอบ และรอบที่ใช้น้อยกว่า 20 หน่วยถูกตัด', () {
+      final cycles = cyclesFromMeter(steady(), billingDay: 1, everyDays: 2, rng: Random(1), skipChance: 0);
+      // มี.ค. 31 วัน × 4 = 124, เม.ย. 30 × 4 = 120, พ.ค. 124 (รอบ มิ.ย. ปิดไม่ครบ)
+      expect(cycles.map((c) => c.actualUnits.round()), [124, 120, 124]);
+      expect(cycles[1].priorPerDay, closeTo(4, 1e-9));
+      expect(cyclesFromMeter(steady(perDay: 0.5), billingDay: 1, everyDays: 2, rng: Random(1)), isEmpty);
+    });
+
+    test('cross-validation แบ่งตามบ้าน ใช้ได้ครบทุกกลุ่ม', () {
+      final households = [
+        for (var i = 0; i < 5; i++)
+          cyclesFromMeter(steady(perDay: 3.0 + i), billingDay: 1, everyDays: 1, rng: Random(i)),
+      ];
+      final cv = crossValidateByHousehold(households);
+      expect(cv.chosen, hasLength(5));
+      expect(overallMape(cv.stats), lessThan(1));
+    });
   });
 }
 
