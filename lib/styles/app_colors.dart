@@ -44,6 +44,11 @@ class AppColors {
   static const Color textMuted = Color(0xFF555555); // เนื้อความรองในกล่องข้อความ
   static const Color inputFill = Color(0xFFFAF9F4); // พื้นช่องเลือก (โทนครีม)
   static const Color inputBorder = Color(0xFFD8D5C8);
+  // พื้นของรอบบิล/ปีที่ปิดไปแล้วในตารางประวัติ — ขาวอมครีมอ่อนกว่าการ์ดขาวของรอบ/ปี
+  // ปัจจุบันเล็กน้อย ยังอ่านเป็นการ์ดชัดเจน แต่ให้รายการปัจจุบันเด่นกว่า
+  static const Color closedSurface = Color(0xFFFCFBF7);
+  // เส้นขอบบางๆ ของการ์ดรอบที่ปิดแล้ว
+  static const Color closedBorder = Color(0xFFECE9DF);
 
   // ---------- กล่องเตือน/ข้อควรระวัง (โทนส้ม) ----------
   // ใช้ warning.withValues(alpha: ...) เป็นพื้นกล่อง ไอคอนใช้ warningIcon

@@ -301,6 +301,9 @@ class _LogHistoryTabState extends State<_LogHistoryTab> {
                       padding: const EdgeInsets.only(top: AppSpacing.v4, bottom: AppSpacing.v8),
                       child: AppCard(
                         padding: EdgeInsets.zero,
+                        // รอบที่ปิดไปแล้วใช้พื้นจาง ให้รอบปัจจุบันเด่นกว่า
+                        color: c.start == _currentCycleStart ? Colors.white : AppColors.closedSurface,
+                        borderColor: c.start == _currentCycleStart ? null : AppColors.closedBorder,
                         child: Column(
                           children: [
                             _tableHeader(),
@@ -398,7 +401,7 @@ class _LogHistoryTabState extends State<_LogHistoryTab> {
   Widget _cycleHeader(_LogCycle c, {required bool isOpen, required VoidCallback onTap}) {
     final isCurrent = c.start == _currentCycleStart;
     return Material(
-      color: isOpen ? Colors.transparent : Colors.white,
+      color: isOpen ? Colors.transparent : (isCurrent ? Colors.white : AppColors.closedSurface),
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -554,10 +557,14 @@ class _LogHistoryTabState extends State<_LogHistoryTab> {
                           fontWeight: FontWeight.w700,
                           color: _accent,
                           fontFeatures: const [FontFeature.tabularFigures()])),
-                  Text('สะสม ${_fmt.format(e.usedFromStart)} · ฿${_bahtFmt.format(e.cost)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
+                  // ย่อตัวอักษรแทนการตัดท้าย ยอดเงินหลักพันจะได้ไม่ขึ้นเป็น "฿1,000.…"
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text('สะสม ${_fmt.format(e.usedFromStart)} · ฿${_bahtFmt.format(e.cost)}',
+                        maxLines: 1,
+                        style: TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade600)),
+                  ),
                 ],
               ),
             ),

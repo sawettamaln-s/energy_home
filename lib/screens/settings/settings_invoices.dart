@@ -706,18 +706,33 @@ class InvoiceScreenState extends State<InvoiceScreen> {
     final missingSorted = [..._missingMonths]..sort((a, b) => b.compareTo(a));
     final canAdd = !_allPastMonthsRecorded;
 
-    // ครบแล้วและไม่มีเดือนที่ขาด — ไม่มีอะไรให้ทำ เหลือแค่บรรทัดบอกสถานะบางๆ
-    if (!canAdd && missingSorted.isEmpty) {
+    // การ์ดเต็มมีเฉพาะตอนเริ่มใช้งาน (ช่วงที่การเพิ่มบิลเก่ามีประโยชน์ที่สุด) หรือเมื่อมีเดือน
+    // ที่ขาดจริง — นอกนั้น (หรือเมื่อครบแล้ว) เหลือบรรทัดบางๆ ไม่ให้ดูเหมือนงานค้างสำหรับคนที่ไม่มีบิลเก่า
+    if (missingSorted.isEmpty && (!firstTime || !canAdd)) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v4),
+        padding: const EdgeInsets.only(left: AppSpacing.v4),
         child: Row(
           children: [
-            const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.primaryGreen),
+            Icon(canAdd ? Icons.history_rounded : Icons.check_circle_rounded,
+                size: 16, color: canAdd ? Colors.grey.shade600 : AppColors.primaryGreen),
             const SizedBox(width: AppSpacing.v6),
             Expanded(
-              child: Text('บันทึกบิลย้อนหลังครบแล้ว แก้ไขได้ในตารางด้านล่างค่ะ',
-                  style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade700)),
+              child: Text(
+                  canAdd
+                      ? (pastBills.isEmpty ? 'ยังไม่มีบิลย้อนหลัง (ไม่บังคับ)' : 'มีบิลย้อนหลัง ${pastBills.length} เดือน')
+                      : 'บันทึกบิลย้อนหลังครบแล้ว แก้ไขได้ในตารางด้านล่างค่ะ',
+                  style: TextStyle(fontSize: AppTypography.s12_5, color: Colors.grey.shade700)),
             ),
+            if (canAdd)
+              TextButton.icon(
+                onPressed: () => _openPastSheet(),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('เพิ่มบิลย้อนหลัง'),
+              ),
           ],
         ),
       );
@@ -907,6 +922,8 @@ class InvoiceScreenState extends State<InvoiceScreen> {
       groups.putIfAbsent(r.year, () => []).add(r);
     }
     final expanded = _expandedYears ?? {rows.map((r) => r.year).reduce((a, b) => a > b ? a : b)};
+    // ปีของใบล่าสุดเป็นการ์ดขาว ปีก่อนๆ ที่ปิดไปแล้วใช้พื้นจาง (AppColors.closedSurface)
+    final latestYear = _latestMonth.year;
     return [
       for (final entry in groups.entries) ...[
         _yearHeader(entry.key, entry.value, readingUsed, isOpen: expanded.contains(entry.key), onTap: () {
@@ -926,6 +943,8 @@ class InvoiceScreenState extends State<InvoiceScreen> {
                   padding: const EdgeInsets.only(top: AppSpacing.v4, bottom: AppSpacing.v8),
                   child: AppCard(
                     padding: EdgeInsets.zero,
+                    color: entry.key == latestYear ? Colors.white : AppColors.closedSurface,
+                    borderColor: entry.key == latestYear ? null : AppColors.closedBorder,
                     child: Column(
                       children: [
                         _tableHeader(),
@@ -960,8 +979,9 @@ class InvoiceScreenState extends State<InvoiceScreen> {
       summary = costs.isEmpty ? '${rows.length} เดือน' : '${costs.length} เดือน · รวม ${baht.format(total)} บาท';
       if (costs.isNotEmpty) detail = 'เฉลี่ย ${baht.format(total / costs.length)} บาท/เดือน';
     }
+    final isLatestYear = year == _latestMonth.year;
     return Material(
-      color: isOpen ? Colors.transparent : Colors.white,
+      color: isOpen ? Colors.transparent : (isLatestYear ? Colors.white : AppColors.closedSurface),
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

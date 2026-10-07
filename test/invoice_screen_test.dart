@@ -140,6 +140,20 @@ void main() {
     expect(find.textContaining('ขาดบิล 1 เดือน: ${short(m2)}'), findsOneWidget);
   });
 
+  testWidgets('กรอกใบล่าสุดแล้วแต่ไม่มีบิลเก่า -> เหลือบรรทัดบางๆ พร้อมปุ่มเพิ่ม ไม่มีการ์ดใหญ่', (tester) async {
+    await service.updateUser(_uid, {'startBillingMonth': current.month, 'startBillingYear': current.year});
+    await addRecord('r0', current, 5000);
+    await addBill('b0', current, 'startMeter');
+    await open(tester);
+
+    expect(find.text('ยังไม่มีบิลย้อนหลัง (ไม่บังคับ)'), findsOneWidget);
+    expect(find.text('เพิ่มบิลย้อนหลัง'), findsOneWidget);
+    expect(find.text('ไม่บังคับ'), findsNothing);
+
+    await tap(tester, find.text('เพิ่มบิลย้อนหลัง'));
+    expect(find.text('บันทึก'), findsOneWidget);
+  });
+
   testWidgets('บิลย้อนหลังครบ 5 เดือนและไม่มีเดือนที่ขาด -> เหลือบรรทัดบางๆ ไม่มีการ์ดและปุ่มเพิ่ม', (tester) async {
     var m = m1;
     for (var i = 0; i < 5; i++) {
