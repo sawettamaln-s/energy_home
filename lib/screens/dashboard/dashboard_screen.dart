@@ -6,6 +6,7 @@ import '../../utils/data_refresh_bus.dart';
 import '../../utils/forecaster.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
 import '../../widgets/onboarding_guide.dart';
+import '../../widgets/quick_cost_sheet.dart';
 import '../../widgets/ui/fade_slide_in.dart';
 import '../settings/settings_screen.dart';
 import 'dashboard_loader.dart';
@@ -19,6 +20,7 @@ import 'widgets/fixed_cost_tile.dart';
 import 'widgets/load_error_view.dart';
 import 'widgets/meter_cards.dart';
 import 'widgets/setup_checklist_card.dart';
+import 'widgets/starter_visuals.dart';
 
 // =====================================================================
 // หน้าหลัก — จัดวางการ์ดและพาไปหน้าอื่นเท่านั้น ข้อมูลและงานเบื้องหลังทั้งหมด
@@ -285,6 +287,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         delay: Duration(milliseconds: 70 * order), child: child);
 
     final showChecklist = user?.startMeterConfigured == false;
+    // การ์ดเขียวยังไม่มียอดให้แสดง: ผู้ใช้ใหม่ หรือขึ้นรอบใหม่แล้วการ์ดมิเตอร์ล็อกทั้งสองฝั่ง
+    final heroPending = showChecklist
+        ? HeroPending.newUser
+        : (!data.electricityMeterReady && !data.waterMeterReady ? HeroPending.newCycle : HeroPending.none);
     final Widget meterSection = showChecklist
         // ยังไม่ได้ตั้งเลขต้นรอบเลยสักฝั่ง -> การ์ดเช็คลิสต์ 3 ขั้นตอน
         ? SetupChecklistCard(
@@ -333,6 +339,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // คาดการณ์สิ้นรอบบิลอยู่ที่แท็บวิเคราะห์ (index 1 ของ MainShell)
             onViewForecast:
                 widget.onNavTap == null ? null : () => widget.onNavTap!(1),
+            pending: heroPending,
+            onQuickCost: heroPending == HeroPending.none || user == null
+                ? null
+                : () => showQuickCostSheet(context,
+                    area: user.area, meterType: user.meterType, tariff: user.electricityTariff),
           ),
         ),
         const SizedBox(height: 24),
@@ -378,6 +389,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 16),
+
+        // ผู้ใช้ใหม่: "รู้ไหม" อัตราจริงของผู้ใช้ + ลิงก์หน้าอัตรา (มีเครื่องคิดค่าไฟอยู่บนสุด)
+        // ใช้ได้ทันทีโดยไม่ต้องรอข้อมูลบิล (หายไปพร้อมเช็คลิสต์)
+        if (showChecklist && user != null) ...[
+          stagger(
+            5,
+            TariffFactCard(
+              area: user.area,
+              meterType: user.meterType,
+              tariff: user.electricityTariff,
+              onRates: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RateExplanationScreen(
+                      area: user.area, meterType: user.meterType, tariff: user.electricityTariff),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // (5) การใช้รายวันของรอบนี้ (ผู้ใช้ใหม่ยังไม่มีข้อมูลให้แสดง)
         if (!showChecklist) ...[

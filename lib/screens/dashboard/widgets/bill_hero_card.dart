@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'starter_visuals.dart';
+
 import '../../../utils/thai_date_utils.dart';
 import '../../../widgets/ui/animated_amount.dart';
 import '../dashboard_loader.dart';
@@ -14,6 +16,11 @@ import '../dashboard_styles.dart';
 //      และชิป "ดูคาดการณ์" พาไปแท็บวิเคราะห์ — หน้าหลักไม่แสดงยอดคาดการณ์เอง
 //   3) แถบความคืบหน้าของรอบ: วันที่เท่าไรจากทั้งหมด และเหลืออีกกี่วัน
 // =====================================================================
+// การ์ดเขียวยังไม่มียอดให้แสดงเพราะ:
+// newUser  = ผู้ใช้ใหม่ ยังไม่เคยตั้งเลขมิเตอร์ต้นรอบ (แสดงภาพลำดับการทำงานของแอปด้วย)
+// newCycle = ขึ้นรอบใหม่แล้วแต่ยังไม่ได้ตั้งเลขต้นรอบของรอบนี้ (การ์ดมิเตอร์ล็อกทั้งสองฝั่ง)
+enum HeroPending { none, newUser, newCycle }
+
 class BillHeroCard extends StatelessWidget {
   final DashboardData data;
   final int remainingDays;
@@ -21,6 +28,10 @@ class BillHeroCard extends StatelessWidget {
   final int cycleLengthDays;
   // แตะชิป "ดูคาดการณ์" — null = ไม่แสดงชิป
   final VoidCallback? onViewForecast;
+  // ยังไม่มียอดให้แสดง (ดู HeroPending) — แทนยอด "0.00 บาท" ด้วยข้อความ กันเข้าใจผิดว่า
+  // คำนวณแล้วได้ศูนย์ และเสนอเครื่องคิดค่าไฟจากหน่วย ([onQuickCost]) ระหว่างรอ
+  final HeroPending pending;
+  final VoidCallback? onQuickCost;
 
   const BillHeroCard({
     super.key,
@@ -29,6 +40,8 @@ class BillHeroCard extends StatelessWidget {
     required this.daysElapsed,
     required this.cycleLengthDays,
     this.onViewForecast,
+    this.pending = HeroPending.none,
+    this.onQuickCost,
   });
 
   String _shortDate(DateTime d) => '${d.day} ${thaiMonthsShort[d.month - 1]}';
@@ -92,7 +105,8 @@ class BillHeroCard extends StatelessWidget {
       ],
     );
 
-    final chip = onViewForecast == null ? null : _ForecastChip(onTap: onViewForecast!);
+    final isPending = pending != HeroPending.none;
+    final chip = onViewForecast == null || isPending ? null : _ForecastChip(onTap: onViewForecast!);
 
     // ยอดจริงที่ใช้ไปแล้ว (ข้อเท็จจริงจากเลขมิเตอร์) — ตัวเลขหลักของการ์ด
     // [trailing] วางชิดขวาบรรทัดเดียวกับตัวเลข บรรทัดที่มาของยอดจึงยาวได้เต็มแถว
@@ -133,33 +147,70 @@ class BillHeroCard extends StatelessWidget {
           ],
         );
 
+    // ยังไม่มียอด: บอกว่าเกิดอะไรขึ้น + ปุ่มคิดค่าไฟจากหน่วย (ผู้ใช้ใหม่มีภาพลำดับขั้นด้วย)
+    final pendingBody = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(pending == HeroPending.newUser ? 'ยังไม่มีข้อมูลรอบนี้' : 'รอตั้งเลขมิเตอร์ต้นรอบ',
+            style: const TextStyle(
+                color: Colors.white, fontSize: AppTypography.s22, fontWeight: FontWeight.w700, height: 1.3)),
+        const SizedBox(height: 4),
+        Text(
+            pending == HeroPending.newUser
+                ? 'ยอดค่าไฟ + ค่าน้ำจะขึ้นตรงนี้ หลังทำขั้นที่ 1–2 ค่ะ'
+                : 'กรอกเลขจากใบแจ้งหนี้ใหม่ก่อนนะคะ ระหว่างนี้ลองคิดค่าไฟจากหน่วยบนใบได้ค่ะ',
+            style: const TextStyle(color: Colors.white70, fontSize: AppTypography.s12_5, height: 1.4)),
+        if (pending == HeroPending.newUser) ...[
+          const SizedBox(height: 16),
+          const SetupFlowStrip(),
+        ],
+        if (onQuickCost != null) ...[
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: onQuickCost,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.white.withValues(alpha: 0.12),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.45)),
+              minimumSize: const Size(double.infinity, 42),
+            ),
+            icon: const Icon(Icons.calculate_outlined, size: 18),
+            label: const FittedBox(fit: BoxFit.scaleDown, child: Text('ลองคิดค่าไฟจากหน่วย')),
+          ),
+        ],
+      ],
+    );
+
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
         const SizedBox(height: 18),
-        amount(trailing: chip),
-        const SizedBox(height: 18),
-        _CycleBar(progress: cycleReady ? progress : 0),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                cycleReady
-                    ? 'วันที่ ${daysElapsed + 1} จาก $cycleLengthDays วัน'
-                    : 'ยังไม่ได้ตั้งวันตัดรอบบิล',
-                style: white70,
+        if (isPending) pendingBody else amount(trailing: chip),
+        // ยังไม่มียอด ไม่แสดงแถบความคืบหน้าของรอบ (ที่ว่างใช้วางปุ่มคิดค่าไฟแทน)
+        if (!isPending) ...[
+          const SizedBox(height: 18),
+          _CycleBar(progress: cycleReady ? progress : 0),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  cycleReady
+                      ? 'วันที่ ${daysElapsed + 1} จาก $cycleLengthDays วัน'
+                      : 'ยังไม่ได้ตั้งวันตัดรอบบิล',
+                  style: white70,
+                ),
               ),
-            ),
-            if (cycleReady)
-              Text('เหลือ $remainingDays วัน',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: AppTypography.s12,
-                      fontWeight: FontWeight.w600)),
-          ],
-        ),
+              if (cycleReady)
+                Text('เหลือ $remainingDays วัน',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: AppTypography.s12,
+                        fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ],
       ],
     );
 

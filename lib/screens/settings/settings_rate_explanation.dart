@@ -51,6 +51,8 @@ class _RateExplanationScreenState extends State<RateExplanationScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v12, AppSpacing.v16, AppSpacing.v32),
         children: [
+          _quickCostEntry(),
+          const SizedBox(height: AppSpacing.v12),
           _utilityToggle(),
           const SizedBox(height: AppSpacing.v12),
           FadeSlideIn(
@@ -60,6 +62,33 @@ class _RateExplanationScreenState extends State<RateExplanationScreen> {
               children: _showWater ? _waterContent() : _electricityContent(),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ทางเข้าเครื่องคิดค่าไฟ/ค่าน้ำจากหน่วย — ใช้อัตราเดียวกับตารางในหน้านี้
+  Widget _quickCostEntry() {
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.v14, AppSpacing.v12, AppSpacing.v8, AppSpacing.v12),
+      onTap: () => showQuickCostSheet(context,
+          area: widget.area, meterType: widget.meterType, tariff: widget.tariff, ftLoader: widget.ftLoader),
+      child: Row(
+        children: [
+          const IconBadge(icon: Icons.calculate_outlined, color: AppColors.electricityBorder, size: 38),
+          const SizedBox(width: AppSpacing.v12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('ลองคิดค่าไฟ/ค่าน้ำจากหน่วย',
+                    style: TextStyle(fontSize: AppTypography.s14, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                Text('พิมพ์จำนวนหน่วย ดูยอดเงินตามอัตราในหน้านี้ทันที',
+                    style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
         ],
       ),
     );

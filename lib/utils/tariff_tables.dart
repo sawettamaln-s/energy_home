@@ -13,6 +13,11 @@
 // ขั้นบันได 1 ขั้น: หน่วยสูงสุดของขั้น (รวม) และราคาต่อหน่วย
 typedef TariffTier = ({double upTo, double rate});
 
+// ยอดเงินแยกส่วนแบบในใบแจ้งหนี้ (ก่อนปัด ยกเว้น [total]) — energy = ค่าพลังงาน/ค่าน้ำ
+// ตามขั้นบันได, ft = ค่า Ft (น้ำเป็น 0), service = ค่าบริการรายเดือน, rawWater = ค่าน้ำดิบ
+// (เฉพาะ กปน.), vat = ภาษี 7%, total = ยอดรวมที่ใช้จริงในแอป (ปัด 2 ตำแหน่ง)
+typedef CostBreakdown = ({double energy, double ft, double service, double rawWater, double vat, double total});
+
 class TariffTables {
   TariffTables._();
 
@@ -106,33 +111,48 @@ class TariffTables {
 
   // ทุกสูตรด้านล่าง: ใช้ 0 หน่วยยังเสียค่าบริการรายเดือน (+ VAT) เหมือนใบแจ้งหนี้จริง
 
+  static CostBreakdown _parts(double energy, double ft, double service, double rawWater) {
+    final beforeVat = energy + ft + service + rawWater;
+    final total = round2(beforeVat * vat);
+    return (energy: energy, ft: ft, service: service, rawWater: rawWater, vat: total - beforeVat, total: total);
+  }
+
   // ค่าไฟมิเตอร์ปกติ [small] = ประเภทใช้ไม่เกิน 150 หน่วย, [ftRate] บาท/หน่วย
-  static double electricity(double units, {required double ftRate, bool small = false}) {
+  static CostBreakdown electricityParts(double units, {required double ftRate, bool small = false}) {
     if (units < 0) units = 0;
     final energy = tiered(units, small ? electricitySmall : electricityStandard);
     final fee = small ? electricitySmallServiceFee : electricityStandardServiceFee;
-    return round2((energy + fee + units * ftRate) * vat);
+    return _parts(energy, units * ftRate, fee, 0);
   }
 
-  static double electricityTou(double peakUnits, double offPeakUnits, {required double ftRate}) {
+  static double electricity(double units, {required double ftRate, bool small = false}) =>
+      electricityParts(units, ftRate: ftRate, small: small).total;
+
+  static CostBreakdown electricityTouParts(double peakUnits, double offPeakUnits, {required double ftRate}) {
     if (peakUnits < 0) peakUnits = 0;
     if (offPeakUnits < 0) offPeakUnits = 0;
     final energy = peakUnits * touPeakRate + offPeakUnits * touOffPeakRate;
-    return round2((energy + touServiceFee + (peakUnits + offPeakUnits) * ftRate) * vat);
+    return _parts(energy, (peakUnits + offPeakUnits) * ftRate, touServiceFee, 0);
   }
+
+  static double electricityTou(double peakUnits, double offPeakUnits, {required double ftRate}) =>
+      electricityTouParts(peakUnits, offPeakUnits, ftRate: ftRate).total;
 
   // ที่อยู่อาศัยไม่มีค่าน้ำขั้นต่ำ — กปน. ยกเลิกตั้งแต่งวด 1 เม.ย. 2558, กปภ.
   // กำหนดขั้นต่ำเฉพาะประเภท 2 และ 3
-  static double waterMwaCost(double units) {
+  static CostBreakdown waterMwaParts(double units) {
     if (units < 0) units = 0;
-    final cost = tiered(units, waterMwa) + waterMwaServiceFee + units * waterMwaRawWaterFee;
-    return round2(cost * vat);
+    return _parts(tiered(units, waterMwa), 0, waterMwaServiceFee, units * waterMwaRawWaterFee);
   }
 
-  static double waterPwaCost(double units) {
+  static double waterMwaCost(double units) => waterMwaParts(units).total;
+
+  static CostBreakdown waterPwaParts(double units) {
     if (units < 0) units = 0;
-    return round2((tiered(units, waterPwa) + waterPwaServiceFee) * vat);
+    return _parts(tiered(units, waterPwa), 0, waterPwaServiceFee, 0);
   }
+
+  static double waterPwaCost(double units) => waterPwaParts(units).total;
 
   // หน่วยที่ใช้ = เลขใหม่ - เลขเดิม ปัดทศนิยม 2 ตำแหน่ง
   // คืน 0 เมื่อเลขใหม่ไม่มากกว่าเลขเดิม (ไม่มีทางได้ค่าติดลบ)
