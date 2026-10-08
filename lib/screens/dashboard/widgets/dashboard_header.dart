@@ -6,7 +6,7 @@ import '../../../widgets/ui/app_card.dart';
 import '../dashboard_styles.dart';
 
 // =====================================================================
-// Header ส่วนบนของหน้าหลัก: วันที่วันนี้ + คำทักทายตามช่วงเวลา + ปุ่มแจ้งเตือน
+// Header ส่วนบนของหน้าหลัก: โลโก้ + วันที่วันนี้ + คำทักทายตามช่วงเวลา + ปุ่มแจ้งเตือน
 // (สถานะรอบบิลอยู่ในวงแหวนของการ์ดสรุปบิลด้านล่าง)
 // =====================================================================
 class DashboardHeader extends StatelessWidget {
@@ -35,32 +35,11 @@ class DashboardHeader extends StatelessWidget {
 
     return Row(
       children: [
-        // Avatar ตัวอักษรแรกของชื่อ บนวงกลมขาวลอย (คู่กับปุ่มกระดิ่งฝั่งขวา)
-        // ด้านในเป็นวงเขียวอ่อน ตัวอักษรสีเขียวหลัก
-        Container(
-          width: 46,
-          height: 46,
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            boxShadow: AppCard.softShadow,
-          ),
-          child: Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primaryGreen.withValues(alpha: 0.10),
-            ),
-            child: Text(
-              name.substring(0, 1).toUpperCase(),
-              style: const TextStyle(
-                color: AppColors.primaryGreen,
-                fontWeight: FontWeight.w700,
-                fontSize: AppTypography.s17,
-              ),
-            ),
-          ),
+        // โลโก้ Energy Home ทรงบ้านเปล่าๆ ไม่มีกรอบ (ข้อมูลบัญชีอยู่ที่การ์ดโปรไฟล์ในหน้าตั้งค่า)
+        Image.asset(
+          'assets/images/logo_mark.png',
+          width: 48,
+          semanticLabel: 'โลโก้ Energy Home',
         ),
         const SizedBox(width: 12),
         Expanded(

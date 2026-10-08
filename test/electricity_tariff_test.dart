@@ -29,10 +29,10 @@ BillModel _bill(int year, int month, double used, {String source = 'imported'}) 
 
 void main() {
   group('สูตรค่าไฟตามประเภทอัตรา', () {
-    test('ประเภท 1.1.1: ขั้นบันได 7 ขั้น + ค่าบริการ 8.19', () async {
+    test('ประเภท 1.1.1: ขั้นบันได 5 ขั้น + ค่าบริการ 8.19', () async {
       final ft = await EnergyCalculator.getFtRate();
-      // 100 หน่วย = 15x2.3488 + 10x2.9882 + 10x3.2405 + 65x3.6237
-      const energy = 15 * 2.3488 + 10 * 2.9882 + 10 * 3.2405 + 65 * 3.6237;
+      // 100 หน่วย = 15x2.3488 + 10x2.9882 + 75x3.0000
+      const energy = 15 * 2.3488 + 10 * 2.9882 + 75 * 3.0000;
       final expected = double.parse(
           ((energy + 8.19 + 100 * ft) * 1.07).toStringAsFixed(2));
       expect(

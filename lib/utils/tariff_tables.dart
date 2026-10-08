@@ -2,9 +2,12 @@
 // ตัวเลขอัตราทั้งหมดในโปรเจกต์ เป็น Dart ล้วน (ไม่ import Flutter/Firebase)
 // แอป (EnergyCalculator), หน้าอธิบายอัตรา และสคริปต์ใน tool/ จึงใช้ไฟล์นี้ร่วมกันได้
 //
-// ตรวจกับแหล่งทางการเมื่อ 3 ต.ค. 2569:
-//   ไฟฟ้า กฟน. : กกพ. https://www.erc.or.th/th/tariff/1288
-//   ไฟฟ้า กฟภ. : https://www.pea.co.th/sites/default/files/documents/tariff/Electricity_Tariff_MAY_2023.pdf
+// ตรวจกับแหล่งทางการเมื่อ 8 ต.ค. 2569:
+//   ไฟฟ้า บ้านอยู่อาศัยอัตราปกติ (1.1/1.2, 1.1.1/1.1.2): อัตราใหม่ตามมติ กกพ. 5 ส.ค. 2569
+//     มีผลตั้งแต่ค่าไฟประจำเดือน ก.ย. 2569 — ข่าวประชาสัมพันธ์ กฟภ. 14 ส.ค. 2569
+//     https://www.pea.co.th/sites/default/files/users/user34/attachments/ประชาสัมพันธ์อัตราค่าไฟฟ้า บ้านอยู่อาศัย.pdf
+//     (กฟน. ประกาศอัตราเดียวกัน; หน้าอัตราของ กกพ. erc.or.th/th/tariff/1288 ยังแสดงอัตราเดิม)
+//   ไฟฟ้า TOU และค่าบริการรายเดือน: ไม่เปลี่ยน (กกพ. https://www.erc.or.th/th/tariff/1288)
 //   น้ำ กปน.   : https://www.mwa.co.th/services/users-should-know/users-service-rate/service-rate/
 //   น้ำ กปภ.   : https://www.pwa.co.th/contents/service/table-price (ตารางหมายเลข 3)
 // อัตราไฟฟ้าทั้งสองการไฟฟ้าเท่ากัน ต่างกันแค่รหัสประเภท (ดู EnergyCalculator.tariffCode)
@@ -27,9 +30,9 @@ class TariffTables {
 
   // ประเภทใช้เกิน 150 หน่วย/เดือน (กฟน. 1.2 / กฟภ. 1.1.2)
   static const List<TariffTier> electricityStandard = [
-    (upTo: 150, rate: 3.2484),
-    (upTo: 400, rate: 4.2218),
-    (upTo: double.infinity, rate: 4.4217),
+    (upTo: 200, rate: 3.0000),
+    (upTo: 400, rate: 4.1584),
+    (upTo: double.infinity, rate: 4.3583),
   ];
   static const double electricityStandardServiceFee = 24.62;
 
@@ -37,11 +40,9 @@ class TariffTables {
   static const List<TariffTier> electricitySmall = [
     (upTo: 15, rate: 2.3488),
     (upTo: 25, rate: 2.9882),
-    (upTo: 35, rate: 3.2405),
-    (upTo: 100, rate: 3.6237),
-    (upTo: 150, rate: 3.7171),
-    (upTo: 400, rate: 4.2218),
-    (upTo: double.infinity, rate: 4.4217),
+    (upTo: 200, rate: 3.0000),
+    (upTo: 400, rate: 4.1584),
+    (upTo: double.infinity, rate: 4.3583),
   ];
   static const double electricitySmallServiceFee = 8.19;
 
