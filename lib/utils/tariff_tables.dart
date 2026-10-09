@@ -161,4 +161,26 @@ class TariffTables {
     if (current <= previous) return 0;
     return round2(current - previous);
   }
+
+  // หน่วยเต็มที่มากที่สุดที่ยอดเงินไม่เกิน [baht] ตามสูตร [cost] (สูตรคิดเงินทุกสูตรไม่ลดลง
+  // เมื่อหน่วยเพิ่ม จึงค้นแบบแบ่งครึ่งได้) — null = ยอดน้อยกว่ายอดของ 0 หน่วย (ค่าบริการ + VAT)
+  static int? unitsForBudget(double baht, double Function(double units) cost) {
+    if (cost(0) > baht) return null;
+    var low = 0; // cost(low) <= baht เสมอ
+    var high = 1;
+    while (cost(high.toDouble()) <= baht) {
+      low = high;
+      high *= 2;
+      if (high > 10000000) return low;
+    }
+    while (high - low > 1) {
+      final mid = (low + high) ~/ 2;
+      if (cost(mid.toDouble()) <= baht) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+    return low;
+  }
 }

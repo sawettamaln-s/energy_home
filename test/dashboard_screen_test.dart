@@ -93,15 +93,14 @@ void main() {
     expect(find.text('จดมิเตอร์'), findsOneWidget);
   });
 
-  testWidgets('ผู้ใช้ใหม่: ทางลัดคิดค่าไฟจากหน่วยเปิดเครื่องคิด', (tester) async {
+  testWidgets('ไอคอนเครื่องคิดเลขที่หัวหน้าหลักเปิดเครื่องคิดค่าไฟ/ค่าน้ำ', (tester) async {
     await createUser(configured: false);
     await pumpDashboard(tester);
 
-    // ปุ่มอยู่ในการ์ดเขียว
-    await tester.tap(find.text('ลองคิดค่าไฟจากหน่วย'));
+    await tester.tap(find.byTooltip('ลองคิดค่าไฟ/ค่าน้ำ'));
     await tester.pumpAndSettle();
-    expect(find.text('ลองคิดค่าไฟ/ค่าน้ำจากหน่วย'), findsOneWidget);
-    expect(find.text('จำนวนไฟที่ใช้ (หน่วย)'), findsOneWidget);
+    expect(find.text('ลองคิดค่าไฟ/ค่าน้ำ'), findsOneWidget);
+    expect(find.text('จำนวนไฟที่ใช้'), findsOneWidget);
   });
 
   testWidgets('ตั้งค่าครบแล้ว -> ไม่มีการ์ดลองใช้ และการ์ดเขียวแสดงยอดที่ใช้ไป', (tester) async {
@@ -109,7 +108,6 @@ void main() {
     await pumpDashboard(tester);
 
     expect(find.text('รู้ไหม'), findsNothing);
-    expect(find.text('ลองคิดค่าไฟจากหน่วย'), findsNothing);
     expect(find.text('ใช้ไปแล้วรอบนี้'), findsOneWidget);
   });
 
@@ -142,9 +140,8 @@ void main() {
 
     expect(find.textContaining('รอบบิลใหม่เริ่ม'), findsNWidgets(2));
     expect(find.text('ตั้งรอบใหม่'), findsNWidgets(2));
-    // การ์ดเขียวไม่มียอดให้แสดง -> บอกให้ตั้งเลขต้นรอบ และเสนอเครื่องคิดค่าไฟระหว่างรอ
+    // การ์ดเขียวไม่มียอดให้แสดง -> บอกให้ตั้งเลขต้นรอบ
     expect(find.text('รอตั้งเลขมิเตอร์ต้นรอบ'), findsOneWidget);
-    expect(find.text('ลองคิดค่าไฟจากหน่วย'), findsOneWidget);
     expect(find.text('ใบแจ้งหนี้'), findsNothing, reason: 'ภาพลำดับขั้นมีเฉพาะผู้ใช้ใหม่');
   });
 

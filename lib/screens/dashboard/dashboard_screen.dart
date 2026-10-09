@@ -323,6 +323,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             user: user,
             unreadNotifications: _unreadNotifications,
             onNotificationTap: _onNotificationTap,
+            onQuickCostTap: user == null
+                ? null
+                : () => showQuickCostSheet(context,
+                    area: user.area, meterType: user.meterType, tariff: user.electricityTariff),
           ),
         ),
         const SizedBox(height: 18),
@@ -340,10 +344,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onViewForecast:
                 widget.onNavTap == null ? null : () => widget.onNavTap!(1),
             pending: heroPending,
-            onQuickCost: heroPending == HeroPending.none || user == null
-                ? null
-                : () => showQuickCostSheet(context,
-                    area: user.area, meterType: user.meterType, tariff: user.electricityTariff),
           ),
         ),
         const SizedBox(height: 24),

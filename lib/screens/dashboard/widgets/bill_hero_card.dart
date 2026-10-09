@@ -29,9 +29,8 @@ class BillHeroCard extends StatelessWidget {
   // แตะชิป "ดูคาดการณ์" — null = ไม่แสดงชิป
   final VoidCallback? onViewForecast;
   // ยังไม่มียอดให้แสดง (ดู HeroPending) — แทนยอด "0.00 บาท" ด้วยข้อความ กันเข้าใจผิดว่า
-  // คำนวณแล้วได้ศูนย์ และเสนอเครื่องคิดค่าไฟจากหน่วย ([onQuickCost]) ระหว่างรอ
+  // คำนวณแล้วได้ศูนย์
   final HeroPending pending;
-  final VoidCallback? onQuickCost;
 
   const BillHeroCard({
     super.key,
@@ -41,7 +40,6 @@ class BillHeroCard extends StatelessWidget {
     required this.cycleLengthDays,
     this.onViewForecast,
     this.pending = HeroPending.none,
-    this.onQuickCost,
   });
 
   String _shortDate(DateTime d) => '${d.day} ${thaiMonthsShort[d.month - 1]}';
@@ -147,7 +145,7 @@ class BillHeroCard extends StatelessWidget {
           ],
         );
 
-    // ยังไม่มียอด: บอกว่าเกิดอะไรขึ้น + ปุ่มคิดค่าไฟจากหน่วย (ผู้ใช้ใหม่มีภาพลำดับขั้นด้วย)
+    // ยังไม่มียอด: บอกว่าเกิดอะไรขึ้น (ผู้ใช้ใหม่มีภาพลำดับขั้นด้วย)
     final pendingBody = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -158,25 +156,11 @@ class BillHeroCard extends StatelessWidget {
         Text(
             pending == HeroPending.newUser
                 ? 'ยอดค่าไฟ + ค่าน้ำจะขึ้นตรงนี้ หลังทำขั้นที่ 1–2 ค่ะ'
-                : 'กรอกเลขจากใบแจ้งหนี้ใหม่ก่อนนะคะ ระหว่างนี้ลองคิดค่าไฟจากหน่วยบนใบได้ค่ะ',
+                : 'กรอกเลขจากใบแจ้งหนี้ใหม่ก่อนนะคะ',
             style: const TextStyle(color: Colors.white70, fontSize: AppTypography.s12_5, height: 1.4)),
         if (pending == HeroPending.newUser) ...[
           const SizedBox(height: 16),
           const SetupFlowStrip(),
-        ],
-        if (onQuickCost != null) ...[
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: onQuickCost,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: Colors.white.withValues(alpha: 0.12),
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.45)),
-              minimumSize: const Size(double.infinity, 42),
-            ),
-            icon: const Icon(Icons.calculate_outlined, size: 18),
-            label: const FittedBox(fit: BoxFit.scaleDown, child: Text('ลองคิดค่าไฟจากหน่วย')),
-          ),
         ],
       ],
     );
@@ -187,7 +171,7 @@ class BillHeroCard extends StatelessWidget {
         header,
         const SizedBox(height: 18),
         if (isPending) pendingBody else amount(trailing: chip),
-        // ยังไม่มียอด ไม่แสดงแถบความคืบหน้าของรอบ (ที่ว่างใช้วางปุ่มคิดค่าไฟแทน)
+        // ยังไม่มียอด ไม่แสดงแถบความคืบหน้าของรอบ
         if (!isPending) ...[
           const SizedBox(height: 18),
           _CycleBar(progress: cycleReady ? progress : 0),

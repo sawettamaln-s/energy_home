@@ -6,19 +6,21 @@ import '../../../widgets/ui/app_card.dart';
 import '../dashboard_styles.dart';
 
 // =====================================================================
-// Header ส่วนบนของหน้าหลัก: โลโก้ + วันที่วันนี้ + คำทักทายตามช่วงเวลา + ปุ่มแจ้งเตือน
+// Header ส่วนบนของหน้าหลัก: โลโก้ + วันที่วันนี้ + คำทักทายตามช่วงเวลา + ปุ่มเครื่องคิดค่าไฟ/ค่าน้ำ + ปุ่มแจ้งเตือน
 // (สถานะรอบบิลอยู่ในวงแหวนของการ์ดสรุปบิลด้านล่าง)
 // =====================================================================
 class DashboardHeader extends StatelessWidget {
   final UserModel? user;
   final int unreadNotifications; // badge ที่ปุ่มกระดิ่ง
   final VoidCallback onNotificationTap;
+  final VoidCallback? onQuickCostTap; // null = ซ่อนปุ่มเครื่องคิด (ยังไม่มีข้อมูลผู้ใช้)
 
   const DashboardHeader({
     super.key,
     required this.user,
     required this.unreadNotifications,
     required this.onNotificationTap,
+    this.onQuickCostTap,
   });
 
   // ทักทายตามช่วงเวลาปัจจุบัน แทนคำว่า "สวัสดี" คงที่ตลอดวัน
@@ -65,6 +67,14 @@ class DashboardHeader extends StatelessWidget {
             ],
           ),
         ),
+        if (onQuickCostTap != null) ...[
+          const SizedBox(width: 8),
+          _CircleButton(
+            icon: Icons.calculate_outlined,
+            tooltip: 'ลองคิดค่าไฟ/ค่าน้ำ',
+            onTap: onQuickCostTap!,
+          ),
+        ],
         const SizedBox(width: 8),
         _NotificationButton(
           unread: unreadNotifications,
@@ -75,7 +85,40 @@ class DashboardHeader extends StatelessWidget {
   }
 }
 
-// ปุ่มกระดิ่งในวงกลมขาวลอย พร้อม badge จำนวนที่ยังไม่อ่าน
+// ปุ่มไอคอนในวงกลมขาวลอย
+class _CircleButton extends StatelessWidget {
+  final IconData icon;
+  final String? tooltip;
+  final VoidCallback onTap;
+
+  const _CircleButton({required this.icon, this.tooltip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final button = DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: AppCard.softShadow,
+      ),
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(icon, color: AppColors.textDark),
+          ),
+        ),
+      ),
+    );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+// ปุ่มกระดิ่ง พร้อม badge จำนวนที่ยังไม่อ่าน
 class _NotificationButton extends StatelessWidget {
   final int unread;
   final VoidCallback onTap;
@@ -87,26 +130,7 @@ class _NotificationButton extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: AppCard.softShadow,
-          ),
-          child: Material(
-            color: Colors.white,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onTap,
-              child: const SizedBox(
-                width: 44,
-                height: 44,
-                child: Icon(Icons.notifications_none_rounded,
-                    color: AppColors.textDark),
-              ),
-            ),
-          ),
-        ),
+        _CircleButton(icon: Icons.notifications_none_rounded, onTap: onTap),
         if (unread > 0)
           Positioned(
             right: -2,
