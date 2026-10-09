@@ -49,8 +49,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // เช็คว่า Password ยาวพอไหม
-    if (_passwordController.text.length < 6) {
+    // เช็คว่า Password ยาวพอไหม (นับหลังตัดช่องว่างหัวท้าย เหมือนตอนสร้างบัญชี)
+    if (_passwordController.text.trim().length < 6) {
       setState(
           () => _errorMessage = 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
       return;

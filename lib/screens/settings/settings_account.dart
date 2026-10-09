@@ -88,7 +88,8 @@ Future<void> _confirmDeleteAccount(
 Future<AuthCredential?> _askReauthCredential(
     BuildContext context, User user, bool usesPassword) async {
   if (usesPassword) {
-    final password = await _askPasswordForDeletion(context);
+    // ตัดช่องว่างหัวท้ายเหมือนตอนสมัครและเข้าสู่ระบบ
+    final password = (await _askPasswordForDeletion(context))?.trim();
     if (password == null || password.isEmpty) return null;
     return EmailAuthProvider.credential(
       email: user.email!,
