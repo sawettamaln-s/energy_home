@@ -30,6 +30,7 @@ import '../../widgets/ui/animated_amount.dart';
 import '../../widgets/ui/app_card.dart';
 import '../../widgets/ui/fade_slide_in.dart';
 import '../../widgets/ui/icon_badge.dart';
+import '../../widgets/ui/segmented_switch.dart';
 import '../auth/auth_gate.dart';
 import '../dashboard/dashboard_styles.dart';
 

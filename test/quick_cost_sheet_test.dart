@@ -61,16 +61,22 @@ void main() {
     expect(find.text('ค่า Ft'), findsNothing);
   });
 
+  // กดแถว (เขต/มิเตอร์/อัตรา) แล้วเลือกค่าจากรายการที่เด้งขึ้น
+  Future<void> pick(WidgetTester tester, String row, String option) async {
+    await tester.tap(find.text(row));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(option).last);
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('เปลี่ยนเขต/มิเตอร์/ประเภทอัตราในชีต -> คิดตามที่เลือก และกลับไปใช้ค่าของบ้านคุณได้', (tester) async {
     await open(tester);
     expect(find.text('คิดตามอัตราของบ้านคุณ'), findsOneWidget);
-    expect(find.text('ไม่เกิน 150 หน่วย'), findsNothing, reason: 'ตัวเลือกพับอยู่จนกด "เปลี่ยน"');
+    expect(find.text('กทม.–ปริมณฑล (กฟน.)'), findsOneWidget);
+    expect(find.text('เกิน 150 หน่วย'), findsOneWidget);
 
-    await tester.tap(find.text('เปลี่ยน'));
-    await tester.pump();
-    await tester.tap(find.text('ต่างจังหวัด'));
-    await tester.tap(find.text('ไม่เกิน 150 หน่วย'));
-    await tester.pump();
+    await pick(tester, 'เขต', 'ต่างจังหวัด');
+    await pick(tester, 'อัตรา', 'ไม่เกิน 150 หน่วย');
     await tester.enterText(find.byType(TextField), '120');
     await tester.pump();
 
@@ -78,12 +84,12 @@ void main() {
     expect(find.text('${money.format(total)} บาท'), findsOneWidget);
     expect(find.textContaining('อัตราประเภท 1.1.1 ของการไฟฟ้าส่วนภูมิภาค'), findsOneWidget);
     expect(find.text('คิดให้บ้านอื่น'), findsOneWidget);
-    expect(find.text('กฟภ. · มิเตอร์ปกติ · ไม่เกิน 150 หน่วย'), findsOneWidget);
+    expect(find.text('ต่างจังหวัด (กฟภ.)'), findsOneWidget);
+    expect(find.text('ไม่เกิน 150 หน่วย'), findsOneWidget);
 
-    await tester.tap(find.text('TOU'));
-    await tester.pump();
+    await pick(tester, 'มิเตอร์', 'มิเตอร์ TOU');
     expect(find.byType(TextField), findsNWidgets(2));
-    expect(find.text('ไม่เกิน 150 หน่วย'), findsNothing);
+    expect(find.text('อัตรา'), findsNothing, reason: 'TOU ไม่มีประเภทอัตรา ≤150/>150');
 
     await tester.tap(find.text('ใช้ค่าของบ้านคุณ'));
     await tester.pump();
@@ -96,14 +102,12 @@ void main() {
     await open(tester);
     await tester.tap(find.text('น้ำ'));
     await tester.pump();
-    await tester.tap(find.text('เปลี่ยน'));
-    await tester.pump();
-    expect(find.text('ต่างจังหวัด'), findsOneWidget);
-    expect(find.text('TOU'), findsNothing);
+    expect(find.text('กทม.–ปริมณฑล (กปน.)'), findsOneWidget);
+    expect(find.text('มิเตอร์'), findsNothing);
+    expect(find.text('อัตรา'), findsNothing);
 
-    await tester.tap(find.text('ต่างจังหวัด'));
-    await tester.pump();
-    expect(find.text('กปภ. · ต่างจังหวัด'), findsOneWidget);
+    await pick(tester, 'เขต', 'ต่างจังหวัด');
+    expect(find.text('ต่างจังหวัด (กปภ.)'), findsOneWidget);
     await tester.pump();
     await tester.enterText(find.byType(TextField), '25');
     await tester.pump();

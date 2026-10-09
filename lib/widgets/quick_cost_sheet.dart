@@ -5,6 +5,7 @@ import '../screens/dashboard/dashboard_styles.dart';
 import '../utils/calculator.dart';
 import '../utils/tariff_tables.dart';
 import 'info_dialog.dart';
+import 'ui/segmented_switch.dart';
 import 'start_meter_fields.dart' show parseNumInput;
 
 /// ===========================================================
@@ -57,7 +58,6 @@ class _QuickCostSheetState extends State<QuickCostSheet> {
   final _bahtCtrl = TextEditingController();
   bool _water = false;
   bool _fromBaht = false; // true = กรอกยอดเงิน หาจำนวนหน่วย
-  bool _showRateOptions = false; // กางตัวเลือกเขต/มิเตอร์/ประเภทอัตราอยู่
   double? _ftRate; // null = ยังโหลดไม่เสร็จ
   late String _area = widget.area;
   late String _meterType = widget.meterType;
@@ -187,164 +187,188 @@ class _QuickCostSheetState extends State<QuickCostSheet> {
     );
   }
 
-  // สวิตช์ไฟฟ้า/น้ำแบบแถบเดียว ฝั่งที่เลือกเป็นพื้นขาวยกขึ้น
   Widget _utilitySwitch() {
-    Widget segment(String label, IconData icon, Color color, bool water) {
-      final selected = _water == water;
-      return Expanded(
-        child: Semantics(
-          button: true,
-          selected: selected,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => setState(() => _water = water),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              height: 38,
-              decoration: BoxDecoration(
-                color: selected ? Colors.white : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                boxShadow: selected
-                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 1))]
-                    : null,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 16, color: selected ? color : Colors.grey.shade500),
-                  const SizedBox(width: AppSpacing.v4),
-                  Text(label,
-                      style: TextStyle(
-                          fontSize: AppTypography.s13,
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                          color: selected ? AppColors.textDark : Colors.grey.shade600)),
-                ],
-              ),
-            ),
+    return SegmentedSwitch<bool>(
+      options: const [
+        SegmentOption(value: false, label: 'ไฟฟ้า', icon: Icons.bolt_rounded, iconColor: AppColors.electricityBorder),
+        SegmentOption(value: true, label: 'น้ำ', icon: Icons.water_drop_rounded, iconColor: AppColors.waterBorder),
+      ],
+      selected: _water,
+      onChanged: (v) => setState(() => _water = v),
+    );
+  }
+
+  // อัตราที่ใช้คิด เป็นแถวแบบหน้าตั้งค่า: ป้ายซ้าย ค่าปัจจุบันขวา กดแถวเพื่อเลือกค่าใหม่
+  // (น้ำมีแค่เขต, TOU ไม่มีประเภทอัตรา ≤150/>150)
+  Widget _rateCard() {
+    final small = _tariff == EnergyCalculator.tariffSmall;
+    final rows = <Widget>[
+      _settingRow(
+        label: 'เขต',
+        value: _bangkok
+            ? 'กทม.–ปริมณฑล (${_water ? 'กปน.' : 'กฟน.'})'
+            : 'ต่างจังหวัด (${_water ? 'กปภ.' : 'กฟภ.'})',
+        onTap: () => _pick<String>(
+          title: 'เขต',
+          selected: _area,
+          options: [
+            ('bangkok', 'กทม.–ปริมณฑล', 'กรุงเทพฯ นนทบุรี สมุทรปราการ · กฟน. / กปน.'),
+            ('province', 'ต่างจังหวัด', 'จังหวัดอื่นทั้งหมด · กฟภ. / กปภ.'),
+          ],
+          onPicked: (v) => _area = v,
+        ),
+      ),
+      if (!_water)
+        _settingRow(
+          label: 'มิเตอร์',
+          value: _isTou ? 'TOU' : 'ปกติ',
+          onTap: () => _pick<String>(
+            title: 'ชนิดมิเตอร์',
+            selected: _meterType,
+            options: [
+              ('normal', 'มิเตอร์ปกติ', 'ราคาเดียวทั้งวัน คิดแบบขั้นบันได'),
+              ('tou', 'มิเตอร์ TOU', 'ราคาต่างกันช่วง On-Peak / Off-Peak'),
+            ],
+            onPicked: (v) => _meterType = v,
           ),
         ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.v3),
-      decoration: BoxDecoration(
-        color: AppColors.inputFill,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm + AppSpacing.v3),
-        border: Border.all(color: AppColors.inputBorder),
-      ),
-      child: Row(
-        children: [
-          segment('ไฟฟ้า', Icons.bolt_rounded, AppColors.electricityBorder, false),
-          segment('น้ำ', Icons.water_drop_rounded, AppColors.waterBorder, true),
-        ],
-      ),
-    );
-  }
-
-  // อัตราที่ใช้คิด สรุปเป็นบรรทัดเดียว กด "เปลี่ยน" จึงกางตัวเลือกเขต/มิเตอร์/ประเภทอัตรา
-  // (น้ำใช้แค่เขต, TOU ไม่มีประเภทอัตรา ≤150/>150)
-  String get _rateSummary {
-    if (_water) return _bangkok ? 'กปน. · กทม.–ปริมณฑล' : 'กปภ. · ต่างจังหวัด';
-    final parts = [
-      _bangkok ? 'กฟน.' : 'กฟภ.',
-      _isTou ? 'มิเตอร์ TOU' : 'มิเตอร์ปกติ',
-      if (!_isTou) _tariff == EnergyCalculator.tariffSmall ? 'ไม่เกิน 150 หน่วย' : 'เกิน 150 หน่วย',
-    ];
-    return parts.join(' · ');
-  }
-
-  Widget _rateCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: AppColors.inputBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            onTap: () => setState(() => _showRateOptions = !_showRateOptions),
-            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.v12, AppSpacing.v10, AppSpacing.v8, AppSpacing.v10),
-              child: Row(
-                children: [
-                  Icon(Icons.tune_rounded, size: 18, color: Colors.grey.shade600),
-                  const SizedBox(width: AppSpacing.v10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_isOwnHome ? 'คิดตามอัตราของบ้านคุณ' : 'คิดให้บ้านอื่น',
-                            style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600)),
-                        Text(_rateSummary,
-                            style: const TextStyle(
-                                fontSize: AppTypography.s13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
-                      ],
-                    ),
-                  ),
-                  Text(_showRateOptions ? 'เสร็จ' : 'เปลี่ยน',
-                      style: TextStyle(fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600, color: _accent)),
-                  Icon(_showRateOptions ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                      size: 20, color: _accent),
-                ],
+      if (!_water && !_isTou)
+        _settingRow(
+          label: 'อัตรา',
+          value: small ? 'ไม่เกิน 150 หน่วย' : 'เกิน 150 หน่วย',
+          onTap: () => _pick<String>(
+            title: 'ประเภทอัตรา',
+            selected: _tariff,
+            options: [
+              (
+                EnergyCalculator.tariffStandard,
+                'เกิน 150 หน่วย',
+                'ประเภท ${EnergyCalculator.tariffCode(EnergyCalculator.tariffStandard, _area)} · บ้านส่วนใหญ่'
               ),
-            ),
+              (
+                EnergyCalculator.tariffSmall,
+                'ไม่เกิน 150 หน่วย',
+                'ประเภท ${EnergyCalculator.tariffCode(EnergyCalculator.tariffSmall, _area)} · มิเตอร์ไม่เกิน 5 แอมแปร์'
+              ),
+            ],
+            onPicked: (v) => _tariff = v,
           ),
-          if (_showRateOptions) ...[
-            Divider(height: 1, color: Colors.grey.shade200),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.v12, AppSpacing.v10, AppSpacing.v12, AppSpacing.v12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _choiceRow('เขต', [
-                    ('bangkok', 'กทม.–ปริมณฑล'),
-                    ('province', 'ต่างจังหวัด'),
-                  ], _area, (v) => _area = v),
-                  if (!_water) ...[
-                    const SizedBox(height: AppSpacing.v6),
-                    _choiceRow('มิเตอร์', [('normal', 'ปกติ'), ('tou', 'TOU')], _meterType, (v) => _meterType = v),
-                    if (!_isTou) ...[
-                      const SizedBox(height: AppSpacing.v6),
-                      _choiceRow('อัตรา', [
-                        (EnergyCalculator.tariffSmall, 'ไม่เกิน 150 หน่วย'),
-                        (EnergyCalculator.tariffStandard, 'เกิน 150 หน่วย'),
-                      ], _tariff, (v) => _tariff = v),
-                    ],
-                  ],
-                  if (!_isOwnHome) ...[
-                    const SizedBox(height: AppSpacing.v6),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () => setState(() {
-                          _area = widget.area;
-                          _meterType = widget.meterType;
-                          _tariff = widget.tariff;
-                        }),
-                        icon: const Icon(Icons.home_outlined, size: 16),
-                        label: const Text('ใช้ค่าของบ้านคุณ'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: _accent,
-                          textStyle: const TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: AppTypography.s12_5,
-                              fontWeight: FontWeight.w600),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+        ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(_isOwnHome ? 'คิดตามอัตราของบ้านคุณ' : 'คิดให้บ้านอื่น',
+                  style: TextStyle(fontSize: AppTypography.s12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
             ),
+            if (!_isOwnHome)
+              TextButton.icon(
+                onPressed: () => setState(() {
+                  _area = widget.area;
+                  _meterType = widget.meterType;
+                  _tariff = widget.tariff;
+                }),
+                icon: const Icon(Icons.home_outlined, size: 16),
+                label: const Text('ใช้ค่าของบ้านคุณ'),
+                style: TextButton.styleFrom(
+                  foregroundColor: _accent,
+                  textStyle: const TextStyle(
+                      fontFamily: AppTheme.fontFamily, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
+                  visualDensity: VisualDensity.compact,
+                  minimumSize: const Size(0, 30),
+                ),
+              ),
           ],
-        ],
+        ),
+        const SizedBox(height: AppSpacing.v6),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            border: Border.all(color: AppColors.inputBorder),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) Divider(height: 1, indent: AppSpacing.v14, color: Colors.grey.shade200),
+                rows[i],
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _settingRow({required String label, required String value, required VoidCallback onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.v14, AppSpacing.v12, AppSpacing.v8, AppSpacing.v12),
+          child: Row(
+            children: [
+              Text(label, style: TextStyle(fontSize: AppTypography.s13, color: Colors.grey.shade700)),
+              const SizedBox(width: AppSpacing.v12),
+              Expanded(
+                child: Text(value,
+                    textAlign: TextAlign.end,
+                    style: const TextStyle(
+                        fontSize: AppTypography.s13, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey.shade400),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  // รายการให้เลือกค่าของแถว (ชื่อ + คำอธิบายสั้น) — ตัวที่ใช้อยู่มีเครื่องหมายถูก
+  Future<void> _pick<T>({
+    required String title,
+    required T selected,
+    required List<(T, String, String)> options,
+    required void Function(T) onPicked,
+  }) async {
+    final picked = await showModalBottomSheet<T>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.v20, AppSpacing.v16, AppSpacing.v20, AppSpacing.v8),
+              child: Text(title,
+                  style: const TextStyle(
+                      fontSize: AppTypography.s16, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+            ),
+            for (final (value, label, detail) in options)
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.v20),
+                title: Text(label,
+                    style: TextStyle(
+                        fontSize: AppTypography.s14,
+                        fontWeight: value == selected ? FontWeight.w700 : FontWeight.w500,
+                        color: AppColors.textDark)),
+                subtitle: Text(detail, style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+                trailing: value == selected ? Icon(Icons.check_rounded, color: _accent) : null,
+                onTap: () => Navigator.pop(context, value),
+              ),
+            const SizedBox(height: AppSpacing.v8),
+          ],
+        ),
+      ),
+    );
+    if (picked != null && mounted) setState(() => onPicked(picked));
   }
 
   // หัวช่องกรอก: บอกว่ากำลังกรอกอะไร + ปุ่มสลับทิศ (หน่วย -> บาท / บาท -> หน่วย)
@@ -367,46 +391,6 @@ class _QuickCostSheetState extends State<QuickCostSheet> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _choiceRow(String label, List<(String, String)> options, String value, void Function(String) onPick) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 52,
-          child: Text(label, style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
-        ),
-        for (final (key, text) in options) ...[
-          if (key != options.first.$1) const SizedBox(width: AppSpacing.v6),
-          Expanded(child: _choice(text, value == key, () => setState(() => onPick(key)))),
-        ],
-      ],
-    );
-  }
-
-  Widget _choice(String text, bool selected, VoidCallback onTap) {
-    return Material(
-      color: selected ? _accent.withValues(alpha: 0.10) : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        side: BorderSide(color: selected ? _accent.withValues(alpha: 0.55) : AppColors.inputBorder),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 34),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v4, vertical: AppSpacing.v4),
-          child: Text(text,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: AppTypography.s12,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? _accent : Colors.grey.shade700)),
-        ),
-      ),
     );
   }
 
@@ -583,7 +567,7 @@ class _QuickCostSheetState extends State<QuickCostSheet> {
               'กรอกจำนวนหน่วย ดูยอดเงินแยกส่วนแบบในใบแจ้งหนี้ หรือกด "คิดจากยอดเงิน" '
               'กรอกงบที่มี ดูว่าใช้ได้ประมาณกี่หน่วย'),
           section(Icons.tune_rounded, 'คิดให้บ้านอื่น',
-              'กด "เปลี่ยน" เพื่อเลือกเขต (กทม.–ปริมณฑล/ต่างจังหวัด) ชนิดมิเตอร์ และประเภทอัตรา '
+              'กดแถวเขต มิเตอร์ หรืออัตรา เพื่อเลือกค่าของบ้านที่จะคิดให้ (กทม.–ปริมณฑล/ต่างจังหวัด ฯลฯ) '
               'ค่าที่เลือกใช้แค่ในหน้านี้ ไม่เปลี่ยนการตั้งค่าของบ้านคุณ'),
           section(Icons.straighten_rounded, 'ทำไมยอดไม่ตรงกับที่กรอกพอดี',
               'มิเตอร์นับเป็นหน่วยเต็มและราคาเป็นขั้นบันได แอปจึงบอกหน่วยเต็มที่มากที่สุดที่ยอดไม่เกินที่กรอก '

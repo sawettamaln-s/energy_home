@@ -495,26 +495,40 @@ class InvoiceScreenState extends State<InvoiceScreen> {
         FadeSlideIn(delay: const Duration(milliseconds: 70), child: _buildPastCard(firstTime)),
         if (rows.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.v24),
-          Row(
+          const Text('บิลแต่ละเดือน', style: DashboardStyles.sectionTitle),
+          const SizedBox(height: AppSpacing.v8),
+          _buildUtilityTabs(),
+          const SizedBox(height: AppSpacing.v10),
+          // ลำดับเดือนซ้าย, ตัวเลือกรอง (ดูยอดเงินหรือเลขมิเตอร์) ขวา — จอแคบ/ตัวอักษรใหญ่ขึ้นบรรทัดใหม่
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runSpacing: AppSpacing.v6,
             children: [
-              const Expanded(child: Text('บิลแต่ละเดือน', style: DashboardStyles.sectionTitle)),
               TextButton.icon(
                 onPressed: () => setState(() => _newestFirst = !_newestFirst),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.grey.shade700,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v8),
-                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v4),
+                  minimumSize: const Size(0, 34),
                   textStyle: const TextStyle(
                       fontFamily: AppTheme.fontFamily, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
                 ),
                 icon: Icon(_newestFirst ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 16),
                 label: Text(_newestFirst ? 'ใหม่ → เก่า' : 'เก่า → ใหม่'),
               ),
+              SegmentedSwitch<bool>(
+                compact: true,
+                options: const [
+                  SegmentOption(value: false, label: 'ยอดเงิน'),
+                  SegmentOption(value: true, label: 'เลขมิเตอร์'),
+                ],
+                selected: _showReadings,
+                onChanged: (v) => setState(() => _showReadings = v),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.v8),
-          _buildFilters(),
-          const SizedBox(height: AppSpacing.v12),
           ..._buildYearSections(rows),
         ],
       ],
@@ -824,84 +838,55 @@ class InvoiceScreenState extends State<InvoiceScreen> {
 
   // ---- ตาราง ----
 
-  // ตัวกรองของตาราง 2 แถว มีป้ายบอกว่าแต่ละแถวเลือกอะไร: ประเภท (ไฟฟ้า/น้ำ) และ
-  // แสดง (ยอดเงิน/เลขมิเตอร์) — ตัวที่เลือกเป็นพื้นสีจางขอบสีพร้อม ✓ ตัวที่ไม่ได้เลือกเป็นพื้นครีม
-  Widget _buildFilters() {
-    Widget row(String label, List<Widget> options) => Row(
-          children: [
-            SizedBox(
-              width: 52,
-              child: Text(label,
-                  style: TextStyle(
-                      fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
-            ),
-            for (var i = 0; i < options.length; i++) ...[
-              if (i > 0) const SizedBox(width: AppSpacing.v8),
-              Expanded(child: options[i]),
-            ],
-          ],
-        );
-
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.v12),
-      child: Column(
-        children: [
-          row('ประเภท', [
-            _filterOption('ไฟฟ้า', Icons.bolt_rounded, AppColors.electricityBorder, !_showWater,
-                () => setState(() => _showWater = false)),
-            _filterOption('น้ำ', Icons.water_drop_rounded, AppColors.waterBorder, _showWater,
-                () => setState(() => _showWater = true)),
-          ]),
-          const SizedBox(height: AppSpacing.v10),
-          row('แสดง', [
-            _filterOption('ยอดเงิน', Icons.payments_outlined, AppColors.primaryGreen, !_showReadings,
-                () => setState(() => _showReadings = false)),
-            _filterOption('เลขมิเตอร์', Icons.speed_rounded, AppColors.primaryGreen, _showReadings,
-                () => setState(() => _showReadings = true)),
-          ]),
-        ],
-      ),
-    );
-  }
-
-  Widget _filterOption(String label, IconData icon, Color color, bool selected, VoidCallback onTap) {
-    final fg = selected ? color : Colors.grey.shade600;
-    return Semantics(
-      selected: selected,
-      button: true,
-      child: Material(
-        color: selected ? color.withValues(alpha: 0.10) : AppColors.inputFill,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-          side: BorderSide(
-              color: selected ? color.withValues(alpha: 0.55) : AppColors.inputBorder, width: selected ? 1.2 : 1),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+  // ไฟฟ้า/น้ำ เป็นแท็บขีดเส้นใต้เต็มความกว้าง (ตัวเลือกหลักของตาราง) เส้นใต้เป็นสีของประเภทนั้น
+  Widget _buildUtilityTabs() {
+    Widget tab(String label, IconData icon, Color color, bool water) {
+      final selected = _showWater == water;
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: selected,
+          child: InkWell(
+            onTap: () => setState(() => _showWater = water),
+            child: Column(
               children: [
-                Icon(selected ? Icons.check_rounded : icon,
-                    size: 16, color: selected ? color : color.withValues(alpha: 0.55)),
-                const SizedBox(width: AppSpacing.v4),
-                Flexible(
-                  child: Text(label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: AppTypography.s13,
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                          color: fg)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.v10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, size: 18, color: selected ? color : Colors.grey.shade500),
+                      const SizedBox(width: AppSpacing.v6),
+                      Text(label,
+                          style: TextStyle(
+                              fontSize: AppTypography.s14,
+                              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                              color: selected ? AppColors.textDark : Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: selected ? color : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppSpacing.v2),
+                  ),
                 ),
               ],
             ),
           ),
         ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade300))),
+      child: Row(
+        children: [
+          tab('ไฟฟ้า', Icons.bolt_rounded, AppColors.electricityBorder, false),
+          tab('น้ำ', Icons.water_drop_rounded, AppColors.waterBorder, true),
+        ],
       ),
     );
   }
