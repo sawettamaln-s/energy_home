@@ -59,10 +59,10 @@ class AppBottomNavBar extends StatelessWidget {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(AppSpacing.v16, AppSpacing.v4, AppSpacing.v16, AppSpacing.v12),
-        child: Container(
-          height: _height,
+        // เงาอยู่ที่ DecoratedBox ส่วนพื้นขาวเป็น Material ทรงแคปซูลที่ตัดขอบ ระลอกตอนกด
+        // จึงวาดอยู่ในแคปซูลเท่านั้น ไม่โผล่ออกนอกขอบบาร์
+        child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
             borderRadius: BorderRadius.circular(_height / 2),
             boxShadow: [
               BoxShadow(
@@ -77,42 +77,50 @@ class AppBottomNavBar extends StatelessWidget {
               ),
             ],
           ),
-          child: LayoutBuilder(builder: (context, constraints) {
-            final itemWidth = constraints.maxWidth / _items.length;
-            return Stack(
-              children: [
-                // แคปซูลของแท็บที่เลือก — easeOutBack ทำให้เลยเป้านิดหนึ่งแล้วเด้งกลับ
-                AnimatedPositioned(
-                  duration: slide,
-                  curve: Curves.easeOutBack,
-                  left: itemWidth * currentIndex + _inset,
-                  top: _inset,
-                  bottom: _inset,
-                  width: itemWidth - _inset * 2,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(_height / 2),
-                    ),
-                  ),
-                ),
-                Row(
+          child: Material(
+            color: Colors.white,
+            shape: const StadiumBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
+              height: _height,
+              child: LayoutBuilder(builder: (context, constraints) {
+                final itemWidth = constraints.maxWidth / _items.length;
+                return Stack(
                   children: [
-                    for (final (index, item) in _items.indexed)
-                      Expanded(
-                        child: _NavItem(
-                          icon: index == currentIndex ? item.active : item.icon,
-                          label: item.label,
-                          selected: index == currentIndex,
-                          reduceMotion: reduceMotion,
-                          onTap: () => _onTap(context, index),
+                    // แคปซูลของแท็บที่เลือก — easeOutBack ทำให้เลยเป้านิดหนึ่งแล้วเด้งกลับ
+                    AnimatedPositioned(
+                      duration: slide,
+                      curve: Curves.easeOutBack,
+                      left: itemWidth * currentIndex + _inset,
+                      top: _inset,
+                      bottom: _inset,
+                      width: itemWidth - _inset * 2,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(_height / 2),
                         ),
                       ),
+                    ),
+                    Row(
+                      children: [
+                        for (final (index, item) in _items.indexed)
+                          Expanded(
+                            child: _NavItem(
+                              icon: index == currentIndex ? item.active : item.icon,
+                              label: item.label,
+                              selected: index == currentIndex,
+                              reduceMotion: reduceMotion,
+                              onTap: () => _onTap(context, index),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
-                ),
-              ],
-            );
-          }),
+                );
+              }),
+            ),
+          ),
         ),
       ),
     );
