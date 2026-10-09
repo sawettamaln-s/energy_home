@@ -440,33 +440,12 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
 
   // แท็บเลือกไฟฟ้า/น้ำ — ✓ สีเขียวโผล่ข้างชื่อแท็บเมื่อฝั่งนั้นกรอกครบแล้ว
   // (isPartial ก็จะไม่ขึ้น ✓ ด้วย เพราะยังไม่ถือว่า "ครบ" ตามนิยาม complete)
-  Widget _buildTabs({required bool eComplete, required bool wComplete}) {
-    return Row(
-      children: [
-        Expanded(
-          child: TabChip(
-            label: 'ไฟฟ้า',
-            icon: Icons.bolt,
-            color: DashboardStyles.electricityBorder,
-            selected: _selectedTab == 0,
-            checked: eComplete,
-            onTap: () => setState(() => _selectedTab = 0),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TabChip(
-            label: 'น้ำ',
-            icon: Icons.water_drop,
-            color: DashboardStyles.waterBorder,
-            selected: _selectedTab == 1,
-            checked: wComplete,
-            onTap: () => setState(() => _selectedTab = 1),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildTabs({required bool eComplete, required bool wComplete}) => UtilityTabChips(
+        selectedIndex: _selectedTab,
+        electricityDone: eComplete,
+        waterDone: wComplete,
+        onSelect: (i) => setState(() => _selectedTab = i),
+      );
 
   Widget _utilityCard({
     required BuildContext context,

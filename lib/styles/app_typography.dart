@@ -22,11 +22,9 @@ class AppTypography {
   static const double body = 14;
   static const double subtitle = 15;
   static const double title = 16;
-  static const double heading = 19;
 
   // ---------- ขนาดตามจริงที่ใช้ทั่วแอป (sN = N px, s12_5 = 12.5 px) ----------
   // มีหลายขนาดเพราะแต่ละจุดจูนมาเฉพาะที่ (ตาราง/ชิป/กราฟ ฯลฯ)
-  static const double s8 = 8;
   static const double s9 = 9;
   static const double s9_5 = 9.5;
   static const double s10 = 10;
@@ -40,15 +38,12 @@ class AppTypography {
   static const double s14 = 14;
   static const double s14_5 = 14.5;
   static const double s15 = 15;
-  static const double s15_5 = 15.5;
   static const double s16 = 16;
   static const double s17 = 17;
   static const double s18 = 18;
-  static const double s19 = 19;
   static const double s20 = 20;
   static const double s22 = 22;
   static const double s24 = 24;
-  static const double s26 = 26;
   static const double s32 = 32;
 
   /// สร้าง TextStyle ที่ปรับขนาดตามจอจริง (responsive)

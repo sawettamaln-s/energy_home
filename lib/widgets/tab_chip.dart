@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../styles/app_colors.dart';
 import '../styles/app_spacing.dart';
 import '../styles/app_typography.dart';
 
@@ -59,6 +60,52 @@ class TabChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// คู่แท็บ ไฟฟ้า | น้ำ ของฟอร์มกรอกใบแจ้งหนี้ (index 0 = ไฟฟ้า, 1 = น้ำ)
+/// [electricityDone]/[waterDone] = ฝั่งนั้นกรอกครบแล้ว (ขึ้นเครื่องหมายถูก)
+class UtilityTabChips extends StatelessWidget {
+  const UtilityTabChips({
+    super.key,
+    required this.selectedIndex,
+    required this.electricityDone,
+    required this.waterDone,
+    required this.onSelect,
+  });
+
+  final int selectedIndex;
+  final bool electricityDone;
+  final bool waterDone;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TabChip(
+            label: 'ไฟฟ้า',
+            icon: Icons.bolt,
+            color: AppColors.electricityBorder,
+            selected: selectedIndex == 0,
+            checked: electricityDone,
+            onTap: () => onSelect(0),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TabChip(
+            label: 'น้ำ',
+            icon: Icons.water_drop,
+            color: AppColors.waterBorder,
+            selected: selectedIndex == 1,
+            checked: waterDone,
+            onTap: () => onSelect(1),
+          ),
+        ),
+      ],
     );
   }
 }

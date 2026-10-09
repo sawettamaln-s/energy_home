@@ -70,17 +70,6 @@ class AppColors {
   static const Color waterUnit = Color(0xFF123F6D);
   // เดือนที่ใช้สูงสุดในกราฟเทรนด์ (ส้มอิฐ)
   static const Color trendPeak = Color(0xFFE2673F);
-  // ชิ้นพายอุปกรณ์ — เขียวหลักสลับสีอุ่น ให้ชิ้นติดกันแยกออกจากกันง่าย
-  static const List<Color> pieChartPalette = [
-    primaryGreen,
-    Color(0xFFFFA726), // ส้มทอง
-    Color(0xFF26A69A), // เขียวอมฟ้า (teal)
-    Color(0xFFFFCA28), // เหลืองทอง
-    Color(0xFF8D6E63), // น้ำตาลอบอุ่น
-    Color(0xFF66BB6A), // เขียวอ่อน
-    Color(0xFFD98E5B), // ส้มดิน
-  ];
-
   // ---------- ฤดูกาล (การ์ดคาดการณ์บิลรอบถัดไป) ----------
   static const Color seasonSummer = Color(0xFFF57C00);
   static const Color seasonRainy = Color(0xFF1E88E5);

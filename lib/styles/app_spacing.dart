@@ -5,8 +5,7 @@
 /// รวมค่าระยะห่าง/รัศมีขอบมนของแอปไว้ที่เดียว
 ///
 /// ใช้ AppSpacing.vN (N = จำนวน px) กับ EdgeInsets.all() และ
-/// BorderRadius/Radius.circular() หรือห่อด้วย context.rs(...) ถ้าต้องการให้
-/// ระยะยืดหยุ่นตามความกว้างจอ
+/// BorderRadius/Radius.circular()
 /// ===========================================================
 class AppSpacing {
   AppSpacing._();
@@ -24,9 +23,7 @@ class AppSpacing {
   static const double v6 = 6;
   static const double v7 = 7;
   static const double v8 = 8;
-  static const double v9 = 9;
   static const double v10 = 10;
-  static const double v11 = 11;
   static const double v12 = 12;
   static const double v13 = 13;
   static const double v14 = 14;

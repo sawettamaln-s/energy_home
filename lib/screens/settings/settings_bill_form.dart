@@ -349,33 +349,12 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
 
   // แท็บเลือกไฟฟ้า/น้ำ — ใช้ TabChip กลางร่วมกับ StartMeterPairedFields
   // เครื่องหมาย ✓ ขึ้นเมื่อฝั่งนั้นกรอกค่าใช้จ่ายแล้ว (cost > 0) เพราะฟอร์มนี้ไม่บังคับกรอกครบทั้งคู่
-  Widget _buildUtilityTabs() {
-    return Row(
-      children: [
-        Expanded(
-          child: TabChip(
-            label: 'ไฟฟ้า',
-            icon: Icons.bolt,
-            color: DashboardStyles.electricityBorder,
-            selected: _selectedTab == 0,
-            checked: _eCost > 0,
-            onTap: () => setState(() => _selectedTab = 0),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TabChip(
-            label: 'น้ำ',
-            icon: Icons.water_drop,
-            color: DashboardStyles.waterBorder,
-            selected: _selectedTab == 1,
-            checked: _wCost > 0,
-            onTap: () => setState(() => _selectedTab = 1),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildUtilityTabs() => UtilityTabChips(
+        selectedIndex: _selectedTab,
+        electricityDone: _eCost > 0,
+        waterDone: _wCost > 0,
+        onSelect: (i) => setState(() => _selectedTab = i),
+      );
 
   // อธิบายว่าช่อง "หน่วยที่ใช้" ต้องกรอกยอดหน่วยที่ใช้จริงจากบิล ไม่ใช่เลขมิเตอร์สะสม
   // (ฟอร์มนี้ไม่ลบเลขมิเตอร์ 2 เดือนให้เหมือนหน้าบันทึกมิเตอร์ปกติ เพราะบิลย้อนหลังไม่ต่อเนื่องกันเสมอไป)

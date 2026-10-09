@@ -11,7 +11,6 @@ import 'package:flutter/widgets.dart';
 ///
 /// ตัวอย่างการใช้งาน:
 ///   fontSize: context.rf(16)   // ฟอนต์ 16 บนจอมาตรฐาน ปรับตามจอจริง
-///   padding: EdgeInsets.all(context.rs(12))
 const double _kBaseWidth = 375.0;
 const double _kMinScale = 0.85;
 const double _kMaxScale = 1.15;
@@ -27,7 +26,4 @@ extension ResponsiveScale on BuildContext {
 
   /// ขนาดฟอนต์ที่ยืดหยุ่นตามจอ (responsive font)
   double rf(double baseSize) => baseSize * screenScale;
-
-  /// ระยะห่าง/รัศมีที่ยืดหยุ่นตามจอ (responsive spacing)
-  double rs(double baseValue) => baseValue * screenScale;
 }

@@ -88,24 +88,13 @@ class _LoginScreenState extends State<LoginScreen> {
       _isGoogleLoading = true;
       _errorMessage = '';
     });
-
-    try {
-      final credential = await GoogleAuthService.signIn();
-      // credential == null แปลว่าผู้ใช้กดยกเลิกเอง ไม่ต้องแจ้ง error
-      if (credential != null && mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    } on FirebaseAuthException {
-      if (!mounted) return;
-      setState(() => _errorMessage =
-          'เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
-    } catch (_) {
-      if (!mounted) return;
-      setState(
-          () => _errorMessage = 'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง');
-    } finally {
-      if (mounted) setState(() => _isGoogleLoading = false);
-    }
+    final result = await GoogleAuthService.signInFromAuthScreen();
+    if (!mounted) return;
+    setState(() {
+      _isGoogleLoading = false;
+      if (result.error != null) _errorMessage = result.error!;
+    });
+    if (result.signedIn) Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   // ส่งอีเมลรีเซ็ตรหัสผ่าน — เปิด dialog ให้กรอกอีเมล (ดึงจากช่อง login มาเติม

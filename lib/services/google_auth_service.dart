@@ -62,4 +62,16 @@ class GoogleAuthService {
     if (credential == null) return null;
     return FirebaseAuth.instance.signInWithCredential(credential);
   }
+
+  /// ปุ่ม Google ในหน้าเข้าสู่ระบบ/สมัครสมาชิก: signedIn = เข้าสู่ระบบแล้ว,
+  /// error = ข้อความที่ให้หน้าจอแสดง (ผู้ใช้กดยกเลิกเอง = ไม่สำเร็จแต่ไม่มี error)
+  static Future<({bool signedIn, String? error})> signInFromAuthScreen() async {
+    try {
+      return (signedIn: await signIn() != null, error: null);
+    } on FirebaseAuthException {
+      return (signedIn: false, error: 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    } catch (_) {
+      return (signedIn: false, error: 'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง');
+    }
+  }
 }
