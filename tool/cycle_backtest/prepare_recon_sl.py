@@ -1,8 +1,9 @@
 """ย่อข้อมูลมิเตอร์อัจฉริยะทุก 6 ชั่วโมงของชุดข้อมูล RECON-SL (ศรีลังกา) ให้เหลือ
 เฉพาะที่สคริปต์วัดความแม่นยำยอดสิ้นรอบใช้ (tool/backtest_cycle_dataset.dart)
 
-ชุดข้อมูล: Algama, C. et al. (2026). Residential Electricity Consumption Dataset
-for Sri Lanka (RECON-SL). arXiv:2609.28783 · DOI 10.21227/n1dk-q860 · CC BY 4.0
+ชุดข้อมูล: Algama, C. et al. (2025). Residential Electricity Consumption Dataset
+for Sri Lanka (RECON-SL) [Data set]. IEEE DataPort. DOI 10.21227/n1dk-q860 · CC BY 4.0
+บทความอธิบายชุดข้อมูล: Algama, C. et al. (2026). arXiv:2609.28783
 
 อ่าน consumption_data/smart_meter/6hour_interval/smart_6hour_*.csv แบบไล่ทีละแถว
 (ไฟล์รวมราว 1 GB) เก็บเฉพาะ household_ID, วันเวลา และ TOTAL_IMPORT (kWh) ซึ่งเป็น
