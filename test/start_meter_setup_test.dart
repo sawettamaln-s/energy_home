@@ -349,6 +349,41 @@ void main() {
       expect(bills.single['electricityUsed'], 300);
     });
 
+    testWidgets('กำลังพิมพ์เลขมิเตอร์ -> ช่องไม่หลุดโฟกัส และยังไม่เตือนว่าต่ำกว่ารอบก่อนจนกว่าจะหยุดพิมพ์',
+        (tester) async {
+      await seedUser();
+      await seedRecord('r-prev', prevCycle, electricity: 5000);
+      await openSetup(tester);
+      await openSheet(tester);
+
+      final field = fieldFor(meterLabel);
+      await tester.ensureVisible(field);
+      await tester.showKeyboard(field);
+      bool focused() => tester
+          .widget<EditableText>(find.descendant(of: fieldFor(meterLabel), matching: find.byType(EditableText)))
+          .focusNode
+          .hasFocus;
+      const warning = 'เลขมิเตอร์ไฟฟ้าที่กรอกต่ำกว่ารอบก่อนหน้า';
+
+      // พิมพ์ทีละตัว 5 -> 52 -> 521 ... ระหว่างนั้นช่องต้องยังโฟกัสอยู่ และไม่มีคำเตือน
+      for (final text in ['5', '52', '521']) {
+        tester.testTextInput.enterText(text);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(focused(), isTrue, reason: 'หลังพิมพ์ "$text"');
+        expect(find.textContaining(warning), findsNothing, reason: 'หลังพิมพ์ "$text"');
+      }
+      // หยุดพิมพ์ครบ 1 วินาที แล้ว 521 ยังต่ำกว่า 5000 จริง -> ค่อยเตือน
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(focused(), isTrue);
+      expect(find.textContaining(warning), findsOneWidget);
+
+      tester.testTextInput.enterText('5210');
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.textContaining(warning), findsNothing);
+    });
+
     testWidgets('เลขต่ำกว่ารอบก่อน -> เตือน + ถามยืนยัน ยกเลิกแล้วไม่บันทึก ยืนยันแล้วบันทึก',
         (tester) async {
       await seedUser();

@@ -55,6 +55,13 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
   bool _waterNoBillYet = false;
   // คำนวณค่าใช้จ่ายอัตโนมัติขณะพิมพ์ (ดู _CostAutofill)
   final _costAutofill = _CostAutofill();
+
+  // คำเตือน "ต่ำกว่ารอบก่อนหน้า" รอให้หยุดพิมพ์เลขมิเตอร์ก่อน — ระหว่างพิมพ์เลขยังไม่ครบหลัก
+  // จึงต่ำกว่ารอบก่อนเสมอ ถ้าเตือนทันทีจะขึ้นตั้งแต่ตัวแรก (ตอนกดบันทึกยังเช็คทันทีเหมือนเดิม)
+  static const _belowWarningDelay = Duration(milliseconds: 1000);
+  bool _meterTyping = false;
+  Timer? _meterTypingTimer;
+  String _lastMeterText = '';
   // โชว์ตอนกดบันทึกแล้วไม่มีคู่ไหนกรอกครบเลยสักคู่
   bool _generalError = false;
   List<BillModel> _existingBills = [];
@@ -108,11 +115,26 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
     ]) {
       c.addListener(_scheduleElectricityCostCalc);
     }
+    for (final c in [_eCtrl, _peakCtrl, _offPeakCtrl, _wCtrl]) {
+      c.addListener(_onMeterTextChanged);
+    }
     for (final c in [_wCtrl, _wUsedCtrl]) {
       c.addListener(_scheduleWaterCostCalc);
     }
 
     _loadCurrent();
+  }
+
+  // นับเฉพาะตอนตัวเลขเปลี่ยน (แตะช่อง/เลื่อนเคอร์เซอร์ก็แจ้ง listener แต่ไม่ใช่การพิมพ์)
+  void _onMeterTextChanged() {
+    final text = [_eCtrl, _peakCtrl, _offPeakCtrl, _wCtrl].map((c) => c.text).join('|');
+    if (text == _lastMeterText) return;
+    _lastMeterText = text;
+    _meterTypingTimer?.cancel();
+    if (!_meterTyping) setState(() => _meterTyping = true);
+    _meterTypingTimer = Timer(_belowWarningDelay, () {
+      if (mounted) setState(() => _meterTyping = false);
+    });
   }
 
   void _scheduleElectricityCostCalc() =>
@@ -261,6 +283,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
 
   @override
   void dispose() {
+    _meterTypingTimer?.cancel();
     _costAutofill.dispose();
     _eCtrl.dispose();
     _peakCtrl.dispose();
@@ -832,7 +855,7 @@ class _AddStartMeterSheetState extends State<_AddStartMeterSheet> {
                             eUsageSummary: _eUsageSummary,
                             wUsageSummary: _wUsageSummary,
                           ),
-                          if (_eBelowPrevious || _wBelowPrevious) ...[
+                          if (!_meterTyping && (_eBelowPrevious || _wBelowPrevious)) ...[
                             const SizedBox(height: AppSpacing.v12),
                             _note(
                               '${[

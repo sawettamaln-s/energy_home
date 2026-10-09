@@ -514,20 +514,23 @@ class _StartMeterPairedFieldsState extends State<StartMeterPairedFields> {
               ],
             ),
           if (isPartial) const SizedBox(height: 8),
-          meterFields,
+          // ป้าย/ข้อความ "กรอกไม่ครบ" โผล่ขึ้นทั้งหัวและท้ายการ์ดตอนพิมพ์ตัวแรก — ช่องกรอกทุกส่วน
+          // จึงมี key ไว้ ไม่งั้น Flutter จับคู่ลูกเดิมไม่ได้แล้วสร้างช่องใหม่ ช่องที่กำลังพิมพ์หลุดโฟกัส
+          KeyedSubtree(key: const ValueKey('meterFields'), child: meterFields),
           if (usageSummary != null) ...[
             const SizedBox(height: 10),
-            usageSummary,
+            KeyedSubtree(key: const ValueKey('usageSummary'), child: usageSummary),
           ],
           if (usedField != null) ...[
             const SizedBox(height: 10),
-            usedField,
+            KeyedSubtree(key: const ValueKey('usedField'), child: usedField),
           ],
           const SizedBox(height: 14),
           // ยอดเงินตามใบแจ้งหนี้ — ระบบเติมให้จากหน่วยที่ใช้ (ดู _CostAutofill ในหน้า
           // ที่เรียกใช้) แต่ยอดจริงในบิลอาจต่างได้เล็กน้อย จึงบอกให้แก้ตามบิลได้
           if (!noBillYet) ...[
             Column(
+              key: const ValueKey('costField'),
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
