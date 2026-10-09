@@ -222,11 +222,24 @@ class _LogHistoryTabState extends State<_LogHistoryTab> {
       content: 'ต้องการลบข้อมูลนี้ใช่ไหมคะ?',
     );
     if (confirm != true) return;
-    if (widget.isWater) {
-      await widget.firestoreService.deleteWaterLog(e.uid, e.id);
-    } else {
-      await widget.firestoreService.deleteElectricityLog(e.uid, e.id);
-    }
+    // log ถัดไปในรอบเดียวกันเปลี่ยนไปนับ "เพิ่มจากครั้งก่อน" จาก log ก่อนหน้าอันที่ลบ
+    // (ไม่มี = นับจากต้นรอบ) — usedFromStart เป็นยอดสะสม ผลต่างจึงเป็นหน่วยที่เพิ่ม
+    final cycle = [
+      for (final x in _entries)
+        if (!x.date.isBefore(_currentCycleStart)) x
+    ]..sort((a, b) => a.date.compareTo(b.date));
+    final i = cycle.indexWhere((x) => x.id == e.id);
+    final next = i >= 0 && i + 1 < cycle.length ? cycle[i + 1] : null;
+    final prev = i > 0 ? cycle[i - 1] : null;
+    final gap = next == null ? 0.0 : next.usedFromStart - (prev?.usedFromStart ?? 0);
+    final nextUsedFromLast = gap > 0 ? TariffTables.round2(gap) : 0.0;
+    await widget.firestoreService.deleteCycleLog(
+      e.uid,
+      e.id,
+      isWater: widget.isWater,
+      nextLogId: next?.id,
+      nextUsedFromLast: nextUsedFromLast,
+    );
     await _load();
   }
 

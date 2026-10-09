@@ -611,15 +611,6 @@ class FirestoreService {
         .toList();
   }
 
-  Future<void> deleteElectricityLog(String uid, String logId) async {
-    await _db
-        .collection('users')
-        .doc(uid)
-        .collection('electricity_logs')
-        .doc(logId)
-        .delete();
-    DataRefreshBus.instance.notifyChanged();
-  }
 
   // ==================== WATER LOGS ====================
 
@@ -662,13 +653,27 @@ class FirestoreService {
         .toList();
   }
 
-  Future<void> deleteWaterLog(String uid, String logId) async {
-    await _db
+
+  // ลบ log 1 อันของรอบปัจจุบัน — log ถัดไป (ใหม่กว่า) ในรอบเดียวกันเก็บ
+  // usedFromLast เทียบกับอันที่ถูกลบ จึงเขียน [nextUsedFromLast] (เทียบกับ log
+  // ก่อนหน้า หรือต้นรอบ) ให้ [nextLogId] ใน batch เดียวกับการลบ
+  // [nextLogId] = null เมื่ออันที่ลบเป็นอันล่าสุดของรอบ
+  Future<void> deleteCycleLog(
+    String uid,
+    String logId, {
+    required bool isWater,
+    String? nextLogId,
+    double nextUsedFromLast = 0,
+  }) async {
+    final logs = _db
         .collection('users')
         .doc(uid)
-        .collection('water_logs')
-        .doc(logId)
-        .delete();
+        .collection(isWater ? 'water_logs' : 'electricity_logs');
+    final batch = _db.batch()..delete(logs.doc(logId));
+    if (nextLogId != null) {
+      batch.update(logs.doc(nextLogId), {'usedFromLast': nextUsedFromLast});
+    }
+    await batch.commit();
     DataRefreshBus.instance.notifyChanged();
   }
 
