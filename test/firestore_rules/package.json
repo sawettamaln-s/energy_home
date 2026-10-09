@@ -1,0 +1,12 @@
+{
+  "name": "energy-home-firestore-rules-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "cd ../.. && firebase emulators:exec --only firestore --project demo-energy-home \"node --test test/firestore_rules/rules.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.0.0"
+  }
+}

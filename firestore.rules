@@ -2,25 +2,152 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ข้อมูลผู้ใช้แต่ละคน + subcollection ทั้งหมด (bills, appliances,
-    // electricity_logs, water_logs, fixed_costs, start_meter_history)
-    // เจ้าของบัญชี (login แล้ว + uid ตรงกับ document) เท่านั้นที่อ่าน/เขียนได้
-    // คนอื่นที่ login มาแล้วก็ยังห้ามแตะข้อมูลของคนอื่นอยู่ดี
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // ==================== ตัวช่วยตรวจข้อมูล ====================
+    // d  = ข้อมูลทั้งเอกสารหลังเขียน (request.resource.data)
+    // ch = ฟิลด์ที่การเขียนครั้งนี้แตะ — สร้างใหม่ = ทุกฟิลด์, แก้ไข = เฉพาะฟิลด์ที่เปลี่ยน
+    // ตรวจเฉพาะฟิลด์ที่เปลี่ยน เอกสารเก่าที่มีค่าแปลกจึงยังแก้ฟิลด์อื่นได้ ฟิลด์ที่ไม่มีก็ผ่าน
+    // (เอกสารเก่าที่ยังไม่มีฟิลด์ใหม่) แต่ถ้ามีต้องถูกชนิดและอยู่ในช่วงที่แอปใช้จริง
+    function changedKeys() {
+      return resource == null
+          ? request.resource.data.keys().toSet()
+          : request.resource.data.diff(resource.data).affectedKeys();
+    }
 
-      match /{subcollection}/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+    function skip(d, ch, f) { return !(f in ch) || !(f in d); }
+    function num(d, ch, f, lo, hi) { return skip(d, ch, f) || (d[f] is number && d[f] >= lo && d[f] <= hi); }
+    function numOrNull(d, ch, f, lo, hi) { return skip(d, ch, f) || d[f] == null || (d[f] is number && d[f] >= lo && d[f] <= hi); }
+    function intIn(d, ch, f, lo, hi) { return skip(d, ch, f) || (d[f] is int && d[f] >= lo && d[f] <= hi); }
+    function str(d, ch, f, maxLen) { return skip(d, ch, f) || (d[f] is string && d[f].size() <= maxLen); }
+    function strOrNull(d, ch, f, maxLen) { return skip(d, ch, f) || d[f] == null || (d[f] is string && d[f].size() <= maxLen); }
+    function boolean(d, ch, f) { return skip(d, ch, f) || d[f] is bool; }
+    function oneOf(d, ch, f, values) { return skip(d, ch, f) || d[f] in values; }
+
+    // ขอบเขตค่า: เลขมิเตอร์, หน่วยที่ใช้ และยอดเงิน (ไม่ติดลบทั้งหมด)
+    function maxMeter() { return 1000000000; }
+    function maxUnits() { return 10000000; }
+    function maxMoney() { return 100000000; }
+
+    // id/uid ในเอกสารต้องตรงกับ path และเอกสารไม่บวมเกินจำนวนฟิลด์ที่แอปใช้
+    function belongs(d, ch, userId, docId) {
+      return oneOf(d, ch, 'uid', [userId]) && oneOf(d, ch, 'id', [docId]) && d.keys().size() <= 30;
+    }
+
+    function isOwner(userId) { return request.auth != null && request.auth.uid == userId; }
+
+    // ==================== ข้อมูลผู้ใช้ ====================
+    // เจ้าของบัญชี (login แล้ว + uid ตรงกับ document) เท่านั้นที่อ่าน/เขียนได้
+    function validUser(d, ch, userId) {
+      return oneOf(d, ch, 'uid', [userId]) && d.keys().size() <= 30
+          && str(d, ch, 'name', 100) && strOrNull(d, ch, 'email', 320)
+          && oneOf(d, ch, 'area', ['bangkok', 'province'])
+          && oneOf(d, ch, 'meterType', ['normal', 'tou'])
+          && oneOf(d, ch, 'electricityTariff', ['standard', 'small'])
+          && intIn(d, ch, 'billingDay', 1, 31)
+          && num(d, ch, 'fixedCost', 0, maxMoney())
+          && num(d, ch, 'startElectricityValue', 0, maxMeter())
+          && num(d, ch, 'startWaterValue', 0, maxMeter())
+          && num(d, ch, 'startPeakValue', 0, maxMeter())
+          && num(d, ch, 'startOffPeakValue', 0, maxMeter())
+          // 0 = ยังไม่ได้ตั้งเลขมิเตอร์ต้นรอบ
+          && intIn(d, ch, 'startBillingMonth', 0, 12)
+          && intIn(d, ch, 'startBillingYear', 0, 3000)
+          && boolean(d, ch, 'startMeterConfigured')
+          && boolean(d, ch, 'electricityStartConfigured')
+          && boolean(d, ch, 'waterStartConfigured')
+          && boolean(d, ch, 'billingDayConfigured');
+    }
+
+    // บิลรายเดือน: year/month = เดือนที่ปิดรอบ (เดือนของใบแจ้งหนี้)
+    function validBill(d, ch, userId, docId) {
+      return belongs(d, ch, userId, docId)
+          && intIn(d, ch, 'year', 2000, 3000) && intIn(d, ch, 'month', 1, 12)
+          && intIn(d, ch, 'yearMonth', 200001, 300012)
+          && num(d, ch, 'electricityUsed', 0, maxUnits())
+          && numOrNull(d, ch, 'electricityPeakUsed', 0, maxUnits())
+          && numOrNull(d, ch, 'electricityOffPeakUsed', 0, maxUnits())
+          && num(d, ch, 'waterUsed', 0, maxUnits())
+          && num(d, ch, 'electricityCost', 0, maxMoney())
+          && num(d, ch, 'waterCost', 0, maxMoney())
+          && num(d, ch, 'fixedCost', 0, maxMoney())
+          && num(d, ch, 'totalCost', 0, maxMoney())
+          && oneOf(d, ch, 'source', ['compiled', 'imported', 'startMeter']);
+    }
+
+    // log การจดมิเตอร์ (TOU: meterValue = หน่วยที่ใช้ตั้งแต่ต้นรอบ, เลขจริงอยู่ที่ peak/offPeak)
+    function validLog(d, ch, userId, docId) {
+      return belongs(d, ch, userId, docId)
+          && str(d, ch, 'date', 40)
+          && num(d, ch, 'meterValue', 0, maxMeter())
+          && numOrNull(d, ch, 'peakMeterValue', 0, maxMeter())
+          && numOrNull(d, ch, 'offPeakMeterValue', 0, maxMeter())
+          && num(d, ch, 'usedFromStart', 0, maxUnits())
+          && num(d, ch, 'usedFromLast', 0, maxUnits())
+          && num(d, ch, 'cost', 0, maxMoney());
+    }
+
+    // เลขมิเตอร์ต้นรอบของแต่ละรอบ: billingMonth/Year = เดือนที่รอบเริ่ม
+    function validStartRecord(d, ch, userId, docId) {
+      return belongs(d, ch, userId, docId)
+          && num(d, ch, 'electricityValue', 0, maxMeter())
+          && num(d, ch, 'waterValue', 0, maxMeter())
+          && num(d, ch, 'peakValue', 0, maxMeter())
+          && num(d, ch, 'offPeakValue', 0, maxMeter())
+          && intIn(d, ch, 'billingMonth', 1, 12) && intIn(d, ch, 'billingYear', 2000, 3000)
+          && str(d, ch, 'recordedAt', 40);
+    }
+
+    function validFixedCost(d, ch, userId, docId) {
+      return belongs(d, ch, userId, docId)
+          && str(d, ch, 'name', 100) && str(d, ch, 'category', 40)
+          && num(d, ch, 'amount', 0, maxMoney())
+          && str(d, ch, 'createdAt', 40) && str(d, ch, 'startDate', 40)
+          && strOrNull(d, ch, 'endDate', 40);
+    }
+
+    function validAppliance(d, ch, userId, docId) {
+      return belongs(d, ch, userId, docId)
+          && str(d, ch, 'name', 100) && strOrNull(d, ch, 'iconKey', 40)
+          && num(d, ch, 'watt', 0, 1000000)
+          && (skip(d, ch, 'schedules') || (d.schedules is list && d.schedules.size() <= 20));
+    }
+
+    match /users/{userId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validUser(request.resource.data, changedKeys(), userId);
+
+      match /bills/{docId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validBill(request.resource.data, changedKeys(), userId, docId);
+      }
+      match /electricity_logs/{docId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validLog(request.resource.data, changedKeys(), userId, docId);
+      }
+      match /water_logs/{docId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validLog(request.resource.data, changedKeys(), userId, docId);
+      }
+      match /start_meter_history/{docId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validStartRecord(request.resource.data, changedKeys(), userId, docId);
+      }
+      match /fixed_costs/{docId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validFixedCost(request.resource.data, changedKeys(), userId, docId);
+      }
+      match /appliances/{docId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validAppliance(request.resource.data, changedKeys(), userId, docId);
       }
     }
 
-    // อัตราค่าไฟ/น้ำกลาง (Ft rate, VAT) — ทุกคนที่ login แล้วอ่านได้
+    // ค่า Ft กลาง (app_config/electricity_rates) — ทุกคนที่ login แล้วอ่านได้
     // แต่ห้ามเขียนจากฝั่ง client เด็ดขาด (แก้ผ่าน Firebase Console เท่านั้น)
     match /app_config/{document=**} {
       allow read: if request.auth != null;
       allow write: if false;
     }
 
-    // อะไรที่ไม่ตรงกับด้านบน ปฏิเสธหมดโดยปริยาย (ไม่ต้องเขียน deny เอง)
+    // อะไรที่ไม่ตรงกับด้านบน (รวมถึง subcollection อื่นใต้ users) ปฏิเสธหมดโดยปริยาย
   }
 }
