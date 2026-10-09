@@ -131,10 +131,12 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('Error loading analysis: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('โหลดข้อมูลไม่สำเร็จ: $e')),
+        const SnackBar(
+            content: Text('โหลดข้อมูลไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้งค่ะ')),
       );
     }
   }
