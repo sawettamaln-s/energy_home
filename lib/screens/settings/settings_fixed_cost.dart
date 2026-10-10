@@ -874,7 +874,10 @@ class _FixedCostFormSheetState extends State<_FixedCostFormSheet> {
                     if (_category == 'other') ...[
                       const SizedBox(height: AppSpacing.v16),
                       _label('ชื่อรายการ'),
+                      // ช่องชื่อโผล่เหนือช่องยอดเงินตอนเลือก "อื่นๆ" — ทั้งสองช่องมี key ไว้ ไม่งั้น Flutter
+                      // เอาช่องยอดเงิน (คีย์บอร์ดตัวเลข) ที่อยู่ตำแหน่งเดิมมาใช้เป็นช่องชื่อ
                       TextField(
+                        key: const ValueKey('fixed-cost-name'),
                         controller: _nameCtrl,
                         onChanged: (_) => setState(() => _error = null),
                         decoration: const InputDecoration(hintText: 'เช่น ค่าที่จอดรถรายเดือน'),
@@ -883,6 +886,7 @@ class _FixedCostFormSheetState extends State<_FixedCostFormSheet> {
                     const SizedBox(height: AppSpacing.v16),
                     _label('ยอดต่อเดือน'),
                     TextField(
+                      key: const ValueKey('fixed-cost-amount'),
                       controller: _amountCtrl,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() => _error = null),

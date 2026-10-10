@@ -102,6 +102,26 @@ void main() {
     expect(await items(), isEmpty);
   });
 
+  testWidgets('ฟอร์ม: กรอกยอดก่อนแล้วค่อยเลือก "อื่นๆ" -> ช่องยอดเงินยังเป็นช่องเดิม ช่องชื่อเป็นช่องใหม่ที่พิมพ์ตัวอักษรได้',
+      (tester) async {
+    await open(tester);
+    await tap(tester, find.text('เพิ่มรายจ่ายประจำ'));
+    // พิมพ์ยอดก่อน (คีย์บอร์ดตัวเลขเปิดค้างอยู่ที่ช่องนี้)
+    await tester.enterText(find.byType(TextField).last, '599');
+    await tester.pump();
+    await tap(tester, find.text('อื่นๆ'));
+
+    EditableText editable(Finder field) =>
+        tester.widget<EditableText>(find.descendant(of: field, matching: find.byType(EditableText)));
+    final nameField = find.widgetWithText(TextField, 'เช่น ค่าที่จอดรถรายเดือน');
+    final amountField = find.widgetWithText(TextField, 'เช่น 599');
+    // ช่องที่ยังโฟกัสอยู่ต้องเป็นช่องยอดเงินตัวเดิม ไม่ใช่ช่องชื่อที่เพิ่งโผล่มาแทนที่ตำแหน่งเดิม
+    expect(editable(amountField).controller.text, '599');
+    expect(editable(amountField).focusNode.hasFocus, isTrue);
+    expect(editable(nameField).focusNode.hasFocus, isFalse);
+    expect(editable(nameField).keyboardType, TextInputType.text);
+  });
+
   testWidgets('ฟอร์ม: เพิ่มหมวดสำเร็จรูป -> ชื่อตามหมวด เริ่มเดือนนี้ ไม่มีวันสิ้นสุด', (tester) async {
     await open(tester);
 
