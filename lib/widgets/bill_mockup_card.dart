@@ -36,6 +36,10 @@ class BillMockupCard extends StatelessWidget {
   // หลังไว้ด้วยจะชี้ผิดจุดและขัดกับคำเตือนในฟอร์มนั้น
   final bool highlightReading;
 
+  // เมื่อ true จะล้อมกรอบสีแดงที่บรรทัดยอดรวมท้ายบิล — ใช้ตอนเครื่องคิดค่าไฟ/ค่าน้ำ
+  // ให้กรอกยอดเงินจากบิลเพื่อหาว่าใช้ไปกี่หน่วย
+  final bool highlightTotal;
+
   const BillMockupCard({
     super.key,
     required this.isElectricity,
@@ -43,7 +47,15 @@ class BillMockupCard extends StatelessWidget {
     this.isTou = false,
     this.highlightUsed = false,
     this.highlightReading = true,
+    this.highlightTotal = false,
   });
+
+  // ชื่อช่องบนบิลตัวอย่างของเขต/ชนิดมิเตอร์นี้ ให้ข้อความที่ชี้ตำแหน่งตรงกับภาพเสมอ
+  String get usedLabel {
+    final data = _mockDataFor();
+    return data.meterHeader.elementAt(data.usedColIndex);
+  }
+  String get totalLabel => _mockDataFor().totalLabel;
 
   bool get _isBangkok => area == 'bangkok';
 
@@ -132,7 +144,17 @@ class BillMockupCard extends StatelessWidget {
               children: [
                 for (final line in data.costLines) _costRow(line.$1, line.$2),
                 const SizedBox(height: 4),
-                _costRow(data.totalLabel, data.totalValue, bold: true),
+                if (highlightTotal)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v5, vertical: AppSpacing.v2),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.red, width: 1.5),
+                      borderRadius: BorderRadius.circular(AppSpacing.v4),
+                    ),
+                    child: _costRow(data.totalLabel, data.totalValue, bold: true),
+                  )
+                else
+                  _costRow(data.totalLabel, data.totalValue, bold: true),
               ],
             ),
           ),

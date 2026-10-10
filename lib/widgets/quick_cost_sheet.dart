@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../screens/dashboard/dashboard_styles.dart';
 import '../utils/calculator.dart';
 import '../utils/tariff_tables.dart';
+import 'bill_mockup_card.dart';
 import 'info_dialog.dart';
 import 'ui/segmented_switch.dart';
 import 'start_meter_fields.dart' show parseNumInput;
@@ -171,7 +172,23 @@ class _QuickCostSheetState extends State<QuickCostSheet> {
               )
             else
               _field(_unitsCtrl, _water ? 'จำนวนน้ำที่ใช้' : 'จำนวนไฟที่ใช้', _unitName),
-            const SizedBox(height: AppSpacing.v16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => _showBillLocation(context),
+                icon: const Icon(Icons.help_outline_rounded, size: 18),
+                label: const Text('ดูตำแหน่งในบิล'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v4),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(
+                      fontFamily: AppTheme.fontFamily, fontSize: AppTypography.s12_5, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.v8),
             if (_fromBaht)
               _budgetResult()
             else if (result == null)
@@ -522,6 +539,59 @@ class _QuickCostSheetState extends State<QuickCostSheet> {
           const Divider(height: 1),
           const SizedBox(height: AppSpacing.v4),
           ...lines,
+        ],
+      ),
+    );
+  }
+
+  // ภาพใบแจ้งหนี้ตัวอย่างของเขต/มิเตอร์ที่เลือก ล้อมกรอบตัวเลขที่ต้องดู: กรอกหน่วย = ช่องจำนวนหน่วย,
+  // กรอกยอดเงิน = ยอดรวมท้ายบิล (ชื่อช่องในข้อความอ่านจากบิลตัวอย่างเดียวกัน จึงตรงกับภาพเสมอ)
+  void _showBillLocation(BuildContext context) {
+    final mockup = BillMockupCard(
+      isElectricity: !_water,
+      area: _area,
+      isTou: !_water && _isTou,
+      highlightReading: false,
+      highlightUsed: !_fromBaht,
+      highlightTotal: _fromBaht,
+    );
+    final where = _fromBaht ? mockup.totalLabel : mockup.usedLabel;
+    showInfoDialog(
+      context,
+      title: 'ดูตัวเลขตรงไหนของบิล?',
+      contentBuilder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.v10),
+            decoration: BoxDecoration(
+              color: _accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppSpacing.v10),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.receipt_long, size: 16, color: _accent),
+                const SizedBox(width: AppSpacing.v8),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      style: TextStyle(fontSize: AppTypography.s12_5, height: 1.5, color: Colors.grey.shade800),
+                      children: [
+                        const TextSpan(text: 'เทียบกับใบแจ้งหนี้ที่คุณมี ตามกรอบสีแดงในภาพตัวอย่าง\n'),
+                        TextSpan(
+                            text: 'ดูที่ $where',
+                            style: TextStyle(fontWeight: FontWeight.w700, color: _accent)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.v10),
+          mockup,
         ],
       ),
     );

@@ -166,6 +166,22 @@ void main() {
     expect(find.text('ทำไมยอดไม่ตรงกับที่กรอกพอดี'), findsOneWidget);
   });
 
+  testWidgets('ดูตำแหน่งในบิล: กรอกหน่วย -> ชี้ช่องจำนวนหน่วย, กรอกยอดเงิน -> ชี้ยอดรวมท้ายบิล', (tester) async {
+    await open(tester);
+    await tester.tap(find.text('ดูตำแหน่งในบิล'));
+    await tester.pumpAndSettle();
+    expect(find.text('ดูตัวเลขตรงไหนของบิล?'), findsOneWidget);
+    expect(find.textContaining('ดูที่ จำนวนหน่วย (kWh)', findRichText: true), findsOneWidget);
+    await tester.tap(find.text('เข้าใจแล้ว'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('คิดจากยอดเงิน'));
+    await tester.pump();
+    await tester.tap(find.text('ดูตำแหน่งในบิล'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ดูที่ รวมค่าไฟฟ้าเดือนปัจจุบัน', findRichText: true), findsOneWidget);
+  });
+
   test('unitsForBudget: น้ำ กปน./กปภ. หาหน่วยเต็มที่ยอดไม่เกินงบ', () {
     for (final cost in [TariffTables.waterMwaCost, TariffTables.waterPwaCost]) {
       for (final budget in [50.0, 300.0, 2500.0]) {
