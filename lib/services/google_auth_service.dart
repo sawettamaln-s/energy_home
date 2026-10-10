@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 /// รวม logic เข้าสู่ระบบ/สมัครสมาชิกด้วย Google ไว้ที่เดียว ใช้ร่วมกันทั้ง
@@ -68,9 +69,11 @@ class GoogleAuthService {
   static Future<({bool signedIn, String? error})> signInFromAuthScreen() async {
     try {
       return (signedIn: await signIn() != null, error: null);
-    } on FirebaseAuthException {
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Google sign-in (Firebase) failed: ${e.code} ${e.message}');
       return (signedIn: false, error: 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Google sign-in failed: $e');
       return (signedIn: false, error: 'เกิดข้อผิดพลาดบางอย่าง กรุณาลองใหม่อีกครั้ง');
     }
   }
