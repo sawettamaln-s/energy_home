@@ -43,7 +43,7 @@ List<DateTime> _generateHistoricalMonthOptions(int billingDay) {
 // ติดตาม (StartMeterRecordModel.trackingStartKey) — ขอบเขตเดียวกับที่ backfill
 // ใน dashboard_loader.dart ใช้ตรวจรอบที่ขาด ไม่จำกัดแค่ 5 เดือนแบบ
 // _generateHistoricalMonthOptions เพราะเดือนที่ระบบเคยแจ้งเตือนว่าขาด ต้องหาเจอ
-// ในตารางเสมอไม่ว่าจะผ่านไปนานแค่ไหน ไม่งั้นกดตามแจ้งเตือนเข้ามาแล้วเจอทางตัน
+// ในตาราง (ย้อนได้ถึง 24 รอบเท่ากับ backfill) ไม่งั้นกดตามแจ้งเตือนเข้ามาแล้วเจอทางตัน
 List<DateTime> _generateAllMissingMonths(
   int billingDay,
   Set<String> takenAnySource, {

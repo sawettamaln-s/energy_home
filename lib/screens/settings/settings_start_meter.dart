@@ -17,7 +17,7 @@ class _MeterDeltaRow {
   const _MeterDeltaRow(this.label, this.prevVal, this.currentVal, this.used);
 }
 
-// บันทึกเลขมิเตอร์ต้นรอบ (bottom sheet) — รวมกับหน้าประวัติผ่านปุ่ม FAB "+"
+// บันทึกเลขมิเตอร์ต้นรอบ (bottom sheet) — เปิดจากการ์ดใบล่าสุดในหน้าเลขมิเตอร์จากใบแจ้งหนี้
 class _AddStartMeterSheet extends StatefulWidget {
   final String uid;
   final FirestoreService firestoreService;

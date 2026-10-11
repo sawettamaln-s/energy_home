@@ -44,11 +44,11 @@ class EnergyForecaster {
   }
 
   // ==================== Linear Regression ====================
-  // ใช้คาดการณ์แนวโน้มค่าใช้จ่ายในเดือนถัดไป
-  // โดยใช้ข้อมูลย้อนหลังหลายเดือนเป็น training data
+  // วิธีสำรองของการคาดการณ์เดือนถัดไป (ใช้เมื่อไม่รู้ area/meterType) — ลากเส้น
+  // ตรงผ่านค่ารายเดือนย้อนหลัง (หน่วย หรือยอดเงินเมื่อบิลไม่มีหน่วย)
 
   static double linearRegression({
-    required List<double> monthlyValues, // ค่าใช้จ่ายย้อนหลังรายเดือน
+    required List<double> monthlyValues, // ค่ารายเดือนย้อนหลัง (หน่วย หรือยอดเงิน)
     required int forecastMonth, // เดือนที่ต้องการคาดการณ์ (สเกลเดียวกับ X)
     // ลำดับเดือนจริงของแต่ละค่า (ตำแหน่งตรงกับ monthlyValues) เช่น [1, 2, 5]
     // เมื่อเดือน 3-4 ไม่มีข้อมูล — ไม่ส่ง = ถือว่าเดือนติดกัน 1, 2, 3, ...
@@ -63,7 +63,7 @@ class EnergyForecaster {
     int n = monthlyValues.length;
 
     // สร้างข้อมูล X (ลำดับเดือน — เว้นช่องตามเดือนที่ขาดถ้าส่ง monthIndexes มา)
-    // และ Y (ค่าใช้จ่ายแต่ละเดือน)
+    // และ Y (ค่าของแต่ละเดือน)
     double sumX = 0;
     double sumY = 0;
     double sumXY = 0;
@@ -98,7 +98,7 @@ class EnergyForecaster {
   }
 
   // ==================== Seasonal Curve ====================
-  // ใช้คาดการณ์เดือนถัดไป โดยเอาค่าเฉลี่ยล่าสุดของ user คูณกับ "ตัวคูณตามฤดูกาล"
+  // ใช้คาดการณ์เดือนถัดไป โดยเอาระดับการใช้ล่าสุดของ user (หักฤดูกาลออกแล้ว) คูณกับ "ตัวคูณตามฤดูกาล"
   // ของเคสนั้น (ดู lib/utils/seasonal_curves.dart ที่สร้างจากสถิติการใช้จริง
   // รายเดือนของภาคที่อยู่อาศัย ด้วย tool/seasonal_curves/)
 
@@ -110,7 +110,7 @@ class EnergyForecaster {
   static const int seasonalRecentMonths = 1;
 
   static double seasonalForecast({
-    required List<double> recentMonthlyValues, // ค่าใช้จ่ายย้อนหลังไม่กี่เดือนล่าสุดของ user คนนี้
+    required List<double> recentMonthlyValues, // ค่ารายเดือนล่าสุดของ user คนนี้ (หน่วย หรือยอดเงินเมื่อบิลไม่มีหน่วย)
     required List<int> recentMonths, // เดือนปฏิทิน (1-12) ของแต่ละค่าใน recentMonthlyValues ตำแหน่งตรงกัน
     required List<double> curve, // 12 ค่า จาก SeasonalCurves (index 0 = ม.ค.)
     required int forecastMonth, // เดือนที่จะทาย (1-12)

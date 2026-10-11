@@ -69,9 +69,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
             (m) => m.year == existing.year && m.month == existing.month)) {
       _monthOptions.add(DateTime(existing.year, existing.month, 1));
     }
-    // ต้องหยิบ DateTime ตัวจริงจาก _monthOptions มาใช้ (ไม่สร้างใหม่เอง) เพราะตัวเลือก
-    // ใช้วันที่ = billingDay จริง (เช่น 10, 30) ไม่ใช่วันที่ 1 ถ้าสร้างเองจะไม่ match กัน
-    // และ DropdownButtonFormField จะหา item ที่ตรงกับ value ไม่เจอ
+    // หยิบ DateTime ตัวจริงจาก _monthOptions มาใช้ (ไม่สร้างใหม่เอง) ให้เดือนที่เลือกเป็น
+    // ค่าชุดเดียวกับชิปเดือน (วันที่ = billingDay จริง เช่น 10, 30 ไม่ใช่วันที่ 1)
     _selectedMonth = existing != null
         ? _monthOptions.firstWhere(
             (m) => m.year == existing.year && m.month == existing.month,
@@ -161,8 +160,8 @@ class _AddHistoricalBillSheetState extends State<_AddHistoricalBillSheet> {
               (m) => m.year == existing.year && m.month == existing.month)) {
         rebuilt.add(DateTime(existing.year, existing.month, 1));
       }
-      // ต้องปรับ _selectedMonth ให้ตรงกับ _monthOptions ชุดใหม่ใน setState เดียวกันนี้เลย
-      // ไม่งั้น DropdownButtonFormField จะถือค่าเก่าที่ไม่มีใน options ชุดใหม่ แล้ว throw assertion
+      // ปรับ _selectedMonth เป็นตัวในชุดตัวเลือกใหม่ใน setState เดียวกัน (เดือนเดิมไม่มี
+      // ในชุดใหม่ = เลือกเดือนแรก) ชิปเดือนกับเดือนที่บันทึกจึงตรงกันเสมอ
       final matchInRebuilt = rebuilt.firstWhere(
         (m) => m.year == _selectedMonth.year && m.month == _selectedMonth.month,
         orElse: () => rebuilt.first,
