@@ -33,6 +33,7 @@ void main() {
 
   test('รอบนี้คาดว่าสูงขึ้น แต่บิลที่ปิดแล้วลดลง 3 เดือน -> ทั้งสองข้อบอกชื่อบิล', () {
     final bills = [bill(8, 1400, units: 350), bill(9, 1300, units: 325), bill(10, 1200, units: 300)];
+    // บิล ต.ค. วันละ 10 หน่วย รอบ พ.ย. คาดว่า 372 หน่วยใน 31 วัน = วันละ 12 (+20%)
     final insights = service.generateUtilityInsights(
       label: 'ค่าไฟ',
       bills: bills,
@@ -43,9 +44,9 @@ void main() {
       usageLabel: 'การใช้ไฟ',
       currentCycle: CurrentCycleForecast(
         currentCost: 300,
-        forecastCost: 1440, // สูงกว่าบิล ต.ค. 20%
+        forecastCost: 1440,
         currentUnits: 60,
-        forecastUnits: 330,
+        forecastUnits: 372,
         daysElapsed: 5,
         remainingDays: 26,
         cycleLengthDays: 31,
@@ -54,17 +55,19 @@ void main() {
       ),
     ).map((i) => i.text).toList();
 
-    expect(insights, contains(contains('ค่าไฟรอบนี้ (บิล พ.ย. 69) คาดว่าจะสูงกว่าบิล ต.ค. 69 ประมาณ 20%')));
+    expect(insights, contains(contains('การใช้ไฟต่อวันรอบนี้ (บิล พ.ย. 69) คาดว่าจะสูงกว่าบิล ต.ค. 69 ประมาณ 20%')));
     expect(insights, contains(contains('ลดลงต่อเนื่อง 3 เดือน (ส.ค.–ต.ค. 69)')));
   });
 
   test('บันทึกยังไม่ถึง 1 วันจากต้นรอบ (ยังไม่ได้คาดการณ์) -> ไม่เทียบรอบนี้กับบิลล่าสุด', () {
     final insights = service.generateUtilityInsights(
       label: 'ค่าไฟ',
-      bills: [bill(8, 1200), bill(9, 1200), bill(10, 1200)],
+      bills: [bill(8, 1200, units: 300), bill(9, 1200, units: 300), bill(10, 1200, units: 300)],
       selector: (b) => b.electricityCost,
       mom: null,
       yoy: null,
+      usagePerDay: perDay,
+      usageLabel: 'การใช้ไฟ',
       // ยอดที่ใช้ไปไม่กี่ชั่วโมง ไม่ใช่ยอดทั้งรอบ ถ้านำไปเทียบจะได้ "ต่ำกว่า 97%"
       currentCycle: CurrentCycleForecast(
         currentCost: 40,
@@ -79,7 +82,63 @@ void main() {
       ),
     ).map((i) => i.text).toList();
 
-    expect(insights, isNot(contains(contains('ค่าไฟรอบนี้'))));
+    expect(insights, isNot(contains(contains('รอบนี้ ('))));
+  });
+
+  group('ข้อสังเกตรอบนี้เทียบบิลล่าสุด', () {
+    // บิล ก.พ. วันละ 10 หน่วย รอบ เม.ย. ใช้เพิ่มตามหน้าร้อนพอดี (ตัวคูณ เม.ย. ÷ ก.พ. ≈ 1.29)
+    CurrentCycleForecast april(double perDayNow) => CurrentCycleForecast(
+          currentCost: 500,
+          forecastCost: 1600,
+          currentUnits: 120,
+          forecastUnits: perDayNow * 30,
+          daysElapsed: 10,
+          remainingDays: 20,
+          cycleLengthDays: 30,
+          billMonth: DateTime(2026, 4, 1),
+          projected: true,
+        );
+    List<String> cycleInsights(CurrentCycleForecast c, {bool seasonal = true}) => service
+        .generateUtilityInsights(
+          label: 'ค่าไฟ',
+          bills: [bill(2, 1200, units: 300)],
+          selector: (b) => b.electricityCost,
+          mom: null,
+          yoy: null,
+          currentCycle: c,
+          usagePerDay: perDay,
+          usageLabel: 'การใช้ไฟ',
+          seasonalFactor: seasonal ? bangkokFactor : null,
+        )
+        .map((i) => i.text)
+        .where((t) => t.contains('รอบนี้ ('))
+        .toList();
+
+    test('ใช้เพิ่มตามฤดูกาลพอดี -> ไม่เตือน (ถ้าไม่หักฤดูกาลจะเตือน)', () {
+      final c = april(10 * bangkokFactor(4) / bangkokFactor(2));
+      expect(cycleInsights(c), isEmpty);
+      expect(cycleInsights(c, seasonal: false), [contains('สูงกว่าบิล ก.พ. 69')]);
+    });
+
+    test('ใช้เพิ่มเกินฤดูกาล 20% -> เตือน และบอกว่าหักฤดูกาลแล้ว', () {
+      final c = april(12 * bangkokFactor(4) / bangkokFactor(2));
+      expect(cycleInsights(c), [contains('ประมาณ 20% แม้หักผลของฤดูกาลแล้ว')]);
+    });
+
+    test('บิลล่าสุดไม่มีหน่วย -> ข้ามข้อนี้', () {
+      final insights = service
+          .generateUtilityInsights(
+            label: 'ค่าไฟ',
+            bills: [bill(2, 1200)],
+            selector: (b) => b.electricityCost,
+            mom: null,
+            yoy: null,
+            currentCycle: april(20),
+            usagePerDay: perDay,
+          )
+          .map((i) => i.text);
+      expect(insights.where((t) => t.contains('รอบนี้ (')), isEmpty);
+    });
   });
 
   group('ข้อสังเกตเพิ่ม/ลดต่อเนื่อง 3 เดือน', () {

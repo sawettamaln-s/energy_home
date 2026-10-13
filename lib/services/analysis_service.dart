@@ -6,6 +6,7 @@ import '../utils/calculator.dart';
 import '../utils/cycle_projection.dart';
 import '../utils/forecaster.dart';
 import '../utils/seasonal_curves.dart';
+import '../utils/tariff_tables.dart';
 import '../utils/thai_date_utils.dart';
 import 'firestore_service.dart';
 
@@ -291,8 +292,12 @@ class AnalysisService {
   /// อัตราเป็นขั้นบันได หน่วยกับเงินที่คาดการณ์จึงตรงกันตามตารางอัตรา
   ///
   /// ใช้เฉพาะบิลที่มีหน่วย (บิลแรกสุดจากการตั้งเลขต้นรอบอาจมีแต่ยอดเงิน)
-  /// TOU แบ่งหน่วยเป็น On/Off-Peak ตามสัดส่วนของบิลที่มีหน่วยแยกช่วง ถ้าไม่มี
-  /// บิลที่มีหน่วยเลย (หรือ TOU ที่ไม่มีบิลแยกช่วง) ทายจากยอดเงินแทน
+  /// TOU แบ่งหน่วยเป็น On/Off-Peak ตามสัดส่วนของบิลที่มีหน่วยแยกช่วง
+  ///
+  /// ไม่มีบิลที่มีหน่วยเลย: มิเตอร์ปกติ/น้ำแปลงยอดเงินของแต่ละบิลกลับเป็นหน่วย
+  /// ด้วยตารางอัตราเดียวกัน ([TariffTables.unitsForBudget]) แล้วทายตามปกติ ส่วน
+  /// TOU ที่ไม่มีบิลแยกช่วงแปลงกลับไม่ได้ (ราคาขึ้นกับสัดส่วน On/Off-Peak) จึงใช้
+  /// ยอดเงินบิลล่าสุดตรงๆ ไม่ปรับฤดูกาล ดู [canForecastFromUnits]
   double forecastCostFromUnits(
     List<BillModel> bills, {
     required double Function(BillModel) costSelector,
@@ -308,19 +313,25 @@ class AnalysisService {
     if (bills.isEmpty) return 0;
     final target =
         targetMonth ?? DateTime(bills.last.year, bills.last.month + 1, 1);
-    double fromCost() => forecastNextMonth(
-          bills,
-          selector: costSelector,
-          area: area,
-          meterType: meterType,
-          isWater: isWater,
-          targetMonth: target,
-        );
-
-    final withUnits = bills.where((b) => usedSelector(b) > 0).toList();
-    if (withUnits.isEmpty) return fromCost();
-
     final isTou = peakSelector != null && offPeakSelector != null;
+    final latestCost = costSelector(bills.last);
+
+    var withUnits = bills.where((b) => usedSelector(b) > 0).toList();
+    var unitsOf = usedSelector;
+    if (withUnits.isEmpty) {
+      if (isTou) return latestCost;
+      // ยอดเงินที่ต่ำกว่าค่าบริการขั้นต่ำแปลงกลับไม่ได้ ข้ามบิลนั้น
+      final recovered = Map<BillModel, double>.identity();
+      for (final b in bills) {
+        final u = TariffTables.unitsForBudget(
+            costSelector(b), (u) => price(units: u, peakUnits: 0, offPeakUnits: 0));
+        if (u != null && u > 0) recovered[b] = u.toDouble();
+      }
+      if (recovered.isEmpty) return latestCost;
+      withUnits = recovered.keys.toList();
+      unitsOf = (b) => recovered[b]!;
+    }
+
     var peakShare = 0.0;
     if (isTou) {
       var peak = 0.0;
@@ -332,13 +343,13 @@ class AnalysisService {
         peak += p;
         total += p + o;
       }
-      if (total <= 0) return fromCost();
+      if (total <= 0) return latestCost;
       peakShare = peak / total;
     }
 
     final units = forecastNextMonth(
       withUnits,
-      selector: usedSelector,
+      selector: unitsOf,
       area: area,
       meterType: meterType,
       isWater: isWater,
@@ -351,35 +362,72 @@ class AnalysisService {
     );
   }
 
-  /// [forecastCostFromUnits] ของ [months] เดือนถัดจากบิลล่าสุด เรียงตามเดือน
-  List<double> forecastNextMonthsCost(
+  /// คาดการณ์รอบถัดไปคิดจากหน่วยได้ไหม (รูปแบบฤดูกาลมีผลกับตัวเลข) — false
+  /// เฉพาะ TOU ที่ไม่มีบิลแยก On/Off-Peak เลย ซึ่ง [forecastCostFromUnits] ใช้
+  /// ยอดเงินบิลล่าสุดตรงๆ
+  bool canForecastFromUnits(
     List<BillModel> bills, {
-    required double Function(BillModel) costSelector,
     required double Function(BillModel) usedSelector,
-    required UnitPricer price,
     double Function(BillModel)? peakSelector,
     double Function(BillModel)? offPeakSelector,
+  }) {
+    if (peakSelector == null || offPeakSelector == null) return true;
+    return bills.any((b) => usedSelector(b) > 0 && peakSelector(b) + offPeakSelector(b) > 0);
+  }
+
+  /// ฐานของการคาดการณ์รอบถัดไป = บิลที่ปิดแล้ว ต่อท้ายด้วยรอบที่กำลังใช้อยู่
+  /// เป็นบิลสมมติ (หน่วย/ยอดเงินคาดการณ์สิ้นรอบ) เมื่อคาดการณ์ได้แล้วและเป็น
+  /// รอบที่ใหม่กว่าบิลล่าสุด — ยอดสิ้นรอบนี้เป็นข้อมูลการใช้ที่ใหม่ที่สุด ถ้าทาย
+  /// เดือนถัดไปจากบิลที่เก่ากว่า กราฟจะดิ่งหรือพุ่งจากแท่งรอบนี้ทั้งที่ฤดูกาลไม่ได้
+  /// เปลี่ยนขนาดนั้น บิลสมมติไม่มีหน่วยแยก On/Off-Peak จึงไม่ถูกนับในสัดส่วน TOU
+  /// ใช้เฉพาะการคาดการณ์ ไม่ใช้กับการเทียบบิลหรือข้อสังเกต
+  List<BillModel> forecastBasis(
+    List<BillModel> bills, {
+    required CurrentCycleForecast? currentCycle,
+    required bool isWater,
+  }) {
+    final c = currentCycle;
+    if (c == null || !c.hasForecast || bills.isEmpty) return bills;
+    if (!c.billMonth.isAfter(DateTime(bills.last.year, bills.last.month, 1))) return bills;
+    return [
+      ...bills,
+      BillModel(
+        id: 'current_cycle',
+        uid: bills.last.uid,
+        year: c.billMonth.year,
+        month: c.billMonth.month,
+        electricityUsed: isWater ? 0 : c.forecastUnits,
+        electricityCost: isWater ? 0 : c.forecastCost,
+        waterUsed: isWater ? c.forecastUnits : 0,
+        waterCost: isWater ? c.forecastCost : 0,
+        totalCost: c.forecastCost,
+      ),
+    ];
+  }
+
+  /// ค่าคาดการณ์ [months] เดือนถัดจากบิลที่ปิดแล้วใบล่าสุด สำหรับแท่งประในกราฟ
+  /// แท่งของรอบที่กำลังใช้อยู่ใช้ [pick] (ตัวเลขเดียวกับส่วน "รอบนี้" ของการ์ด
+  /// คาดการณ์) เดือนหลังจากนั้นทายจาก [forecastBasis] ส่วนเดือนที่อยู่ก่อนรอบนี้
+  /// (รอบที่ขาดบิล) ทายจากบิลที่ปิดแล้ว [forecastFor] รับฐานกับเดือนเป้าหมาย
+  List<double> forecastChartMonths(
+    List<BillModel> bills, {
+    required CurrentCycleForecast? currentCycle,
+    required bool isWater,
+    required double Function(List<BillModel> basis, DateTime target) forecastFor,
+    required double Function(CurrentCycleForecast c) pick,
     int months = 3,
-    String? area,
-    String? meterType,
-    bool isWater = false,
   }) {
     if (bills.isEmpty) return List.filled(months, 0);
+    final basis = forecastBasis(bills, currentCycle: currentCycle, isWater: isWater);
+    final c = basis.length > bills.length ? currentCycle! : null;
     final last = bills.last;
+    double at(DateTime target) {
+      if (c != null && target == c.billMonth) return pick(c);
+      return forecastFor(c != null && target.isAfter(c.billMonth) ? basis : bills, target);
+    }
+
     return [
-      for (var i = 1; i <= months; i++)
-        forecastCostFromUnits(
-          bills,
-          costSelector: costSelector,
-          usedSelector: usedSelector,
-          price: price,
-          peakSelector: peakSelector,
-          offPeakSelector: offPeakSelector,
-          area: area,
-          meterType: meterType,
-          isWater: isWater,
-          targetMonth: DateTime(last.year, last.month + i, 1),
-        ),
+      for (var i = 1; i <= months; i++) at(DateTime(last.year, last.month + i, 1)),
     ];
   }
 
@@ -505,9 +553,9 @@ class AnalysisService {
   /// label: ใช้ขึ้นต้นข้อความ เช่น 'ค่าไฟ' หรือ 'ค่าน้ำ'
   /// includeComparisons: false = ไม่สร้างข้อ 3-4 (เทียบปีก่อน/เดือนก่อน) สำหรับ
   /// หน้าที่แสดงการเปรียบเทียบนั้นในการ์ดของตัวเองอยู่แล้ว
-  /// usagePerDay: หน่วยเฉลี่ยต่อวันของบิล (null = บิลไม่มีหน่วย) ไม่ส่ง = ข้ามข้อ 2
-  /// usageLabel: ชื่อการใช้ในข้อ 2 เช่น 'การใช้ไฟ'
-  /// seasonalFactor: ตัวคูณฤดูกาลของเดือน (1-12) ใช้หักผลของฤดูในข้อ 2
+  /// usagePerDay: หน่วยเฉลี่ยต่อวันของบิล (null = บิลไม่มีหน่วย) ไม่ส่ง = ข้ามข้อ 1-2
+  /// usageLabel: ชื่อการใช้ในข้อ 1-2 เช่น 'การใช้ไฟ'
+  /// seasonalFactor: ตัวคูณฤดูกาลของเดือน (1-12) ใช้หักผลของฤดูในข้อ 1-2
   List<AnalysisInsight> generateUtilityInsights({
     required String label,
     required List<BillModel> bills,
@@ -527,29 +575,40 @@ class AnalysisService {
     String billName(int year, int month) =>
         'บิล ${thaiMonthsShort[month - 1]} ${(year + 543) % 100}';
 
-    // ----- 1. คาดการณ์ยอดรอบปัจจุบัน เทียบกับบิลล่าสุด -----
-    if (currentCycle != null && currentCycle.hasForecast && bills.isNotEmpty) {
-      final lastActual = selector(bills.last);
-      if (lastActual > 0) {
-        final diffPercent =
-            ((currentCycle.forecastCost - lastActual) / lastActual) * 100;
-        final thisBill =
-            billName(currentCycle.billMonth.year, currentCycle.billMonth.month);
-        final lastBill = billName(bills.last.year, bills.last.month);
-        if (diffPercent >= 15) {
-          insights.add(AnalysisInsight(
-            '$labelรอบนี้ ($thisBill) คาดว่าจะสูงกว่า$lastBill ประมาณ '
-            '${diffPercent.toStringAsFixed(0)}% หากใช้งานในอัตราเดิมต่อไป '
-            'อาจลองลดการใช้งานในช่วงที่เหลือของรอบบิล',
-            InsightLevel.warning,
-          ));
-        } else if (diffPercent <= -15) {
-          insights.add(AnalysisInsight(
-            '$labelรอบนี้ ($thisBill) มีแนวโน้มต่ำกว่า$lastBill ประมาณ '
-            '${diffPercent.abs().toStringAsFixed(0)}% ทำได้ดีมาก',
-            InsightLevel.good,
-          ));
-        }
+    // ----- 1. คาดการณ์รอบปัจจุบัน เทียบกับบิลล่าสุด -----
+    // เทียบหน่วยต่อวันหลังหักผลของฤดูกาล เหตุผลเดียวกับข้อ 2: ถ้าเทียบยอดเงิน
+    // รอบ มี.ค. (31 วัน หน้าร้อน) จะสูงกว่าบิล ก.พ. (28 วัน) เกิน 15% ทุกปี
+    // ทั้งที่ใช้เหมือนเดิม บิลล่าสุดที่ไม่มีหน่วยข้ามข้อนี้
+    double seasonOf(int month) => seasonalFactor?.call(month) ?? 1.0;
+    final seasonNote = seasonalFactor != null ? ' แม้หักผลของฤดูกาลแล้ว' : '';
+    final lastPerDay =
+        bills.isEmpty || usagePerDay == null ? null : usagePerDay(bills.last);
+    if (currentCycle != null &&
+        currentCycle.hasForecast &&
+        currentCycle.cycleLengthDays > 0 &&
+        lastPerDay != null &&
+        lastPerDay > 0) {
+      final nowLevel = currentCycle.forecastUnits /
+          currentCycle.cycleLengthDays /
+          seasonOf(currentCycle.billMonth.month);
+      final lastLevel = lastPerDay / seasonOf(bills.last.month);
+      final diffPercent = (nowLevel - lastLevel) / lastLevel * 100;
+      final thisBill =
+          billName(currentCycle.billMonth.year, currentCycle.billMonth.month);
+      final lastBill = billName(bills.last.year, bills.last.month);
+      if (diffPercent >= 15) {
+        insights.add(AnalysisInsight(
+          '$usageLabelต่อวันรอบนี้ ($thisBill) คาดว่าจะสูงกว่า$lastBill ประมาณ '
+          '${diffPercent.toStringAsFixed(0)}%$seasonNote หากใช้งานในอัตราเดิมต่อไป '
+          'อาจลองลดการใช้งานในช่วงที่เหลือของรอบบิล',
+          InsightLevel.warning,
+        ));
+      } else if (diffPercent <= -15) {
+        insights.add(AnalysisInsight(
+          '$usageLabelต่อวันรอบนี้ ($thisBill) มีแนวโน้มต่ำกว่า$lastBill ประมาณ '
+          '${diffPercent.abs().toStringAsFixed(0)}%$seasonNote ทำได้ดีมาก',
+          InsightLevel.good,
+        ));
       }
     }
 
@@ -574,13 +633,12 @@ class AnalysisService {
       final perDay = [for (final b in trio) b == null ? null : usagePerDay(b)];
       if (perDay.every((v) => v != null)) {
         final last3 = [
-          for (var i = 0; i < 3; i++) perDay[i]! / (seasonalFactor?.call(trio[i]!.month) ?? 1.0),
+          for (var i = 0; i < 3; i++) perDay[i]! / seasonOf(trio[i]!.month),
         ];
         const up = 1 + _trendStepPercent / 100;
         const down = 1 - _trendStepPercent / 100;
         final increasing = last3[1] >= last3[0] * up && last3[2] >= last3[1] * up;
         final decreasing = last3[1] <= last3[0] * down && last3[2] <= last3[1] * down;
-        final seasonNote = seasonalFactor != null ? ' แม้หักผลของฤดูกาลแล้ว' : '';
         // ช่วงบิลที่ปิดแล้ว เช่น "ส.ค.–ต.ค. 69" (ยังไม่รวมรอบที่กำลังใช้อยู่)
         final range = '${thaiMonthsShort[mMinus2.month - 1]}–'
             '${thaiMonthsShort[current.month - 1]} ${(current.year + 543) % 100}';

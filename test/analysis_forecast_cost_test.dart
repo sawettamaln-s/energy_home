@@ -5,6 +5,7 @@ import 'package:energy_home/models/bill_model.dart';
 import 'package:energy_home/services/analysis_service.dart';
 import 'package:energy_home/utils/calculator.dart';
 import 'package:energy_home/utils/forecaster.dart';
+import 'package:energy_home/utils/tariff_tables.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -102,7 +103,7 @@ void main() {
             peakUnits: units * 0.25, offPeakUnits: units * 0.75, ftRate: ft));
   });
 
-  test('ไม่มีบิลที่มีหน่วยเลย -> ทายจากยอดเงินแทน', () {
+  test('ไม่มีบิลที่มีหน่วยเลย -> แปลงยอดเงินกลับเป็นหน่วยด้วยตารางอัตรา แล้วทายหน่วย', () {
     final bills = [bill(5, 0, 1800), bill(6, 0, 1400)];
     final cost = service.forecastCostFromUnits(
       bills,
@@ -112,36 +113,83 @@ void main() {
       area: 'bangkok',
       meterType: 'normal',
     );
-    expect(
-        cost,
-        service.forecastNextMonth(bills,
-            selector: (b) => b.electricityCost,
-            area: 'bangkok',
-            meterType: 'normal'));
+    // 1,400 บาทของบิลล่าสุด = หน่วยเต็มที่มากที่สุดที่ไม่เกิน 1,400 บาท
+    final units = TariffTables.unitsForBudget(
+        1400, (u) => priceNormal(units: u, peakUnits: 0, offPeakUnits: 0))!;
+    expect(cost, EnergyCalculator.electricityCost(unitsForecast([bill(6, units.toDouble(), 0)]), ftRate: ft));
+    // ไม่ใช่ยอดเงิน × ตัวคูณฤดูกาล
+    expect(cost, isNot(service.forecastNextMonth(bills,
+        selector: (b) => b.electricityCost, area: 'bangkok', meterType: 'normal')));
   });
 
-  test('หลายเดือนข้างหน้า เรียงตามเดือนถัดจากบิลล่าสุด', () {
-    final bills = [bill(4, 320, 1500), bill(5, 380, 1800), bill(6, 300, 1400)];
-    final costs = service.forecastNextMonthsCost(
-      bills,
-      costSelector: (b) => b.electricityCost,
-      usedSelector: (b) => b.electricityUsed,
-      price: priceNormal,
-      area: 'bangkok',
-      meterType: 'normal',
-    );
-    expect(costs, [
-      for (final m in [7, 8, 9])
-        service.forecastCostFromUnits(
+  test('TOU ไม่มีบิลแยก On/Off-Peak -> ใช้ยอดเงินบิลล่าสุดตรงๆ ไม่ปรับฤดูกาล', () {
+    final bills = [bill(5, 0, 1800), bill(6, 0, 1400)];
+    double tou(List<BillModel> bills) => service.forecastCostFromUnits(
           bills,
+          costSelector: (b) => b.electricityCost,
+          usedSelector: (b) => b.electricityUsed,
+          price: priceTou,
+          peakSelector: (b) => b.electricityPeakUsed,
+          offPeakSelector: (b) => b.electricityOffPeakUsed,
+          area: 'bangkok',
+          meterType: 'tou',
+        );
+    expect(tou(bills), 1400);
+    expect(
+        service.canForecastFromUnits(bills,
+            usedSelector: (b) => b.electricityUsed,
+            peakSelector: (b) => b.electricityPeakUsed,
+            offPeakSelector: (b) => b.electricityOffPeakUsed),
+        isFalse);
+  });
+
+  group('แท่งคาดการณ์ในกราฟ (forecastChartMonths)', () {
+    final bills = [bill(4, 320, 1500), bill(5, 380, 1800), bill(6, 300, 1400)];
+    double costFor(List<BillModel> basis, DateTime target) => service.forecastCostFromUnits(
+          basis,
           costSelector: (b) => b.electricityCost,
           usedSelector: (b) => b.electricityUsed,
           price: priceNormal,
           area: 'bangkok',
           meterType: 'normal',
-          targetMonth: DateTime(2026, m, 1),
-        ),
-    ]);
+          targetMonth: target,
+        );
+    CurrentCycleForecast cycle({bool projected = true}) => CurrentCycleForecast(
+          currentCost: 600,
+          forecastCost: 1500,
+          currentUnits: 150,
+          forecastUnits: 358,
+          daysElapsed: 12,
+          remainingDays: 19,
+          cycleLengthDays: 31,
+          billMonth: DateTime(2026, 7, 1),
+          projected: projected,
+        );
+
+    test('ยังไม่มีบันทึกรอบนี้ -> 3 เดือนถัดจากบิลล่าสุด ทายจากบิลที่ปิดแล้ว', () {
+      final costs = service.forecastChartMonths(bills,
+          currentCycle: null, isWater: false, forecastFor: costFor, pick: (c) => c.forecastCost);
+      expect(costs, [for (final m in [7, 8, 9]) costFor(bills, DateTime(2026, m, 1))]);
+    });
+
+    test('รอบนี้คาดการณ์ได้ -> แท่งรอบนี้ใช้ยอดคาดการณ์ เดือนถัดไปทายต่อจากรอบนี้', () {
+      final costs = service.forecastChartMonths(bills,
+          currentCycle: cycle(), isWater: false, forecastFor: costFor, pick: (c) => c.forecastCost);
+      expect(costs[0], 1500);
+      // ส.ค. = 358 หน่วยของรอบ ก.ค. ÷ ตัวคูณ ก.ค. × ตัวคูณ ส.ค. แล้วคิดเงิน
+      final current = bill(7, 358, 1500);
+      expect(costs[1], EnergyCalculator.electricityCost(unitsForecast([current]), ftRate: ft));
+      expect(costs[1], isNot(costFor(bills, DateTime(2026, 8, 1))));
+    });
+
+    test('บันทึกรอบนี้ยังไม่ถึง 1 วัน -> ไม่ใช้รอบนี้เป็นฐาน', () {
+      final costs = service.forecastChartMonths(bills,
+          currentCycle: cycle(projected: false),
+          isWater: false,
+          forecastFor: costFor,
+          pick: (c) => c.forecastCost);
+      expect(costs, [for (final m in [7, 8, 9]) costFor(bills, DateTime(2026, m, 1))]);
+    });
   });
 
   test('พยากรณ์เดือนถัดไปใช้บิลล่าสุด EnergyForecaster.seasonalRecentMonths เดือน', () {

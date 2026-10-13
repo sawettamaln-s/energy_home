@@ -153,7 +153,7 @@ void main() {
 
     expect(find.textContaining('บันทึกมิเตอร์อีกครั้งเมื่อเริ่มรอบมาแล้วอย่างน้อย 1 วัน'), findsOneWidget);
     expect(find.textContaining('ทั้งรอบน่าจะใช้ประมาณ'), findsNothing);
-    expect(find.textContaining('ค่าไฟรอบนี้'), findsNothing);
+    expect(find.textContaining('ต่อวันรอบนี้'), findsNothing);
   });
 
   testWidgets('การ์ดกราฟแสดง 6 เดือนตามปฏิทิน เดือนที่ไม่มีบิลเป็นช่องว่าง', (tester) async {

@@ -102,52 +102,51 @@ class _UtilityTab extends StatelessWidget {
     // ยอดเงินคาดการณ์คิดจากหน่วยที่คาดการณ์ด้วยตารางอัตรา หน่วยกับเงินจึงตรงกัน
     final peakSel = isTou ? peakUsedSelector : null;
     final offPeakSel = isTou ? offPeakUsedSelector : null;
-    final forecast = analysisService.forecastCostFromUnits(
+    double costFor(List<BillModel> basis, DateTime target) => analysisService.forecastCostFromUnits(
+          basis,
+          costSelector: selector,
+          usedSelector: usedSelector,
+          price: price,
+          peakSelector: peakSel,
+          offPeakSelector: offPeakSel,
+          area: area,
+          meterType: meterType,
+          isWater: isWater,
+          targetMonth: target,
+        );
+    // รอบถัดไปทายจากรอบที่กำลังใช้อยู่ (ยอดคาดการณ์สิ้นรอบ) เมื่อคาดการณ์ได้แล้ว
+    // ข้อมูลใหม่กว่าบิลล่าสุด ดู AnalysisService.forecastBasis
+    final basis = analysisService.forecastBasis(bills, currentCycle: currentCycle, isWater: isWater);
+    final basedOnCurrentCycle = basis.length > bills.length;
+    final forecast = nextBillMonth == null ? 0.0 : costFor(basis, nextBillMonth);
+    final multiMonthForecast = analysisService.forecastChartMonths(
       bills,
-      costSelector: selector,
-      usedSelector: usedSelector,
-      price: price,
-      peakSelector: peakSel,
-      offPeakSelector: offPeakSel,
-      area: area,
-      meterType: meterType,
+      currentCycle: currentCycle,
       isWater: isWater,
-      targetMonth: nextBillMonth,
-    );
-    final multiMonthForecast = _withCurrentCycle(
-      analysisService.forecastNextMonthsCost(
-        bills,
-        costSelector: selector,
-        usedSelector: usedSelector,
-        price: price,
-        peakSelector: peakSel,
-        offPeakSelector: offPeakSel,
-        months: 3,
-        area: area,
-        meterType: meterType,
-        isWater: isWater,
-      ),
-      (c) => c.forecastCost,
+      forecastFor: costFor,
+      pick: (c) => c.forecastCost,
     );
     // คาดการณ์ฝั่ง "หน่วยที่ใช้" (กราฟเทรนด์สลับโหมดได้) — ใช้เฉพาะบิลที่มีหน่วย
     // ชุดเดียวกับที่ใช้คิดยอดเงินด้านบน เส้นฤดูกาลสร้างจากยอดหน่วยอยู่แล้ว
     // (tool/seasonal_curves) ยอดรวมทั้งเดือนไม่แยก On/Off-Peak
-    final billsWithUnits = bills.where((b) => usedSelector(b) > 0).toList();
-    final multiMonthUsedForecast = _withCurrentCycle(
-      [
-        for (var i = 1; i <= 3; i++)
-          billsWithUnits.isEmpty
-              ? 0.0
-              : analysisService.forecastNextMonth(
-                  billsWithUnits,
-                  selector: usedSelector,
-                  area: area,
-                  meterType: meterType,
-                  isWater: isWater,
-                  targetMonth: DateTime(bills.last.year, bills.last.month + i, 1),
-                ),
-      ],
-      (c) => c.forecastUnits,
+    final multiMonthUsedForecast = analysisService.forecastChartMonths(
+      bills,
+      currentCycle: currentCycle,
+      isWater: isWater,
+      forecastFor: (basis, target) {
+        final withUnits = basis.where((b) => usedSelector(b) > 0).toList();
+        return withUnits.isEmpty
+            ? 0.0
+            : analysisService.forecastNextMonth(
+                withUnits,
+                selector: usedSelector,
+                area: area,
+                meterType: meterType,
+                isWater: isWater,
+                targetMonth: target,
+              );
+      },
+      pick: (c) => c.forecastUnits,
     );
 
     // การ์ดเปรียบเทียบแสดงผลเทียบเดือนก่อน/ปีก่อนอยู่แล้ว จึงไม่สร้างข้อสังเกต
@@ -171,8 +170,11 @@ class _UtilityTab extends StatelessWidget {
         .toList();
 
     // true เมื่อรู้ area+meterType ของ user คนนี้แล้ว (เงื่อนไขเดียวกับ
-    // _resolveCurve ใน analysis_service.dart)
-    final usesSeasonalCurve = area != null && meterType != null;
+    // _resolveCurve ใน analysis_service.dart) และทายจากหน่วยได้ — TOU ที่ไม่มีบิล
+    // แยก On/Off-Peak ใช้ยอดเงินบิลล่าสุดตรงๆ ไม่ได้ปรับฤดูกาล
+    final canUseUnits = analysisService.canForecastFromUnits(bills,
+        usedSelector: usedSelector, peakSelector: peakSel, offPeakSelector: offPeakSel);
+    final usesSeasonalCurve = area != null && meterType != null && canUseUnits;
 
     // ค่าคาดการณ์ยังไม่น่าเชื่อถือเฉพาะวิธีสำรอง (เส้นแนวโน้ม) ที่มีบิลน้อยกว่า
     // 3 เดือน — เส้นบนจุดข้อมูล 1-2 จุดแค่ทาบผ่านจุดที่มี ส่วนวิธีฤดูกาลใช้
@@ -191,6 +193,8 @@ class _UtilityTab extends StatelessWidget {
             targetMonth: nextBillMonth,
             lowConfidence: forecastLowConfidence,
             usesSeasonalCurve: usesSeasonalCurve,
+            basedOnCurrentCycle: basedOnCurrentCycle,
+            canUseUnits: canUseUnits,
           ),
         ),
         const SizedBox(height: AppSpacing.v16),
@@ -255,25 +259,6 @@ class _UtilityTab extends StatelessWidget {
     return afterCycle.isAfter(afterLastBill) ? afterCycle : afterLastBill;
   }
 
-  // แท่งคาดการณ์ในกราฟเทรนด์เริ่มจากเดือนถัดจากบิลล่าสุด — แท่งที่ตรงกับบิล
-  // ของรอบที่กำลังใช้อยู่ใช้ตัวเลขเดียวกับส่วน "รอบนี้" ของการ์ดคาดการณ์ (อัตรา
-  // ต่อวันจากบันทึกจริง) แทนค่าจากรูปแบบฤดูกาล ตัวเลขของบิลใบเดียวกันจึงตรงกัน
-  // ทั้งหน้า (รอบนี้ยังไม่มีบันทึก หรือบันทึกเร็วเกินกว่าจะคาดการณ์ ใช้ค่าจาก
-  // รูปแบบฤดูกาลตามเดิม)
-  List<double> _withCurrentCycle(
-    List<double> forecasts,
-    double Function(CurrentCycleForecast) pick,
-  ) {
-    final c = currentCycle;
-    if (c == null || !c.hasForecast || bills.isEmpty) return forecasts;
-    return [
-      for (var i = 0; i < forecasts.length; i++)
-        DateTime(bills.last.year, bills.last.month + i + 1, 1) == c.billMonth
-            ? pick(c)
-            : forecasts[i],
-    ];
-  }
-
   String _monthYear(DateTime d) => '${thaiMonthsShort[d.month - 1]} ${(d.year + 543) % 100}';
 
   // ===================================================================
@@ -286,6 +271,8 @@ class _UtilityTab extends StatelessWidget {
     required DateTime? targetMonth,
     required bool lowConfidence,
     required bool usesSeasonalCurve,
+    required bool basedOnCurrentCycle,
+    required bool canUseUnits,
   }) {
     final c = currentCycle;
     final hasCurrent = c != null && c.hasData;
@@ -308,7 +295,8 @@ class _UtilityTab extends StatelessWidget {
                 onTap: () => showInfoDialog(
                   context,
                   title: 'ตัวเลขคาดการณ์คำนวณอย่างไร?',
-                  message: _forecastInfoText(usesSeasonalCurve),
+                  message: _forecastInfoText(usesSeasonalCurve,
+                      basedOnCurrentCycle: basedOnCurrentCycle, canUseUnits: canUseUnits),
                 ),
               ),
             ],
@@ -514,7 +502,8 @@ class _UtilityTab extends StatelessWidget {
     ];
   }
 
-  String _forecastInfoText(bool usesSeasonalCurve) {
+  String _forecastInfoText(bool usesSeasonalCurve,
+      {required bool basedOnCurrentCycle, required bool canUseUnits}) {
     const current = 'รอบนี้\n'
         'หาหน่วยที่ใช้เฉลี่ยต่อวันตั้งแต่ต้นรอบถึงวันที่บันทึกมิเตอร์ล่าสุด '
         'แล้วประมาณหน่วยทั้งรอบจนถึงวันตัดรอบบิล จากนั้นคิดเงินด้วยอัตราจริง '
@@ -522,9 +511,17 @@ class _UtilityTab extends StatelessWidget {
         'ช่วงต้นรอบที่เพิ่งบันทึกได้ไม่กี่วัน ระบบเฉลี่ยกับการใช้ต่อวันของบิลรอบก่อนด้วย '
         'ตัวเลขจึงไม่แกว่งตามวันที่ใช้มากหรือน้อยผิดปกติ ยิ่งบันทึกนาน '
         'ยิ่งอิงการใช้จริงของรอบนี้มากขึ้น';
+    final base = basedOnCurrentCycle
+        ? 'หน่วยที่คาดว่าจะใช้ทั้งรอบนี้ (ตัวเลขของส่วน "รอบนี้" ด้านบน)'
+        : 'หน่วยที่ใช้ในบิลล่าสุดของคุณ';
+    if (!canUseUnits) {
+      return '$current\n\nรอบถัดไป\n'
+          'บิลที่ผ่านมายังไม่มีหน่วยแยก On-Peak/Off-Peak จึงคิดเงินจากหน่วยไม่ได้ '
+          'ระบบใช้ยอดเงินของบิลล่าสุดเป็นค่าประมาณ โดยไม่ปรับตามฤดูกาล';
+    }
     final next = usesSeasonalCurve
         ? 'รอบถัดไป\n'
-            'เอาหน่วยที่ใช้ในบิลล่าสุดของคุณ มาปรับด้วยรูปแบบฤดูกาล '
+            'เอา$base มาปรับด้วยรูปแบบฤดูกาล '
             '(เช่น เดือนร้อนมักใช้ไฟมากกว่าเดือนหนาว) แล้วคิดเงินด้วยอัตราจริงเหมือนรอบนี้ '
             'รูปแบบฤดูกาลคำนวณจากสถิติการใช้'
             'ไฟฟ้า/น้ำประปาจริงรายเดือนย้อนหลังหลายปี (ข้อมูลเปิดของ สนพ., กปน. และ กปภ.) '
