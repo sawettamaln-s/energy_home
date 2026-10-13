@@ -99,15 +99,17 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     try {
       final uid = (widget.auth ?? FirebaseAuth.instance).currentUser!.uid;
 
-      // ต้องดึง user มาก่อน เพื่อเอา billingDay ไปคำนวณขอบเขตรอบบิลปัจจุบัน
-      // และเอา meterType ไปตัดสินว่าแท็บไฟฟ้าควรโชว์กราฟแยก On-Peak/Off-Peak
-      // ไหม (ดู _isTou ด้านบน)
-      final user = await _firestoreService.getUser(uid);
+      // user, บิล และค่า Ft ไม่ขึ้นต่อกัน ดึงพร้อมกัน ส่วนคาดการณ์รอบนี้ต้องรอ
+      // user ก่อน เพราะใช้ billingDay คำนวณขอบเขตรอบบิลปัจจุบัน และใช้
+      // meterType ตัดสินว่าแท็บไฟฟ้าควรโชว์กราฟแยก On-Peak/Off-Peak ไหม
+      // (ดู _isTou ด้านบน)
+      final (user, bills, ft) = await (
+        _firestoreService.getUser(uid),
+        _analysisService.fetchBills(uid),
+        _firestoreService.getFtInfo(),
+      ).wait;
       final billingDay = user?.billingDay ?? 30;
       final isTou = user?.meterType == 'tou';
-
-      final bills = await _analysisService.fetchBills(uid);
-      final ft = await _firestoreService.getFtInfo();
 
       final currentCycle = await _analysisService.forecastCurrentCycle(
         uid: uid,

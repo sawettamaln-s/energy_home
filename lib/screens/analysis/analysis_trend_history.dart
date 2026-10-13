@@ -119,7 +119,9 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
   Widget _monthRow(BillModel b, NumberFormat costFmt, NumberFormat usedFmt) {
     final cfg = widget.config;
     final cost = '${costFmt.format(cfg.costSelector(b))} บาท';
-    final used = '${usedFmt.format(cfg.usedSelector(b))} ${cfg.unitLabel}';
+    final usedValue = cfg.usedSelector(b);
+    // บิลที่กรอกแค่ยอดเงิน ไม่มีหน่วยให้แสดง
+    final used = usedValue > 0 ? '${usedFmt.format(usedValue)} ${cfg.unitLabel}' : 'ไม่ได้กรอกหน่วย';
 
     const primaryStyle = TextStyle(fontSize: AppTypography.s13, fontWeight: FontWeight.w700);
     final secondaryStyle = TextStyle(fontSize: AppTypography.s11, color: Colors.grey.shade500);
@@ -152,12 +154,13 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
     final cfg = widget.config;
     final selector = cfg.selectorFor(_showCost);
 
-    final byMonth = <int, BillModel>{
-      for (final b in cfg.bills)
-        if (b.year == _year) b.month: b,
-    };
-    final slots = List<BillModel?>.generate(12, (i) => byMonth[i + 1]);
+    final byMonth = cfg.billsByMonth();
+    final yearBills = List<BillModel?>.generate(12, (i) => byMonth[_year * 12 + i]);
+    // กราฟและรวม/เฉลี่ยนับเฉพาะเดือนที่มีค่าของมุมมองนี้ (มุมมองหน่วยไม่นับบิล
+    // ที่ไม่ได้กรอกหน่วย) ส่วนรายละเอียดรายเดือนแสดงทุกบิลของปี
+    final slots = [for (final b in yearBills) cfg.slotFor(b, _showCost)];
     final present = slots.whereType<BillModel>().toList();
+    final listed = yearBills.whereType<BillModel>().toList();
     final values = present.map(selector).toList();
     final total = values.fold<double>(0, (a, b) => a + b);
     final avg = values.isEmpty ? 0.0 : total / values.length;
@@ -215,7 +218,9 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
                   child: present.isEmpty
                       ? Center(
                           child: Text(
-                            'ไม่มีข้อมูลบิลของปี ${_year + 543}',
+                            listed.isEmpty
+                                ? 'ไม่มีข้อมูลบิลของปี ${_year + 543}'
+                                : 'บิลของปี ${_year + 543} ไม่ได้กรอก${cfg.unitLabel}ค่ะ',
                             style: const TextStyle(
                                 fontSize: AppTypography.s12, color: Colors.grey),
                           ),
@@ -239,7 +244,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
               ],
             ),
           ),
-          if (present.isNotEmpty) ...[
+          if (listed.isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.v16, vertical: AppSpacing.v8),
@@ -255,7 +260,7 @@ class _TrendHistoryPageState extends State<_TrendHistoryPage> {
                               fontWeight: FontWeight.bold, fontSize: AppTypography.s13)),
                     ),
                   ),
-                  for (final b in present.reversed) ...[
+                  for (final b in listed.reversed) ...[
                     Divider(height: 1, color: Colors.grey.shade200),
                     _monthRow(b, costFmt, usedFmt),
                   ],

@@ -104,22 +104,23 @@ class AnalysisService {
 
   final FirebaseFirestore _db;
 
-  /// ดึงบิลทั้งหมดของ user เรียงจากเก่า -> ใหม่
-  /// limitMonths: ดึงกี่เดือนล่าสุด (default 24 เดือน เผื่อใช้ YoY)
+  /// ดึงบิลของ user เรียงจากเก่า -> ใหม่
+  /// limitMonths: ดึงกี่เดือนล่าสุด (null = ทุกบิล) หน้าวิเคราะห์ดึงทุกบิล
+  /// เพราะหน้าประวัติรวมยอดรายปี ถ้าตัดที่ N ใบ ปีเก่าสุดจะเหลือไม่ครบทุกเดือน
   ///
   /// Query สั่ง Firestore เรียง year/month ก่อนแล้ว limit ที่ query เลย
   /// เพื่อให้ได้บิล N เดือนล่าสุดจริง (ไม่ใช่สุ่ม)
   /// (ครั้งแรกที่รัน Firestore อาจโชว์ลิงก์ให้สร้าง composite index ก่อน
   /// แค่กดลิงก์นั้นครั้งเดียวพอ)
-  Future<List<BillModel>> fetchBills(String uid, {int limitMonths = 24}) async {
-    final snapshot = await _db
+  Future<List<BillModel>> fetchBills(String uid, {int? limitMonths}) async {
+    Query<Map<String, dynamic>> query = _db
         .collection('users')
         .doc(uid)
         .collection('bills')
         .orderBy('year', descending: true)
-        .orderBy('month', descending: true)
-        .limit(limitMonths)
-        .get();
+        .orderBy('month', descending: true);
+    if (limitMonths != null) query = query.limit(limitMonths);
+    final snapshot = await query.get();
 
     final bills = snapshot.docs
         .map((doc) => BillModel.fromMap({...doc.data(), 'id': doc.id}))
@@ -444,18 +445,18 @@ class AnalysisService {
     final remainingDays = EnergyForecaster.getRemainingDays(now, billingDay);
     final billMonth = DateTime(endDate.year, endDate.month, 1);
 
-    final eLogs = await firestoreService.getCurrentMonthElectricityLogs(
-        uid, startDate, endDate);
-    final wLogs =
-        await firestoreService.getCurrentMonthWaterLogs(uid, startDate, endDate);
+    // log ไฟ/น้ำ และบิลรอบก่อนไม่ขึ้นต่อกัน ดึงพร้อมกัน
+    final (eLogs, wLogs, priorBill) = await (
+      firestoreService.getCurrentMonthElectricityLogs(uid, startDate, endDate),
+      firestoreService.getCurrentMonthWaterLogs(uid, startDate, endDate),
+      // บิลของรอบก่อน (เดือนบิล = เดือนที่รอบนี้เริ่ม) ถ่วงยอดคาดการณ์ช่วงต้นรอบ
+      // กติกาเดียวกับหน้าหลัก (DashboardLoader) และ compileBill
+      firestoreService.getBillForMonth(uid, startDate.year, startDate.month),
+    ).wait;
 
     // log เรียงใหม่สุดก่อน — ตัวแรกคือยอดสะสม ณ วันที่บันทึกล่าสุด
     final eLast = eLogs.isNotEmpty ? eLogs.first : null;
     final wLast = wLogs.isNotEmpty ? wLogs.first : null;
-    // บิลของรอบก่อน (เดือนบิล = เดือนที่รอบนี้เริ่ม) ถ่วงยอดคาดการณ์ช่วงต้นรอบ
-    // กติกาเดียวกับหน้าหลัก (DashboardLoader) และ compileBill
-    final priorBill = await firestoreService.getBillForMonth(
-        uid, startDate.year, startDate.month);
     final eProjection = await projectElectricityToCycleEnd(
       latest: eLast,
       cycleStart: startDate,

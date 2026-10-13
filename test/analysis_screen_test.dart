@@ -12,6 +12,7 @@ import 'package:energy_home/screens/analysis/analysis_screen.dart';
 import 'package:energy_home/services/analysis_service.dart';
 import 'package:energy_home/services/firestore_service.dart';
 import 'package:energy_home/utils/forecaster.dart';
+import 'package:energy_home/utils/thai_date_utils.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
@@ -134,6 +135,45 @@ void main() {
     expect(find.textContaining('บันทึกมิเตอร์อีกครั้งเมื่อเริ่มรอบมาแล้วอย่างน้อย 1 วัน'), findsOneWidget);
     expect(find.textContaining('ทั้งรอบน่าจะใช้ประมาณ'), findsNothing);
     expect(find.textContaining('ค่าไฟรอบนี้'), findsNothing);
+  });
+
+  testWidgets('การ์ดกราฟแสดง 6 เดือนตามปฏิทิน เดือนที่ไม่มีบิลเป็นช่องว่าง', (tester) async {
+    await createUser();
+    // บิลล่าสุดคือเดือนก่อนรอบนี้ ขาด 3 เดือนกลางช่วง (ล่าสุด -4 ถึง -2)
+    final last = DateTime(cycleStart.year, cycleStart.month - 1, 1);
+    for (final back in [5, 1, 0]) {
+      final d = DateTime(last.year, last.month - back, 1);
+      await service.saveBill(BillModel(
+          id: '${d.year}-${d.month}', uid: _uid, year: d.year, month: d.month,
+          electricityUsed: 300, electricityCost: 1200, totalCost: 1200));
+    }
+    await pumpAnalysis(tester);
+
+    // ป้ายของเดือนที่ขาดยังอยู่ในกราฟ แกนเวลาไม่ข้ามเดือน
+    final gap = DateTime(last.year, last.month - 3, 1);
+    final name = thaiMonthsShort[gap.month - 1];
+    final label = gap.month == 1 ? '$name${(gap.year + 543) % 100}' : name;
+    expect(find.text(label), findsWidgets);
+  });
+
+  testWidgets('หน้าประวัติมุมมองหน่วย ไม่นับบิลที่ไม่ได้กรอกหน่วยในรวม/เฉลี่ย', (tester) async {
+    await createUser();
+    // ปี 2024 ครบ 12 เดือน ม.ค.-มิ.ย. มีหน่วย 300 ก.ค.-ธ.ค. กรอกแค่ยอดเงิน
+    for (var m = 1; m <= 12; m++) {
+      await service.saveBill(BillModel(
+          id: '2024-$m', uid: _uid, year: 2024, month: m,
+          electricityUsed: m <= 6 ? 300 : 0, electricityCost: 1200, totalCost: 1200));
+    }
+    await pumpAnalysis(tester);
+    await tester.tap(find.text('ดูทั้งหมด').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('หน่วย').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('1,800 หน่วย'), findsOneWidget); // รวมทั้งปี
+    expect(find.text('300 หน่วย'), findsWidgets); // เฉลี่ย 1,800 ÷ 6 ไม่ใช่ ÷ 12
+    expect(find.text('150 หน่วย'), findsNothing);
+    expect(find.text('ไม่ได้กรอกหน่วย'), findsNWidgets(6));
   });
 
   testWidgets('ข้อสังเกตไม่ซ้ำกับการ์ดเปรียบเทียบ (ไม่มีข้อเทียบเดือนก่อน/ปีก่อน)', (tester) async {

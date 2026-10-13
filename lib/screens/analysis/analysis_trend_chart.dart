@@ -225,6 +225,23 @@ class _TrendChartCard extends StatefulWidget {
 
   double Function(BillModel) selectorFor(bool showCost) => showCost ? costSelector : usedSelector;
 
+  // บิลแยกตามเดือน (key = year * 12 + month - 1) — เดือนเดียวกันมีหลายใบใช้ใบที่
+  // ไม่ใช่ 'compiled' ก่อน กติกาเดียวกับ FirestoreService.getBillForMonth
+  Map<int, BillModel> billsByMonth() {
+    final map = <int, BillModel>{};
+    for (final b in bills) {
+      final key = b.year * 12 + b.month - 1;
+      final existing = map[key];
+      if (existing == null || existing.source == 'compiled') map[key] = b;
+    }
+    return map;
+  }
+
+  // ช่องกราฟของบิล 1 ใบ — มุมมองหน่วย บิลที่ไม่ได้กรอกหน่วย (0) คือ "ไม่รู้"
+  // ไม่ใช่ "ใช้ 0 หน่วย" จึงเป็นช่องว่าง ไม่นับในสูงสุด/ต่ำสุด/รวม/เฉลี่ย
+  BillModel? slotFor(BillModel? b, bool showCost) =>
+      b == null || (!showCost && usedSelector(b) <= 0) ? null : b;
+
   // TOU + มุมมอง "หน่วยที่ใช้" → แท่งซ้อน On-Peak/Off-Peak ฝั่งค่าใช้จ่ายไม่แยก
   // เพราะ electricityCost เก็บเป็นยอดเดียว ไม่มีราคาแยกตามช่วงเวลาให้ซ้อน
   bool showStackedFor(bool showCost) =>
@@ -334,23 +351,36 @@ class _TrendChartCardState extends State<_TrendChartCard> {
   @override
   Widget build(BuildContext context) {
     final allBills = widget.bills;
-    final canExpand = allBills.length > _cardMonths;
-    final bills = canExpand ? allBills.sublist(allBills.length - _cardMonths) : allBills;
+    // _cardMonths เดือนตามปฏิทินที่จบที่บิลล่าสุด เดือนที่ไม่มีบิลเป็นช่องว่าง
+    // แท่งของเดือนที่ห่างกันจึงไม่ถูกวางติดกันเหมือนเป็นเดือนต่อเนื่อง
+    final last = allBills.isEmpty ? null : allBills.last;
+    final months = <DateTime>[
+      if (last != null)
+        for (var i = _cardMonths - 1; i >= 0; i--) DateTime(last.year, last.month - i, 1),
+    ];
+    final byMonth = widget.billsByMonth();
+    final slots = [
+      for (final d in months) widget.slotFor(byMonth[d.year * 12 + d.month - 1], _showCost),
+    ];
+    final present = slots.whereType<BillModel>().toList();
+    // มีบิลเก่ากว่าช่วงที่การ์ดแสดง → ให้กด "ดูทั้งหมด" ไปหน้าประวัติ
+    final canExpand =
+        months.isNotEmpty && DateTime(allBills.first.year, allBills.first.month, 1).isBefore(months.first);
 
     // กราฟโชว์เมื่อมีบิล >= 2 เดือน — ส่วนคาดการณ์ต่อท้ายตามนั้น
-    final hasChart = bills.length >= 2;
+    final hasChart = allBills.length >= 2;
     final forecasts = !hasChart ? const <double>[] : (_showCost ? widget.costForecast : widget.usedForecast);
     final forecastLabels = <String>[
       for (var i = 0; i < forecasts.length; i++)
         () {
-          final d = DateTime(bills.last.year, bills.last.month + i + 1, 1);
+          final d = DateTime(last!.year, last.month + i + 1, 1);
           return _trendMonthLabel(d.year, d.month);
         }(),
     ];
 
     final emptyMessage =
         _showCost ? _emptyMessage(widget.title) : _emptyMessage('${widget.unitLabel}ที่ใช้${widget.title}');
-    final legend = hasChart ? widget.legendItems(_showCost, bills, withForecast: forecasts.isNotEmpty) : <Widget>[];
+    final legend = hasChart ? widget.legendItems(_showCost, present, withForecast: forecasts.isNotEmpty) : <Widget>[];
 
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.v16),
@@ -424,8 +454,8 @@ class _TrendChartCardState extends State<_TrendChartCard> {
                     ],
                   )
                 : widget.buildBars(
-                    slots: bills,
-                    labels: [for (final b in bills) _trendMonthLabel(b.year, b.month)],
+                    slots: slots,
+                    labels: [for (final d in months) _trendMonthLabel(d.year, d.month)],
                     showCost: _showCost,
                     // 6 + 3 = 9 แท่งในการ์ดแคบ ลดความกว้างแท่งเมื่อมีส่วนคาดการณ์
                     barWidth: forecasts.isEmpty ? 24 : 18,
