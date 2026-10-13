@@ -38,6 +38,7 @@ import io
 import json
 import os
 import sys
+import time
 import urllib.request
 from collections import defaultdict
 
@@ -86,14 +87,26 @@ SERIES_FILES = {
 }
 
 
-def _download(url):
+def _download(url, attempts=3):
     # เซิร์ฟเวอร์บางแห่งปฏิเสธคำขอที่ไม่มี User-Agent (HTTP 403)
+    # ไฟล์รายปีของ กปน. ใหญ่และเซิร์ฟเวอร์ตอบช้าเป็นช่วงๆ จึงลองใหม่เมื่อหมดเวลา
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        return resp.read().decode('utf-8-sig', errors='replace')
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                return resp.read().decode('utf-8-sig', errors='replace')
+        except (TimeoutError, OSError) as e:
+            if attempt == attempts:
+                raise
+            print(f'  ดาวน์โหลดไม่สำเร็จ ({e}) ลองใหม่ครั้งที่ {attempt + 1}')
+            time.sleep(10 * attempt)
 
 
 def _write_series(name, rows, unit):
+    # ต้นทางเปลี่ยนรูปแบบแล้วอ่านไม่ได้สักเดือน -> หยุดก่อนเขียนทับไฟล์เดิมที่ใช้ได้
+    if len(rows) < 24:
+        raise SystemExit(f'{name}: อ่านได้แค่ {len(rows)} เดือน รูปแบบไฟล์ต้นทางอาจเปลี่ยน '
+                         'ไม่เขียนทับไฟล์เดิม ตรวจไฟล์ต้นทางแล้วแก้ fetch() ก่อน')
     os.makedirs(DATA_DIR, exist_ok=True)
     path = os.path.join(DATA_DIR, name)
     with open(path, 'w', newline='', encoding='utf-8') as f:
@@ -111,7 +124,8 @@ def fetch():
         print(f'ดาวน์โหลด {url}')
         rows = {}
         for r in csv.DictReader(io.StringIO(_download(url))):
-            if r['Sector'].strip() != 'Residential':
+            # สนพ. เคยเปลี่ยนตัวพิมพ์ของค่านี้ (Residential -> RESIDENTIAL) เทียบแบบไม่สนตัวพิมพ์
+            if r['Sector'].strip().upper() != 'RESIDENTIAL':
                 continue
             rows[(int(r['Year']), MONTHS.index(r['Month'].strip()) + 1)] = float(r['Quantity'])
         _write_series(name, rows, 'GWh')
