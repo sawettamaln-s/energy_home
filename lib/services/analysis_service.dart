@@ -146,6 +146,10 @@ class AnalysisService {
     return DateTime(year, month - monthsBack, 1);
   }
 
+  /// การเปลี่ยนแปลงขั้นต่ำต่อเดือน (%) ที่ข้อสังเกต "เพิ่ม/ลดต่อเนื่อง 3 เดือน" นับ
+  /// เกณฑ์เดียวกับคำว่า "ใกล้เคียง" ในการ์ดเทียบบิล
+  static const double _trendStepPercent = 5;
+
   /// เทียบเดือนนี้ vs เดือนก่อนหน้า (Month over Month)
   /// bills ต้องเรียงเก่า->ใหม่ และเดือนล่าสุดต้องอยู่ index สุดท้าย
   ///
@@ -501,6 +505,9 @@ class AnalysisService {
   /// label: ใช้ขึ้นต้นข้อความ เช่น 'ค่าไฟ' หรือ 'ค่าน้ำ'
   /// includeComparisons: false = ไม่สร้างข้อ 3-4 (เทียบปีก่อน/เดือนก่อน) สำหรับ
   /// หน้าที่แสดงการเปรียบเทียบนั้นในการ์ดของตัวเองอยู่แล้ว
+  /// usagePerDay: หน่วยเฉลี่ยต่อวันของบิล (null = บิลไม่มีหน่วย) ไม่ส่ง = ข้ามข้อ 2
+  /// usageLabel: ชื่อการใช้ในข้อ 2 เช่น 'การใช้ไฟ'
+  /// seasonalFactor: ตัวคูณฤดูกาลของเดือน (1-12) ใช้หักผลของฤดูในข้อ 2
   List<AnalysisInsight> generateUtilityInsights({
     required String label,
     required List<BillModel> bills,
@@ -510,6 +517,9 @@ class AnalysisService {
     CurrentCycleForecast? currentCycle,
     bool trackAppliances = true,
     bool includeComparisons = true,
+    double? Function(BillModel)? usagePerDay,
+    String usageLabel = 'การใช้',
+    double Function(int month)? seasonalFactor,
   }) {
     final insights = <AnalysisInsight>[];
     // ทุกข้อบอกชื่อบิลที่พูดถึง (เช่น "บิล พ.ย. 69") — ข้อสังเกตแต่ละข้อพูดถึง
@@ -543,10 +553,15 @@ class AnalysisService {
       }
     }
 
-    // ----- 2. เทรนด์ต่อเนื่อง 3 เดือนล่าสุด -----
+    // ----- 2. การใช้เพิ่ม/ลดต่อเนื่อง 3 เดือนล่าสุด -----
     // เช็คก่อนว่าเดือนปัจจุบัน, เดือน -1, เดือน -2 มีข้อมูลครบทั้ง 3 เดือน
     // ปฏิทินติดกันจริงหรือไม่ ถ้าไม่ครบ ข้ามข้อสังเกตนี้ไปเลย
-    if (bills.isNotEmpty) {
+    //
+    // เทียบหน่วยต่อวันหลังหักผลของฤดูกาล (÷ ตัวคูณของเดือนนั้น) ไม่ใช่ยอดเงิน:
+    // ยอดเงินปนผลของค่า Ft และความยาวรอบ ส่วนช่วง ก.พ.–เม.ย. ทุกบ้านใช้ไฟ
+    // เพิ่มตามหน้าร้อนอยู่แล้ว ถ้าไม่หักฤดูกาลจะเตือนทุกปีทั้งที่พฤติกรรมเท่าเดิม
+    // แต่ละช่วงต้องเปลี่ยนอย่างน้อย [_trendStepPercent]% บิลที่ไม่มีหน่วยข้ามข้อนี้
+    if (bills.isNotEmpty && usagePerDay != null) {
       final current = bills.last;
       final mMinus1 = _monthsBefore(current.year, current.month, 1);
       final mMinus2 = _monthsBefore(current.year, current.month, 2);
@@ -555,22 +570,30 @@ class AnalysisService {
       final billMinus2 =
           _findBillForMonth(bills, mMinus2.year, mMinus2.month);
 
-      if (billMinus1 != null && billMinus2 != null) {
-        final last3 = [selector(billMinus2), selector(billMinus1), selector(current)];
-        final increasing = last3[0] < last3[1] && last3[1] < last3[2];
-        final decreasing = last3[0] > last3[1] && last3[1] > last3[2];
+      final trio = [billMinus2, billMinus1, current];
+      final perDay = [for (final b in trio) b == null ? null : usagePerDay(b)];
+      if (perDay.every((v) => v != null)) {
+        final last3 = [
+          for (var i = 0; i < 3; i++) perDay[i]! / (seasonalFactor?.call(trio[i]!.month) ?? 1.0),
+        ];
+        const up = 1 + _trendStepPercent / 100;
+        const down = 1 - _trendStepPercent / 100;
+        final increasing = last3[1] >= last3[0] * up && last3[2] >= last3[1] * up;
+        final decreasing = last3[1] <= last3[0] * down && last3[2] <= last3[1] * down;
+        final seasonNote = seasonalFactor != null ? ' แม้หักผลของฤดูกาลแล้ว' : '';
         // ช่วงบิลที่ปิดแล้ว เช่น "ส.ค.–ต.ค. 69" (ยังไม่รวมรอบที่กำลังใช้อยู่)
         final range = '${thaiMonthsShort[mMinus2.month - 1]}–'
             '${thaiMonthsShort[current.month - 1]} ${(current.year + 543) % 100}';
         if (increasing) {
           insights.add(AnalysisInsight(
-            '$labelในบิลที่ปิดแล้วเพิ่มขึ้นต่อเนื่อง 3 เดือน ($range) '
+            '$usageLabelต่อวันในบิลที่ปิดแล้วเพิ่มขึ้นต่อเนื่อง 3 เดือน ($range)$seasonNote '
             'ควรตรวจสอบว่ามีอุปกรณ์ใช้งานเพิ่มขึ้นหรือไม่',
             InsightLevel.warning,
           ));
         } else if (decreasing) {
           insights.add(AnalysisInsight(
-            '$labelในบิลที่ปิดแล้วลดลงต่อเนื่อง 3 เดือน ($range) แนวโน้มดีขึ้นเรื่อย ๆ',
+            '$usageLabelต่อวันในบิลที่ปิดแล้วลดลงต่อเนื่อง 3 เดือน ($range)$seasonNote '
+            'แนวโน้มดีขึ้นเรื่อย ๆ',
             InsightLevel.good,
           ));
         }

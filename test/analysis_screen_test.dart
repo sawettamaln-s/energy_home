@@ -117,6 +117,25 @@ void main() {
     expect(find.text('ข้อสังเกต'), findsOneWidget);
   });
 
+  testWidgets('การ์ดเทียบบิลแสดงหน่วยต่อวันคู่กับยอดเงิน เฉพาะเมื่อบิลล่าสุดมีหน่วย', (tester) async {
+    await createUser();
+    await addBills();
+    await pumpAnalysis(tester);
+    // เดือนก่อน ปีก่อน และเฉลี่ย 6 เดือน มีหน่วยครบทุกแถว
+    expect(find.textContaining('ใช้ต่อวัน '), findsNWidgets(3));
+  });
+
+  testWidgets('บิลล่าสุดกรอกแค่ยอดเงิน -> ไม่แสดงหน่วยต่อวัน', (tester) async {
+    await createUser();
+    await addBills();
+    final last = DateTime(cycleStart.year, cycleStart.month, 1);
+    await service.saveBill(BillModel(
+        id: '${last.year}-${last.month}', uid: _uid, year: last.year, month: last.month,
+        electricityCost: 1500, totalCost: 1500));
+    await pumpAnalysis(tester);
+    expect(find.textContaining('ใช้ต่อวัน '), findsNothing);
+  });
+
   testWidgets('บันทึกรอบนี้ห่างจากต้นรอบไม่ถึง 1 วัน -> ยังไม่แสดงยอดทั้งรอบ บอกให้บันทึกอีกครั้ง',
       (tester) async {
     await createUser();

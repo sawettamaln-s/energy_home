@@ -41,6 +41,8 @@ class _UtilityTab extends StatelessWidget {
   final String? meterType;
   // true เฉพาะแท็บน้ำ — ใช้เลือก SeasonalCurves.water แทน .elec
   final bool isWater;
+  // วันตัดรอบบิลของ user ใช้หาจำนวนวันของแต่ละรอบ (หน่วยต่อวัน)
+  final int billingDay;
 
   // เรียกตอนกดปุ่ม "ดูอุปกรณ์ที่ใช้ไฟมากสุด" ในข้อสังเกต — พาไปหน้าอุปกรณ์
   // (null = ไม่แสดงปุ่ม)
@@ -75,13 +77,27 @@ class _UtilityTab extends StatelessWidget {
     this.area,
     this.meterType,
     this.isWater = false,
+    required this.billingDay,
   });
+
+  // หน่วยเฉลี่ยต่อวันของบิล (หน่วยทั้งรอบ ÷ จำนวนวันของรอบ) null = บิลไม่มีหน่วย
+  // ใช้วันตัดรอบปัจจุบันกับบิลเก่าด้วย (ไม่ได้เก็บวันตัดรอบไว้ในบิล)
+  double? _usagePerDay(BillModel b) => billUnitsPerDay(b, usedSelector(b), billingDay);
 
   @override
   Widget build(BuildContext context) {
     final mom = analysisService.compareMoM(bills, selector: selector);
     final yoy = analysisService.compareYoY(bills, selector: selector);
     final avg6 = analysisService.compareToAverage(bills, selector: selector);
+    // เทียบหน่วยต่อวันคู่กับยอดเงิน — ไม่ขึ้นกับค่า Ft และความยาวรอบ บอกได้ว่า
+    // ที่ยอดเงินเปลี่ยนเป็นเพราะใช้มากขึ้นจริงหรือเพราะราคา เทียบเฉพาะบิลที่มี
+    // หน่วย และบิลล่าสุดต้องมีหน่วย (ไม่งั้นจะกลายเป็นเทียบบิลอื่นแทนบิลล่าสุด)
+    final usageBills = bills.where((b) => _usagePerDay(b) != null).toList();
+    final canCompareUsage = usageBills.isNotEmpty && identical(usageBills.last, bills.last);
+    double perDay(BillModel b) => _usagePerDay(b)!;
+    final momUsage = canCompareUsage ? analysisService.compareMoM(usageBills, selector: perDay) : null;
+    final yoyUsage = canCompareUsage ? analysisService.compareYoY(usageBills, selector: perDay) : null;
+    final avg6Usage = canCompareUsage ? analysisService.compareToAverage(usageBills, selector: perDay) : null;
     final nextBillMonth = _nextBillMonth;
     // ยอดเงินคาดการณ์คิดจากหน่วยที่คาดการณ์ด้วยตารางอัตรา หน่วยกับเงินจึงตรงกัน
     final peakSel = isTou ? peakUsedSelector : null;
@@ -146,6 +162,10 @@ class _UtilityTab extends StatelessWidget {
           currentCycle: currentCycle,
           trackAppliances: trackAppliances,
           includeComparisons: false,
+          usagePerDay: _usagePerDay,
+          usageLabel: isWater ? 'การใช้น้ำ' : 'การใช้ไฟ',
+          seasonalFactor: (m) => analysisService.seasonalFactorForMonth(
+              month: m, area: area, meterType: meterType, isWater: isWater),
         )
         .take(3)
         .toList();
@@ -199,7 +219,15 @@ class _UtilityTab extends StatelessWidget {
           const SizedBox(height: AppSpacing.v16),
           FadeSlideIn(
             delay: const Duration(milliseconds: 160),
-            child: _comparisonCard(context, mom: mom, yoy: yoy, avg6: avg6),
+            child: _comparisonCard(
+              context,
+              mom: mom,
+              yoy: yoy,
+              avg6: avg6,
+              momUsage: momUsage,
+              yoyUsage: yoyUsage,
+              avg6Usage: avg6Usage,
+            ),
           ),
         ],
         if (insights.isNotEmpty) ...[
@@ -570,6 +598,9 @@ class _UtilityTab extends StatelessWidget {
     required ComparisonResult? mom,
     required ComparisonResult? yoy,
     required ComparisonResult? avg6,
+    required ComparisonResult? momUsage,
+    required ComparisonResult? yoyUsage,
+    required ComparisonResult? avg6Usage,
   }) {
     final last = bills.last;
     return AppCard(
@@ -606,29 +637,34 @@ class _UtilityTab extends StatelessWidget {
                       'เฉลี่ย 6 เดือน: ค่าเฉลี่ยของบิล 6 เดือนก่อนหน้า (นับเฉพาะเดือนที่มีบิล) '
                       'ภาพนิ่งกว่าเทียบเดือนเดียว\n\n'
                       'คำนวณ % จาก (ยอดบิลล่าสุด − ยอดที่ใช้เทียบ) ÷ ยอดที่ใช้เทียบ × 100 '
-                      'ถ้ายอดที่ใช้เทียบเป็น 0 บาท จะแสดงเป็นส่วนต่างบาทแทน',
+                      'ถ้ายอดที่ใช้เทียบเป็น 0 บาท จะแสดงเป็นส่วนต่างบาทแทน\n\n'
+                      'ใช้ต่อวัน: $unitLabelเฉลี่ยต่อวันของแต่ละบิล ($unitLabelทั้งรอบ ÷ จำนวนวันของรอบ) '
+                      'ไม่ขึ้นกับค่า Ft และความยาวรอบ ถ้ายอดเงินเพิ่มแต่ใช้ต่อวันใกล้เคียงเดิม '
+                      'แปลว่าแพงขึ้นจากราคาหรือรอบที่ยาวขึ้น ไม่ได้ใช้มากขึ้น '
+                      '(แสดงเมื่อบิลที่เทียบมี$unitLabel)',
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.v8),
-          _comparisonRow('เดือนก่อน', mom,
+          _comparisonRow('เดือนก่อน', mom, usage: momUsage,
               emptyHint: 'ต้องมีบิลเดือนก่อนหน้า'),
           // ปีก่อนแสดงเฉพาะเมื่อมีบิลเดือนเดียวกันของปีที่แล้ว — ผู้ใช้ใหม่ส่วนใหญ่
           // ยังไม่มี แถวว่างจึงไม่มีประโยชน์
           if (yoy != null) ...[
             const Divider(),
-            _comparisonRow('ปีก่อน', yoy, emptyHint: ''),
+            _comparisonRow('ปีก่อน', yoy, usage: yoyUsage, emptyHint: ''),
           ],
           const Divider(),
-          _comparisonRow('เฉลี่ย 6 เดือน', avg6,
+          _comparisonRow('เฉลี่ย 6 เดือน', avg6, usage: avg6Usage,
               emptyHint: 'ต้องมีบิลอย่างน้อย 3 เดือน (ตอนนี้มี ${bills.length} เดือน)'),
         ],
       ),
     );
   }
 
-  Widget _comparisonRow(String label, ComparisonResult? r, {required String emptyHint}) {
+  Widget _comparisonRow(String label, ComparisonResult? r,
+      {ComparisonResult? usage, required String emptyHint}) {
     const labelStyle =
         TextStyle(fontSize: AppTypography.s13, fontWeight: FontWeight.w500, color: AppColors.textDark);
     return Padding(
@@ -645,6 +681,10 @@ class _UtilityTab extends StatelessWidget {
                   r == null ? emptyHint : '${_fmt.format(r.previousValue)} บาท',
                   style: TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600),
                 ),
+                if (r != null && usage != null) ...[
+                  const SizedBox(height: AppSpacing.v2),
+                  _usageLine(usage),
+                ],
               ],
             ),
           ),
@@ -654,6 +694,20 @@ class _UtilityTab extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  // บรรทัดหน่วยต่อวันใต้ยอดเงิน เช่น "ใช้ต่อวัน 9.7 → 10.0 หน่วย (+3.1%)"
+  // ต่างไม่ถึง 5% เป็นสีเทา (ใกล้เคียง) เกณฑ์เดียวกับ _isClose
+  Widget _usageLine(ComparisonResult u) {
+    final fmt = NumberFormat('#,##0.##');
+    final change = u.isUnchanged || u.percentChange == null
+        ? ''
+        : ' (${u.isIncrease ? '+' : '−'}${u.percentChange!.abs().toStringAsFixed(1)}%)';
+    final tone = _isClose(u) ? Colors.grey.shade600 : (u.isIncrease ? DashboardStyles.spikeUp : DashboardStyles.spikeDown);
+    return Text(
+      'ใช้ต่อวัน ${fmt.format(u.previousValue)} → ${fmt.format(u.currentValue)} $unitLabel$change',
+      style: TextStyle(fontSize: AppTypography.s11_5, fontWeight: FontWeight.w600, color: tone),
     );
   }
 

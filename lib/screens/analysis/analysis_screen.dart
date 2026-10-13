@@ -10,6 +10,7 @@ import '../../models/bill_model.dart';
 import '../../services/analysis_service.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/calculator.dart';
+import '../../utils/cycle_projection.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../utils/thai_date_utils.dart';
 import '../../widgets/app_bottom_nav_bar.dart';
@@ -66,6 +67,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   // ใช้คิดเงินจากหน่วยที่คาดการณ์ (บิลรอบถัดไป/กราฟคาดการณ์) — อ่าน Ft ครั้งเดียวต่อการโหลด
   String _tariff = EnergyCalculator.tariffStandard;
   double _ftRate = EnergyCalculator.defaultFtRate;
+  int _billingDay = 30;
 
   static const _green = DashboardStyles.primaryGreen;
 
@@ -127,6 +129,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         _bills = bills;
         _currentCycle = currentCycle;
         _isTou = isTou;
+        _billingDay = billingDay;
         _userArea = user?.area;
         _tariff = user?.electricityTariff ?? EnergyCalculator.tariffStandard;
         _ftRate = ft?.rate ?? EnergyCalculator.defaultFtRate;
@@ -209,6 +212,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     offPeakUsedSelector: (b) => b.electricityOffPeakUsed,
                     area: _userArea,
                     meterType: _isTou ? 'tou' : 'normal',
+                    billingDay: _billingDay,
                   ),
                   _UtilityTab(
                     bills: _bills,
@@ -231,6 +235,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     area: _userArea,
                     meterType: _isTou ? 'tou' : 'normal',
                     isWater: true,
+                    billingDay: _billingDay,
                   ),
                 ],
               ),
