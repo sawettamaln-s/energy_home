@@ -80,6 +80,13 @@ void main() {
     expect(find.byType(BottomSheet), findsNothing);
   });
 
+  testWidgets('วันตัดรอบ: ปุ่มอธิบาย -> บอกว่าวันจดที่ขยับวันสองวันไม่ต้องแก้', (tester) async {
+    await open(tester, 'วันตัดรอบบิล');
+    await tester.tap(find.byTooltip('วันตัดรอบบิลคืออะไร'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('อาจขยับไปวันสองวันในแต่ละเดือน ไม่ต้องแก้'), findsOneWidget);
+  });
+
   testWidgets('วันตัดรอบ: เลือกวันที่ 31 -> บอกกติกาเดือนที่มีไม่ถึง 31 วัน', (tester) async {
     await open(tester, 'วันตัดรอบบิล');
     await tester.tap(inSheet(find.text('31')));

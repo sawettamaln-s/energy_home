@@ -117,6 +117,19 @@ void main() {
     expect(find.text('ข้อสังเกต'), findsOneWidget);
   });
 
+  testWidgets('คำอธิบายการ์ดคาดการณ์บอกความคลาดเคลื่อนที่วัดได้ของทั้งสองส่วน', (tester) async {
+    await createUser();
+    await addBills();
+    await addCurrentCycleLog();
+    await pumpAnalysis(tester);
+    // ปุ่มคำอธิบายแรกของหน้า = การ์ดคาดการณ์
+    await tester.tap(find.byTooltip('คำอธิบาย').first);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('คลาดจากจริงเฉลี่ยราว 9%'), findsOneWidget);
+    expect(find.textContaining('เฉลี่ยราว 15%'), findsOneWidget);
+  });
+
   testWidgets('การ์ดเทียบบิลแสดงหน่วยต่อวันคู่กับยอดเงิน เฉพาะเมื่อบิลล่าสุดมีหน่วย', (tester) async {
     await createUser();
     await addBills();
