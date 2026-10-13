@@ -230,13 +230,14 @@ class _UtilityTab extends StatelessWidget {
   // แท่งคาดการณ์ในกราฟเทรนด์เริ่มจากเดือนถัดจากบิลล่าสุด — แท่งที่ตรงกับบิล
   // ของรอบที่กำลังใช้อยู่ใช้ตัวเลขเดียวกับส่วน "รอบนี้" ของการ์ดคาดการณ์ (อัตรา
   // ต่อวันจากบันทึกจริง) แทนค่าจากรูปแบบฤดูกาล ตัวเลขของบิลใบเดียวกันจึงตรงกัน
-  // ทั้งหน้า (รอบนี้ยังไม่มีบันทึกใช้ค่าจากรูปแบบฤดูกาลตามเดิม)
+  // ทั้งหน้า (รอบนี้ยังไม่มีบันทึก หรือบันทึกเร็วเกินกว่าจะคาดการณ์ ใช้ค่าจาก
+  // รูปแบบฤดูกาลตามเดิม)
   List<double> _withCurrentCycle(
     List<double> forecasts,
     double Function(CurrentCycleForecast) pick,
   ) {
     final c = currentCycle;
-    if (c == null || !c.hasData || bills.isEmpty) return forecasts;
+    if (c == null || !c.hasForecast || bills.isEmpty) return forecasts;
     return [
       for (var i = 0; i < forecasts.length; i++)
         DateTime(bills.last.year, bills.last.month + i + 1, 1) == c.billMonth
@@ -291,13 +292,25 @@ class _UtilityTab extends StatelessWidget {
             trailing: hasCurrent ? 'เหลืออีก ${c.remainingDays} วัน' : null,
             children: hasCurrent
                 ? [
-                    _estimateLine(c.forecastCost),
-                    const SizedBox(height: AppSpacing.v4),
-                    Text(
-                      'ถึงวันนี้ใช้ไปแล้ว ${_fmt.format(c.currentCost)} บาท · '
-                      'ทั้งรอบน่าจะใช้ประมาณ ${_fmtUnit.format(c.forecastUnits)} $unitLabel',
-                      style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
-                    ),
+                    if (c.projected) ...[
+                      _estimateLine(c.forecastCost),
+                      const SizedBox(height: AppSpacing.v4),
+                      Text(
+                        'ถึงวันนี้ใช้ไปแล้ว ${_fmt.format(c.currentCost)} บาท · '
+                        'ทั้งรอบน่าจะใช้ประมาณ ${_fmtUnit.format(c.forecastUnits)} $unitLabel',
+                        style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
+                      ),
+                    ] else ...[
+                      // บันทึกล่าสุดห่างจากต้นรอบไม่ถึง 1 วัน — ยังไม่แสดงยอดทั้งรอบ
+                      // เพราะการใช้ไม่กี่ชั่วโมงแกว่งมากเกินกว่าจะคาดการณ์ได้
+                      Text(
+                        'ถึงวันนี้ใช้ไปแล้ว ${_fmt.format(c.currentCost)} บาท',
+                        style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
+                      ),
+                      const SizedBox(height: AppSpacing.v4),
+                      _emptyHint('บันทึกมิเตอร์อีกครั้งเมื่อเริ่มรอบมาแล้วอย่างน้อย 1 วัน '
+                          'เพื่อดูว่า$titleรอบนี้จะจบที่เท่าไรค่ะ'),
+                    ],
                     const SizedBox(height: AppSpacing.v10),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(AppSpacing.v4),

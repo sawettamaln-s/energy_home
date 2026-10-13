@@ -116,6 +116,26 @@ void main() {
     expect(find.text('ข้อสังเกต'), findsOneWidget);
   });
 
+  testWidgets('บันทึกรอบนี้ห่างจากต้นรอบไม่ถึง 1 วัน -> ยังไม่แสดงยอดทั้งรอบ บอกให้บันทึกอีกครั้ง',
+      (tester) async {
+    await createUser();
+    await addBills();
+    await service.saveElectricityLog(ElectricityLogModel(
+      id: 'e1',
+      uid: _uid,
+      date: cycleStart.add(const Duration(hours: 2)),
+      meterValue: 1002,
+      usedFromStart: 2,
+      usedFromLast: 2,
+      cost: 40,
+    ));
+    await pumpAnalysis(tester);
+
+    expect(find.textContaining('บันทึกมิเตอร์อีกครั้งเมื่อเริ่มรอบมาแล้วอย่างน้อย 1 วัน'), findsOneWidget);
+    expect(find.textContaining('ทั้งรอบน่าจะใช้ประมาณ'), findsNothing);
+    expect(find.textContaining('ค่าไฟรอบนี้'), findsNothing);
+  });
+
   testWidgets('ข้อสังเกตไม่ซ้ำกับการ์ดเปรียบเทียบ (ไม่มีข้อเทียบเดือนก่อน/ปีก่อน)', (tester) async {
     await createUser();
     await addBills();

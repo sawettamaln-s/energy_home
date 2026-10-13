@@ -51,6 +51,9 @@ class CurrentCycleForecast {
   // เดือนของใบแจ้งหนี้รอบนี้ (= เดือนของวันตัดรอบ วันที่ 1) ตรงกับ year/month
   // ของบิลที่ระบบจะปิดให้เมื่อจบรอบ
   final DateTime billMonth;
+  // false = บันทึกล่าสุดยังห่างจากต้นรอบไม่ถึง 1 วัน ข้อมูลน้อยเกินกว่าจะคาดการณ์
+  // forecastCost/forecastUnits จึงเป็นแค่ยอดที่ใช้ไปแล้ว ไม่ใช่ยอดทั้งรอบ
+  final bool projected;
 
   CurrentCycleForecast({
     required this.currentCost,
@@ -61,6 +64,7 @@ class CurrentCycleForecast {
     required this.remainingDays,
     required this.cycleLengthDays,
     required this.billMonth,
+    required this.projected,
   });
 
   /// ความคืบหน้าของรอบบิล 0.0 - 1.0 (ใช้ทำ progress bar)
@@ -71,6 +75,9 @@ class CurrentCycleForecast {
 
   /// มีข้อมูล log บ้างไหม (ถ้ายังไม่บันทึกมิเตอร์เลยในรอบนี้ ทุกค่าจะเป็น 0)
   bool get hasData => currentCost > 0 || currentUnits > 0;
+
+  /// มียอดคาดการณ์ทั้งรอบให้แสดง/นำไปเทียบได้
+  bool get hasForecast => hasData && projected;
 }
 
 /// ระดับความสำคัญของ insight ใช้กำหนดสี/ไอคอนตอนแสดงผล
@@ -480,6 +487,7 @@ class AnalysisService {
           remainingDays: remainingDays,
           cycleLengthDays: cycleLengthDays,
           billMonth: billMonth,
+          projected: p.projected,
         );
 
     return {
@@ -509,7 +517,7 @@ class AnalysisService {
         'บิล ${thaiMonthsShort[month - 1]} ${(year + 543) % 100}';
 
     // ----- 1. คาดการณ์ยอดรอบปัจจุบัน เทียบกับบิลล่าสุด -----
-    if (currentCycle != null && currentCycle.hasData && bills.isNotEmpty) {
+    if (currentCycle != null && currentCycle.hasForecast && bills.isNotEmpty) {
       final lastActual = selector(bills.last);
       if (lastActual > 0) {
         final diffPercent =
