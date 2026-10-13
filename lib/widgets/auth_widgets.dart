@@ -73,10 +73,16 @@ class AuthPrimaryButton extends StatelessWidget {
                     Icon(icon, size: 20),
                     const SizedBox(width: 8),
                   ],
-                  Text(
-                    label,
-                    style: const TextStyle(
-                        fontSize: AppTypography.s16, fontWeight: FontWeight.w600),
+                  // ปุ่มแคบ (เช่นคู่กับปุ่มย้อนกลับ) + ตัวอักษรใหญ่ ย่อข้อความแทนการล้น
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                            fontSize: AppTypography.s16, fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   ),
                 ],
               ),

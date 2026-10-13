@@ -11,6 +11,7 @@ import '../../utils/calculator.dart';
 import '../../utils/data_refresh_bus.dart';
 import '../../utils/meter_reading_check.dart';
 import '../../utils/thai_date_utils.dart';
+import '../../widgets/info_dialog.dart';
 import '../../widgets/ui/animated_amount.dart';
 import '../../widgets/ui/app_card.dart';
 import '../../widgets/ui/fade_slide_in.dart';
@@ -401,6 +402,35 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
         initialTab: widget.kind == MeterKind.electricity ? 0 : 1,
       ));
 
+  // วิธีอ่านเลขบนหน้าปัด — กรอกผิดหลัก (รวมทศนิยม/เศษ ลบ.ม.) ทำให้หน่วยและยอดเงินผิด
+  // ทั้งรอบ และการตรวจเลขจับได้แค่เลขที่น้อยลง จับเลขที่มากเกินจริงไม่ได้
+  void _showHowToRead() {
+    final String body;
+    if (widget.kind == MeterKind.water) {
+      body = 'อ่านเฉพาะตัวเลขสีดำ หน่วยเป็นลูกบาศก์เมตร (ลบ.ม.)\n\n'
+          '• ตัวเลขหรือเข็มสีแดงเป็นเศษของ ลบ.ม. ไม่ต้องกรอก\n'
+          '• ตัวเลขที่กำลังหมุนเปลี่ยน ให้กรอกค่าที่น้อยกว่า\n'
+          '• ไม่ต้องกรอกเลข 0 ข้างหน้า';
+    } else if (_isTouElectricity) {
+      body = 'มิเตอร์ TOU แสดงเลขสลับกันหลายค่า ให้จดเลขที่หน้าจอระบุว่าเป็น T1 (On-Peak) '
+          'และ T2 (Off-Peak) ช่องละค่า หน่วยเป็น kWh\n\n'
+          '• ไม่ต้องกรอกทศนิยมและเลข 0 ข้างหน้า\n'
+          '• ช่องไหนเลขยังไม่เปลี่ยนจากครั้งก่อน เว้นว่างไว้ได้';
+    } else {
+      body = 'อ่านตัวเลขบนหน้าปัดจากซ้ายไปขวา หน่วยเป็น kWh (หน่วย)\n\n'
+          '• มิเตอร์แบบตัวเลขหมุน: หลักขวาสุดที่อยู่ในกรอบหรือมีสีต่างจากหลักอื่น '
+          '(มักเป็นสีแดง) เป็นทศนิยม ไม่ต้องกรอก\n'
+          '• ตัวเลขที่กำลังหมุนเปลี่ยน ให้กรอกค่าที่น้อยกว่า\n'
+          '• ไม่ต้องกรอกเลข 0 ข้างหน้า';
+    }
+    showInfoDialog(
+      context,
+      title: 'อ่านเลขมิเตอร์$_utilityLabelยังไง?',
+      message: '$body\n\nหน้าปัดแต่ละรุ่นต่างกัน ถ้าไม่แน่ใจ ให้เทียบจำนวนหลักกับ '
+          '"เลขอ่านครั้งหลัง" บนใบแจ้งหนี้ ซึ่งอ่านแบบเดียวกันค่ะ',
+    );
+  }
+
   Future<void> _doSave() async {
     setState(() => _isSaving = true);
     try {
@@ -573,6 +603,12 @@ class _RecordMeterScreenState extends State<RecordMeterScreen> {
                   ),
                   Text(_shortThaiDate(DateTime.now(), withTime: false),
                       style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'อ่านเลขมิเตอร์ยังไง?',
+                    icon: Icon(Icons.info_outline, size: 20, color: _accent),
+                    onPressed: _showHowToRead,
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.v14),

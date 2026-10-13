@@ -405,4 +405,30 @@ void main() {
       expect(find.text('ซ่อนวิธีคำนวณ'), findsOneWidget);
     });
   });
+
+  group('ปุ่มอ่านเลขมิเตอร์ยังไง', () {
+    Future<void> openHelp(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('อ่านเลขมิเตอร์ยังไง?'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('น้ำ -> อ่านเฉพาะตัวเลขสีดำ และเทียบกับใบแจ้งหนี้', (tester) async {
+      await openScreen(tester, kind: MeterKind.water, startValue: 100, lastValue: 110);
+      await openHelp(tester);
+      expect(find.textContaining('อ่านเฉพาะตัวเลขสีดำ'), findsOneWidget);
+      expect(find.textContaining('"เลขอ่านครั้งหลัง" บนใบแจ้งหนี้'), findsOneWidget);
+    });
+
+    testWidgets('ไฟมิเตอร์ปกติ -> หลักทศนิยมไม่ต้องกรอก', (tester) async {
+      await openScreen(tester);
+      await openHelp(tester);
+      expect(find.textContaining('เป็นทศนิยม ไม่ต้องกรอก'), findsOneWidget);
+    });
+
+    testWidgets('ไฟ TOU -> จดเลข T1 และ T2', (tester) async {
+      await openScreen(tester, isTou: true, startPeak: 100, lastPeak: 110, startOffPeak: 200, lastOffPeak: 220);
+      await openHelp(tester);
+      expect(find.textContaining('T1 (On-Peak)'), findsWidgets);
+    });
+  });
 }

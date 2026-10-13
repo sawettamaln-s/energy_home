@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/calculator.dart';
 import '../../widgets/auth_widgets.dart';
 import '../../widgets/info_dialog.dart';
 import '../dashboard/dashboard_styles.dart';
@@ -132,7 +133,8 @@ class _SetupScreenState extends State<SetupScreen> {
                 style: const TextStyle(color: Colors.grey, fontSize: AppTypography.s13),
               ),
               const SizedBox(height: 32),
-              Expanded(child: _buildStep(_currentStep)),
+              // เลื่อนได้ — จอเล็กหรือตัวอักษรใหญ่ เนื้อหาของขั้นยาวเกินพื้นที่
+              Expanded(child: SingleChildScrollView(child: _buildStep(_currentStep))),
               // ปุ่มด้านล่าง — ความสูง/มุมโค้งชุดเดียวกับปุ่มหลักในหน้า
               // Welcome/Login/Register (AuthStyle.buttonHeight/radius) เพื่อ
               // ให้ทั้งขั้นตอน auth ทั้งหมดดูเป็นชุดเดียวกัน
@@ -195,8 +197,12 @@ class _SetupScreenState extends State<SetupScreen> {
             'รายเดือน (เริ่มต้นที่ประเภท 1.1.2 ของบ้านส่วนใหญ่ เปลี่ยนได้ที่หน้าตั้งค่า)';
     final waterLine = isBangkok
         ? '• ค่าน้ำ (MWA): คิดขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือน'
-            'และค่าน้ำดิบเล็กน้อย'
-        : '• ค่าน้ำ (PWA): คิดขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือน';
+            'และค่าน้ำดิบเล็กน้อย ค่าบริการคิดแบบมาตรวัดน้ำ ½ นิ้วของบ้านทั่วไป '
+            'ถ้ามาตรใหญ่กว่านี้ ค่าบริการจริงจะสูงกว่า'
+        : '• ค่าน้ำ (PWA): คิดขั้นบันไดตามหน่วยที่ใช้ บวกค่าบริการรายเดือน '
+            'ตามตารางอัตราหมายเลข 3 ที่สาขาส่วนใหญ่ใช้ (บางสาขา เช่น ชลบุรี พัทยา ระยอง '
+            'ปทุมธานี ใช้ตารางอื่น) ค่าบริการคิดแบบมาตรวัดน้ำ ½ นิ้วของบ้านทั่วไป '
+            'ถ้ามาตรใหญ่กว่านี้ ค่าบริการจริงจะสูงกว่า';
 
     return SingleChildScrollView(
       child: Column(
@@ -244,7 +250,9 @@ class _SetupScreenState extends State<SetupScreen> {
               'ที่ประเภทใช้เกิน 150 หน่วย/เดือน (กฟน. 1.2 / กฟภ. 1.1.2) ซึ่งเป็น'
               'ของบ้านส่วนใหญ่ ถ้าใบแจ้งหนี้ของคุณเป็นประเภทใช้ไม่เกิน 150 หน่วย '
               '(กฟน. 1.1 / กฟภ. 1.1.1 มิเตอร์ไม่เกิน 5 แอมแปร์) เปลี่ยนได้ที่ '
-              'ตั้งค่า > ประเภทอัตราค่าไฟ\n\n'
+              'ตั้งค่า > ประเภทอัตราค่าไฟ\n'
+              'ขนาดมิเตอร์ดูได้ที่หน้าปัดมิเตอร์: 5(15)A = 5 แอมแปร์ · '
+              '15(45)A หรือใหญ่กว่า = ใหญ่กว่า 5 แอมแปร์ (ประเภทใช้เกิน 150 หน่วยเสมอ)\n\n'
               '• มิเตอร์ TOU: คิดแยกช่วงเวลา กลางวัน (On-Peak) แพงกว่า '
               'กลางคืน/วันหยุด (Off-Peak) ถูกกว่า เหมาะกับบ้านที่ใช้ไฟ'
               'ช่วงกลางคืนเยอะ เช่น เปิดแอร์นอน ระบบใช้อัตรา TOU บ้านอยู่อาศัย'
@@ -254,7 +262,10 @@ class _SetupScreenState extends State<SetupScreen> {
         const SizedBox(height: 28),
         _buildSelectionCard(
           title: 'มิเตอร์ปกติ',
-          subtitle: 'คิดอัตราขั้นบันได เหมาะสำหรับบ้านทั่วไป',
+          // ประเภทอัตราตั้งต้น = ใช้เกิน 150 หน่วย รหัสตามการไฟฟ้าของพื้นที่ที่เลือกในขั้นแรก
+          subtitle: 'คิดอัตราขั้นบันได เหมาะสำหรับบ้านทั่วไป ตั้งต้นที่ประเภท '
+              '${EnergyCalculator.tariffCode(EnergyCalculator.tariffStandard, _selectedArea)} '
+              '(ใช้เกิน 150 หน่วย/เดือน) แก้ได้ภายหลังที่ ตั้งค่า > ประเภทอัตราค่าไฟค่ะ',
           icon: Icons.electric_meter,
           isSelected: _selectedMeterType == 'normal',
           onTap: () => setState(() => _selectedMeterType = 'normal'),
