@@ -177,7 +177,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'ไฟฟ้า'),
-            Tab(text: 'น้ำ'),
+            Tab(text: 'ประปา'),
           ],
         ),
       ),
