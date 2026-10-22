@@ -1,8 +1,7 @@
 part of 'settings_screen.dart';
 
 // ==================== ประเภทอัตราค่าไฟ (มิเตอร์ปกติ) ====================
-// เปิดได้ทั้งจากหน้าตั้งค่า และจาก popup แนะนำบนหน้าหลัก (ดู
-// showTariffHintPopup) — ค่าเริ่มต้นคือประเภทใช้เกิน 150 หน่วยของบ้านส่วนใหญ่
+// เปิดจากหน้าตั้งค่า — ค่าเริ่มต้นคือประเภทใช้เกิน 150 หน่วยของบ้านส่วนใหญ่
 // รหัสประเภทแสดงตามการไฟฟ้าของพื้นที่ผู้ใช้ (ดู EnergyCalculator.tariffCode)
 
 String tariffLabel(String tariff, String area) =>
@@ -268,77 +267,6 @@ class _TariffSheetState extends State<_TariffSheet> {
           ),
         ),
       ],
-    );
-  }
-}
-
-// popup บนหน้าหลักเมื่อบิล 3 เดือนติดกันเข้าเงื่อนไขเปลี่ยนประเภท (ดู
-// TariffAdvisor) — แค่แนะนำ ผู้ใช้เลือก "ไว้ทีหลัง" ได้ ไม่บังคับเปลี่ยน
-Future<void> showTariffHintPopup(
-  BuildContext context, {
-  required TariffHint hint,
-  required UserModel user,
-  required FirestoreService firestoreService,
-}) async {
-  final first = hint.bills.first;
-  final latest = hint.latest;
-  final range = '${thaiMonths[first.month - 1]} - '
-      '${thaiMonths[latest.month - 1]} ${latest.year + 543}';
-  final toSmall = hint.suggestedTariff == EnergyCalculator.tariffSmall;
-  final suggested = tariffLabel(hint.suggestedTariff, user.area);
-  final goAdjust = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.v20)),
-      title: Row(
-        children: [
-          const Expanded(
-            child: Text('ลองตรวจประเภทอัตราค่าไฟ',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: AppTypography.s17)),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.info_outline,
-                color: DashboardStyles.primaryGreen, size: 20),
-            onPressed: () => showTariffHowToInfo(context, user.area),
-          ),
-        ],
-      ),
-      content: Text(
-        toSmall
-            ? 'บ้านคุณใช้ไฟไม่เกิน 150 หน่วยติดต่อกัน 3 เดือน ($range) ถ้ามิเตอร์'
-                'ขนาดไม่เกิน 5 แอมแปร์ (หน้าปัดมิเตอร์เขียน 5(15)A) บิลถัดไปอาจเปลี่ยนเป็น$suggested ซึ่ง'
-                'ถูกกว่า\n\nตรวจประเภทบนใบแจ้งหนี้ใบถัดไป ถ้าเปลี่ยนจริง'
-                'ปรับในแอปให้ตรงได้เลยค่ะ'
-            : 'บ้านคุณใช้ไฟเกิน 150 หน่วยติดต่อกัน 3 เดือน ($range) บิลถัดไป'
-                'มักเปลี่ยนกลับเป็น$suggested\n\nตรวจประเภทบนใบแจ้งหนี้ใบถัดไป '
-                'ถ้าเปลี่ยนจริงปรับในแอปให้ตรงได้เลยค่ะ',
-        style: const TextStyle(fontSize: AppTypography.s13_5, height: 1.5),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('ไว้ทีหลัง'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: DashboardStyles.primaryGreen,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('ปรับประเภทอัตรา'),
-        ),
-      ],
-    ),
-  );
-  if (goAdjust == true && context.mounted) {
-    await showElectricityTariffDialog(
-      context,
-      user: user,
-      firestoreService: firestoreService,
-      initial: hint.suggestedTariff,
     );
   }
 }

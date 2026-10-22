@@ -153,7 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // งานเบื้องหลังหลังหน้าจอแสดงแล้ว (ดู DashboardLoader.runBackgroundTasks)
-  // หน้าจอรับผลมาอัปเดต badge แจ้งเตือน และแสดง popup คำแนะนำประเภทอัตราใหม่
+  // หน้าจอรับผลมาอัปเดต badge แจ้งเตือน
   Future<void> _runBackgroundTasks(DashboardData data,
       {required bool silent}) async {
     if (_backgroundInFlight) return;
@@ -163,17 +163,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       if (result.unreadNotifications != null) {
         setState(() => _unreadNotifications = result.unreadNotifications!);
-      }
-      // คำแนะนำใหม่ → popup พร้อมปุ่มไปปรับ (ผู้ใช้เลือกไว้ทีหลังได้)
-      final hint = result.newTariffHint;
-      final user = data.user;
-      if (hint != null && user != null && !silent) {
-        await showTariffHintPopup(
-          context,
-          hint: hint,
-          user: user,
-          firestoreService: _firestoreService,
-        );
       }
     } finally {
       _backgroundInFlight = false;

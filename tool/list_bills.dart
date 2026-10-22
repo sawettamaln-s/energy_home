@@ -5,7 +5,7 @@
 // กันมากกว่า 1 ใบบ้าง — เขียนไว้ช่วยตรวจสอบก่อนตัดสินใจลบข้อมูลอะไรใน
 // Firestore Console เอง สคริปต์นี้ใช้ครั้งเดียวก็ลบทิ้งได้เหมือนกัน
 //
-// วิธีใช้ (เหมือน migrate_tou_bills.dart ทุกอย่าง):
+// วิธีใช้ (ต้องมีรหัสผ่าน ใส่ --password= หรือพิมพ์ตอนรัน):
 //   dart run tool/list_bills.dart \
 //     --project-id=YOUR_PROJECT_ID \
 //     --api-key=YOUR_FIREBASE_WEB_API_KEY \

@@ -144,7 +144,6 @@ GitHub Actions รัน `flutter analyze` และ `flutter test` ทุกค
 | `seasonal_curves/backtest_forecast_methods.py` | วัด MAPE ของวิธีคาดการณ์กับข้อมูลชุดเดียวกัน |
 | `backtest_forecast.dart` | วัดความแม่นยำการคาดการณ์กับบิลจริงของบัญชีหนึ่ง |
 | `demo_data/generate_demo_account.dart` | เติมข้อมูลเดโมให้บัญชีที่สมัครแล้ว ตาม 4 เคส (กทม./ตจว. × ปกติ/TOU) |
-| `migrate_tou_bills.dart` | ซ่อมบิล TOU ที่ระบบปิดให้แต่หน่วย On/Off-Peak เป็น 0 (ดู `tool/README_migrate_tou_bills.md`) |
 | `list_bills.dart` | ดูบิลทั้งหมดของบัญชีหนึ่ง (อ่านอย่างเดียว) |
 
 สคริปต์ที่เขียนข้อมูลจะเป็น dry-run เสมอจนกว่าจะใส่ `--apply`

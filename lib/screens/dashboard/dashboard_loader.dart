@@ -10,7 +10,6 @@ import '../../services/notification_service.dart';
 import '../../utils/calculator.dart';
 import '../../utils/cycle_projection.dart';
 import '../../utils/forecaster.dart';
-import '../../utils/tariff_advisor.dart';
 import '../../utils/thai_date_utils.dart';
 import 'record_meter_screen.dart';
 
@@ -156,20 +155,15 @@ class DashboardData {
 // ผลของงานเบื้องหลัง ที่หน้าจอต้องเอาไปแสดงต่อ
 class DashboardBackgroundResult {
   final int? unreadNotifications; // null = อ่านจำนวนไม่ได้
-  // คำแนะนำประเภทอัตราที่เพิ่งเกิดครั้งแรก — หน้าจอแสดง popup
-  final TariffHint? newTariffHint;
 
-  const DashboardBackgroundResult({
-    this.unreadNotifications,
-    this.newTariffHint,
-  });
+  const DashboardBackgroundResult({this.unreadNotifications});
 }
 
 // =====================================================================
 // งานข้อมูลของหน้าหลัก แยกจากหน้าจอ — รับ FirestoreService/NotificationService
 // จากภายนอกได้ (เทสส่ง FakeFirebaseFirestore เข้ามา) ไม่แตะ widget
 //   load()               : โหลดเฉพาะที่หน้าจอแสดง (พร้อมกัน) แล้วคำนวณยอด
-//   runBackgroundTasks() : ปิดบิลรอบที่จบ, ไล่รอบที่ขาด, คำแนะนำประเภทอัตรา,
+//   runBackgroundTasks() : ปิดบิลรอบที่จบ, ไล่รอบที่ขาด,
 //                          ค่า Ft งวดใหม่, เช็คแจ้งเตือน — ทำหลังหน้าจอแสดงแล้ว
 // =====================================================================
 class DashboardLoader {
@@ -272,7 +266,6 @@ class DashboardLoader {
     final billingDay = user.billingDay;
     var lastElectricity = data.lastMonthElectricityCost;
     var lastWater = data.lastMonthWaterCost;
-    TariffHint? newHint;
 
     try {
       // sync ยอดรายจ่ายประจำที่ cache ไว้บน user ให้ตรงกับเดือนปัจจุบัน (หน้า
@@ -312,20 +305,6 @@ class DashboardLoader {
         silent: silent,
       );
 
-      // แนะนำให้ตรวจประเภทอัตราค่าไฟ เมื่อบิล 3 เดือนล่าสุดเข้าเงื่อนไขเปลี่ยน
-      // ประเภท (มิเตอร์ปกติเท่านั้น) — คำแนะนำใหม่ส่งกลับให้หน้าจอแสดง popup
-      if (user.meterType != 'tou') {
-        final hint = TariffAdvisor.check(
-          bills: await firestoreService.getBills(uid),
-          currentTariff: user.electricityTariff,
-          meterType: user.meterType,
-        );
-        if (hint != null &&
-            await notifications.notifyTariffHint(hint: hint, silent: silent)) {
-          newHint = hint;
-        }
-      }
-
       // ค่า Ft งวดใหม่ (ผู้ดูแลแก้ใน Firebase) — อ่านไม่ได้ไม่ถือว่าเปลี่ยน
       final ft = await firestoreService.getFtInfo();
       if (ft != null) {
@@ -352,10 +331,7 @@ class DashboardLoader {
     } catch (e) {
       debugPrint('Error reading unread notifications: $e');
     }
-    return DashboardBackgroundResult(
-      unreadNotifications: unread,
-      newTariffHint: newHint,
-    );
+    return DashboardBackgroundResult(unreadNotifications: unread);
   }
 
   // ----- Backfill รอบบิลที่ขาดหายไปก่อนหน้า [from] -----

@@ -219,26 +219,6 @@ void main() {
       expect(types.where((t) => t == 'ft_rate'), hasLength(1));
     });
 
-    test('บิล 3 เดือนใช้ไม่เกิน 150 หน่วย -> คำแนะนำประเภทอัตราครั้งแรกเท่านั้น',
-        () async {
-      await createUser();
-      for (final m in [3, 4, 5]) {
-        await service.saveBill(BillModel(
-            id: 'b$m', uid: _uid, year: 2026, month: m,
-            electricityUsed: 120, electricityCost: 500, source: 'imported'));
-      }
-      // บิลของรอบที่เพิ่งจบมีแล้ว ระบบจะไม่ปิดบิลซ้ำ
-      await service.saveBill(BillModel(
-          id: 'b6', uid: _uid, year: 2026, month: 6,
-          electricityUsed: 130, electricityCost: 520, source: 'imported'));
-
-      final data = await loader.load(_uid, now: now);
-      final first = await loader.runBackgroundTasks(data, silent: true);
-      final second = await loader.runBackgroundTasks(data, silent: true);
-
-      expect(first.newTariffHint?.suggestedTariff, EnergyCalculator.tariffSmall);
-      expect(second.newTariffHint, isNull);
-    });
   });
 
   group('สัดส่วน On-Peak ของรอบนี้ (TOU)', () {

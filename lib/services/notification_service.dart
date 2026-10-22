@@ -11,7 +11,6 @@ import 'package:uuid/uuid.dart';
 
 import '../models/notification_item_model.dart';
 import '../utils/calculator.dart';
-import '../utils/tariff_advisor.dart';
 import '../utils/thai_date_utils.dart';
 
 /// ===========================================================
@@ -47,7 +46,6 @@ class NotificationService {
   static const int idWelcome = 1006;
   static const int idForecastHigher = 1007;
   static const int idMissedCycle = 1008;
-  static const int idTariffHint = 1009;
   static const int idFtChanged = 1010;
 
   // ----- Channel สำหรับ Android -----
@@ -67,7 +65,7 @@ class NotificationService {
   //   'billing' -> เตือนเช้าวันตัดรอบบิล
   //   'meter'   -> เตือนยังไม่บันทึกมิเตอร์ + รอบบิลที่ไม่มีข้อมูล
   //   'spike'   -> ค่าใช้จ่ายพุ่งขึ้น + คาดการณ์สิ้นรอบสูงกว่าเดือนก่อน
-  //   'summary' -> สรุปยอดท้ายรอบบิล + แนะนำประเภทอัตรา + ค่า Ft งวดใหม่
+  //   'summary' -> สรุปยอดท้ายรอบบิล + ค่า Ft งวดใหม่
   // (แจ้งเตือนต้อนรับยิงเสมอ ไม่มี toggle)
   // ค่าเริ่มต้นของทุกประเภทคือ "เปิด" (true) ถ้ายังไม่เคยตั้งค่าไว้
   static const List<String> notificationTypes = [
@@ -457,45 +455,6 @@ class NotificationService {
       silent: silent,
     );
     await prefs.setBool(key, true);
-  }
-
-  // =====================================================================
-  // (Instant) แนะนำให้ตรวจประเภทอัตราค่าไฟ เมื่อบิล 3 เดือนติดกันเข้าเงื่อนไข
-  // เปลี่ยนประเภท (ดู TariffAdvisor) — คำแนะนำแต่ละครั้ง (ผูกกับบิลล่าสุด 1 ใบ)
-  // นับว่า "เคยแนะนำแล้ว" ครั้งเดียว คืน true เฉพาะครั้งแรก ให้หน้าหลักแสดง
-  // popup พร้อมปุ่มไปปรับ ส่วนแจ้งเตือนในเครื่องอยู่ใต้สวิตช์ "สรุปยอดท้าย
-  // รอบบิล" เพราะเกิดตอนปิดรอบ
-  // =====================================================================
-  Future<bool> notifyTariffHint({
-    required TariffHint hint,
-    bool silent = false,
-  }) async {
-    final latest = hint.latest;
-    final key = _scopedKey(
-        'tariff_hint_${latest.yearMonth}_${hint.suggestedTariff}');
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(key) ?? false) return false;
-    await prefs.setBool(key, true);
-    if (!await isTypeEnabled('summary')) return true;
-
-    final first = hint.bills.first;
-    final range = '${first.month}/${first.year} - ${latest.month}/${latest.year}';
-    final toSmall = hint.suggestedTariff == EnergyCalculator.tariffSmall;
-    await _showAndLog(
-      pluginId: idTariffHint,
-      title: 'ลองตรวจประเภทอัตราค่าไฟค่ะ',
-      body: toSmall
-          ? 'ใช้ไฟไม่เกิน 150 หน่วยติดต่อกัน 3 เดือน ($range) ถ้ามิเตอร์บ้านคุณ'
-              'ขนาดไม่เกิน 5 แอมแปร์ (หน้าปัดมิเตอร์เขียน 5(15)A) บิลถัดไปอาจเปลี่ยนเป็นอัตราประเภทใช้ไม่เกิน 150 '
-              'หน่วยซึ่งถูกกว่า '
-              'ตรวจประเภทบนใบแจ้งหนี้ใบถัดไป แล้วปรับได้ที่ ตั้งค่า > ประเภทอัตราค่าไฟค่ะ'
-          : 'ใช้ไฟเกิน 150 หน่วยติดต่อกัน 3 เดือน ($range) บิลถัดไปมักเปลี่ยนเป็น'
-              'อัตราประเภทใช้เกิน 150 หน่วย ตรวจประเภทบนใบแจ้งหนี้ใบถัดไป แล้วปรับได้ที่ ตั้งค่า > '
-              'ประเภทอัตราค่าไฟค่ะ',
-      type: 'summary',
-      silent: silent,
-    );
-    return true;
   }
 
   // =====================================================================
