@@ -310,7 +310,7 @@ void main() {
       Navigator.of(tester.element(find.byType(TabBar))).pop();
     }
 
-    testWidgets('เปิดจากหน้าน้ำ -> เปิดที่แท็บประปา', (tester) async {
+    testWidgets('เปิดจากหน้าน้ำ -> เปิดที่แท็บน้ำ', (tester) async {
       await openHistoryFromBelowLast(tester, kind: MeterKind.water);
 
       final tabBar = tester.widget<TabBar>(find.byType(TabBar));

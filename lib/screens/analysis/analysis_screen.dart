@@ -68,6 +68,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   String _tariff = EnergyCalculator.tariffStandard;
   double _ftRate = EnergyCalculator.defaultFtRate;
   int _billingDay = 30;
+  // เคยจดมิเตอร์ไฟฟ้า/น้ำแล้วหรือยัง — ยังไม่เคยจดจะไม่แสดงคาดการณ์บิลรอบถัดไป
+  // (ดู _UtilityTab.hasMeterLogs)
+  bool _hasElectricityLogs = false;
+  bool _hasWaterLogs = false;
 
   static const _green = DashboardStyles.primaryGreen;
 
@@ -104,11 +108,13 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       // user, บิล และค่า Ft ไม่ขึ้นต่อกัน ดึงพร้อมกัน ส่วนคาดการณ์รอบนี้ต้องรอ
       // user ก่อน เพราะใช้ billingDay คำนวณขอบเขตรอบบิลปัจจุบัน และใช้
       // meterType ตัดสินว่าแท็บไฟฟ้าควรโชว์กราฟแยก On-Peak/Off-Peak ไหม
-      // (ดู _isTou ด้านบน)
-      final (user, bills, ft) = await (
+      // (ดู _isTou ด้านบน) บันทึกล่าสุดของแต่ละยูทิลิตี้ใช้ดูว่าเคยจดมิเตอร์หรือยัง
+      final (user, bills, ft, eLatest, wLatest) = await (
         _firestoreService.getUser(uid),
         _analysisService.fetchBills(uid),
         _firestoreService.getFtInfo(),
+        _firestoreService.getLatestElectricityLog(uid),
+        _firestoreService.getLatestWaterLog(uid),
       ).wait;
       final billingDay = user?.billingDay ?? 30;
       final isTou = user?.meterType == 'tou';
@@ -133,6 +139,11 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         _userArea = user?.area;
         _tariff = user?.electricityTariff ?? EnergyCalculator.tariffStandard;
         _ftRate = ft?.rate ?? EnergyCalculator.defaultFtRate;
+        // บิล 'compiled' มาจากบันทึกมิเตอร์ จึงนับว่าเคยจดแล้วแม้บันทึกถูกลบไป
+        _hasElectricityLogs = eLatest != null ||
+            bills.any((b) => b.source == 'compiled' && b.electricityUsed > 0);
+        _hasWaterLogs = wLatest != null ||
+            bills.any((b) => b.source == 'compiled' && b.waterUsed > 0);
         _isLoading = false;
       });
     } catch (e) {
@@ -177,7 +188,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'ไฟฟ้า'),
-            Tab(text: 'ประปา'),
+            Tab(text: 'น้ำ'),
           ],
         ),
       ),
@@ -206,6 +217,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     unitColor: AppColors.electricityUnit,
                     touOffPeakColor: AppColors.electricityOffPeak,
                     currentCycle: _currentCycle?['electricity'],
+                    hasMeterLogs: _hasElectricityLogs,
                     onViewAppliances: _openAppliances,
                     isTou: _isTou,
                     peakUsedSelector: (b) => b.electricityPeakUsed,
@@ -230,6 +242,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                     costColor: AppColors.waterBorder,
                     unitColor: AppColors.waterUnit,
                     currentCycle: _currentCycle?['water'],
+                    hasMeterLogs: _hasWaterLogs,
                     onViewAppliances: _openAppliances,
                     trackAppliances: false,
                     area: _userArea,

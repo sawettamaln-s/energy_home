@@ -53,7 +53,7 @@ class MeterSummaryCard extends StatelessWidget {
         ? DashboardStyles.electricityBorder
         : DashboardStyles.waterBorder;
     final unit = isElectricity ? 'หน่วย' : 'ลบ.ม.';
-    final title = isElectricity ? (isTou ? 'ไฟฟ้า (TOU)' : 'ไฟฟ้า') : 'น้ำประปา';
+    final title = isElectricity ? (isTou ? 'ไฟฟ้า (TOU)' : 'ไฟฟ้า') : 'น้ำ';
     final icon = isElectricity ? Icons.bolt_rounded : Icons.water_drop_rounded;
     final caption =
         TextStyle(fontSize: AppTypography.s11_5, color: Colors.grey.shade600);

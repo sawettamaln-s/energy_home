@@ -227,6 +227,49 @@ void main() {
     expect(find.text('เทียบบิลล่าสุด'), findsNothing);
   });
 
+  // บิลจากใบแจ้งหนี้ล่าสุดใบเดียว (ผู้ใช้ใหม่ที่ยังไม่เคยจดมิเตอร์)
+  Future<void> addStartMeterBill() {
+    final d = DateTime(cycleStart.year, cycleStart.month, 1);
+    return service.saveBill(BillModel(
+      id: 'start',
+      uid: _uid,
+      year: d.year,
+      month: d.month,
+      electricityUsed: 320,
+      electricityCost: 1400,
+      waterUsed: 20,
+      waterCost: 150,
+      totalCost: 1550,
+      source: 'startMeter',
+    ));
+  }
+
+  testWidgets('มีแค่บิลจากใบแจ้งหนี้ ยังไม่เคยจดมิเตอร์ -> ไม่แสดงคาดการณ์บิลรอบถัดไป บอกให้บันทึกครั้งแรก',
+      (tester) async {
+    await createUser();
+    await addStartMeterBill();
+    await pumpAnalysis(tester);
+
+    expect(find.textContaining('บันทึกมิเตอร์ครั้งแรกที่หน้าหลัก'), findsOneWidget);
+    expect(find.textContaining('เพิ่มบิลย้อนหลังที่หน้าตั้งค่า'), findsNothing);
+    expect(find.textContaining('ประมาณ'), findsNothing);
+  });
+
+  testWidgets('จดมิเตอร์ไฟฟ้าแล้ว -> แท็บไฟฟ้าแสดงคาดการณ์บิลรอบถัดไป แท็บน้ำยังรอการจดครั้งแรก',
+      (tester) async {
+    await createUser();
+    await addStartMeterBill();
+    await addCurrentCycleLog();
+    await pumpAnalysis(tester);
+
+    expect(find.textContaining('บันทึกมิเตอร์ครั้งแรกที่หน้าหลัก'), findsNothing);
+    expect(find.text('ประมาณ'), findsNWidgets(2)); // รอบนี้ + รอบถัดไป
+
+    await tester.tap(find.text('น้ำ'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('บันทึกมิเตอร์ครั้งแรกที่หน้าหลัก'), findsOneWidget);
+  });
+
   testWidgets('จอเล็ก (กว้าง 320) ตัวอักษรใหญ่สุดที่แอปอนุญาต -> ทุกแท็บไม่ล้น', (tester) async {
     await createUser();
     await addBills();

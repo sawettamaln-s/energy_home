@@ -28,6 +28,10 @@ class _UtilityTab extends StatelessWidget {
   final Color unitColor;
   final Color? touOffPeakColor;
   final CurrentCycleForecast? currentCycle;
+  // เคยจดมิเตอร์ของยูทิลิตี้นี้แล้วหรือยัง — ยังไม่เคยจดไม่แสดงคาดการณ์บิลรอบถัดไป
+  // (ทั้งในการ์ดคาดการณ์และแท่งคาดการณ์ในกราฟ) ผู้ใช้ใหม่ที่เพิ่งกรอกใบแจ้งหนี้
+  // จะได้ไม่เห็นยอดที่ไม่รู้ว่ามาจากไหน
+  final bool hasMeterLogs;
   // TOU เท่านั้น (แท็บไฟฟ้า) — กราฟเทรนด์ฝั่ง "หน่วยที่ใช้" โชว์เป็นแท่งซ้อน
   // On-Peak/Off-Peak แท็บน้ำไม่ส่งมา (default false/null)
   final bool isTou;
@@ -69,6 +73,7 @@ class _UtilityTab extends StatelessWidget {
     required this.unitColor,
     this.touOffPeakColor,
     required this.currentCycle,
+    required this.hasMeterLogs,
     this.onViewAppliances,
     this.trackAppliances = true,
     this.isTou = false,
@@ -98,7 +103,7 @@ class _UtilityTab extends StatelessWidget {
     final momUsage = canCompareUsage ? analysisService.compareMoM(usageBills, selector: perDay) : null;
     final yoyUsage = canCompareUsage ? analysisService.compareYoY(usageBills, selector: perDay) : null;
     final avg6Usage = canCompareUsage ? analysisService.compareToAverage(usageBills, selector: perDay) : null;
-    final nextBillMonth = _nextBillMonth;
+    final nextBillMonth = hasMeterLogs ? _nextBillMonth : null;
     // ยอดเงินคาดการณ์คิดจากหน่วยที่คาดการณ์ด้วยตารางอัตรา หน่วยกับเงินจึงตรงกัน
     final peakSel = isTou ? peakUsedSelector : null;
     final offPeakSel = isTou ? offPeakUsedSelector : null;
@@ -119,35 +124,39 @@ class _UtilityTab extends StatelessWidget {
     final basis = analysisService.forecastBasis(bills, currentCycle: currentCycle, isWater: isWater);
     final basedOnCurrentCycle = basis.length > bills.length;
     final forecast = nextBillMonth == null ? 0.0 : costFor(basis, nextBillMonth);
-    final multiMonthForecast = analysisService.forecastChartMonths(
-      bills,
-      currentCycle: currentCycle,
-      isWater: isWater,
-      forecastFor: costFor,
-      pick: (c) => c.forecastCost,
-    );
+    final multiMonthForecast = !hasMeterLogs
+        ? const <double>[]
+        : analysisService.forecastChartMonths(
+            bills,
+            currentCycle: currentCycle,
+            isWater: isWater,
+            forecastFor: costFor,
+            pick: (c) => c.forecastCost,
+          );
     // คาดการณ์ฝั่ง "หน่วยที่ใช้" (กราฟเทรนด์สลับโหมดได้) — ใช้เฉพาะบิลที่มีหน่วย
     // ชุดเดียวกับที่ใช้คิดยอดเงินด้านบน เส้นฤดูกาลสร้างจากยอดหน่วยอยู่แล้ว
     // (tool/seasonal_curves) ยอดรวมทั้งเดือนไม่แยก On/Off-Peak
-    final multiMonthUsedForecast = analysisService.forecastChartMonths(
-      bills,
-      currentCycle: currentCycle,
-      isWater: isWater,
-      forecastFor: (basis, target) {
-        final withUnits = basis.where((b) => usedSelector(b) > 0).toList();
-        return withUnits.isEmpty
-            ? 0.0
-            : analysisService.forecastNextMonth(
-                withUnits,
-                selector: usedSelector,
-                area: area,
-                meterType: meterType,
-                isWater: isWater,
-                targetMonth: target,
-              );
-      },
-      pick: (c) => c.forecastUnits,
-    );
+    final multiMonthUsedForecast = !hasMeterLogs
+        ? const <double>[]
+        : analysisService.forecastChartMonths(
+            bills,
+            currentCycle: currentCycle,
+            isWater: isWater,
+            forecastFor: (basis, target) {
+              final withUnits = basis.where((b) => usedSelector(b) > 0).toList();
+              return withUnits.isEmpty
+                  ? 0.0
+                  : analysisService.forecastNextMonth(
+                      withUnits,
+                      selector: usedSelector,
+                      area: area,
+                      meterType: meterType,
+                      isWater: isWater,
+                      targetMonth: target,
+                    );
+            },
+            pick: (c) => c.forecastUnits,
+          );
 
     // การ์ดเปรียบเทียบแสดงผลเทียบเดือนก่อน/ปีก่อนอยู่แล้ว จึงไม่สร้างข้อสังเกต
     // ที่พูดเรื่องเดียวกันซ้ำ และแสดงแค่ 3 ข้อแรกให้อ่านจบได้เร็ว
@@ -351,7 +360,11 @@ class _UtilityTab extends StatelessWidget {
                     lowConfidence: lowConfidence,
                     usesSeasonalCurve: usesSeasonalCurve,
                   )
-                : [_emptyHint('เพิ่มบิลย้อนหลังที่หน้าตั้งค่า เพื่อให้ระบบคาดการณ์บิลรอบถัดไปได้ค่ะ')],
+                : [
+                    _emptyHint(bills.isEmpty
+                        ? 'เพิ่มบิลย้อนหลังที่หน้าตั้งค่า เพื่อให้ระบบคาดการณ์บิลรอบถัดไปได้ค่ะ'
+                        : 'บันทึกมิเตอร์ครั้งแรกที่หน้าหลัก เพื่อดูคาดการณ์บิลรอบถัดไปค่ะ'),
+                  ],
           ),
         ],
       ),
