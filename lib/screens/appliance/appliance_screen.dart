@@ -286,7 +286,6 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
     final bill = _rate.sourceBill;
     final billCost = bill?.electricityCost ?? 0;
     final billName = bill == null ? '' : '${thaiMonthsShort[bill.month - 1]} ${(bill.year + 543) % 100}';
-    String ofBill(double cost) => '${(cost / billCost * 100).toStringAsFixed(0)}%';
 
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.v16),
@@ -350,9 +349,6 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
                           ),
                         ],
                       ),
-                      if (billCost > 0)
-                        Text('ราว ${ofBill(_monthlyCost(top))} ของค่าไฟบิล $billName',
-                            style: TextStyle(fontSize: AppTypography.s12, color: Colors.grey.shade600)),
                     ],
                   ),
                 ),
@@ -383,8 +379,7 @@ class _ApplianceScreenState extends State<ApplianceScreen> {
             const Divider(height: 1),
             const SizedBox(height: AppSpacing.v10),
             Text(
-              'รวม ${scheduled.length} เครื่องที่บันทึกไว้ ประมาณ ${_bahtFmt.format(_totalMonthlyCost)} บาท/เดือน'
-              '${billCost > 0 && _totalMonthlyCost <= billCost ? ' (${ofBill(_totalMonthlyCost)} ของบิล)' : ''}',
+              'รวม ${scheduled.length} เครื่องที่บันทึกไว้ ประมาณ ${_bahtFmt.format(_totalMonthlyCost)} บาท/เดือน',
               style: TextStyle(fontSize: AppTypography.s12_5, height: 1.45, color: Colors.grey.shade700),
             ),
             Text(

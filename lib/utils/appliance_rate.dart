@@ -9,8 +9,9 @@ class ApplianceRate {
 
   const ApplianceRate._(this.perUnit, this.sourceBill);
 
-  // ค่าเฉลี่ยประมาณการ (รวม Ft และ VAT คร่าวๆ) เมื่อยังไม่มีบิลให้คำนวณ
-  static const double defaultPerUnit = 4.5;
+  // ค่าเฉลี่ยประมาณการ (รวม Ft และ VAT คร่าวๆ) เมื่อยังไม่มีบิลให้คำนวณ — อัตรา
+  // เฉลี่ยของบ้านที่ใช้ราว 300-400 หน่วย/เดือนตามตารางอัตราใน tariff_tables.dart
+  static const double defaultPerUnit = 4.0;
 
   // อัตราที่ได้นอกช่วงนี้ถือว่าข้อมูลบิลผิดปกติ (เช่น กรอกหน่วยผิด) ไม่นำมาใช้
   static const double _minPerUnit = 1;
