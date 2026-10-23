@@ -4,6 +4,8 @@
 # tool/backtest_cycle_k_cv.dart --csv เขียนไว้ (base/bkk/upc × seed 1-5)
 #   รูปที่ 1 k_cv_mape_curve.png  : MAPE ตามค่า k เฉลี่ย 5 seed
 #   รูปที่ 2 k_cv_diff_vs_k5.png  : MAPE(k) - MAPE(5) พร้อมช่วง 95% (bootstrap) ช่วง k = 2-10
+#   รูปที่ 3 k_cv_mape_by_day.png : MAPE แยกตามวันที่จด (ข้อมูลเดิม) ของ k = 0, 5, 21 และการทาย
+#                                  เท่ารอบก่อน จาก *_days_seed*.csv (--days-csv)
 # ใช้ฟอนต์ IBM Plex Sans Thai จาก assets/fonts ต้องมี matplotlib
 #
 # วิธีใช้: python tool/plot_k_cv.py <โฟลเดอร์ผล> <assets/fonts> <โฟลเดอร์ปลายทาง>
@@ -127,5 +129,67 @@ fig.text(0.07, 0.015, f'นอกกราฟ: k = 0 (คิดตรงๆ) แ
          fontsize=9, color=INK2)
 fig.tight_layout(rect=(0, 0.04, 1, 1))
 fig.savefig(os.path.join(OUT, 'k_cv_diff_vs_k5.png'), facecolor=SURF)
+plt.close(fig)
+
+# ---------- รูปที่ 3: MAPE แยกตามวันที่จด (ข้อมูลเดิม) ----------
+def load_days(key):
+    acc = {}
+    for s in SEEDS:
+        for r in csv.DictReader(open(os.path.join(RES, f'{key}_days_seed{s}.csv'), encoding='utf-8')):
+            if r['mape']:
+                acc.setdefault((r['method'], int(r['day'])), []).append(float(r['mape']))
+    return {k: sum(v) / len(v) for k, v in acc.items()}
+
+
+DAYS = [3, 5, 7, 10, 15, 20, 25]
+dd = load_days('base')
+REF = '#9a9993'
+LINES = [
+    ('k5', 'k = 5 (แอปใช้)', '#2a78d6', 'o', '-', 2.6),
+    ('k0', 'k = 0 (คิดตรงๆ ไม่ถ่วง)', '#eb6834', 's', '--', 2),
+    ('k21', 'k = 21 (พึ่งรอบก่อนมาก)', '#1baf7a', '^', ':', 2),
+]
+fig, ax = plt.subplots(figsize=(9, 5.2), dpi=200, facecolor=SURF)
+style(ax)
+prev = [dd[('previous', d)] for d in DAYS]
+ax.plot(DAYS, prev, color=REF, linewidth=1.6, linestyle=(0, (2, 2)), zorder=2, label='ทายเท่ารอบก่อน (ไม่ใช้ข้อมูลรอบนี้)')
+ax.annotate('ทายเท่ารอบก่อน', (DAYS[-1], prev[-1]), xytext=(8, 0), textcoords='offset points',
+            va='center', fontsize=9.5, color=INK2)
+for m, label, color, marker, ls, lw in LINES:
+    ys = [dd[(m, d)] for d in DAYS]
+    ax.plot(DAYS, ys, color=color, linewidth=lw, linestyle=ls, zorder=3 if m != 'k5' else 4)
+    ax.plot(DAYS, ys, linestyle='none', marker=marker, markersize=6.5, color=color,
+            markeredgecolor=SURF, markeredgewidth=1.5, zorder=5, label=label)
+ax.annotate('k = 0', (DAYS[0], dd[('k0', 3)]), xytext=(-10, 0), textcoords='offset points',
+            ha='right', va='center', fontsize=9.5, color=INK2)
+ax.annotate('k = 5', (DAYS[0], dd[('k5', 3)]), xytext=(-10, -4), textcoords='offset points',
+            ha='right', va='center', fontsize=9.5, color=INK2)
+ax.annotate('k = 21', (DAYS[0], dd[('k21', 3)]), xytext=(-10, 4), textcoords='offset points',
+            ha='right', va='center', fontsize=9.5, color=INK2)
+# ส่วนที่การถ่วงช่วยมากที่สุด: ลูกศรที่วันที่ 3 และ 5 ตัวเลขอยู่ใต้กราฟ
+for d in (3, 5):
+    a, b = dd[('k0', d)], dd[('k5', d)]
+    ax.annotate('', xy=(d, b + 0.15), xytext=(d, a - 0.15),
+                arrowprops=dict(arrowstyle='->', color=INK, lw=1.2), zorder=6)
+ax.set_xticks(DAYS)
+ax.set_xticklabels([f'วันที่ {d}' for d in DAYS])
+ax.set_xlim(0.6, 28.2)
+ax.set_ylim(0, 18.5)
+ax.set_xlabel('วันที่จดมิเตอร์ล่าสุด นับจากต้นรอบบิล', color=INK2, fontsize=10.5, labelpad=8)
+ax.set_ylabel('MAPE (%)  ยิ่งต่ำยิ่งแม่น', color=INK2, fontsize=10.5, labelpad=8)
+fig.suptitle('การถ่วงด้วยบิลรอบก่อนช่วยมากที่สุดช่วงต้นรอบบิล', x=0.07, ha='left',
+             fontsize=14, fontweight='semibold', color=INK)
+ax.set_title('ความคลาดเคลื่อนของยอดคาดการณ์สิ้นรอบ แยกตามวันที่จด · ข้อมูลเดิม RECON-SL เฉลี่ย 5 seed',
+             loc='left', fontsize=9.5, color=INK2, pad=10)
+ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.24), ncol=2, frameon=False, fontsize=9.5,
+          labelcolor=INK2, handletextpad=0.4, columnspacing=1.6, markerscale=1.3)
+th = load_days('bkk')
+drops = ' · '.join(f'วันที่ {d} {dd[("k0", d)]:.1f}% → {dd[("k5", d)]:.1f}% (ลดลง {dd[("k0", d)] - dd[("k5", d)]:.1f} จุด)'
+                   for d in (3, 5, 7))
+fig.text(0.07, 0.05, f'k = 5 เทียบกับคิดตรงๆ: {drops}', fontsize=9.5, color=INK)
+fig.text(0.07, 0.015, f'ข้อมูลที่ปรับฤดูกาลไทย (กรุงเทพ) ให้ผลแบบเดียวกัน: วันที่ 3 {th[("k0", 3)]:.1f}% → {th[("k5", 3)]:.1f}%, '
+         f'วันที่ 5 {th[("k0", 5)]:.1f}% → {th[("k5", 5)]:.1f}% (ดู k_days_summary.txt)', fontsize=9, color=INK2)
+fig.tight_layout(rect=(0, 0.08, 1, 1))
+fig.savefig(os.path.join(OUT, 'k_cv_mape_by_day.png'), facecolor=SURF)
 plt.close(fig)
 print('ok')

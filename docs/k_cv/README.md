@@ -21,6 +21,7 @@
 | `upc_seed*.txt/.csv` | ปรับฤดูกาลไทย ต่างจังหวัด (`upcountry_normal`) |
 | `k_cv_mape_curve.png` | MAPE ตามค่า k ทั้ง 3 ชุด (เฉลี่ย 5 seed) |
 | `k_cv_diff_vs_k5.png` | MAPE(k) − MAPE(5) พร้อมช่วง 95% ช่วง k = 2-10 |
+| `k_cv_mape_by_day.png` | MAPE แยกตามวันที่จด (ข้อมูลเดิม) ของ k = 0, 5, 21 และการทายเท่ารอบก่อน |
 
 ## ผลโดยสรุป (เฉลี่ย 5 seed)
 
