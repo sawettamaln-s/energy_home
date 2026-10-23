@@ -8,9 +8,11 @@
 //      เพื่อดูว่า k=5 ชนะทุก fold หรือไม่ และกราฟแบนแค่ไหนรอบ k=5
 //   2. bootstrap แบบสุ่มบ้านซ้ำ (resample households) เพื่อหาช่วงความเชื่อมั่น 95%
 //      ของ MAPE(k) - MAPE(5) และความน่าจะเป็นที่แต่ละ k เป็นค่าที่ดีที่สุด
-//   3. ผล CV แบบเดิม (เลือก k จากกลุ่มอื่น) เพื่อเทียบ
+//   3. MAPE แยกตามวันที่จดในรอบ (วันที่ 3-25) ของบาง k เทียบกับการทายเท่ารอบก่อน
+//      เพื่อดูว่าการถ่วงช่วยช่วงต้นรอบแค่ไหน
+//   4. ผล CV แบบเดิม (เลือก k จากกลุ่มอื่น) เพื่อเทียบ
 //
-//   4. (ไม่บังคับ) stress test ฤดูกาลไทย: คูณหน่วยที่ใช้ในแต่ละช่วงด้วยแฟกเตอร์รายเดือน
+//   5. (ไม่บังคับ) stress test ฤดูกาลไทย: คูณหน่วยที่ใช้ในแต่ละช่วงด้วยแฟกเตอร์รายเดือน
 //      ของไทยจาก seasonal_curves.json แล้วหาค่า k ใหม่ ข้อมูลศรีลังกามีฤดูกาลของตัวเอง
 //      อยู่แล้ว ผลนี้จึงบอกความไวของ k ต่อฤดูกาลที่แรงแบบไทย ไม่ใช่การจำลองบ้านไทยจริง
 //
@@ -22,9 +24,9 @@
 // วิธีใช้:
 //   dart run tool/backtest_cycle_k_cv.dart --file=<recon_sl_6h.csv> [--seed=1] [--rounds=1000]
 //       [--thai-seasonal=tool/seasonal_curves/seasonal_curves.json] [--curve=bangkok_normal]
-//       [--csv=<ไฟล์ผลสำหรับทำกราฟ.csv>]
+//       [--csv=<ไฟล์ผลสำหรับทำกราฟ.csv>] [--days-csv=<ไฟล์ MAPE แยกตามวัน.csv>]
 //   --curve เลือกเส้นไฟฟ้าใน seasonal_curves.json (bangkok_normal, upcountry_normal, ...)
-//   เก็บผลไว้เป็นหลักฐาน:  ... > docs/k_cv_detail_seed1.txt
+//   ผลที่เก็บไว้เป็นหลักฐานและคำสั่งรันซ้ำอยู่ที่ docs/k_cv/
 
 import 'dart:convert';
 import 'dart:io';
@@ -67,6 +69,7 @@ Future<void> main(List<String> args) async {
   String? thaiPath;
   var curve = 'bangkok_normal';
   String? csvPath;
+  String? daysCsvPath;
   for (final a in args) {
     if (a.startsWith('--file=')) {
       file = a.substring('--file='.length);
@@ -80,6 +83,8 @@ Future<void> main(List<String> args) async {
       curve = a.substring('--curve='.length);
     } else if (a.startsWith('--csv=')) {
       csvPath = a.substring('--csv='.length);
+    } else if (a.startsWith('--days-csv=')) {
+      daysCsvPath = a.substring('--days-csv='.length);
     } else {
       stderr.writeln('ไม่รู้จัก argument: $a');
       exitCode = 1;
@@ -145,16 +150,23 @@ Future<void> main(List<String> args) async {
 
   // ---------- สถิติรายบ้าน x รายค่า k ----------
   // MAPE รวมของโปรเจกต์ = ถ่วงตามจำนวนตัวอย่างต่อจุดวัด = ผลรวม|%error| ÷ จำนวนตัวอย่าง
+  // byDay[ki][di] = รวมทุกบ้าน แยกตามวันที่จด (checkpoints[di]) ตัวอย่างชุดเดียวกับ stat
   final stat = <List<_Acc>>[];
+  final byDay = [
+    for (final _ in kGrid) [for (final _ in checkpoints) _Acc()]
+  ];
   for (final h in households) {
     final row = [for (final _ in kGrid) _Acc()];
     for (var ki = 0; ki < kGrid.length; ki++) {
       for (final c in h) {
-        for (final d in checkpoints) {
-          final p = projectAt(c, d, kGrid[ki]);
+        for (var di = 0; di < checkpoints.length; di++) {
+          final p = projectAt(c, checkpoints[di], kGrid[ki]);
           if (p == null) continue;
-          row[ki].sum += ((p - c.actualUnits) / c.actualUnits * 100).abs();
+          final e = ((p - c.actualUnits) / c.actualUnits * 100).abs();
+          row[ki].sum += e;
           row[ki].n++;
+          byDay[ki][di].sum += e;
+          byDay[ki][di].n++;
         }
       }
     }
@@ -266,7 +278,59 @@ Future<void> main(List<String> args) async {
     File(csvPath).writeAsStringSync(csv.toString());
   }
 
-  // ---------- 3) CV แบบเดิม (เลือก k จากกลุ่มอื่น) ----------
+  // ---------- 3) MAPE แยกตามวันที่จด ----------
+  // วิธีทายเท่ารอบก่อนวัดได้เฉพาะรอบที่มีรอบก่อนติดกัน (จุดวัดเดียวกับวิธีอื่น)
+  final allCycles = [for (final h in households) ...h];
+  final prev = evaluatePreviousCycle(allCycles);
+  const dayKs = [0.0, 3.0, 5.0, 21.0];
+  out.writeln('\n===== MAPE (%) แยกตามวันที่จดในรอบ (ทุกบ้าน) =====');
+  out.write('วิธี'.padRight(22));
+  for (final d in checkpoints) {
+    out.write('วัน${d.toString().padLeft(2)}'.padLeft(8));
+  }
+  out.writeln('    รวม');
+  for (final k in dayKs) {
+    final ki = kGrid.indexOf(k);
+    final name = k == 0
+        ? 'k=0 (คิดตรงๆ)'
+        : k == 5
+            ? 'k=5 (แอป)'
+            : 'k=${k.toStringAsFixed(0)}';
+    out.write(name.padRight(22));
+    for (var di = 0; di < checkpoints.length; di++) {
+      final a = byDay[ki][di];
+      out.write(_f(a.n == 0 ? double.nan : a.sum / a.n).padLeft(8));
+    }
+    out.writeln(_f(overall[ki]).padLeft(8));
+  }
+  out.write('ทายเท่ารอบก่อน'.padRight(22));
+  for (final d in checkpoints) {
+    out.write(_f(prev[d]!.mape).padLeft(8));
+  }
+  out.writeln(_f(overallMape(prev)).padLeft(8));
+  out.write('n (k=5)'.padRight(22));
+  for (var di = 0; di < checkpoints.length; di++) {
+    out.write('${byDay[k5][di].n}'.padLeft(8));
+  }
+  out.writeln();
+  out.writeln('(ทายเท่ารอบก่อนวัดเฉพาะรอบที่มีบิลรอบก่อนติดกัน n จึงน้อยกว่าเล็กน้อย)');
+
+  if (daysCsvPath != null) {
+    final csv = StringBuffer('method,day,mape,n\n');
+    for (var ki = 0; ki < kGrid.length; ki++) {
+      for (var di = 0; di < checkpoints.length; di++) {
+        final a = byDay[ki][di];
+        csv.writeln('k${kGrid[ki].toStringAsFixed(0)},${checkpoints[di]},${a.n == 0 ? '' : a.sum / a.n},${a.n}');
+      }
+    }
+    for (final d in checkpoints) {
+      csv.writeln('previous,$d,${prev[d]!.mape},${prev[d]!.n}');
+    }
+    File(daysCsvPath).parent.createSync(recursive: true);
+    File(daysCsvPath).writeAsStringSync(csv.toString());
+  }
+
+  // ---------- 4) CV แบบเดิม (เลือก k จากกลุ่มอื่น) ----------
   final cv = crossValidateByHousehold(households, folds: folds);
   out.writeln('\n===== CV แบบเดิมของโปรเจกต์ (เลือก k จากกลุ่มอื่น แล้วทดสอบกลุ่มที่กันไว้) =====');
   out.writeln('MAPE ${_f(overallMape(cv.stats), 2)}% · k ที่ถูกเลือกแต่ละ fold: '
