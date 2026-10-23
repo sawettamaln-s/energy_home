@@ -22,6 +22,7 @@
 | `k_cv_mape_curve.png` | MAPE ตามค่า k ทั้ง 3 ชุด (เฉลี่ย 5 seed) |
 | `k_cv_diff_vs_k5.png` | MAPE(k) − MAPE(5) พร้อมช่วง 95% ช่วง k = 2-10 |
 | `k_cv_mape_by_day.png` | MAPE แยกตามวันที่จด (ข้อมูลเดิม) ของ k = 0, 5, 21 และการทายเท่ารอบก่อน |
+| `k_example_chart.png`, `k_example_table.png` | ตัวอย่างสมมติหนึ่งรอบบิล (ไฟฟ้าและน้ำ) เทียบ k = 0, 3, 5 สำหรับอธิบายสูตร ไม่ใช่หลักฐาน · ข้อมูลใน `k_example_data.txt` จาก `tool/k_example.dart` วาดด้วย `tool/plot_k_example.py` |
 
 ## ผลโดยสรุป (เฉลี่ย 5 seed)
 
