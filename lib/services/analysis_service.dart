@@ -42,7 +42,7 @@ class ComparisonResult {
 /// (เมื่อรู้ area+meterType) หรือ linear regression (เมื่อไม่รู้)
 /// อันนี้ตอบคำถามว่า "ถ้าใช้ในอัตรานี้ต่อไปจนสิ้นรอบบิล จะจบที่เท่าไหร่"
 class CurrentCycleForecast {
-  final double currentCost; // ใช้ไปแล้วเท่าไหร่ (บาท) ตั้งแต่ต้นรอบจนถึงวันนี้
+  final double currentCost; // ใช้ไปแล้วเท่าไหร่ (บาท) ตั้งแต่ต้นรอบจนถึงวันที่จดล่าสุด
   final double forecastCost; // คาดว่าจะจบรอบที่เท่าไหร่ (บาท)
   final double currentUnits; // ใช้ไปแล้วเท่าไหร่ (หน่วย)
   final double forecastUnits; // คาดว่าจะจบรอบที่เท่าไหร่ (หน่วย)
@@ -55,6 +55,9 @@ class CurrentCycleForecast {
   // false = บันทึกล่าสุดยังห่างจากต้นรอบไม่ถึง 1 วัน ข้อมูลน้อยเกินกว่าจะคาดการณ์
   // forecastCost/forecastUnits จึงเป็นแค่ยอดที่ใช้ไปแล้ว ไม่ใช่ยอดทั้งรอบ
   final bool projected;
+  // วันเวลาที่จดมิเตอร์ล่าสุดในรอบนี้ (null = ยังไม่ได้จด) — ยอดใช้ไปแล้วและยอด
+  // คาดการณ์คิดถึงเวลานี้ ไม่ใช่เวลาที่เปิดดู จึงไม่เปลี่ยนจนกว่าจะจดใหม่
+  final DateTime? lastRecordedAt;
 
   CurrentCycleForecast({
     required this.currentCost,
@@ -66,6 +69,7 @@ class CurrentCycleForecast {
     required this.cycleLengthDays,
     required this.billMonth,
     required this.projected,
+    this.lastRecordedAt,
   });
 
   /// ความคืบหน้าของรอบบิล 0.0 - 1.0 (ใช้ทำ progress bar)
@@ -79,6 +83,13 @@ class CurrentCycleForecast {
 
   /// มียอดคาดการณ์ทั้งรอบให้แสดง/นำไปเทียบได้
   bool get hasForecast => hasData && projected;
+
+  /// จดล่าสุดมาแล้วกี่วัน (นับตามวันในปฏิทิน ไม่สนเวลา) null = ยังไม่ได้จด
+  int? daysSinceReading(DateTime now) {
+    final d = lastRecordedAt;
+    if (d == null) return null;
+    return DateTime(now.year, now.month, now.day).difference(DateTime(d.year, d.month, d.day)).inDays;
+  }
 }
 
 /// ระดับความสำคัญของ insight ใช้กำหนดสี/ไอคอนตอนแสดงผล
@@ -529,8 +540,8 @@ class AnalysisService {
       priorPerDay: billUnitsPerDay(priorBill, priorBill?.waterUsed, billingDay),
     );
 
-    CurrentCycleForecast build(
-            double currentCost, double currentUnits, CycleProjection p) =>
+    CurrentCycleForecast build(double currentCost, double currentUnits,
+            CycleProjection p, DateTime? lastRecordedAt) =>
         CurrentCycleForecast(
           currentCost: currentCost,
           forecastCost: p.cost,
@@ -541,11 +552,12 @@ class AnalysisService {
           cycleLengthDays: cycleLengthDays,
           billMonth: billMonth,
           projected: p.projected,
+          lastRecordedAt: lastRecordedAt,
         );
 
     return {
-      'electricity': build(eLast?.cost ?? 0, eLast?.usedFromStart ?? 0, eProjection),
-      'water': build(wLast?.cost ?? 0, wLast?.usedFromStart ?? 0, wProjection),
+      'electricity': build(eLast?.cost ?? 0, eLast?.usedFromStart ?? 0, eProjection, eLast?.date),
+      'water': build(wLast?.cost ?? 0, wLast?.usedFromStart ?? 0, wProjection, wLast?.date),
     };
   }
 

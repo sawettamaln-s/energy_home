@@ -117,6 +117,24 @@ void main() {
     expect(find.text('ข้อสังเกต'), findsOneWidget);
   });
 
+  testWidgets('ยอดใช้ไปแล้วบอกวันที่จดล่าสุด ไม่ใช่ "ถึงวันนี้" และเตือนเมื่อจดล่าสุดนานกว่า 3 วัน',
+      (tester) async {
+    await createUser();
+    await addBills();
+    await addCurrentCycleLog();
+    await pumpAnalysis(tester);
+
+    final logDate = cycleStart.add(const Duration(hours: 30));
+    expect(find.textContaining('ถึงวันที่จดล่าสุด (${logDate.day} ${thaiMonthsShort[logDate.month - 1]}) ใช้ไปแล้ว'),
+        findsOneWidget);
+    expect(find.textContaining('ถึงวันนี้'), findsNothing);
+    final now = DateTime.now();
+    final days = DateTime(now.year, now.month, now.day)
+        .difference(DateTime(logDate.year, logDate.month, logDate.day))
+        .inDays;
+    expect(find.textContaining('คาดจากเลขที่จดเมื่อ $days วันก่อน'), days > 3 ? findsOneWidget : findsNothing);
+  });
+
   testWidgets('คำอธิบายการ์ดคาดการณ์บอกความคลาดเคลื่อนที่วัดได้ของทั้งสองส่วน', (tester) async {
     await createUser();
     await addBills();

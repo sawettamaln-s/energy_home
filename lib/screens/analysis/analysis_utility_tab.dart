@@ -270,6 +270,41 @@ class _UtilityTab extends StatelessWidget {
 
   String _monthYear(DateTime d) => '${thaiMonthsShort[d.month - 1]} ${(d.year + 543) % 100}';
 
+  // ยอดใช้ไปแล้วและยอดคาดการณ์คิดถึงเวลาที่จดล่าสุด ไม่ใช่เวลาที่เปิดดู
+  // จึงบอกวันที่จดกำกับไว้ ไม่ใช่ "ถึงวันนี้"
+  String _usedSoFarLabel(CurrentCycleForecast c) {
+    final d = c.lastRecordedAt;
+    return d == null ? 'ใช้ไปแล้ว' : 'ถึงวันที่จดล่าสุด (${d.day} ${thaiMonthsShort[d.month - 1]}) ใช้ไปแล้ว';
+  }
+
+  // จดล่าสุดนานกว่านี้ (วันตามปฏิทิน) จะบอกให้จดใหม่ — ยอดคาดการณ์ไม่เปลี่ยน
+  // จนกว่าจะจดใหม่ ผู้ใช้ควรรู้ว่าตัวเลขมาจากข้อมูลเมื่อไร
+  static const int _staleReadingDays = 3;
+
+  List<Widget> _staleReadingNote(CurrentCycleForecast c) {
+    final days = c.daysSinceReading(DateTime.now());
+    if (days == null || days <= _staleReadingDays) return const [];
+    return [
+      const SizedBox(height: AppSpacing.v6),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.schedule_rounded, size: 15, color: AppColors.warningIcon),
+          ),
+          const SizedBox(width: AppSpacing.v6),
+          Expanded(
+            child: Text(
+              'คาดจากเลขที่จดเมื่อ $days วันก่อน จดมิเตอร์ใหม่เพื่อให้แม่นขึ้นค่ะ',
+              style: const TextStyle(fontSize: AppTypography.s12, height: 1.45, color: AppColors.warningText),
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
+
   // ===================================================================
   // การ์ดคาดการณ์ — รอบนี้ (จากบันทึกมิเตอร์จริง) + รอบถัดไป (จากบิลย้อนหลัง
   // และรูปแบบฤดูกาล) ในการ์ดเดียว ส่วนไหนยังไม่มีข้อมูลจะบอกวิธีให้มีข้อมูล
@@ -321,15 +356,16 @@ class _UtilityTab extends StatelessWidget {
                       _estimateLine(c.forecastCost),
                       const SizedBox(height: AppSpacing.v4),
                       Text(
-                        'ถึงวันนี้ใช้ไปแล้ว ${_fmt.format(c.currentCost)} บาท · '
+                        '${_usedSoFarLabel(c)} ${_fmt.format(c.currentCost)} บาท · '
                         'ทั้งรอบน่าจะใช้ประมาณ ${_fmtUnit.format(c.forecastUnits)} $unitLabel',
                         style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
                       ),
+                      ..._staleReadingNote(c),
                     ] else ...[
                       // บันทึกล่าสุดห่างจากต้นรอบไม่ถึง 1 วัน — ยังไม่แสดงยอดทั้งรอบ
                       // เพราะการใช้ไม่กี่ชั่วโมงแกว่งมากเกินกว่าจะคาดการณ์ได้
                       Text(
-                        'ถึงวันนี้ใช้ไปแล้ว ${_fmt.format(c.currentCost)} บาท',
+                        '${_usedSoFarLabel(c)} ${_fmt.format(c.currentCost)} บาท',
                         style: TextStyle(fontSize: AppTypography.s12, height: 1.45, color: Colors.grey.shade700),
                       ),
                       const SizedBox(height: AppSpacing.v4),
