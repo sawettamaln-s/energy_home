@@ -56,8 +56,7 @@ class _UtilityTab extends StatelessWidget {
   final bool trackAppliances;
 
   static final _fmt = NumberFormat('#,##0.00');
-  static final _fmtUnit = NumberFormat('#,##0.#');
-  static final _fmtBaht = NumberFormat('#,##0');
+  static final _fmtUnit = NumberFormat('#,##0.00');
 
   const _UtilityTab({
     required this.bills,
@@ -469,9 +468,10 @@ class _UtilityTab extends StatelessWidget {
           child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
+            // แสดงเต็ม 2 ตำแหน่งเท่ากับที่คำนวณ ผู้ใช้คิดตามด้วยมือได้ตรงกัน
             child: AnimatedAmount(
-              value: value.roundToDouble(),
-              pattern: '#,##0',
+              value: value,
+              pattern: '#,##0.00',
               style: TextStyle(fontSize: AppTypography.s24, fontWeight: FontWeight.w700, color: _darkAccent),
             ),
           ),
@@ -519,7 +519,7 @@ class _UtilityTab extends StatelessWidget {
               ? 'ใกล้เคียงบิล $lastName'
               : '${comparison.isIncrease ? 'สูงกว่า' : 'ต่ำกว่า'}บิล $lastName '
                   '${comparison.percentChange != null ? '${comparison.percentChange!.abs().toStringAsFixed(0)}% ' : ''}'
-                  '(${comparison.isIncrease ? '+' : '−'}${_fmtBaht.format(comparison.diff.abs())} บาท)',
+                  '(${comparison.isIncrease ? '+' : '−'}${_fmt.format(comparison.diff.abs())} บาท)',
         ),
       ],
       if (seasonalFactor != null) ...[

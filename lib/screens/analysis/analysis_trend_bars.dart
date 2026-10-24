@@ -62,7 +62,7 @@ class _TrendBars extends StatelessWidget {
 
   String _valueText(double v) => isCost
       ? '${NumberFormat('#,##0.00').format(v)} บาท'
-      : '${NumberFormat('#,##0.#').format(v)} $unitLabel';
+      : '${NumberFormat('#,##0.##').format(v)} $unitLabel';
 
   @override
   Widget build(BuildContext context) {
