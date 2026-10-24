@@ -31,9 +31,13 @@ class EnergyForecaster {
     // (tool/backtest_cycle_projection.dart) แอปใช้ค่าเริ่มต้นเสมอ
     double priorWeight = priorWeightDays,
   }) {
-    final daysSoFar = lastRecordedAt.difference(cycleStart).inMinutes / 1440;
+    // ตัดวินาทีของเวลาที่บันทึกทิ้ง ให้ตรงกับเวลาที่หน้าประวัติการบันทึกแสดง (ถึงนาที)
+    // คิดตามได้ด้วยมือจากเวลาที่เห็นบนหน้าจอ
+    final recorded = DateTime(lastRecordedAt.year, lastRecordedAt.month,
+        lastRecordedAt.day, lastRecordedAt.hour, lastRecordedAt.minute);
+    final daysSoFar = recorded.difference(cycleStart).inMinutes / 1440;
     if (daysSoFar < 1) return null;
-    final daysLeft = cycleEnd.difference(lastRecordedAt).inMinutes / 1440;
+    final daysLeft = cycleEnd.difference(recorded).inMinutes / 1440;
     final usePrior = priorPerDay != null &&
         priorPerDay > 0 &&
         currentTotal > 0 &&

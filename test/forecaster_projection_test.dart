@@ -69,6 +69,20 @@ void main() {
     expect(forecast, 300);
   });
 
+  test('วินาทีของเวลาที่บันทึกไม่มีผล -> ได้เท่ากับเวลาถึงนาทีที่หน้าประวัติแสดง', () {
+    // 12:10:07 กับ 12:10:00 ต้องได้ผลเท่ากัน (ไม่งั้นวันที่เหลือต่างกัน 1 นาที)
+    double? at(DateTime t) => EnergyForecaster.projectToCycleEnd(
+          currentTotal: 43,
+          cycleStart: DateTime(2026, 10, 9),
+          cycleEnd: DateTime(2026, 11, 9),
+          lastRecordedAt: t,
+          priorPerDay: 218 / 30,
+        );
+    final withSeconds = at(DateTime(2026, 10, 24, 12, 10, 7, 598));
+    expect(withSeconds, at(DateTime(2026, 10, 24, 12, 10)));
+    expect(withSeconds, 102.94);
+  });
+
   group('ถ่วงด้วยหน่วยต่อวันของบิลรอบก่อน', () {
     test('วันแรกใช้เยอะผิดปกติ -> ยอดคาดการณ์ถูกดึงเข้าหาบิลก่อน', () {
       // วันแรกใช้ 30 (ปกติวันละ 10) — ไม่ถ่วง = 900, ถ่วง 5 วัน = (30+50)/6 ต่อวัน
