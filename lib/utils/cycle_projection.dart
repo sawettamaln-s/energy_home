@@ -94,7 +94,7 @@ Future<CycleProjection> projectElectricityToCycleEnd({
   // บันทึกตรงวันตัดรอบพอดี หน่วยไม่เพิ่ม — ใช้ยอดเงินของ log ตามที่บันทึกไว้
   final cost = units <= latest.usedFromStart
       ? latest.cost
-      : await EnergyCalculator.calculateElectricityByType(
+      : await EnergyCalculator.calculateElectricityByType( //คิดเงินจากหน่วยที่ทายได้
           units: units,
           meterType: meterType,
           area: area,
@@ -127,6 +127,6 @@ CycleProjection projectWaterToCycleEnd({
   }
   final cost = units <= latest.usedFromStart
       ? latest.cost
-      : EnergyCalculator.calculateWater(units, area);
+      : EnergyCalculator.calculateWater(units, area); //คิดเงินจากหน่วยที่ทายได้
   return CycleProjection(units: units, cost: cost, projected: true);
 }

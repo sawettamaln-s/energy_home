@@ -265,17 +265,18 @@ class AnalysisService {
     final target =
         targetMonth ?? DateTime(current.year, current.month + 1, 1);
 
+    //หน้าวิเคราะห์เรียกฟังก์ชัน forecastNextMonth() เพื่อทายบิลเดือนหน้า
     final curve = _resolveCurve(area: area, meterType: meterType, isWater: isWater);
     if (curve != null) {
-      final recentBills = _recentWindow(bills);
+      final recentBills = _recentWindow(bills); //// บิลล่าสุด 1 ใบ
       return EnergyForecaster.seasonalForecast(
-        recentMonthlyValues: recentBills.map(selector).toList(),
-        recentMonths: recentBills.map((b) => b.month).toList(),
-        curve: curve,
-        forecastMonth: target.month,
+        recentMonthlyValues: recentBills.map(selector).toList(), // หน่วยของบิล
+        recentMonths: recentBills.map((b) => b.month).toList(), // เดือนของบิล
+        curve: curve,       // ตัวคูณ 12 ตัว
+        forecastMonth: target.month,  // เดือนที่จะทาย
       );
     }
-
+    // ถ้าไม่รู้เขต → ใช้ linearRegression แทน
     // เส้นแนวโน้มวางบิลตามลำดับเดือนจริง (เดือนที่ขาดเว้นช่องไว้) และทายที่
     // ลำดับเดือนของเป้าหมาย — เป้าหมายต้องอยู่หลังบิลล่าสุดอย่างน้อย 1 เดือน
     final lastIndex = _monthIndex(bills, current.year, current.month);
@@ -468,8 +469,8 @@ class AnalysisService {
     required bool isWater,
   }) {
     if (area == null || meterType == null) return null;
-    final caseKey = SeasonalCurves.caseKeyFor(area: area, meterType: meterType);
-    final curveMap = isWater ? SeasonalCurves.water : SeasonalCurves.elec;
+    final caseKey = SeasonalCurves.caseKeyFor(area: area, meterType: meterType); // เช่น 'bangkok_normal'
+    final curveMap = isWater ? SeasonalCurves.water : SeasonalCurves.elec;  // ไฟหรือน้ำ
     return curveMap[caseKey];
   }
 
@@ -500,7 +501,7 @@ class AnalysisService {
     String tariff = EnergyCalculator.tariffStandard,
   }) async {
     final now = DateTime.now();
-    final startDate = EnergyForecaster.getCycleStart(now, billingDay);
+    final startDate = EnergyForecaster.getCycleStart(now, billingDay); //ดูว่ารอบบิลนี้เริ่มวันไหน
     final endDate = EnergyForecaster.getCycleEnd(now, billingDay);
     final cycleLengthDays =
         EnergyForecaster.getCycleLengthDays(now, billingDay);
@@ -510,11 +511,11 @@ class AnalysisService {
 
     // log ไฟ/น้ำ และบิลรอบก่อนไม่ขึ้นต่อกัน ดึงพร้อมกัน
     final (eLogs, wLogs, priorBill) = await (
-      firestoreService.getCurrentMonthElectricityLogs(uid, startDate, endDate),
+      firestoreService.getCurrentMonthElectricityLogs(uid, startDate, endDate), //เริ่มวันไหน-จบวันไหน
       firestoreService.getCurrentMonthWaterLogs(uid, startDate, endDate),
       // บิลของรอบก่อน (เดือนบิล = เดือนที่รอบนี้เริ่ม) ถ่วงยอดคาดการณ์ช่วงต้นรอบ
       // กติกาเดียวกับหน้าหลัก (DashboardLoader) และ compileBill
-      firestoreService.getBillForMonth(uid, startDate.year, startDate.month),
+      firestoreService.getBillForMonth(uid, startDate.year, startDate.month), 
     ).wait;
 
     // log เรียงใหม่สุดก่อน — ตัวแรกคือยอดสะสม ณ วันที่บันทึกล่าสุด
@@ -530,7 +531,7 @@ class AnalysisService {
       startOffPeak: startOffPeak,
       tariff: tariff,
       priorPerDay:
-          billUnitsPerDay(priorBill, priorBill?.electricityUsed, billingDay),
+          billUnitsPerDay(priorBill, priorBill?.electricityUsed, billingDay), //นำบิลรอบที่แล้วไปเข้าฟังก์ชัน
     );
     final wProjection = projectWaterToCycleEnd(
       latest: wLast,

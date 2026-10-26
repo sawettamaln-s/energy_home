@@ -36,13 +36,13 @@ class EnergyForecaster {
     final recorded = DateTime(lastRecordedAt.year, lastRecordedAt.month,
         lastRecordedAt.day, lastRecordedAt.hour, lastRecordedAt.minute);
     final daysSoFar = recorded.difference(cycleStart).inMinutes / 1440;
-    if (daysSoFar < 1) return null;
+    if (daysSoFar < 1) return null; //ถ้ายังไม่ถึง 1 วัน จะไม่ทาย
     final daysLeft = cycleEnd.difference(recorded).inMinutes / 1440;
     final usePrior = priorPerDay != null &&
         priorPerDay > 0 &&
         currentTotal > 0 &&
         priorWeight > 0;
-    final perDay = usePrior
+    final perDay = usePrior // หาอัตราการใช้ต่อวัน
         ? (currentTotal + priorPerDay * priorWeight) / (daysSoFar + priorWeight)
         : currentTotal / daysSoFar;
     final forecast = currentTotal + perDay * (daysLeft > 0 ? daysLeft : 0);
