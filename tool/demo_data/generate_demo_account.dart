@@ -176,7 +176,7 @@ _Plan _buildPlan(_Options o, DateTime now) {
 }
 
 // การใช้ของรอบที่ปิดในเดือนของ billDate — ใช้ตัวคูณฤดูกาลของเดือนนั้น
-// (กราฟฤดูกาลสร้างจากยอดออกบิลรายเดือน จึงใช้เดือนของใบแจ้งหนี้)
+// (ใช้เดือนของใบแจ้งหนี้ เหมือนแอป ดูเหตุผลใน tool/seasonal_curves/build_seasonal_curves.py)
 _Usage _usageForBillMonth(_Options o, List<_Appliance> appliances, DateTime billDate, int index) {
   final key = SeasonalCurves.caseKeyFor(area: o.area, meterType: o.isTou ? 'tou' : 'normal');
   final elecSeason = SeasonalCurves.elec[key]![billDate.month - 1];
